@@ -1,0 +1,16 @@
+{
+  "name": "swbt-daemon",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools"
+      ]
+    }
+  },
+  "remoteUser": "ubuntu",
+  "updateRemoteUserUID": true
+}
