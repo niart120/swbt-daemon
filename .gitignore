@@ -1,0 +1,34 @@
+# Build outputs
+/build/
+/cmake-build-*/
+
+# C/C++
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.pdb
+*.dSYM/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+compile_commands.json
+Testing/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Editors and OS files
+.DS_Store
+.idea/
+.vscode/
+*~
