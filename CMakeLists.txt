@@ -1,0 +1,77 @@
+cmake_minimum_required(VERSION 3.25)
+
+project(swbt_daemon
+    VERSION 0.1.0
+    DESCRIPTION "Nintendo Switch Bluetooth controller daemon built on BTstack"
+    LANGUAGES C
+)
+
+option(SWBT_BUILD_TESTS "Build unit tests" ON)
+option(SWBT_BUILD_SHARED "Build shared C ABI library" ON)
+option(SWBT_ENABLE_ASAN "Enable AddressSanitizer" OFF)
+option(SWBT_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
+option(SWBT_ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
+set(SWBT_BACKEND "libusb" CACHE STRING "Backend: libusb or windows-winusb")
+set_property(CACHE SWBT_BACKEND PROPERTY STRINGS libusb windows-winusb)
+set(SWBT_REPORT_PERIOD_US "8000" CACHE STRING "Default HID report period")
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+include(cmake/compiler_warnings.cmake)
+include(cmake/sanitizers.cmake)
+
+set(SWBT_BTSTACK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/btstack" CACHE PATH "BTstack source directory")
+if(EXISTS "${SWBT_BTSTACK_DIR}/LICENSE")
+    message(STATUS "BTstack source: ${SWBT_BTSTACK_DIR}")
+else()
+    message(WARNING "BTstack submodule not found at ${SWBT_BTSTACK_DIR}. Run: git submodule update --init --recursive")
+endif()
+
+add_library(swbt_core STATIC
+    swbt/core/swbt_version.c
+    swbt/switch/switch_controller_state.c
+)
+
+target_include_directories(swbt_core
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/swbt"
+)
+
+swbt_apply_common_warnings(swbt_core)
+swbt_apply_sanitizers(swbt_core)
+
+if(SWBT_BUILD_SHARED)
+    add_library(swbt SHARED
+        api/swbt_c_api.c
+    )
+    target_link_libraries(swbt PRIVATE swbt_core)
+    target_include_directories(swbt
+        PUBLIC
+            "${CMAKE_CURRENT_SOURCE_DIR}/api"
+    )
+    swbt_apply_common_warnings(swbt)
+    swbt_apply_sanitizers(swbt)
+endif()
+
+add_executable(swbt-daemon
+    apps/swbt-daemon/main.c
+)
+target_link_libraries(swbt-daemon PRIVATE swbt_core)
+swbt_apply_common_warnings(swbt-daemon)
+swbt_apply_sanitizers(swbt-daemon)
+
+if(SWBT_BUILD_TESTS)
+    enable_testing()
+
+    add_executable(swbt_smoke_test
+        tests/swbt_smoke_test.c
+    )
+    target_link_libraries(swbt_smoke_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(swbt_smoke_test)
+    swbt_apply_sanitizers(swbt_smoke_test)
+
+    add_test(NAME swbt_smoke_test COMMAND swbt_smoke_test)
+endif()
