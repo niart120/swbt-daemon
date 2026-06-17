@@ -24,6 +24,7 @@ Git は tracked hooks を clone 時に自動有効化しない。
 ## Hooks
 
 - `pre-commit`: staged diff の whitespace、CMake presets の読み取り、staged C source の format を確認する。
+- `commit-msg`: Conventional Commits の形式と subject 末尾句点なしを確認する。
 - `pre-push`: Dev Container、CI、または `SWBT_ALLOW_HOST_BUILD=1` を要求し、`linux-debug` を fresh configure / build / test する。
 - `SWBT_FULL_PRE_PUSH=1`: pre-push で format check、clang-tidy、`linux-asan`、`windows-mingw-debug` も実行する。
 - `SWBT_SKIP_HOOKS=1`: hook を明示的にスキップする。

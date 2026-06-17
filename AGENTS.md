@@ -174,6 +174,7 @@ cmake --build --preset windows-mingw-debug
 - 既定ブランチへの直接コミットは、ユーザの明示指示がある場合を除き避ける。
 - Git hooks は `.githooks/` を正本とし、clone 後は `sh scripts/install-git-hooks.sh` または `scripts/install-git-hooks.ps1` で有効化する。
 - `pre-commit` は staged diff の whitespace、CMake presets の読み取り、staged C source がある場合の format を確認する。
+- `commit-msg` は Conventional Commits の形式と subject 末尾句点なしを確認する。
 - `pre-push` は Dev Container、CI、または `SWBT_ALLOW_HOST_BUILD=1` を要求し、通常 `linux-debug` の fresh configure / build / test を実行する。
 - `pre-push` は `SWBT_FULL_PRE_PUSH=1` のときだけ format、clang-tidy、sanitizer、Windows cross build も実行する。
 - PR では `.github/PULL_REQUEST_TEMPLATE.md` に従い、テスト、実機、根拠監査、BTstack / License impact を明記する。

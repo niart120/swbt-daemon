@@ -97,6 +97,7 @@ sh scripts/install-git-hooks.sh
 hooks の挙動は次のとおりです。
 
 - `pre-commit` は staged diff の whitespace、CMake presets、staged C source の format を確認します。
+- `commit-msg` は Conventional Commits の形式と subject 末尾句点なしを確認します。
 - `pre-push` は `linux-debug` の fresh configure、ビルド、テストを実行します。
 - `SWBT_FULL_PRE_PUSH=1` を指定すると、format check、clang-tidy、sanitizer、Windows cross build も実行します。
 
