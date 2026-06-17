@@ -1,72 +1,72 @@
 ---
 name: swbt-hardware-harness
-description: "Safety and evidence workflow for swbt-daemon hardware tests with Nintendo Switch, Bluetooth Classic HID, dedicated USB Bluetooth dongles, WinUSB, libusb, report loops, pairing, and disconnect behavior. Use before Codex runs, designs, or reports any hardware-gated command, CTest label, manual pairing session, or Switch-facing Bluetooth action."
+description: "Nintendo Switch、Bluetooth Classic HID、専用 USB Bluetooth dongle、WinUSB、libusb、report loop、pairing、disconnect behavior を扱う swbt-daemon 実機検証の安全境界と根拠記録のワークフロー。Codex が hardware-gated command、CTest label、manual pairing session、Switch-facing Bluetooth action を実行、設計、報告する前に使う。"
 ---
 
-# swbt Hardware Harness
+# swbt hardware harness（実機安全境界）
 
-Use this skill before any command or procedure that can interact with a real Nintendo Switch or Bluetooth adapter.
+実際の Nintendo Switch または Bluetooth adapter と通信し得る command や手順の前に、この skill を使う。
 
-## Approval Boundary
+## 承認境界
 
-Do not run hardware-facing commands unless the user explicitly approves the exact scope.
+ユーザが正確な範囲を明示承認していない限り、hardware-facing command を実行しない。
 
-Hardware-facing work includes:
+hardware-facing work には次を含める。
 
-- starting a daemon build that opens a Bluetooth adapter.
-- Switch pairing.
-- HID Device advertising.
-- periodic input report loops.
-- output report / subcommand handling against a real console.
-- tests labeled `hardware`.
+- Bluetooth adapter を開く daemon build の起動。
+- Switch pairing。
+- HID Device advertising。
+- periodic input report loop。
+- 実機 console に対する output report / subcommand handling。
+- `hardware` label の test。
 
-Use explicit environment gates in commands or tests:
+command や test には明示的な environment gate を使う。
 
 ```console
 SWBT_RUN_HARDWARE=1
 SWBT_HARDWARE_APPROVED=1
 ```
 
-## Required Setup
+## 実行前の確認
 
-Before a run, confirm and record:
+実行前に次を確認して記録する。
 
-- dedicated USB Bluetooth dongle is used.
-- built-in or daily-use Bluetooth adapter is not used.
-- OS and host environment.
-- Windows driver state, especially WinUSB assignment when using Windows native.
-- BTstack commit / tag.
-- swbt commit / branch.
-- daemon backend: `windows-winusb` or `libusb`.
-- configured report period.
-- Nintendo Switch firmware version when known.
+- 専用 USB Bluetooth dongle を使っていること。
+- 内蔵または普段使いの Bluetooth adapter を使っていないこと。
+- OS と host environment。
+- Windows driver state。Windows native の場合は WinUSB assignment を特に記録する。
+- BTstack commit / tag。
+- swbt commit / branch。
+- daemon backend。`windows-winusb` または `libusb`。
+- 設定した report period。
+- Nintendo Switch firmware version。判明している場合だけでよい。
 
-## Stop Conditions
+## 停止条件
 
-Stop before hardware access if:
+次の場合は hardware access の前に停止する。
 
-- the target adapter is ambiguous.
-- the adapter is the user's regular Bluetooth device.
-- approval does not name pairing, advertising, report loop, or test scope.
-- cleanup behavior is unknown for the code path being exercised.
-- the test could keep buttons pressed without a neutral fail-safe.
+- 対象 adapter が曖昧である。
+- adapter がユーザの常用 Bluetooth device である。
+- 承認が pairing、advertising、report loop、test scope のどれを対象にするか示していない。
+- 実行する code path の cleanup behavior が不明である。
+- neutral fail-safe なしで button pressed が残り得る。
 
-## Execution Rules
+## 実行ルール
 
-- Prefer manual bring-up steps until automated hardware tests exist.
-- Keep daemon logs and hardware notes separate from unit test output.
-- Record successful cleanup and failure cleanup.
-- On owner disconnect, timeout, or process exit, verify neutral state behavior where possible.
-- Do not treat a hardware observation as general truth without recording OS, driver, dongle, Switch firmware, BTstack commit, and swbt commit.
+- 自動 hardware test ができるまでは manual bring-up step を優先する。
+- daemon log と hardware note は unit test output と分ける。
+- cleanup の成功と失敗時 cleanup を記録する。
+- owner disconnect、timeout、process exit では、可能な範囲で neutral state behavior を確認する。
+- OS、driver、dongle、Switch firmware、BTstack commit、swbt commit を記録せずに、実機観測を一般的な真実として扱わない。
 
-## Recording Target
+## 記録先
 
-Write hardware observations to `docs/hardware-test-log.md`.
+hardware observation は `docs/hardware-test-log.md` に書く。
 
-Use this shape:
+次の形式を使う。
 
 ```markdown
-## YYYY-MM-DD: <short title>
+## YYYY-MM-DD: <短い題名>
 
 - OS:
 - environment:
@@ -83,16 +83,16 @@ Use this shape:
 - notes:
 ```
 
-## Reporting
+## 報告
 
-If hardware was not run, explicitly say why.
+hardware を実行していない場合は、その理由を明示する。
 
-If hardware was run, report:
+hardware を実行した場合は、次を報告する。
 
-- approval scope.
-- command or manual procedure.
-- adapter identity.
-- daemon/backend configuration.
-- result.
-- artifact or log path.
-- cleanup result.
+- 承認範囲。
+- command または manual procedure。
+- adapter identity。
+- daemon/backend configuration。
+- 結果。
+- artifact または log path。
+- cleanup result。

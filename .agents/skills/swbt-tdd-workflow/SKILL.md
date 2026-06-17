@@ -1,56 +1,58 @@
 ---
 name: swbt-tdd-workflow
-description: "Canon TDD workflow for swbt-daemon C11 code using CMake, Ninja, CTest, sanitizer presets, and focused work-unit test lists. Use when Codex is asked to do TDD, create a TDD test list, run red/green/refactor, add C unit tests, characterize Switch packet behavior, or implement protocol/IPC behavior one observable item at a time."
+description: "CMake、Ninja、CTest、sanitizer preset、work-unit test list を使う swbt-daemon C11 code の標準 TDD ワークフロー。Codex が TDD、TDD test list 作成、red/green/refactor、C unit test 追加、Switch packet behavior の characterise、protocol/IPC behavior の小さな実装を求められたときに使う。"
 ---
 
-# swbt TDD Workflow
+# swbt TDD workflow
 
-Use this skill to drive one small swbt behavior change at a time.
+swbt の小さな behavior change を一つずつ進めるときに、この skill を使う。
 
-## Preconditions
+## 前提条件
 
-- Work on a non-default branch unless the user explicitly requests otherwise.
-- Inspect `git status --short` and preserve user changes.
-- Use `swbt-spec-format` when the behavior belongs to a work-unit spec.
-- Use `swbt-source-audit` before hard-coding protocol or BTstack facts.
-- Use `swbt-hardware-harness` before any hardware-gated test.
+- ユーザが明示しない限り、default branch では作業しない。
+- `git status --short` を確認し、ユーザの変更を保持する。
+- behavior が work-unit spec に属する場合は `swbt-spec-format` を使う。
+- protocol または BTstack fact を hard-code する前に `swbt-source-audit` を使う。
+- hardware-gated test の前に `swbt-hardware-harness` を使う。
 
-## Test List
+## Test List（テスト一覧）
 
-Before coding, choose one observable item from the spec's TDD Test List. If no list exists, create one with:
+coding の前に、spec の TDD Test List から observable item を一つ選ぶ。
+list がない場合は、次を含む item を作る。
 
-- input or state.
-- expected observable result.
-- test layer.
-- whether hardware is required.
+- input または state。
+- 期待する observable result。
+- test layer。
+- hardware が必要かどうか。
 
-Do not put implementation details in the test item.
+test item に implementation detail を入れない。
 
 ## Red
 
-Add or update the smallest relevant C test. Run the narrowest command that demonstrates the expected failure.
+最小の関連 C test を追加または更新する。
+期待する失敗を示す最も狭い command を実行する。
 
-Typical commands:
+典型的な command:
 
 ```console
 cmake --build --preset linux-debug
 ctest --preset linux-debug -R <test-name> --output-on-failure
 ```
 
-If the failure is a build, collection, or environment problem unrelated to the expected behavior, do not count it as red.
+失敗が期待する behavior ではなく build、collection、environment problem によるものなら、red として数えない。
 
 ## Green
 
-Implement the minimum behavior needed for the selected item and related existing tests.
+選んだ item と関連する既存 test を通すために必要な最小 behavior を実装する。
 
-Run:
+実行する。
 
 ```console
 cmake --build --preset linux-debug
 ctest --preset linux-debug -R <test-name> --output-on-failure
 ```
 
-When the change touches shared protocol code, also run the full debug preset:
+変更が shared protocol code に触れる場合は、full debug preset も実行する。
 
 ```console
 ctest --preset linux-debug --output-on-failure
@@ -58,9 +60,11 @@ ctest --preset linux-debug --output-on-failure
 
 ## Refactor
 
-Refactor only after green. Separate observable behavior changes from structure changes.
+green になってから refactor する。
+observable behavior change と structure change は分ける。
 
-Run the same tests after refactor. Add sanitizer or cross build when the touched code justifies it:
+refactor 後に同じ test を実行する。
+触った code のリスクに応じて sanitizer または cross build を追加する。
 
 ```console
 cmake --preset linux-asan
@@ -70,19 +74,19 @@ cmake --preset windows-mingw-debug
 cmake --build --preset windows-mingw-debug
 ```
 
-## Good TDD Targets
+## TDD に向く対象
 
-- controller state validation.
-- button and stick report packing.
-- subcommand parser and response builder.
-- SPI flash read response.
-- rumble packet parser.
-- JSON Lines IPC parser.
-- owner acquire / release / disconnect neutral.
+- controller state validation。
+- button と stick の report packing。
+- subcommand parser と response builder。
+- SPI flash read response。
+- rumble packet parser。
+- JSON Lines IPC parser。
+- owner acquire / release / disconnect neutral。
 
-## Status Update
+## 状態更新
 
-Update the spec or handoff with:
+spec または handoff に次を更新する。
 
 ```text
 TDD status:

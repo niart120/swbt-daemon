@@ -1,11 +1,11 @@
-# Initial Specs
+# 初期仕様
 
-Initial project direction and long-lived design context for `swbt-daemon`.
+`swbt-daemon` の初期方針と長期的に残す設計文脈を置く。
 
-Use this directory for stable planning material that should outlive `tmp/`.
-Active implementation work belongs in `spec/wip/local_{nnn}/`; completed work belongs in `spec/complete/local_{nnn}/`.
+`tmp/` より長く残す安定した planning material は、この directory に置く。
+作業中の implementation work は `spec/wip/local_{nnn}/` に置き、完了した work は `spec/complete/local_{nnn}/` に置く。
 
-Current initial specs:
+現在の initial spec:
 
 - `SWBT_DAEMON_INITIAL_DIRECTION.md`
 - `REPOSITORY_INITIALIZATION_TODO.md`

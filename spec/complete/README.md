@@ -1,5 +1,5 @@
-# Completed Specs
+# 完了した仕様
 
-Completed work units live here after their checklist and verification evidence are updated.
+checklist と verification evidence を更新した完了済み work unit をここに置く。
 
-Do not move a spec here if source audit, hardware status, or required verification is still ambiguous.
+source audit、hardware status、required verification が曖昧な spec はここに移さない。

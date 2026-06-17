@@ -1,13 +1,13 @@
-# Hardware Test Log
+# 実機テストログ
 
-Record manual hardware verification here.
+手動の実機検証結果をここに記録する。
 
-## Template
+## テンプレート
 
 ```text
-date:
+日付:
 commit:
-host OS:
+ホスト OS:
 Switch model:
 Switch system version:
 Bluetooth adapter:

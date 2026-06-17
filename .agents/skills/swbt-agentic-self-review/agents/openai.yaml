@@ -1,4 +1,4 @@
 interface:
-  display_name: "swbt Self Review"
-  short_description: "Summarize swbt gates before handoff"
-  default_prompt: "Use $swbt-agentic-self-review to summarize swbt gate results before PR or handoff."
+  display_name: "swbt 自己レビュー"
+  short_description: "handoff 前に swbt gate を整理する"
+  default_prompt: "$swbt-agentic-self-review を使って PR または handoff 前の swbt gate 結果を整理する。"

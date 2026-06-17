@@ -1,43 +1,43 @@
-## Summary
+## 概要
 
-<!-- 1-3 lines describing the purpose of this change. -->
+<!-- この変更の目的を1から3行で書く。 -->
 
-## Related
+## 関連
 
-- Spec:
-- Dev journal:
+- 仕様:
+- 開発ジャーナル:
 - Issue:
 - Source audit:
 
-## Changes
+## 変更内容
 
 -
 
-## Source Audit
+## Source Audit（根拠監査）
 
-<!-- Required when changing Switch HID protocol, BTstack source selection, report timing, backend behavior, or hardware-facing constants. Use "not applicable" only with a reason. -->
+<!-- Switch HID protocol、BTstack source selection、report timing、backend behavior、hardware-facing constant を変更する場合は必須。理由がある場合だけ "not applicable" を使う。 -->
 
-| item | status | evidence |
+| 項目 | 状態 | 根拠 |
 |---|---|---|
 | Switch HID / protocol facts |  |  |
 | BTstack source / bridge impact |  |  |
 | WinUSB / libusb backend assumptions |  |  |
 
-## Testing
+## テスト
 
 ```text
-# commands and results
+# command と結果
 ```
 
-## Hardware
+## 実機
 
 - [ ] not applicable
 - [ ] not run
-- [ ] tested with Nintendo Switch hardware
+- [ ] Nintendo Switch hardware で検証済み
 
-Reason / evidence:
+理由または根拠:
 
-- Approval scope:
+- 承認範囲:
 - OS / environment:
 - Bluetooth dongle:
 - driver:
@@ -47,21 +47,21 @@ Reason / evidence:
 - log path:
 - cleanup:
 
-## BTstack / License Impact
+## BTstack / License 影響
 
-- [ ] `vendor/btstack` untouched
-- [ ] BTstack source selection changed
-- [ ] `THIRD_PARTY_NOTICES.md` checked
-- [ ] license / notice impact not applicable
+- [ ] `vendor/btstack` は未変更
+- [ ] BTstack source selection を変更
+- [ ] `THIRD_PARTY_NOTICES.md` を確認済み
+- [ ] license / notice 影響は not applicable
 
-Notes:
+メモ:
 
-## Checklist
+## チェックリスト
 
-- [ ] Change scope matches the spec or request
-- [ ] Non-goals remained out of scope
-- [ ] CMake configure/build/test run or not-run reason documented
-- [ ] Sanitizer/cross-build run or not-run reason documented
-- [ ] Source audit status documented
-- [ ] Hardware status documented
-- [ ] Commit prefix matches the motivation
+- [ ] 変更範囲が spec または request と一致している
+- [ ] Non-goals が scope 外に残っている
+- [ ] CMake configure/build/test の実行結果または not-run reason を記録した
+- [ ] sanitizer/cross-build の実行結果または not-run reason を記録した
+- [ ] Source audit の状態を記録した
+- [ ] 実機状態を記録した
+- [ ] commit prefix が変更理由と一致している

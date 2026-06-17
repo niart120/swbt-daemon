@@ -1,84 +1,84 @@
 ---
 name: swbt-agentic-self-review
-description: "Gate-oriented self-review for swbt-daemon changes before PR, merge, or handoff. Use when Codex needs to summarize requirements coverage, source-audit status, CMake/CTest results, sanitizer/cross-build results, hardware run or not-run reasons, BTstack/license impact, non-goals, remaining risks, and whether evidence proves a work unit is complete."
+description: "PR、merge、handoff の前に swbt-daemon の変更を gate 単位で自己 review する。Codex が要件の充足範囲、source audit の状態、CMake/CTest 結果、sanitizer/cross-build 結果、hardware run または not-run reason、BTstack/license impact、non-goals、remaining risks、work unit 完了を裏付ける根拠を整理するときに使う。"
 ---
 
-# swbt Agentic Self Review
+# swbt agentic self review（自己レビュー）
 
-Use this skill before declaring a swbt work unit done, opening a PR, or handing off substantial changes.
+swbt work unit の完了宣言、PR 作成、大きな変更の handoff の前に、この skill を使う。
 
-## Review Process
+## レビュー手順
 
-1. Identify the selected work unit, user intent, and non-goals.
-2. Compare changed files with the spec and `AGENTS.md`.
-3. Record source audit status for protocol, BTstack, backend, and hardware facts.
-4. Record verification commands and exact results.
-5. Record hardware status separately from automated tests.
-6. Record BTstack license / notice impact.
-7. Treat weak, indirect, or missing evidence as not proven.
+1. 対象 work unit、ユーザの意図、non-goals を特定する。
+2. 変更ファイルを spec と `AGENTS.md` に照らして確認する。
+3. protocol、BTstack、backend、hardware facts の source audit status を記録する。
+4. verification command と正確な結果を記録する。
+5. hardware status は automated test と分けて記録する。
+6. BTstack license / notice impact を記録する。
+7. 弱い根拠、間接的な根拠、欠けている根拠は not proven として扱う。
 
-## Gate Table
+## Gate Table（判定表）
 
-Use these gates:
+次の gate を使う。
 
 | gate | result | evidence |
 |---|---|---|
-| Requirements | pass/fail/not proven | spec and user objective coverage |
-| Non-goals | pass/fail | scope did not expand |
-| Source Audit | pass/not applicable/not run | evidence for protocol/BTstack facts |
-| Tests | pass/fail/not run | CTest or targeted command |
-| Static / Build | pass/fail/not run | CMake configure/build, sanitizer, cross build |
-| Hardware | pass/fail/not run/not applicable | approval, adapter, result, or reason |
-| BTstack / License | pass/not applicable/not proven | submodule untouched, notices checked |
-| Integration Review | pass/fail/not proven | diff reviewed against boundaries |
+| Requirements | pass/fail/not proven | spec とユーザ目的の充足範囲 |
+| Non-goals | pass/fail | scope が広がっていないこと |
+| Source Audit | pass/not applicable/not run | protocol/BTstack facts の根拠 |
+| Tests | pass/fail/not run | CTest または targeted command |
+| Static / Build | pass/fail/not run | CMake configure/build、sanitizer、cross build |
+| Hardware | pass/fail/not run/not applicable | 承認、adapter、結果、または理由 |
+| BTstack / License | pass/not applicable/not proven | submodule untouched、notices checked |
+| Integration Review | pass/fail/not proven | 境界に照らした diff review |
 
-## Findings First
+## 指摘を先に置く
 
-If there are issues, list findings before summaries:
+問題がある場合は、summary より前に findings を列挙する。
 
 ```markdown
-### Findings
+### 指摘
 
 | severity | finding | evidence | recommendation |
 |---|---|---|---|
 ```
 
-If no issues were found, still list residual risk and unrun gates.
+問題がない場合でも、residual risk と未実行 gate を列挙する。
 
-## Report Template
+## 報告テンプレート
 
 ```markdown
-## swbt Self Review
+## swbt self review（自己レビュー）
 
-### Work Unit
-- selected:
-- intent:
-- non-goals:
+### 作業単位
+- 対象:
+- 意図:
+- 対象外:
 
-### Findings
-| severity | finding | evidence | recommendation |
+### 指摘
+| 重要度 | 指摘 | 根拠 | 推奨対応 |
 |---|---|---|---|
 
-### Gates
-| gate | result | evidence |
+### Gate
+| gate | result | 根拠 |
 |---|---|---|
 
-### Verification
-- commands:
+### 検証
+- command:
 - not run:
 
-### Source / Hardware
+### 根拠 / 実機
 - source audit:
 - hardware:
 - BTstack/license:
 
-### Next
+### 次
 - follow-up:
 - open risk:
 ```
 
-## Rules
+## ルール
 
-- Do not mark a work unit complete because tests merely pass; match evidence to requirements.
-- Do not hide hardware not-run status behind unit test success.
-- Do not treat `vendor/btstack` changes as safe without explicit source audit and license review.
+- test が通っただけで work unit を complete にしない。根拠を requirements と対応させる。
+- unit test の成功で hardware not-run status を隠さない。
+- 明示的な source audit と license review なしに、`vendor/btstack` の変更を安全扱いしない。

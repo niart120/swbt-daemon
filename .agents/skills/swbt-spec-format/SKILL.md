@@ -1,89 +1,91 @@
 ---
 name: swbt-spec-format
-description: "Create, update, review, and complete swbt-daemon work-unit specifications under spec/initial, spec/wip, spec/complete, and spec/dev-journal. Use when Codex is asked to write a spec, design a feature, split work into local work units, move a spec to complete, record TDD lists, define hardware gates, or migrate stable tmp notes into permanent swbt documentation."
+description: "spec/initial、spec/wip、spec/complete、spec/dev-journal に置く swbt-daemon work-unit 仕様を作成、更新、review、完了する。Codex が spec 作成、feature 設計、local work unit への分割、complete への移動、TDD list 記録、hardware gate 定義、安定した tmp note の恒久文書化を求められたときに使う。"
 ---
 
-# swbt Spec Format
+# swbt spec format（仕様書式）
 
-Use this skill when creating or updating swbt work-unit specifications.
+swbt の work-unit 仕様を作成または更新するときに、この skill を使う。
 
-## Locations
+## 配置先
 
-| purpose | path |
+| 目的 | path |
 |---|---|
-| initial project direction | `spec/initial/` |
-| active work unit | `spec/wip/local_{nnn}/FEATURE_NAME.md` |
-| completed work unit | `spec/complete/local_{nnn}/FEATURE_NAME.md` |
-| small observations and deferred decisions | `spec/dev-journal.md` |
-| hardware observations | `docs/hardware-test-log.md` |
+| 初期方針と長期設計文脈 | `spec/initial/` |
+| 作業中の work unit | `spec/wip/local_{nnn}/FEATURE_NAME.md` |
+| 完了した work unit | `spec/complete/local_{nnn}/FEATURE_NAME.md` |
+| 小さな観測と先送り判断 | `spec/dev-journal.md` |
+| 実機観測 | `docs/hardware-test-log.md` |
 
-Use uppercase snake case for `FEATURE_NAME.md`.
+`FEATURE_NAME.md` は uppercase snake case にする。
 
-When creating a new work unit, inspect existing `spec/wip/local_*` and `spec/complete/local_*` directories and choose the next number.
+新しい work unit を作るときは、既存の `spec/wip/local_*` と `spec/complete/local_*` directory を確認し、次の番号を選ぶ。
 
-## Required Sections
+## 必須セクション
 
-Work-unit specs should include:
+work-unit spec には次を含める。
 
 ```markdown
-# <Feature Name>
+# <機能名>
 
-## 1. Overview
-## 2. Scope
-## 3. Non-goals
-## 4. Source Audit
-## 5. Design
-## 6. Target Files
-## 7. TDD Test List
-## 8. Verification
-## 9. Hardware Gate
-## 10. Checklist
+## 1. 概要
+## 2. 対象範囲
+## 3. 対象外
+## 4. Source Audit（根拠監査）
+## 5. 設計
+## 6. 対象ファイル
+## 7. TDD Test List（TDD テスト一覧）
+## 8. 検証
+## 9. Hardware Gate（実機ゲート）
+## 10. チェックリスト
 ```
 
-Keep sections concise. Split large reference material into a separate spec or docs file.
+各セクションは簡潔に保つ。
+大きな参考資料は別の spec または docs file に分ける。
 
 ## Source Audit
 
-Use `swbt-source-audit` whenever the spec includes:
+spec が次を含む場合は `swbt-source-audit` を使う。
 
-- Switch HID report bytes.
-- BTstack source selection.
-- report period.
-- subcommand, SPI, rumble, or descriptor data.
-- WinUSB/libusb behavior.
+- Switch HID report bytes。
+- BTstack source selection。
+- report period。
+- subcommand、SPI、rumble、descriptor data。
+- WinUSB/libusb behavior。
 
-Mark source audit as `not applicable` only when the work does not touch protocol, hardware, BTstack, or backend facts.
+protocol、hardware、BTstack、backend facts に触れない作業だけ、source audit を `not applicable` としてよい。
 
-## TDD Test List
+## TDD Test List（TDD テスト一覧）
 
-Use behavior-focused test items. Include:
+test item は behavior-focused にする。
+次を含める。
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | todo | observable behavior | new/regression/edge/characterization | unit/integration/hardware | no/yes |
 
-Status values: `todo`, `red`, `green`, `refactor-done`, `deferred`.
+status value は `todo`、`red`、`green`、`refactor-done`、`deferred` とする。
 
-## Hardware Gate
+## Hardware Gate（実機ゲート）
 
-For hardware-gated work, state:
+hardware-gated work では次を明記する。
 
-- required approval.
-- adapter assumptions.
-- environment variables.
-- expected log target.
-- cleanup requirements.
+- 必要な承認。
+- adapter assumptions。
+- environment variables。
+- expected log target。
+- cleanup requirements。
 
-For non-hardware work, state the reason hardware is not required.
+non-hardware work では、hardware が不要な理由を書く。
 
-## Completing a Work Unit
+## Work unit の完了
 
-Move `spec/wip/local_{nnn}` to `spec/complete/local_{nnn}` only after:
+次が終わってからだけ、`spec/wip/local_{nnn}` を `spec/complete/local_{nnn}` へ移す。
 
-- checklist is updated.
-- verification commands and results are recorded.
-- source audit status is clear.
-- hardware status is clear.
-- implementation and non-goals match the spec.
+- checklist が更新されている。
+- verification command と結果が記録されている。
+- source audit status が明確である。
+- hardware status が明確である。
+- 実装と non-goals が spec と一致している。
 
-Do not mark uncertain evidence as pass.
+不確かな根拠を pass として扱わない。

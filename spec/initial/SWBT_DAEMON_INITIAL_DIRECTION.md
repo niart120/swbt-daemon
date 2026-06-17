@@ -1,33 +1,34 @@
-# swbt-daemon Initial Direction
+# swbt-daemon 初期方針
 
-## Summary
+## 概要
 
-`swbt-daemon` is a C11 / CMake / Ninja daemon intended to appear to Nintendo Switch as a Bluetooth Classic HID Device compatible with a Pro Controller.
+`swbt-daemon` は C11 / CMake / Ninja で実装する daemon であり、Nintendo Switch からは Pro Controller 互換の Bluetooth Classic HID Device として見えることを目指す。
 
-BTstack is consumed as a pinned submodule at `vendor/btstack`. The daemon owns BTstack run loop, Bluetooth adapter access, Switch protocol state, report scheduling, and local IPC ownership.
+BTstack は `vendor/btstack` に固定した submodule として利用する。
+daemon は BTstack run loop、Bluetooth adapter access、Switch protocol state、report scheduling、local IPC ownership を所有する。
 
-## Architecture Decisions
+## アーキテクチャ判断
 
-- Use daemon IPC as the normal client interface.
-- Keep C ABI for daemon internals, tests, and future embedded alternatives.
-- Keep BTstack source under `vendor/btstack` read-only unless a documented fork/upstream patch decision is made.
-- Use WSL2 + Dev Containers for daily Linux builds, sanitizer builds, Windows MinGW cross builds, and static analysis.
-- Use Windows native with a dedicated WinUSB Bluetooth dongle for Switch pairing and report timing verification.
-- Do not implement daemon-side timed commands such as `tap`, `duration_ms`, `sequence`, or `at_ms`.
+- 通常のクライアントインターフェースには daemon IPC を使う。
+- C ABI は daemon 内部、test、将来の組み込み経路のために残す。
+- fork または upstream patch の判断を文書化しない限り、`vendor/btstack` 配下の BTstack source は read-only として扱う。
+- 日常の Linux build、sanitizer build、Windows MinGW cross build、static analysis には WSL2 + Dev Containers を使う。
+- Switch pairing と report timing verification には、専用 WinUSB Bluetooth dongle を使った Windows native 環境を使う。
+- `tap`、`duration_ms`、`sequence`、`at_ms` のような daemon-side timed command は実装しない。
 
-## Current Initial Specs
+## 現在の初期仕様
 
-The original bootstrap notes have been promoted into `spec/initial/`:
+元の初期メモは `spec/initial/` に昇格済みである。
 
 - `spec/initial/REPOSITORY_INITIALIZATION_TODO.md`
 - `spec/initial/BTSTACK_SWITCH_DEVELOPMENT_PLAN.md`
 - `spec/initial/BTSTACK_SWITCH_DAEMON_IPC_DESIGN.md`
 
-The adoption implementation record remains in `tmp/swbt_agent_skill_adoption_policy.md` because it is the source artifact for this phase migration.
+導入実装記録は、この phase migration の元資料であるため、`tmp/swbt_agent_skill_adoption_policy.md` に残す。
 
-When a note becomes implementation work, create a focused work unit under `spec/wip/local_{nnn}/`.
+note が implementation work になった場合は、`spec/wip/local_{nnn}/` に範囲を絞った work unit を作る。
 
-## Initial Verification Commands
+## 初期検証コマンド
 
 ```console
 cmake --preset linux-debug

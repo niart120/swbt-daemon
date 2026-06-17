@@ -1,78 +1,78 @@
 ---
 name: pr-merge-cleanup
-description: "swbt-daemon GitHub Flow workflow for pushing a non-default branch, creating a PR with the project template, checking CI/status, merging with the repo/user-approved method, syncing the local default branch, and deleting local/remote work branches. Use when Codex is asked to PR, merge, publish a branch, clean up after merge, or move swbt changes into main."
+description: "swbt-daemon の GitHub Flow ワークフロー。default branch 以外の branch の push、project template に沿った PR 作成、CI/status 確認、repo またはユーザが承認した方法での merge、local default branch の同期、local/remote work branch の削除を扱う。Codex が PR、merge、branch publish、merge 後 cleanup、swbt changes の main 反映を求められたときに使う。"
 ---
 
-# PR Merge Cleanup
+# PR merge cleanup（PR 公開と後片付け）
 
-Use this skill to publish a completed swbt branch through GitHub and clean up local state.
+完了した swbt branch を GitHub 経由で公開し、local state を片付けるときに、この skill を使う。
 
-## Preconditions
+## 前提条件
 
-- Current branch is not the default branch.
-- `git status --short` is clean.
-- Required commits already exist.
-- Work-unit self review is complete when the change is nontrivial.
-- Hardware and source-audit sections are truthful.
-- User has approved merge if checks and repository policy allow it.
+- current branch が default branch ではない。
+- `git status --short` が clean である。
+- 必要な commit がすでに存在する。
+- 変更が自明でない場合は work-unit self review が完了している。
+- Hardware section と source-audit section が事実に沿っている。
+- check と repository policy が許す場合に、ユーザが merge を承認している。
 
-## Workflow
+## 手順
 
-1. Resolve context:
+1. context を確認する。
    - `git branch --show-current`
    - `git remote get-url origin`
-   - default branch from `origin/HEAD` or repository metadata.
-2. Stop if on default branch.
-3. Stop if worktree is dirty.
-4. Build PR commit log:
+   - `origin/HEAD` または repository metadata から default branch を確認する。
+2. default branch 上なら停止する。
+3. worktree が dirty なら停止する。
+4. PR commit log を作る。
    - `git log --oneline <default>..HEAD`
-5. Fill `.github/PULL_REQUEST_TEMPLATE.md`.
-6. Push branch.
-7. Create PR with GitHub app or `gh pr create`.
-8. Check CI/status with GitHub app or `gh pr checks`.
-9. Stop if required checks are failing or still running.
-10. Merge using the repository/user-approved method.
-11. Fetch and sync default branch:
+5. `.github/PULL_REQUEST_TEMPLATE.md` を埋める。
+6. branch を push する。
+7. GitHub app または `gh pr create` で PR を作る。
+8. GitHub app または `gh pr checks` で CI/status を確認する。
+9. required check が failing または still running なら停止する。
+10. repository またはユーザが承認した方法で merge する。
+11. default branch を fetch して同期する。
     - `git fetch --prune origin`
     - `git switch <default>`
     - `git pull --ff-only origin <default>`
-12. Verify default branch is clean and at expected head.
-13. Delete local and remote work branches.
+12. default branch が clean で、expected head にいることを確認する。
+13. local と remote の work branch を削除する。
 
-## Merge Policy
+## Merge 方針
 
-- Prefer the repository's configured project policy.
-- If no project policy is specified, ask before choosing merge, squash, or rebase.
-- Do not squash merely because a branch has multiple commits; commit history may carry work-unit evidence.
-- Stop if merge commit is disabled but the PR body assumes merge-commit history.
+- repository に設定された project policy を優先する。
+- project policy がない場合は、merge、squash、rebase のどれを使うか先に確認する。
+- branch に複数 commit があるだけで squash しない。commit history が work-unit evidence を持つ場合がある。
+- merge commit が disabled で、PR body が merge-commit history を前提にしている場合は停止する。
 
-## PR Body Requirements
+## PR Body の必須項目
 
-The PR body must include:
+PR body には次を含める。
 
-- Summary.
-- Related issue/spec/journal entries.
-- Changes grouped by behavior, structure, docs, and workflow.
-- Source Audit status.
-- Testing commands and results.
-- Hardware status or not-run reason.
-- BTstack / License impact.
-- Checklist.
+- 概要。
+- 関連 issue、spec、journal entry。
+- behavior、structure、docs、workflow ごとに整理した変更。
+- Source Audit（根拠監査）の状態。
+- テスト command と結果。
+- 実機状態または not-run reason。
+- BTstack / License impact。
+- チェックリスト。
 
-## Stop Conditions
+## 停止条件
 
-- dirty worktree.
-- default branch.
-- required check failure.
-- unknown mergeability.
-- missing hardware approval for hardware-gated changes.
-- missing source audit for protocol or BTstack facts.
-- PR template sections are materially incomplete.
-- local default branch cannot fast-forward after merge.
+- worktree が dirty である。
+- default branch。
+- required check failure。
+- mergeability が不明。
+- hardware-gated change に対する hardware approval がない。
+- protocol または BTstack facts に対する source audit がない。
+- PR template section に実質的な欠落がある。
+- merge 後に local default branch を fast-forward できない。
 
-## Final Report
+## 最終報告
 
-Report:
+次を報告する。
 
 ```text
 PR:
