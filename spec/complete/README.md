@@ -1,5 +1,5 @@
 # 完了した仕様
 
-checklist と verification evidence を更新した完了済み work unit をここに置く。
+チェックリストと検証根拠を更新した完了済み作業単位をここに置く。
 
-source audit、hardware status、required verification が曖昧な spec はここに移さない。
+根拠監査、実機状態、必要な検証が曖昧な仕様はここに移さない。
