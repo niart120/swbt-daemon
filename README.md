@@ -110,6 +110,8 @@ cmake --fresh --preset linux-clang-tidy
 cmake --build --preset linux-clang-tidy
 ```
 
+formatter と linter の選定理由は `spec/operations/development-tooling.md` に記録しています。
+
 ## BTstack 依存
 
 BTstack は `vendor/btstack` の Git submodule として扱います。
