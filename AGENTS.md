@@ -53,7 +53,7 @@ swbt/switch/            Switch controller protocol code
 swbt/btstack_bridge/    BTstack integration boundary
 tests/                  C 単体テスト
 vendor/btstack/         BTstack submodule
-spec/                   作業仕様と開発ジャーナル
+spec/                   spec と開発ジャーナル
 .agents/skills/         project-local Codex skills
 ```
 
@@ -71,7 +71,7 @@ spec/                   作業仕様と開発ジャーナル
 - BTstack は `vendor/btstack` submodule の固定済み source として扱う。
 - `vendor/btstack` を直接編集しない。
 - BTstack に patch が必要な場合は、まず `swbt/btstack_bridge/` で吸収できないか検討する。
-- fork や upstream patch が必要になった場合は、理由、対象コミット、代替案を `docs/upstream-btstack.md` と作業仕様に記録する。
+- fork や upstream patch が必要になった場合は、理由、対象コミット、代替案を `docs/upstream-btstack.md` と spec に記録する。
 - BTstack を含む binary / release を MIT-only artifact と表現しない。
 - ライセンスや notice に触れる変更では `THIRD_PARTY_NOTICES.md` を確認する。
 
@@ -134,8 +134,8 @@ cmake --build --preset windows-mingw-debug
 
 ## ドキュメントルール
 
-- 作業仕様は `spec/wip/local_{nnn}/FEATURE_NAME.md` に作る。
-- 完了した作業仕様は `spec/complete/local_{nnn}/FEATURE_NAME.md` へ移す。
+- spec は `spec/wip/local_{nnn}/FEATURE_NAME.md` に作る。
+- 完了した spec は `spec/complete/local_{nnn}/FEATURE_NAME.md` へ移す。
 - 初期構想と長期方針は `spec/initial/` に置く。
 - 小さい設計観測や先送り事項は `spec/dev-journal.md` に記録する。
 - 実機観測は `docs/hardware-test-log.md` に記録する。
@@ -145,7 +145,7 @@ cmake --build --preset windows-mingw-debug
 
 - `source-audit`: Switch HID / BTstack / 実機根拠を監査する。
 - `hardware-harness`: Switch pairing や Bluetooth ドングル実機検証の安全境界を確認する。
-- `spec-format`: 作業単位仕様を作成・更新する。
+- `spec-format`: spec を作成・更新する。
 - `tdd-workflow`: CMake / CTest 前提で TDD を進める。
 - `dev-journal`: `spec/dev-journal.md` に観測や先送り事項を記録する。
 - `agentic-self-review`: PR 前や handoff 前に判定結果を整理する。

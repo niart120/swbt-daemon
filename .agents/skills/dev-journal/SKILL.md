@@ -1,6 +1,6 @@
 ---
 name: dev-journal
-description: "swbt-daemon の設計観測、未解決事項、先送りタスク、根拠監査メモ、report-rate finding、BTstack integration observation、実機以外の bring-up 判断を spec/dev-journal.md に記録する。Codex が memo、journal、follow-up の記録、先送り判断の記録、作業単位仕様にするほどではない小さな観測の保存を求められたときに使う。"
+description: "swbt-daemon の設計観測、未解決事項、先送りタスク、根拠監査メモ、report-rate finding、BTstack integration observation、実機以外の bring-up 判断を spec/dev-journal.md に記録する。Codex が memo、journal、follow-up の記録、先送り判断の記録、spec にするほどではない小さな観測の保存を求められたときに使う。"
 ---
 
 # 開発ジャーナル
@@ -53,7 +53,7 @@ swbt-daemon の設計観測、未解決事項、先送り判断の記録。
 ## 記録しない内容
 
 - 実機実行結果。`docs/hardware-test-log.md` を使う。
-- 実装タスクのチェックリスト。作業単位仕様を使う。
+- 実装タスクのチェックリスト。spec を使う。
 - PR 状態。PR body または自己レビューレポートを使う。
 - 不確実性の表示がない推測。
 
