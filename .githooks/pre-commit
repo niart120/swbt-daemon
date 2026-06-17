@@ -1,0 +1,30 @@
+#!/bin/sh
+set -eu
+
+if [ "${SWBT_SKIP_HOOKS:-0}" = "1" ]; then
+    echo "[pre-commit] SWBT_SKIP_HOOKS=1, skipping"
+    exit 0
+fi
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+echo "[pre-commit] git diff --cached --check"
+git diff --cached --check
+
+echo "[pre-commit] cmake --list-presets"
+cmake --list-presets >/dev/null
+
+staged_c_source=0
+for path in $(git diff --cached --name-only --diff-filter=ACMR -- api apps swbt tests); do
+    case "$path" in
+        *.c | *.h)
+            staged_c_source=1
+            ;;
+    esac
+done
+
+if [ "$staged_c_source" = "1" ]; then
+    echo "[pre-commit] scripts/check-format.sh"
+    scripts/check-format.sh
+fi

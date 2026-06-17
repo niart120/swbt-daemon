@@ -73,6 +73,7 @@ work-units/             work unit record
 - `.devcontainer/Dockerfile` は Ubuntu 24.04、CMake、Ninja、clang、clang-format、clang-tidy、mingw-w64、libusb headers、valgrind を含む再現環境である。
 - `.devcontainer/devcontainer.json` は VS Code C/C++ と CMake Tools extension を推奨し、container user は `ubuntu` とする。
 - Linux native build、sanitizer、unit test、Windows MinGW cross build は Dev Container 内で再現できる前提にする。
+- ローカルの host build は既定で止める。Dev Container 外で build する必要がある場合だけ `SWBT_ALLOW_HOST_BUILD=1` または `-DSWBT_ALLOW_HOST_BUILD=ON` で明示的に opt-in する。
 - Windows native は WinUSB ドライバー、Bluetooth ドングル、Switch pairing、latency / report rate 実測のための実機検証環境として別扱いにする。
 - host OS へ個別 toolchain を手作業で入れることを通常の前提にしない。
 
@@ -113,6 +114,8 @@ Switch protocol、BTstack source selection、report timing、HID descriptor、su
 - public header は `api/`、internal header は `swbt/` 配下に置く。
 - CMake presets を主経路にする。
 - compiler warning と sanitizer helper は `cmake/` 配下の既存関数を使う。
+- C source の整形は `scripts/format.sh` と `scripts/check-format.sh` で行う。
+- clang-tidy は `linux-clang-tidy` preset で実行する。
 - CMake 側で BTstack source list を追加する場合は根拠監査を先に行う。
 
 ## テストと検証
@@ -169,6 +172,10 @@ cmake --build --preset windows-mingw-debug
 
 - 変更を伴う作業では開始時にブランチと `git status --short` を確認する。
 - 既定ブランチへの直接コミットは、ユーザの明示指示がある場合を除き避ける。
+- Git hooks は `.githooks/` を正本とし、clone 後は `sh scripts/install-git-hooks.sh` または `scripts/install-git-hooks.ps1` で有効化する。
+- `pre-commit` は staged diff の whitespace、CMake presets の読み取り、staged C source がある場合の format を確認する。
+- `pre-push` は Dev Container、CI、または `SWBT_ALLOW_HOST_BUILD=1` を要求し、通常 `linux-debug` の fresh configure / build / test を実行する。
+- `pre-push` は `SWBT_FULL_PRE_PUSH=1` のときだけ format、clang-tidy、sanitizer、Windows cross build も実行する。
 - PR では `.github/PULL_REQUEST_TEMPLATE.md` に従い、テスト、実機、根拠監査、BTstack / License impact を明記する。
 
 ## Commit ルール

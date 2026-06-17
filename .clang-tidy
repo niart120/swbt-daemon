@@ -1,0 +1,10 @@
+Checks: >
+  clang-analyzer-*,
+  bugprone-*,
+  portability-*,
+  readability-braces-around-statements,
+  readability-duplicate-include,
+  readability-redundant-declaration
+WarningsAsErrors: '*'
+HeaderFilterRegex: '^(api|apps|swbt|tests)/'
+SystemHeaders: false

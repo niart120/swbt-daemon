@@ -44,10 +44,16 @@ daemon protocol does not include timed commands such as `tap`, `duration_ms`,
 
 The primary development environment is WSL2 with Dev Containers. The container
 installs CMake, Ninja, compilers, MinGW, libusb headers, and analysis tools; the
-host does not need those tools unless you choose to build outside the container.
+host does not need those tools for the supported local path.
 
 Hardware verification is expected to run on Windows native builds with a
 dedicated USB Bluetooth dongle assigned to WinUSB with Zadig.
+
+Local builds are supported inside the Dev Container.
+Plain host builds are blocked by default so that local results do not depend on
+untracked host toolchains.
+CI is allowed, and an explicit unsupported host build can opt in with
+`SWBT_ALLOW_HOST_BUILD=1` or `-DSWBT_ALLOW_HOST_BUILD=ON`.
 
 Initial build commands:
 
@@ -70,6 +76,28 @@ Windows cross build:
 ```bash
 cmake --preset windows-mingw-debug
 cmake --build --preset windows-mingw-debug
+```
+
+Git hooks are tracked under `.githooks/`.
+Enable them once per clone:
+
+```bash
+sh scripts/install-git-hooks.sh
+```
+
+`pre-commit` checks staged whitespace and CMake presets.
+When staged C sources are present, it also runs `clang-format`.
+`pre-push` runs the `linux-debug` fresh configure, build, and test path.
+Set `SWBT_FULL_PRE_PUSH=1` to also run the formatter, clang-tidy, sanitizer, and
+Windows cross-build paths.
+
+Format and lint commands:
+
+```bash
+scripts/format.sh
+scripts/check-format.sh
+cmake --fresh --preset linux-clang-tidy
+cmake --build --preset linux-clang-tidy
 ```
 
 ## BTstack Dependency

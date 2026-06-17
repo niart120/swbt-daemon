@@ -1,0 +1,47 @@
+#!/bin/sh
+set -eu
+
+if [ "${SWBT_SKIP_HOOKS:-0}" = "1" ]; then
+    echo "[pre-push] SWBT_SKIP_HOOKS=1, skipping"
+    exit 0
+fi
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+scripts/require-dev-environment.sh
+
+echo "[pre-push] cmake --fresh --preset linux-debug"
+cmake --fresh --preset linux-debug
+
+echo "[pre-push] cmake --build --preset linux-debug"
+cmake --build --preset linux-debug
+
+echo "[pre-push] ctest --preset linux-debug"
+ctest --preset linux-debug
+
+if [ "${SWBT_FULL_PRE_PUSH:-0}" = "1" ]; then
+    echo "[pre-push] scripts/check-format.sh"
+    scripts/check-format.sh
+
+    echo "[pre-push] cmake --fresh --preset linux-clang-tidy"
+    cmake --fresh --preset linux-clang-tidy
+
+    echo "[pre-push] cmake --build --preset linux-clang-tidy"
+    cmake --build --preset linux-clang-tidy
+
+    echo "[pre-push] cmake --fresh --preset linux-asan"
+    cmake --fresh --preset linux-asan
+
+    echo "[pre-push] cmake --build --preset linux-asan"
+    cmake --build --preset linux-asan
+
+    echo "[pre-push] ctest --preset linux-asan"
+    ctest --preset linux-asan
+
+    echo "[pre-push] cmake --fresh --preset windows-mingw-debug"
+    cmake --fresh --preset windows-mingw-debug
+
+    echo "[pre-push] cmake --build --preset windows-mingw-debug"
+    cmake --build --preset windows-mingw-debug
+fi
