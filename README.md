@@ -1,13 +1,13 @@
 # swbt-daemon
 
-`swbt-daemon` は、Nintendo Switch に Bluetooth Classic HID Device として接続し、Pro Controller 相当に見えることを目指す daemon です。
-daemon は local IPC interface を公開し、デバッグ用ツール、テスト実行環境、将来の各言語 binding から使うことを想定しています。
+`swbt-daemon` は、Nintendo Switch に Bluetooth Classic HID Device として接続し、Pro Controller 相当のコントローラーとして認識されることを目指す daemon です。
+daemon は local IPC interface を公開し、デバッグ用ツール、テスト実行環境、将来追加する言語 binding から使うことを想定しています。
 
 ## 状態
 
 このリポジトリは初期開発段階です。
-daemon はまだ Switch と pairing できず、実機挙動も未検証です。
-現時点のリポジトリは、最小構成、ビルド入口、ライセンス方針、設計メモを置く段階にとどまります。
+daemon は Switch との pairing にはまだ対応しておらず、実機での挙動も未検証です。
+現時点では、最小構成、ビルド入口、ライセンス方針、設計メモだけを置いています。
 
 ## アーキテクチャ
 
@@ -31,22 +31,24 @@ swbt-daemon
 Nintendo Switch
 ```
 
-daemon は Bluetooth アダプター、BTstack run loop、Switch protocol state、HID report scheduler を所有します。
-client は controller state snapshot 全体を送ります。
-daemon protocol は `tap`、`duration_ms`、`sequence`、`at_ms` のような時間指定 command を含みません。
+daemon は Bluetooth アダプター、BTstack run loop、Switch protocol state、HID report scheduler を管理します。
+クライアントはコントローラー状態の snapshot 全体を送ります。
+daemon protocol は `tap`、`duration_ms`、`sequence`、`at_ms` のような時間指定コマンドを含みません。
 
 ## 開発環境
 
 主開発環境は WSL2 + Dev Containers です。
 Dev Container は CMake、Ninja、コンパイラー、MinGW、libusb 開発ヘッダー、解析ツールを含みます。
 
-サポート対象のローカル build は Dev Container 内で実行します。
-通常の host build は、手元の未管理 toolchain に結果が依存することを避けるため、既定で止めます。
-CI は例外として許可します。
-Dev Container 外で明示的に build する場合は、`SWBT_ALLOW_HOST_BUILD=1` または `-DSWBT_ALLOW_HOST_BUILD=ON` を指定します。
+ローカルでの build は、Dev Container 内で行うことを標準とします。
+Dev Container 外の host build は通常の検証経路に含めません。
+手元の未管理 toolchain によって結果が変わることを避けるためです。
+CI は固定された GitHub Actions 環境で実行するため、この制約の対象外です。
+Dev Container 外で build する場合は、`SWBT_ALLOW_HOST_BUILD=1` または `-DSWBT_ALLOW_HOST_BUILD=ON` を付けて実行します。
 
-実機検証は Windows native build で行う想定です。
-その場合は専用 USB Bluetooth ドングルを Zadig で WinUSB に割り当てます。
+実機検証では Windows native build を使い、専用 USB Bluetooth ドングル経由で Switch と接続します。
+[Zadig](https://zadig.akeo.ie/) を使い、検証用ドングルのドライバーを WinUSB に差し替えてください。
+内蔵 Bluetooth や普段使いのドングルでは、この作業を実施しないでください。
 
 通常の build:
 
@@ -72,15 +74,11 @@ cmake --build --preset windows-mingw-debug
 ```
 
 Git hooks は `.githooks/` に置いています。
-clone 後に一度だけ次を実行してください。
+clone 後、次のコマンドを一度だけ実行して有効化してください。
 
 ```bash
 sh scripts/install-git-hooks.sh
 ```
-
-`pre-commit` は staged diff の whitespace、CMake presets、staged C source の format を確認します。
-`pre-push` は `linux-debug` の fresh configure、ビルド、テストを実行します。
-`SWBT_FULL_PRE_PUSH=1` を指定すると、format check、clang-tidy、sanitizer、Windows cross build も実行します。
 
 format と lint のコマンド:
 
@@ -99,8 +97,8 @@ BTstack は `vendor/btstack` の Git submodule として扱います。
 git submodule update --init --recursive
 ```
 
-現在の CMake 構成は submodule がなくても configure できます。
-実際の Bluetooth 機能には `vendor/btstack` のソースファイルが必要になります。
+現在の CMake 構成は submodule がなくても configure が通ります。
+実際の Bluetooth 機能には `vendor/btstack` のソースファイルが必要です。
 
 ## リポジトリ構成
 
