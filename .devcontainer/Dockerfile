@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     gdb \
     git \
+    libclang-rt-18-dev \
     lcov \
     libusb-1.0-0-dev \
     lldb \

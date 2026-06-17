@@ -51,12 +51,14 @@ Dev Container には主に次のツールを含めています。
 - libusb 開発ヘッダー
 - 解析ツール
 
-build 環境の扱いは次のとおりです。
+build / test 環境の扱いは次のとおりです。
 
-- ローカルでの build は、Dev Container 内で行うことを標準とします。
+- ローカルでの configure、build、test、format、static analysis、cross build は、Dev Container 内で行うことを標準とします。
 - Dev Container 外の host build は通常の検証経路に含めません。手元の未管理 toolchain によって結果が変わることを避けるためです。
-- CI は固定された GitHub Actions 環境で実行するため、この制約の対象外です。
-- Dev Container 外で build する場合は、`SWBT_ALLOW_HOST_BUILD=1` または `-DSWBT_ALLOW_HOST_BUILD=ON` を付けて実行します。
+- host で `make` targets を実行した場合は、Makefile が Dev Container CLI へ委譲します。
+- `.devcontainer/` を変更した後は、必要に応じて `make devcontainer-rebuild` で既存コンテナを作り直します。
+- CI も `.devcontainer/devcontainer.json` を使い、Dev Container 内で検証します。
+- Dev Container 外で host build する場合は、ユーザが明示的に `SWBT_ALLOW_HOST_BUILD=1` または `-DSWBT_ALLOW_HOST_BUILD=ON` を付けて実行します。
 
 実機検証の前提は次のとおりです。
 
@@ -64,27 +66,28 @@ build 環境の扱いは次のとおりです。
 - [Zadig](https://zadig.akeo.ie/) を使い、検証用ドングルのドライバーを WinUSB に差し替えてください。
 - 内蔵 Bluetooth や普段使いのドングルのドライバーは差し替えないでください。
 
-通常の build:
+通常の configure / build / test:
 
 ```bash
-cmake --preset linux-debug
-cmake --build --preset linux-debug
-ctest --preset linux-debug
+make debug
 ```
 
-sanitizer build:
+sanitizer configure / build / test:
 
 ```bash
-cmake --preset linux-asan
-cmake --build --preset linux-asan
-ctest --preset linux-asan
+make asan
 ```
 
 Windows cross build:
 
 ```bash
-cmake --preset windows-mingw-debug
-cmake --build --preset windows-mingw-debug
+make windows-cross
+```
+
+全体検証:
+
+```bash
+make verify
 ```
 
 Git hooks は `.githooks/` に置いています。
@@ -96,18 +99,17 @@ sh scripts/install-git-hooks.sh
 
 hooks の挙動は次のとおりです。
 
-- `pre-commit` は staged diff の whitespace、CMake presets、staged C source の format を確認します。
+- `pre-commit` は staged diff の whitespace、Makefile 経由の CMake presets、staged C source の format を確認します。
 - `commit-msg` は Conventional Commits の形式と subject 末尾句点なしを確認します。
-- `pre-push` は `linux-debug` の fresh configure、ビルド、テストを実行します。
-- `SWBT_FULL_PRE_PUSH=1` を指定すると、format check、clang-tidy、sanitizer、Windows cross build も実行します。
+- `pre-push` は `make debug` を実行します。
+- `SWBT_FULL_PRE_PUSH=1` を指定すると `make verify` を実行します。
 
 format と lint のコマンド:
 
 ```bash
-scripts/format.sh
-scripts/check-format.sh
-cmake --fresh --preset linux-clang-tidy
-cmake --build --preset linux-clang-tidy
+make format
+make format-check
+make tidy
 ```
 
 formatter と linter の選定理由は `spec/operations/development-tooling.md` に記録しています。

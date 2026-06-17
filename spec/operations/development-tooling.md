@@ -9,9 +9,13 @@
 ## 基本方針
 
 - ローカルの標準実行環境は Dev Container とする。
-- CI は GitHub Actions の固定された環境で実行する。
+- 標準検証コマンドの入口は Makefile target とする。
+- host から Makefile target を実行した場合は、Dev Container CLI へ委譲する。
+- Dev Container 定義を変更した後の再作成は `make devcontainer-rebuild` で行う。
+- CI は GitHub Actions から Dev Container を起動して実行する。
 - host OS に formatter や linter を入れることは必須にしない。
 - host OS へ入れる場合は、エディタ補助や手元の事前確認として扱う。
+- `SWBT_ALLOW_HOST_BUILD=1` はユーザが明示的に unsupported host build を許可した場合だけ使う。
 
 host OS を標準経路にしない理由は、toolchain、system include、tool version の差で結果が揺れることを避けるためである。
 
@@ -38,9 +42,9 @@ formatter は `clang-format` を使う。
 - pointer alignment は `char *value` の形に寄せる。
 - 短い `if` と loop を一行に畳まない。
 
-format check は `scripts/check-format.sh` で実行する。
+format check は `make format-check` で実行する。
 
-自動整形は `scripts/format.sh` で実行する。
+自動整形は `make format` で実行する。
 
 ## linter
 
@@ -61,11 +65,10 @@ linter と static analysis は `clang-tidy` を使う。
 
 BTstack integration が進んで false positive やノイズが増えた場合は、check set または warnings-as-errors の範囲を見直す。
 
-`clang-tidy` は次の preset で実行する。
+`clang-tidy` は Makefile 経由で実行する。
 
 ```console
-cmake --fresh --preset linux-clang-tidy
-cmake --build --preset linux-clang-tidy
+make tidy
 ```
 
 ## 採用しなかった候補
@@ -77,10 +80,10 @@ cmake --build --preset linux-clang-tidy
 
 ## Git hooks と CI
 
-`pre-commit` は staged C source がある場合に `scripts/check-format.sh` を実行する。
+`pre-commit` は staged C source がある場合に `make format-check` を実行する。
 
-`pre-push` は通常 `linux-debug` の configure、build、test を実行する。
+`pre-push` は通常 `make debug` で configure、build、test を実行する。
 
-`SWBT_FULL_PRE_PUSH=1` を指定した場合は、format check、`linux-clang-tidy`、sanitizer、Windows cross build も実行する。
+`SWBT_FULL_PRE_PUSH=1` を指定した場合は `make verify` で format check、`linux-clang-tidy`、sanitizer、Windows cross build も実行する。
 
-CI では `quality` job が format check と `linux-clang-tidy` を実行する。
+CI では Dev Container 内で `make verify-ci` を実行する。
