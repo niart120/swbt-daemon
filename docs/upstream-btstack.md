@@ -1,16 +1,16 @@
-# Upstream BTstack
+# BTstack upstream
 
-`swbt-daemon` uses BTstack as a third-party dependency.
+`swbt-daemon` は BTstack をサードパーティ依存として利用する。
 
-The intended location is:
+配置先は次の通り。
 
 ```text
 vendor/btstack
 ```
 
-## Current Base
+## 現在の基準
 
-The project is currently pinned to BTstack `v1.8.2` as a Git submodule.
+このプロジェクトは現在、Git submodule として BTstack `v1.8.2` に固定している。
 
 ```text
 upstream repository: https://github.com/bluekitchen/btstack
@@ -19,11 +19,11 @@ base tag: v1.8.2
 base commit: 075a0780f0fad7ff67d58ac19f46e8953656a752
 ```
 
-When the submodule is updated, record the exact submodule commit here.
+submodule を更新した場合は、正確な submodule commit をここに記録する。
 
-## Update Policy
+## 更新方針
 
-- Keep Switch-specific behavior outside BTstack whenever practical.
-- Prefer `swbt/btstack_bridge/` for integration code.
-- Do not disable BTstack HID validation globally.
-- Record any BTstack patch or fork requirement in this file.
+- 可能な限り Switch 固有の挙動は BTstack の外に置く。
+- integration code は `swbt/btstack_bridge/` を優先する。
+- BTstack HID validation を全体で無効化しない。
+- BTstack patch または fork が必要になった場合は、このファイルに記録する。

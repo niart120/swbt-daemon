@@ -1,5 +1,30 @@
 cmake_minimum_required(VERSION 3.25)
 
+option(SWBT_ALLOW_HOST_BUILD "Allow unsupported local builds outside the Dev Container" OFF)
+
+set(SWBT_IN_CI OFF)
+if(DEFINED ENV{CI} AND NOT "$ENV{CI}" STREQUAL "" AND NOT "$ENV{CI}" STREQUAL "0")
+    set(SWBT_IN_CI ON)
+endif()
+
+set(SWBT_IN_DEVCONTAINER OFF)
+if(DEFINED ENV{SWBT_DEVCONTAINER} AND "$ENV{SWBT_DEVCONTAINER}" STREQUAL "1")
+    set(SWBT_IN_DEVCONTAINER ON)
+endif()
+
+set(SWBT_ALLOW_HOST_BUILD_ENV OFF)
+if(DEFINED ENV{SWBT_ALLOW_HOST_BUILD} AND NOT "$ENV{SWBT_ALLOW_HOST_BUILD}" STREQUAL "" AND NOT "$ENV{SWBT_ALLOW_HOST_BUILD}" STREQUAL "0")
+    set(SWBT_ALLOW_HOST_BUILD_ENV ON)
+endif()
+
+if(NOT SWBT_IN_CI AND NOT SWBT_IN_DEVCONTAINER AND NOT SWBT_ALLOW_HOST_BUILD AND NOT SWBT_ALLOW_HOST_BUILD_ENV)
+    message(FATAL_ERROR
+        "Local CMake builds are supported only inside the Dev Container. "
+        "Open this repository in the Dev Container, or pass -DSWBT_ALLOW_HOST_BUILD=ON "
+        "for an explicit unsupported host build."
+    )
+endif()
+
 project(swbt_daemon
     VERSION 0.1.0
     DESCRIPTION "Nintendo Switch Bluetooth controller daemon built on BTstack"

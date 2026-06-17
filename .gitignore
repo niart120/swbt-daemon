@@ -2,6 +2,9 @@
 /build/
 /cmake-build-*/
 
+# Scratch notes
+/tmp/
+
 # C/C++
 *.o
 *.obj

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agentic Self Review"
+  short_description: "handoff 前に判定項目を整理する"
+  default_prompt: "$agentic-self-review を使って PR または handoff 前の swbt 判定結果を整理する。"

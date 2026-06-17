@@ -1,0 +1,4 @@
+interface:
+  display_name: "Work Unit Record"
+  short_description: "work unit record を書く"
+  default_prompt: "$work-unit-record を使って work unit record を作成または更新する。"

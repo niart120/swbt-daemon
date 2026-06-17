@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dev Journal"
+  short_description: "設計観測を記録する"
+  default_prompt: "$dev-journal を使って swbt の設計観測または先送り判断を記録する。"

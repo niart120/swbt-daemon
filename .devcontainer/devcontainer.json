@@ -3,6 +3,9 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
+  "containerEnv": {
+    "SWBT_DEVCONTAINER": "1"
+  },
   "customizations": {
     "vscode": {
       "extensions": [

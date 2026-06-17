@@ -1,0 +1,4 @@
+interface:
+  display_name: "Hardware Harness"
+  short_description: "Switch と Bluetooth 実機実行の条件を確認する"
+  default_prompt: "Switch pairing または Bluetooth ドングル実機テストの前に $hardware-harness を使う。"

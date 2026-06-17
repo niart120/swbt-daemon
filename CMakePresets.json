@@ -23,6 +23,16 @@
       }
     },
     {
+      "name": "linux-clang-tidy",
+      "displayName": "Linux clang-tidy",
+      "inherits": "linux-debug",
+      "binaryDir": "${sourceDir}/build/linux-clang-tidy",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "SWBT_ENABLE_CLANG_TIDY": "ON"
+      }
+    },
+    {
       "name": "windows-mingw-debug",
       "displayName": "Windows MinGW Debug",
       "generator": "Ninja",
@@ -43,6 +53,10 @@
     {
       "name": "linux-asan",
       "configurePreset": "linux-asan"
+    },
+    {
+      "name": "linux-clang-tidy",
+      "configurePreset": "linux-clang-tidy"
     },
     {
       "name": "windows-mingw-debug",

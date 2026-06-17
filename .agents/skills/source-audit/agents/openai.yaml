@@ -1,0 +1,4 @@
+interface:
+  display_name: "Source Audit"
+  short_description: "Switch HID と BTstack の根拠を監査する"
+  default_prompt: "$source-audit を使って Switch HID report または BTstack integration decision の根拠を記録する。"
