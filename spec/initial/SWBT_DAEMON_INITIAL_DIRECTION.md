@@ -26,7 +26,7 @@ daemon は BTstack run loop、Bluetooth アダプターへのアクセス、Swit
 
 導入実装記録は、この phase migration の元資料であるため、`tmp/swbt_agent_skill_adoption_policy.md` に残す。
 
-メモが実装作業になった場合は、`spec/wip/local_{nnn}/` に範囲を絞ったwork unitを作る。
+メモが実装作業になった場合は、`work-units/wip/local_{nnn}/` に範囲を絞った work unit record を作る。
 
 ## 初期検証コマンド
 

@@ -11,7 +11,15 @@
 - 固有名詞、ファイル名、コマンド名、環境変数、API 名、protocol ID、status 値は英語のまま残してよい。
 - branch、commit、merge、build、test、driver、adapter、backend、firmware など、Git や開発環境の一般語は、文脈に応じてブランチ、コミット、マージ、ビルド、テスト、ドライバー、アダプター、バックエンド、ファームウェアと書く。
 - source audit、hardware gate、requirements、verification、evidence、cleanup など、プロジェクト運用の概念は、根拠監査、実機実行条件、要件、検証、根拠、後片付けのように日本語で書く。
+- `work unit`、`work unit record`、`spec` は別の概念として英語のまま使う。
 - 「run」「record」「check」「update」のような動作は英単語を名詞化せず、実行する、記録する、確認する、更新するのような日本語の用言で書く。
+
+## 運用概念
+
+- `work unit` は作業管理上のまとまりである。PR、handoff、検証、完了判定の単位になるが、文書そのものではない。
+- `work unit record` は 1 つの `work unit` の範囲、関連する `spec` や docs、TDD list、検証結果、実機状態、根拠監査状態、チェックリストを束ねる記録である。
+- `spec` は安定した設計、protocol、挙動、方針を書く文書である。1 つの `work unit` だけに閉じるとは限らず、複数の `work unit record` から参照されてもよい。
+- `journal entry` は `work unit` や `spec` にするほど固まっていない観測や先送り判断である。
 
 ## プロジェクト概要
 
@@ -53,7 +61,8 @@ swbt/switch/            Switch controller protocol code
 swbt/btstack_bridge/    BTstack integration boundary
 tests/                  C 単体テスト
 vendor/btstack/         BTstack submodule
-spec/                   spec と開発ジャーナル
+spec/                   安定した spec と開発ジャーナル
+work-units/             work unit record
 .agents/skills/         project-local Codex skills
 ```
 
@@ -134,18 +143,18 @@ cmake --build --preset windows-mingw-debug
 
 ## ドキュメントルール
 
-- spec は `spec/wip/local_{nnn}/FEATURE_NAME.md` に作る。
-- 完了した spec は `spec/complete/local_{nnn}/FEATURE_NAME.md` へ移す。
-- 初期構想と長期方針は `spec/initial/` に置く。
+- work unit record は `work-units/wip/local_{nnn}/FEATURE_NAME.md` に作る。
+- 完了した work unit record は `work-units/complete/local_{nnn}/FEATURE_NAME.md` へ移す。
+- 安定した spec、初期構想、長期方針は `spec/` に置く。
 - 小さい設計観測や先送り事項は `spec/dev-journal.md` に記録する。
 - 実機観測は `docs/hardware-test-log.md` に記録する。
-- `tmp/` は一時検討や移行中メモに限定し、恒久情報は `spec/` または `docs/` へ昇格する。
+- `tmp/` は一時検討や移行中メモに限定し、恒久情報は `work-units/`、`spec/`、`docs/` のいずれかへ昇格する。
 
 ## Agent Skills
 
 - `source-audit`: Switch HID / BTstack / 実機根拠を監査する。
 - `hardware-harness`: Switch pairing や Bluetooth ドングル実機検証の安全境界を確認する。
-- `spec-format`: spec を作成・更新する。
+- `work-unit-record`: work unit record を作成・更新する。
 - `tdd-workflow`: CMake / CTest 前提で TDD を進める。
 - `dev-journal`: `spec/dev-journal.md` に観測や先送り事項を記録する。
 - `agentic-self-review`: PR 前や handoff 前に判定結果を整理する。

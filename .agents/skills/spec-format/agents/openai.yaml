@@ -1,4 +1,0 @@
-interface:
-  display_name: "Spec Format"
-  short_description: "spec を書く"
-  default_prompt: "$spec-format を使って spec を作成または更新する。"

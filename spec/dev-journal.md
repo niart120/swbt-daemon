@@ -10,10 +10,10 @@ swbt-daemon の設計観測、未解決事項、先送り判断の記録。
 
 ### 観測
 
-リポジトリには root `AGENTS.md`、swbt 固有の project skills、仕様のひな形、PR テンプレートがある。
+リポジトリには root `AGENTS.md`、swbt 固有の project skills、work unit record のひな形、PR テンプレートがある。
 Dev Containers は再現可能な標準開発環境として明示されている。
 
 ### 判断
 
-今後の実装作業では、安定した要件を `tmp/` から `spec/wip/local_{nnn}/` の範囲を絞ったwork unitへ移す。
+今後の実装作業では、安定した要件を `tmp/` から範囲を絞った work unit record へ移す。
 根拠監査、実機実行条件の確認、TDD、セルフRv、PR の後片付けには project skills を使う。
