@@ -10,7 +10,7 @@
 
 - 固有名詞、ファイル名、コマンド名、環境変数、API 名、protocol ID、status 値は英語のまま残してよい。
 - branch、commit、merge、build、test、driver、adapter、backend、firmware など、Git や開発環境の一般語は、文脈に応じてブランチ、コミット、マージ、ビルド、テスト、ドライバー、アダプター、バックエンド、ファームウェアと書く。
-- work unit、source audit、hardware gate、requirements、verification、evidence、cleanup など、プロジェクト運用の概念は、作業単位、根拠監査、実機実行条件、要件、検証、根拠、後片付けのように日本語で書く。
+- source audit、hardware gate、requirements、verification、evidence、cleanup など、プロジェクト運用の概念は、根拠監査、実機実行条件、要件、検証、根拠、後片付けのように日本語で書く。
 - 「run」「record」「check」「update」のような動作は英単語を名詞化せず、実行する、記録する、確認する、更新するのような日本語の用言で書く。
 
 ## プロジェクト概要

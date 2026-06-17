@@ -1,6 +1,6 @@
 ---
 name: tdd-workflow
-description: "CMake、Ninja、CTest、sanitizer preset、作業単位のテスト一覧を使う swbt-daemon C11 code の標準 TDD ワークフロー。Codex が TDD、TDD test list 作成、red/green/refactor、C unit test 追加、Switch packet behavior の characterise、protocol/IPC behavior の小さな実装を求められたときに使う。"
+description: "CMake、Ninja、CTest、sanitizer preset、work unitのテスト一覧を使う swbt-daemon code の標準 TDD ワークフロー。Codex が TDD、TDD test list 作成、red/green/refactor、C unit test 追加、Switch packet behavior の characterise、protocol/IPC behavior の小さな実装を求められたときに使う。"
 ---
 
 # TDD ワークフロー

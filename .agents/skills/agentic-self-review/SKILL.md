@@ -1,15 +1,15 @@
 ---
 name: agentic-self-review
-description: "PR、マージ、handoff の前に swbt-daemon の変更を判定項目ごとに自己レビューする。Codex が要件の充足範囲、根拠監査の状態、CMake/CTest 結果、sanitizer/cross-build 結果、実機実行または未実行理由、BTstack/license impact、non-goals、remaining risks、作業単位完了を裏付ける根拠を整理するときに使う。"
+description: "PR、マージ、handoff の前に swbt-daemon の変更を判定項目ごとにセルフRvする。Codex が要件の充足範囲、根拠監査の状態、CMake/CTest 結果、sanitizer/cross-build 結果、実機実行または未実行理由、BTstack/license impact、non-goals、remaining risks、work unitの完了を裏付ける根拠を整理するときに使う。"
 ---
 
-# 自己レビュー
+# セルフRv
 
-swbt 作業単位の完了宣言、PR 作成、大きな変更の handoff の前に、この skill を使う。
+swbt work unitの完了宣言、PR 作成、大きな変更の handoff の前に、この skill を使う。
 
 ## レビュー手順
 
-1. 対象作業単位、ユーザの意図、non-goals を特定する。
+1. 対象work unit、ユーザの意図、non-goals を特定する。
 2. 変更ファイルを仕様と `AGENTS.md` に照らして確認する。
 3. protocol、BTstack、backend、実機事実の根拠監査状態を記録する。
 4. 検証コマンドと正確な結果を記録する。
@@ -32,7 +32,7 @@ swbt 作業単位の完了宣言、PR 作成、大きな変更の handoff の前
 | BTstack / License | pass/not applicable/not proven | submodule untouched、notices checked |
 | Integration Review | pass/fail/not proven | 境界に照らした diff review |
 
-## 指摘を先に置く
+## 指摘の列挙
 
 問題がある場合は、summary より前に指摘を列挙する。
 
@@ -48,9 +48,9 @@ swbt 作業単位の完了宣言、PR 作成、大きな変更の handoff の前
 ## 報告テンプレート
 
 ```markdown
-## swbt 自己レビュー
+## swbt セルフRv
 
-### 作業単位
+### work unit
 - 対象:
 - 意図:
 - 対象外:
@@ -79,6 +79,6 @@ swbt 作業単位の完了宣言、PR 作成、大きな変更の handoff の前
 
 ## ルール
 
-- テストが通っただけで作業単位を complete にしない。根拠を要件と対応させる。
+- テストが通っただけでwork unitを 完了としない。根拠を要件と対応させる。
 - 単体テストの成功で実機未実行状態を隠さない。
 - 明示的な根拠監査と license review なしに、`vendor/btstack` の変更を安全扱いしない。

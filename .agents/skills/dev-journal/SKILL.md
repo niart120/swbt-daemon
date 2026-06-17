@@ -47,14 +47,14 @@ swbt-daemon の設計観測、未解決事項、先送り判断の記録。
 - BTstack source selection の観測。
 - WinUSB/libusb バックエンドの違い。
 - daemon IPC 境界の判断。
-- 作業単位にするほどではない根拠監査の疑問。
+- work unitにするほどではない根拠監査の疑問。
 - 後で仕様化すべき deferred cleanup。
 
 ## 記録しない内容
 
 - 実機実行結果。`docs/hardware-test-log.md` を使う。
 - 実装タスクのチェックリスト。spec を使う。
-- PR 状態。PR body または自己レビューレポートを使う。
+- PR 状態。PR body またはセルフRvレポートを使う。
 - 不確実性の表示がない推測。
 
 ## 昇格
