@@ -23,6 +23,7 @@ esac
 
 cat >&2 <<'EOF'
 Local builds are supported only inside the Dev Container.
-Open this repository in the Dev Container, or set SWBT_ALLOW_HOST_BUILD=1 for an explicit unsupported host build.
+Open this repository in the Dev Container, or use Makefile targets so host commands are delegated through the Dev Container CLI.
+Set SWBT_ALLOW_HOST_BUILD=1 only when explicitly opting into an unsupported host build.
 EOF
 exit 1

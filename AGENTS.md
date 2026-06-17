@@ -73,7 +73,8 @@ work-units/             work unit record
 - `.devcontainer/Dockerfile` は Ubuntu 24.04、CMake、Ninja、clang、clang-format、clang-tidy、mingw-w64、libusb headers、valgrind を含む再現環境である。
 - `.devcontainer/devcontainer.json` は VS Code C/C++ と CMake Tools extension を推奨し、container user は `ubuntu` とする。
 - Linux native build、sanitizer、unit test、Windows MinGW cross build は Dev Container 内で再現できる前提にする。
-- ローカルの host build は既定で止める。Dev Container 外で build する必要がある場合だけ `SWBT_ALLOW_HOST_BUILD=1` または `-DSWBT_ALLOW_HOST_BUILD=ON` で明示的に opt-in する。
+- ローカルの標準 configure、build、test、format、static analysis、cross build は Makefile target を入口にする。host からの Makefile target は Dev Container CLI へ委譲する。
+- ローカルの host build は既定で止める。ユーザが Dev Container 外で host build を明示的に許可した場合だけ `SWBT_ALLOW_HOST_BUILD=1` または `-DSWBT_ALLOW_HOST_BUILD=ON` で opt-in する。
 - Windows native は WinUSB ドライバー、Bluetooth ドングル、Switch pairing、latency / report rate 実測のための実機検証環境として別扱いにする。
 - host OS へ個別 toolchain を手作業で入れることを通常の前提にしない。
 
@@ -123,24 +124,25 @@ Switch protocol、BTstack source selection、report timing、HID descriptor、su
 通常のローカル検証:
 
 ```console
-cmake --preset linux-debug
-cmake --build --preset linux-debug
-ctest --preset linux-debug
+make debug
 ```
 
 sanitizer:
 
 ```console
-cmake --preset linux-asan
-cmake --build --preset linux-asan
-ctest --preset linux-asan
+make asan
 ```
 
 Windows cross build:
 
 ```console
-cmake --preset windows-mingw-debug
-cmake --build --preset windows-mingw-debug
+make windows-cross
+```
+
+全体検証:
+
+```console
+make verify
 ```
 
 変更範囲に応じて、targeted CTest、sanitizer、cross build、実機未実行理由を報告する。
@@ -173,10 +175,10 @@ cmake --build --preset windows-mingw-debug
 - 変更を伴う作業では開始時にブランチと `git status --short` を確認する。
 - 既定ブランチへの直接コミットは、ユーザの明示指示がある場合を除き避ける。
 - Git hooks は `.githooks/` を正本とし、clone 後は `sh scripts/install-git-hooks.sh` または `scripts/install-git-hooks.ps1` で有効化する。
-- `pre-commit` は staged diff の whitespace、CMake presets の読み取り、staged C source がある場合の format を確認する。
+- `pre-commit` は staged diff の whitespace、Makefile 経由の CMake presets の読み取り、staged C source がある場合の format を確認する。
 - `commit-msg` は Conventional Commits の形式と subject 末尾句点なしを確認する。
-- `pre-push` は Dev Container、CI、または `SWBT_ALLOW_HOST_BUILD=1` を要求し、通常 `linux-debug` の fresh configure / build / test を実行する。
-- `pre-push` は `SWBT_FULL_PRE_PUSH=1` のときだけ format、clang-tidy、sanitizer、Windows cross build も実行する。
+- `pre-push` は `make debug` を実行する。host からは Makefile が Dev Container CLI へ委譲する。
+- `pre-push` は `SWBT_FULL_PRE_PUSH=1` のとき `make verify` を実行する。
 - PR では `.github/PULL_REQUEST_TEMPLATE.md` に従い、テスト、実機、根拠監査、BTstack / License impact を明記する。
 
 ## Commit ルール

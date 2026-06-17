@@ -7,68 +7,14 @@ on:
   pull_request:
 
 jobs:
-  quality:
+  verify:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Install packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build clang clang-format clang-tidy
-      - name: Format check
-        run: scripts/check-format.sh
-      - name: Configure clang-tidy
-        run: cmake --fresh --preset linux-clang-tidy
-      - name: Build clang-tidy
-        run: cmake --build --preset linux-clang-tidy
-
-  linux-debug:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
+      - name: Verify in Dev Container
+        uses: devcontainers/ci@v0.3
         with:
-          submodules: recursive
-      - name: Install packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build build-essential
-      - name: Configure
-        run: cmake --preset linux-debug
-      - name: Build
-        run: cmake --build --preset linux-debug
-      - name: Test
-        run: ctest --preset linux-debug
-
-  linux-asan:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Install packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build clang
-      - name: Configure
-        run: cmake --preset linux-asan -DCMAKE_C_COMPILER=clang
-      - name: Build
-        run: cmake --build --preset linux-asan
-      - name: Test
-        run: ctest --preset linux-asan
-
-  windows-mingw:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Install packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build mingw-w64
-      - name: Configure
-        run: cmake --preset windows-mingw-debug
-      - name: Build
-        run: cmake --build --preset windows-mingw-debug
+          push: never
+          runCmd: make verify-ci
