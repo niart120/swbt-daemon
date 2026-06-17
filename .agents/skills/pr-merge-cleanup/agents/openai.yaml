@@ -1,0 +1,4 @@
+interface:
+  display_name: "PR Merge Cleanup"
+  short_description: "Create, merge, and clean up swbt PRs"
+  default_prompt: "Use $pr-merge-cleanup to publish a swbt branch through PR and sync the default branch."

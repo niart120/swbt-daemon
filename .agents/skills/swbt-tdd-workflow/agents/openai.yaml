@@ -1,0 +1,4 @@
+interface:
+  display_name: "swbt TDD Workflow"
+  short_description: "Run CMake/CTest TDD cycles for swbt"
+  default_prompt: "Use $swbt-tdd-workflow to drive one swbt CMake/CTest TDD cycle."

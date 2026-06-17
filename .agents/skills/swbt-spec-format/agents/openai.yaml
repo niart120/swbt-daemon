@@ -1,0 +1,4 @@
+interface:
+  display_name: "swbt Spec Format"
+  short_description: "Write swbt work-unit specifications"
+  default_prompt: "Use $swbt-spec-format to create or update a swbt work-unit specification."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "swbt Hardware Harness"
+  short_description: "Gate Switch and Bluetooth hardware runs"
+  default_prompt: "Use $swbt-hardware-harness before running a Switch pairing or Bluetooth dongle hardware test."

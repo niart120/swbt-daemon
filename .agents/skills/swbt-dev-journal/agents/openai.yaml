@@ -1,0 +1,4 @@
+interface:
+  display_name: "swbt Dev Journal"
+  short_description: "Record swbt design observations"
+  default_prompt: "Use $swbt-dev-journal to record a swbt design observation or deferred decision."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "swbt Source Audit"
+  short_description: "Audit Switch HID and BTstack evidence"
+  default_prompt: "Use $swbt-source-audit to record the evidence for a Switch HID report or BTstack integration decision."
