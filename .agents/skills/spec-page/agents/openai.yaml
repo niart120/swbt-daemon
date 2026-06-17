@@ -1,0 +1,4 @@
+interface:
+  display_name: "Spec Page"
+  short_description: "安定した spec page を作成、更新する"
+  default_prompt: "$spec-page を使って swbt の spec page を作成または更新する。"

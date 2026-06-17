@@ -20,6 +20,7 @@
 - `work unit record` は 1 つの `work unit` の範囲、関連する `spec` や docs、TDD list、検証結果、実機状態、根拠監査状態、チェックリストを束ねる記録である。
 - `spec` は安定した設計、protocol、挙動、方針を書く文書である。1 つの `work unit` だけに閉じるとは限らず、複数の `work unit record` から参照されてもよい。
 - `journal entry` は `work unit` や `spec` にするほど固まっていない観測や先送り判断である。
+- 通常は `work unit` を先に立てる。複数の work unit から参照する設計や protocol が必要になったときだけ、`spec` を作成または更新する。
 
 ## プロジェクト概要
 
@@ -145,7 +146,10 @@ cmake --build --preset windows-mingw-debug
 
 - work unit record は `work-units/wip/local_{nnn}/FEATURE_NAME.md` に作る。
 - 完了した work unit record は `work-units/complete/local_{nnn}/FEATURE_NAME.md` へ移す。
-- 安定した spec、初期構想、長期方針は `spec/` に置く。
+- 安定した spec は `spec/architecture/`、`spec/protocols/`、`spec/operations/` に置く。
+- 外部資料や upstream 調査の要約は `spec/references/` に置く。ここは規範ではなく根拠である。
+- 置き換え済みの spec は `spec/archive/` に移す。
+- 初期構想と長期方針は `spec/initial/` に置く。
 - 小さい設計観測や先送り事項は `spec/dev-journal.md` に記録する。
 - 実機観測は `docs/hardware-test-log.md` に記録する。
 - `tmp/` は一時検討や移行中メモに限定し、恒久情報は `work-units/`、`spec/`、`docs/` のいずれかへ昇格する。
@@ -155,6 +159,7 @@ cmake --build --preset windows-mingw-debug
 - `source-audit`: Switch HID / BTstack / 実機根拠を監査する。
 - `hardware-harness`: Switch pairing や Bluetooth ドングル実機検証の安全境界を確認する。
 - `work-unit-record`: work unit record を作成・更新する。
+- `spec-page`: 安定した spec page を作成・更新する。
 - `tdd-workflow`: CMake / CTest 前提で TDD を進める。
 - `dev-journal`: `spec/dev-journal.md` に観測や先送り事項を記録する。
 - `agentic-self-review`: PR 前や handoff 前に判定結果を整理する。

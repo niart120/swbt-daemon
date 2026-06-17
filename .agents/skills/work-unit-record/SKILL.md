@@ -17,13 +17,17 @@ spec そのものではない。
 |---|---|
 | 作業中の work unit record | `work-units/wip/local_{nnn}/FEATURE_NAME.md` |
 | 完了した work unit record | `work-units/complete/local_{nnn}/FEATURE_NAME.md` |
-| 安定した spec | `spec/` |
+| architecture spec | `spec/architecture/` |
+| protocol spec | `spec/protocols/` |
+| operations spec | `spec/operations/` |
+| references | `spec/references/` |
 | 小さな観測と先送り判断 | `spec/dev-journal.md` |
 | 実機観測 | `docs/hardware-test-log.md` |
 
 `FEATURE_NAME.md` は UPPER_SNAKE_CASE にする。
 
 新しい work unit record を作るときは、既存の `work-units/wip/local_*` と `work-units/complete/local_*` ディレクトリを確認し、次の番号を選ぶ。
+関連 spec を作成または更新する必要がある場合は `spec-page` を使う。
 
 ## 必須セクション
 
@@ -47,6 +51,7 @@ work unit record には次を含める。
 
 各セクションは簡潔に保つ。
 大きな参考資料は別の spec または docs file に分ける。
+根拠の要約だけを残す場合は `spec/references/` を使う。
 
 ## 根拠監査
 

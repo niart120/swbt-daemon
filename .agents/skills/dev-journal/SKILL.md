@@ -48,7 +48,7 @@ swbt-daemon の設計観測、未解決事項、先送り判断の記録。
 - WinUSB/libusb バックエンドの違い。
 - daemon IPC 境界の判断。
 - work unit record にするほどではない根拠監査の疑問。
-- 後で仕様化すべき deferred cleanup。
+- 後で spec page に昇格すべき deferred cleanup。
 
 ## 記録しない内容
 
@@ -60,3 +60,4 @@ swbt-daemon の設計観測、未解決事項、先送り判断の記録。
 ## 昇格
 
 記録が実装作業になった場合は、`work-unit-record` を使って `work-units/wip/local_{nnn}/FEATURE_NAME.md` を作り、journal entry を参照する。
+複数の work unit から参照される判断になった場合は、`spec-page` を使って spec page を作る。
