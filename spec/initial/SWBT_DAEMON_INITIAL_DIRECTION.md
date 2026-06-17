@@ -2,19 +2,19 @@
 
 ## 概要
 
-`swbt-daemon` は C11 / CMake / Ninja で実装するデーモンであり、Nintendo Switch からは Pro Controller 互換の Bluetooth Classic HID Device として見えることを目指す。
+`swbt-daemon` は C11 / CMake / Ninja で実装する daemon であり、Nintendo Switch からは Pro Controller 互換の Bluetooth Classic HID Device として見えることを目指す。
 
 BTstack は `vendor/btstack` に固定した submodule として利用する。
-デーモンは BTstack run loop、Bluetooth アダプターへのアクセス、Switch protocol state、report scheduling、local IPC ownership を所有する。
+daemon は BTstack run loop、Bluetooth アダプターへのアクセス、Switch protocol state、report scheduling、local IPC ownership を所有する。
 
 ## アーキテクチャ判断
 
-- 通常のクライアントインターフェースにはデーモン IPC を使う。
-- C ABI はデーモン内部、テスト、将来の組み込み経路のために残す。
+- 通常のクライアントインターフェースには daemon IPC を使う。
+- C ABI は daemon 内部、テスト、将来の組み込み経路のために残す。
 - fork または upstream patch の判断を文書化しない限り、`vendor/btstack` 配下の BTstack source は read-only として扱う。
 - 日常の Linux ビルド、sanitizer ビルド、Windows MinGW cross build、静的解析には WSL2 + Dev Containers を使う。
 - Switch pairing と report timing verification には、専用 WinUSB Bluetooth ドングルを使った Windows native 環境を使う。
-- `tap`、`duration_ms`、`sequence`、`at_ms` のようなデーモン側の時間指定コマンドは実装しない。
+- `tap`、`duration_ms`、`sequence`、`at_ms` のような daemon 側の時間指定コマンドは実装しない。
 
 ## 現在の初期仕様
 

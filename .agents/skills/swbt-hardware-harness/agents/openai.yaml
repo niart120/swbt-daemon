@@ -1,4 +1,0 @@
-interface:
-  display_name: "swbt 実機ハーネス"
-  short_description: "Switch と Bluetooth 実機実行をゲートする"
-  default_prompt: "Switch pairing または Bluetooth ドングル実機テストの前に $swbt-hardware-harness を使う。"

@@ -1,11 +1,11 @@
 ---
-name: swbt-hardware-harness
-description: "Nintendo Switch、Bluetooth Classic HID、専用 USB Bluetooth ドングル、WinUSB、libusb、report loop、pairing、disconnect behavior を扱う swbt-daemon 実機検証の安全境界と根拠記録のワークフロー。Codex が実機ゲート付きコマンド、CTest label、manual pairing session、Switch-facing Bluetooth action を実行、設計、報告する前に使う。"
+name: hardware-harness
+description: "Nintendo Switch、Bluetooth Classic HID、専用 USB Bluetooth ドングル、WinUSB、libusb、report loop、pairing、disconnect behavior を扱う swbt-daemon 実機検証の安全境界と根拠記録のワークフロー。Codex が実機承認を必要とするコマンド、CTest label、manual pairing session、Switch-facing Bluetooth action を実行、設計、報告する前に使う。"
 ---
 
-# swbt 実機ハーネス
+# 実機検証
 
-実際の Nintendo Switch または Bluetooth アダプターと通信し得るコマンドや手順の前に、このスキルを使う。
+実際の Nintendo Switch または Bluetooth アダプターと通信し得るコマンドや手順の前に、この skill を使う。
 
 ## 承認境界
 
@@ -13,14 +13,14 @@ description: "Nintendo Switch、Bluetooth Classic HID、専用 USB Bluetooth ド
 
 実機向け作業には次を含める。
 
-- Bluetooth アダプターを開くデーモン build の起動。
+- Bluetooth アダプターを開く daemon build の起動。
 - Switch pairing。
 - HID Device advertising。
 - periodic input report loop。
 - 実機 console に対する output report / subcommand handling。
 - `hardware` label のテスト。
 
-コマンドやテストには明示的な environment gate を使う。
+コマンドやテストには、実機実行を明示する環境変数を使う。
 
 ```console
 SWBT_RUN_HARDWARE=1
@@ -37,7 +37,7 @@ SWBT_HARDWARE_APPROVED=1
 - Windows driver state。Windows native の場合は WinUSB assignment を特に記録する。
 - BTstack commit / tag。
 - swbt commit / branch。
-- デーモンバックエンド。`windows-winusb` または `libusb`。
+- daemon backend。`windows-winusb` または `libusb`。
 - 設定した report period。
 - Nintendo Switch firmware version。判明している場合だけでよい。
 
@@ -54,7 +54,7 @@ SWBT_HARDWARE_APPROVED=1
 ## 実行ルール
 
 - 自動実機テストができるまでは manual bring-up step を優先する。
-- デーモンログと実機メモは unit test output と分ける。
+- daemon log と実機メモは unit test output と分ける。
 - cleanup の成功と失敗時 cleanup を記録する。
 - owner disconnect、timeout、process exit では、可能な範囲で neutral state behavior を確認する。
 - OS、ドライバー、ドングル、Switch firmware、BTstack commit、swbt commit を記録せずに、実機観測を一般的な真実として扱わない。
@@ -92,7 +92,7 @@ SWBT_HARDWARE_APPROVED=1
 - 承認範囲。
 - コマンドまたは manual procedure。
 - adapter identity。
-- デーモンとバックエンドの設定。
+- daemon とバックエンドの設定。
 - 結果。
 - artifact または log path。
 - cleanup result。

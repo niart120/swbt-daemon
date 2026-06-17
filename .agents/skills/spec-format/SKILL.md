@@ -1,11 +1,11 @@
 ---
-name: swbt-spec-format
-description: "spec/initial、spec/wip、spec/complete、spec/dev-journal に置く swbt-daemon 作業単位仕様を作成、更新、レビュー、完了する。Codex が仕様作成、feature 設計、local 作業単位への分割、complete への移動、TDD list 記録、実機ゲート定義、安定した tmp note の恒久文書化を求められたときに使う。"
+name: spec-format
+description: "spec/initial、spec/wip、spec/complete、spec/dev-journal に置く swbt-daemon 作業単位仕様を作成、更新、レビュー、完了する。Codex が仕様作成、feature 設計、local 作業単位への分割、complete への移動、TDD list 記録、実機実行条件の定義、安定した tmp note の恒久文書化を求められたときに使う。"
 ---
 
-# swbt 仕様書式
+# 仕様書式
 
-swbt の作業単位仕様を作成または更新するときに、このスキルを使う。
+作業単位仕様を作成または更新するときに、この skill を使う。
 
 ## 配置先
 
@@ -36,7 +36,7 @@ swbt の作業単位仕様を作成または更新するときに、このスキ
 ## 6. 対象ファイル
 ## 7. TDD Test List（TDD テスト一覧）
 ## 8. 検証
-## 9. 実機ゲート
+## 9. 実機実行条件
 ## 10. チェックリスト
 ```
 
@@ -45,7 +45,7 @@ swbt の作業単位仕様を作成または更新するときに、このスキ
 
 ## 根拠監査
 
-仕様が次を含む場合は `swbt-source-audit` を使う。
+仕様が次を含む場合は `source-audit` を使う。
 
 - Switch HID report bytes。
 - BTstack source selection。
@@ -66,9 +66,9 @@ protocol、実機、BTstack、backend facts に触れない作業だけ、根拠
 
 状態値は `todo`、`red`、`green`、`refactor-done`、`deferred` とする。
 
-## 実機ゲート
+## 実機実行条件
 
-実機ゲート付き作業では次を明記する。
+実機承認を必要とする作業では次を明記する。
 
 - 必要な承認。
 - adapter assumptions。

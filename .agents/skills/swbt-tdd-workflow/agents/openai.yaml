@@ -1,4 +1,0 @@
-interface:
-  display_name: "swbt TDD ワークフロー"
-  short_description: "swbt の CMake/CTest TDD cycle を回す"
-  default_prompt: "$swbt-tdd-workflow を使って swbt の CMake/CTest TDD cycle を一つ進める。"

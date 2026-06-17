@@ -1,4 +1,0 @@
-interface:
-  display_name: "swbt 自己レビュー"
-  short_description: "handoff 前に swbt ゲートを整理する"
-  default_prompt: "$swbt-agentic-self-review を使って PR または handoff 前の swbt ゲート結果を整理する。"

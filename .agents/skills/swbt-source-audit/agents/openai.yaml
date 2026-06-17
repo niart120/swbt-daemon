@@ -1,4 +1,0 @@
-interface:
-  display_name: "swbt 根拠監査"
-  short_description: "Switch HID と BTstack の根拠を監査する"
-  default_prompt: "$swbt-source-audit を使って Switch HID report または BTstack integration decision の根拠を記録する。"

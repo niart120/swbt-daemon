@@ -1,19 +1,19 @@
 ---
-name: swbt-tdd-workflow
+name: tdd-workflow
 description: "CMake、Ninja、CTest、sanitizer preset、作業単位のテスト一覧を使う swbt-daemon C11 code の標準 TDD ワークフロー。Codex が TDD、TDD test list 作成、red/green/refactor、C unit test 追加、Switch packet behavior の characterise、protocol/IPC behavior の小さな実装を求められたときに使う。"
 ---
 
-# swbt TDD ワークフロー
+# TDD ワークフロー
 
-swbt の小さな挙動変更を一つずつ進めるときに、このスキルを使う。
+swbt の小さな挙動変更を一つずつ進めるときに、この skill を使う。
 
 ## 前提条件
 
 - ユーザが明示しない限り、既定ブランチでは作業しない。
 - `git status --short` を確認し、ユーザの変更を保持する。
-- 挙動が作業単位仕様に属する場合は `swbt-spec-format` を使う。
-- protocol または BTstack fact を hard-code する前に `swbt-source-audit` を使う。
-- 実機ゲート付きテストの前に `swbt-hardware-harness` を使う。
+- 挙動が作業単位仕様に属する場合は `spec-format` を使う。
+- protocol または BTstack fact を hard-code する前に `source-audit` を使う。
+- 実機承認を必要とするテストの前に `hardware-harness` を使う。
 
 ## Test List（テスト一覧）
 

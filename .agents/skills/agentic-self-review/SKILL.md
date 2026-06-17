@@ -1,11 +1,11 @@
 ---
-name: swbt-agentic-self-review
-description: "PR、マージ、handoff の前に swbt-daemon の変更をゲート単位で自己レビューする。Codex が要件の充足範囲、根拠監査の状態、CMake/CTest 結果、sanitizer/cross-build 結果、実機実行または未実行理由、BTstack/license impact、non-goals、remaining risks、作業単位完了を裏付ける根拠を整理するときに使う。"
+name: agentic-self-review
+description: "PR、マージ、handoff の前に swbt-daemon の変更を判定項目ごとに自己レビューする。Codex が要件の充足範囲、根拠監査の状態、CMake/CTest 結果、sanitizer/cross-build 結果、実機実行または未実行理由、BTstack/license impact、non-goals、remaining risks、作業単位完了を裏付ける根拠を整理するときに使う。"
 ---
 
-# swbt 自己レビュー
+# 自己レビュー
 
-swbt 作業単位の完了宣言、PR 作成、大きな変更の handoff の前に、このスキルを使う。
+swbt 作業単位の完了宣言、PR 作成、大きな変更の handoff の前に、この skill を使う。
 
 ## レビュー手順
 
@@ -17,11 +17,11 @@ swbt 作業単位の完了宣言、PR 作成、大きな変更の handoff の前
 6. BTstack license / notice impact を記録する。
 7. 弱い根拠、間接的な根拠、欠けている根拠は not proven として扱う。
 
-## Gate Table（判定表）
+## 判定表
 
-次のゲートを使う。
+次の判定項目を使う。
 
-| ゲート | 結果 | 根拠 |
+| 判定項目 | 結果 | 根拠 |
 |---|---|---|
 | Requirements | pass/fail/not proven | 仕様とユーザ目的の充足範囲 |
 | Non-goals | pass/fail | scope が広がっていないこと |
@@ -43,7 +43,7 @@ swbt 作業単位の完了宣言、PR 作成、大きな変更の handoff の前
 |---|---|---|---|
 ```
 
-問題がない場合でも、残るリスクと未実行ゲートを列挙する。
+問題がない場合でも、残るリスクと未実行の判定項目を列挙する。
 
 ## 報告テンプレート
 
@@ -59,8 +59,8 @@ swbt 作業単位の完了宣言、PR 作成、大きな変更の handoff の前
 | 重要度 | 指摘 | 根拠 | 推奨対応 |
 |---|---|---|---|
 
-### Gate
-| ゲート | 結果 | 根拠 |
+### 判定
+| 判定項目 | 結果 | 根拠 |
 |---|---|---|
 
 ### 検証

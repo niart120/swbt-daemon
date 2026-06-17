@@ -1,4 +1,0 @@
-interface:
-  display_name: "swbt 仕様書式"
-  short_description: "swbt 作業単位仕様を書く"
-  default_prompt: "$swbt-spec-format を使って swbt 作業単位仕様を作成または更新する。"

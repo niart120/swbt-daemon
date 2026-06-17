@@ -10,23 +10,23 @@
 
 - 固有名詞、ファイル名、コマンド名、環境変数、API 名、protocol ID、status 値は英語のまま残してよい。
 - branch、commit、merge、build、test、driver、adapter、backend、firmware など、Git や開発環境の一般語は、文脈に応じてブランチ、コミット、マージ、ビルド、テスト、ドライバー、アダプター、バックエンド、ファームウェアと書く。
-- work unit、source audit、hardware gate、requirements、verification、evidence、cleanup など、プロジェクト運用の概念は、作業単位、根拠監査、実機ゲート、要件、検証、根拠、後片付けのように日本語で書く。
+- work unit、source audit、hardware gate、requirements、verification、evidence、cleanup など、プロジェクト運用の概念は、作業単位、根拠監査、実機実行条件、要件、検証、根拠、後片付けのように日本語で書く。
 - 「run」「record」「check」「update」のような動作は英単語を名詞化せず、実行する、記録する、確認する、更新するのような日本語の用言で書く。
 
 ## プロジェクト概要
 
-`swbt-daemon` は、Nintendo Switch に Bluetooth Classic HID Device として Pro Controller 相当に見えるデーモンを実装する C/CMake プロジェクトである。
+`swbt-daemon` は、Nintendo Switch に Bluetooth Classic HID Device として Pro Controller 相当に見える daemon を実装する C/CMake プロジェクトである。
 
-デーモンは Bluetooth アダプター、BTstack run loop、Switch Pro Controller protocol、HID report scheduler、local IPC server を所有する。
-クライアントはデーモン IPC にコントローラー状態スナップショットを送る。
+daemon は Bluetooth アダプター、BTstack run loop、Switch Pro Controller protocol、HID report scheduler、local IPC server を所有する。
+クライアントは daemon IPC にコントローラー状態スナップショットを送る。
 
 ## 現在の範囲
 
 - C11 / CMake / Ninja を主経路にする。
 - BTstack は `vendor/btstack` submodule として固定する。
 - 自前コードは `api/`, `apps/`, `swbt/`, `tests/`, `docs/` に置く。
-- デーモン IPC は JSON Lines over local IPC を主経路にする。
-- C ABI はデーモン内部、単体テスト、将来の代替組み込み経路として扱う。
+- daemon IPC は JSON Lines over local IPC を主経路にする。
+- C ABI は daemon 内部、単体テスト、将来の代替組み込み経路として扱う。
 - Windows native + 専用 USB Bluetooth ドングル + WinUSB を実機検証の主経路にする。
 
 ## 対象外
@@ -35,7 +35,7 @@
 
 - BTstack 本体の広範囲改変。
 - `vendor/btstack` の直接編集。
-- デーモンプロトコルとしての `tap`, `duration_ms`, `sequence`, `at_ms`。
+- daemon protocol としての `tap`, `duration_ms`, `sequence`, `at_ms`。
 - 複数 controller 同時接続。
 - Joy-Con L/R、NFC/IR MCU、amiibo 対応。
 - Python / C# / GUI client。
@@ -45,7 +45,7 @@
 
 ```text
 api/                    public C ABI surface
-apps/swbt-daemon/       デーモン実行ファイル
+apps/swbt-daemon/       daemon 実行ファイル
 cmake/                  ビルド補助と toolchain
 docs/                   プロジェクトメモと実機ログ
 swbt/core/              プロジェクト共通 utility
@@ -54,7 +54,7 @@ swbt/btstack_bridge/    BTstack integration boundary
 tests/                  C 単体テスト
 vendor/btstack/         BTstack submodule
 spec/                   作業仕様と開発ジャーナル
-.agents/skills/         project-local Codex スキル
+.agents/skills/         project-local Codex skills
 ```
 
 ## 開発環境
@@ -75,10 +75,10 @@ spec/                   作業仕様と開発ジャーナル
 - BTstack を含む binary / release を MIT-only artifact と表現しない。
 - ライセンスや notice に触れる変更では `THIRD_PARTY_NOTICES.md` を確認する。
 
-## デーモン IPC 方針
+## Daemon IPC 方針
 
-- デーモンプロトコルは最新状態スナップショットを受け取る。
-- デーモンは時間指定 macro executor ではない。
+- daemon protocol は最新状態スナップショットを受け取る。
+- daemon は時間指定 macro executor ではない。
 - `tap`, `duration_ms`, `sequence`, `at_ms` は client-side helper の責務とする。
 - owner disconnect、heartbeat timeout、daemon shutdown では neutral state を優先する。
 - IPC parser と BTstack report scheduler の責務を分ける。
@@ -93,7 +93,7 @@ spec/                   作業仕様と開発ジャーナル
 
 ## 根拠監査
 
-Switch protocol、BTstack source selection、report timing、HID descriptor、subcommand、SPI address、rumble packet などの値を追加・変更するときは `.agents/skills/swbt-source-audit` を使う。
+Switch protocol、BTstack source selection、report timing、HID descriptor、subcommand、SPI address、rumble packet などの値を追加・変更するときは `.agents/skills/source-audit` を使う。
 
 記録では、文献値、upstream 実装値、swbt 実装値、実機観測値、推定、未検証仮説を分ける。
 
@@ -141,14 +141,14 @@ cmake --build --preset windows-mingw-debug
 - 実機観測は `docs/hardware-test-log.md` に記録する。
 - `tmp/` は一時検討や移行中メモに限定し、恒久情報は `spec/` または `docs/` へ昇格する。
 
-## エージェントスキル
+## Agent Skills
 
-- `swbt-source-audit`: Switch HID / BTstack / 実機根拠を監査する。
-- `swbt-hardware-harness`: Switch pairing や Bluetooth ドングル実機検証の安全境界を確認する。
-- `swbt-spec-format`: 作業単位仕様を作成・更新する。
-- `swbt-tdd-workflow`: CMake / CTest 前提で TDD を進める。
-- `swbt-dev-journal`: `spec/dev-journal.md` に観測や先送り事項を記録する。
-- `swbt-agentic-self-review`: PR 前や handoff 前にゲート結果を整理する。
+- `source-audit`: Switch HID / BTstack / 実機根拠を監査する。
+- `hardware-harness`: Switch pairing や Bluetooth ドングル実機検証の安全境界を確認する。
+- `spec-format`: 作業単位仕様を作成・更新する。
+- `tdd-workflow`: CMake / CTest 前提で TDD を進める。
+- `dev-journal`: `spec/dev-journal.md` に観測や先送り事項を記録する。
+- `agentic-self-review`: PR 前や handoff 前に判定結果を整理する。
 - `pr-merge-cleanup`: PR 作成、マージ、既定ブランチ同期、ブランチの後片付けを行う。
 
 ## Git / PR

@@ -1,11 +1,11 @@
 ---
-name: swbt-dev-journal
+name: dev-journal
 description: "swbt-daemon の設計観測、未解決事項、先送りタスク、根拠監査メモ、report-rate finding、BTstack integration observation、実機以外の bring-up 判断を spec/dev-journal.md に記録する。Codex が memo、journal、follow-up の記録、先送り判断の記録、作業単位仕様にするほどではない小さな観測の保存を求められたときに使う。"
 ---
 
-# swbt 開発ジャーナル
+# 開発ジャーナル
 
-`spec/dev-journal.md` に簡潔な設計観測を追記するときに、このスキルを使う。
+`spec/dev-journal.md` に簡潔な設計観測を追記するときに、この skill を使う。
 
 ## ファイル
 
@@ -46,7 +46,7 @@ swbt-daemon の設計観測、未解決事項、先送り判断の記録。
 - report period の疑問。
 - BTstack source selection の観測。
 - WinUSB/libusb バックエンドの違い。
-- デーモン IPC 境界の判断。
+- daemon IPC 境界の判断。
 - 作業単位にするほどではない根拠監査の疑問。
 - 後で仕様化すべき deferred cleanup。
 
@@ -59,4 +59,4 @@ swbt-daemon の設計観測、未解決事項、先送り判断の記録。
 
 ## 昇格
 
-記録が実装作業になった場合は、`swbt-spec-format` を使って `spec/wip/local_{nnn}/FEATURE_NAME.md` を作り、journal entry を参照する。
+記録が実装作業になった場合は、`spec-format` を使って `spec/wip/local_{nnn}/FEATURE_NAME.md` を作り、journal entry を参照する。
