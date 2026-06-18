@@ -1,7 +1,7 @@
 # swbt-daemon repository initialization TODO
 
 作成日: 2026-06-16
-更新日: 2026-06-17
+更新日: 2026-06-18
 
 ## 現在の方針
 
@@ -107,11 +107,11 @@ Initialize swbt-daemon skeleton
 
 ### Phase 2: Switch protocol core
 
-- [ ] `swbt/switch/switch_report.*`
+- [x] `swbt/switch/switch_report.*`
 - [ ] `swbt/switch/switch_subcommand.*`
 - [ ] `swbt/switch/switch_spi.*`
 - [ ] `swbt/switch/switch_rumble.*`
-- [ ] golden packet test
+- [x] golden packet test
 
 ### Phase 3: daemon IPC
 
