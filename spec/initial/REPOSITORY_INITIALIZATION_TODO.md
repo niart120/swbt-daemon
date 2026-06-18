@@ -98,12 +98,12 @@ Initialize swbt-daemon skeleton
 
 ### Phase 1: BTstack source selection
 
-- [ ] `vendor/btstack/port/libusb`
-- [ ] `vendor/btstack/port/windows-winusb`
-- [ ] `vendor/btstack/src/classic`
-- [ ] `vendor/btstack/src/hci.c` など必要 source を調査する
-- [ ] CMake 側に `cmake/btstack_sources.cmake` を追加する
-- [ ] BTstack 本体を直接変更せず bridge 側で吸収できる範囲を確認する
+- [x] `vendor/btstack/port/libusb`
+- [x] `vendor/btstack/port/windows-winusb`
+- [x] `vendor/btstack/src/classic`
+- [x] `vendor/btstack/src/hci.c` など必要 source を調査する
+- [x] CMake 側に `cmake/btstack_sources.cmake` を追加する
+- [x] BTstack 本体を直接変更せず bridge 側で吸収できる範囲を確認する
 
 ### Phase 2: Switch protocol core
 
