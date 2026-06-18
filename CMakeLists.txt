@@ -61,6 +61,7 @@ add_library(swbt_core STATIC
     swbt/core/swbt_version.c
     swbt/switch/switch_controller_state.c
     swbt/switch/switch_report.c
+    swbt/switch/switch_rumble.c
     swbt/switch/switch_spi.c
     swbt/switch/switch_subcommand.c
 )
@@ -138,4 +139,13 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(switch_spi_test)
 
     add_test(NAME switch_spi_test COMMAND switch_spi_test)
+
+    add_executable(switch_rumble_test
+        tests/switch_rumble_test.c
+    )
+    target_link_libraries(switch_rumble_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(switch_rumble_test)
+    swbt_apply_sanitizers(switch_rumble_test)
+
+    add_test(NAME switch_rumble_test COMMAND switch_rumble_test)
 endif()

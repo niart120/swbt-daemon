@@ -110,7 +110,7 @@ Initialize swbt-daemon skeleton
 - [x] `swbt/switch/switch_report.*`
 - [x] `swbt/switch/switch_subcommand.*`
 - [x] `swbt/switch/switch_spi.*`
-- [ ] `swbt/switch/switch_rumble.*`
+- [x] `swbt/switch/switch_rumble.*`
 - [x] golden packet test
 
 ### Phase 3: daemon IPC
