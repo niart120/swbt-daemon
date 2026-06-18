@@ -59,6 +59,7 @@ swbt_define_btstack_source_selection(swbt_btstack_source_selection)
 
 add_library(swbt_core STATIC
     swbt/core/swbt_version.c
+    swbt/ipc/ipc_session.c
     swbt/switch/switch_controller_state.c
     swbt/switch/switch_report.c
     swbt/switch/switch_rumble.c
@@ -148,4 +149,13 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(switch_rumble_test)
 
     add_test(NAME switch_rumble_test COMMAND switch_rumble_test)
+
+    add_executable(ipc_session_test
+        tests/ipc_session_test.c
+    )
+    target_link_libraries(ipc_session_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(ipc_session_test)
+    swbt_apply_sanitizers(ipc_session_test)
+
+    add_test(NAME ipc_session_test COMMAND ipc_session_test)
 endif()
