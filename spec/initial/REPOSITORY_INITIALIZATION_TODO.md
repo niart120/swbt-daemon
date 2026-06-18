@@ -108,7 +108,7 @@ Initialize swbt-daemon skeleton
 ### Phase 2: Switch protocol core
 
 - [x] `swbt/switch/switch_report.*`
-- [ ] `swbt/switch/switch_subcommand.*`
+- [x] `swbt/switch/switch_subcommand.*`
 - [ ] `swbt/switch/switch_spi.*`
 - [ ] `swbt/switch/switch_rumble.*`
 - [x] golden packet test

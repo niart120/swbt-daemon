@@ -61,6 +61,7 @@ add_library(swbt_core STATIC
     swbt/core/swbt_version.c
     swbt/switch/switch_controller_state.c
     swbt/switch/switch_report.c
+    swbt/switch/switch_subcommand.c
 )
 
 target_include_directories(swbt_core
@@ -118,4 +119,13 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(switch_report_test)
 
     add_test(NAME switch_report_test COMMAND switch_report_test)
+
+    add_executable(switch_subcommand_test
+        tests/switch_subcommand_test.c
+    )
+    target_link_libraries(switch_subcommand_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(switch_subcommand_test)
+    swbt_apply_sanitizers(switch_subcommand_test)
+
+    add_test(NAME switch_subcommand_test COMMAND switch_subcommand_test)
 endif()
