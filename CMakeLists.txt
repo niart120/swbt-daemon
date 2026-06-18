@@ -60,6 +60,7 @@ swbt_define_btstack_source_selection(swbt_btstack_source_selection)
 add_library(swbt_core STATIC
     swbt/core/swbt_version.c
     swbt/btstack_bridge/hid_device_registration.c
+    swbt/btstack_bridge/output_report_handler.c
     swbt/ipc/ipc_json.c
     swbt/ipc/ipc_server.c
     swbt/ipc/ipc_session.c
@@ -192,4 +193,13 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(btstack_hid_device_registration_test)
 
     add_test(NAME btstack_hid_device_registration_test COMMAND btstack_hid_device_registration_test)
+
+    add_executable(btstack_output_report_handler_test
+        tests/btstack_output_report_handler_test.c
+    )
+    target_link_libraries(btstack_output_report_handler_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(btstack_output_report_handler_test)
+    swbt_apply_sanitizers(btstack_output_report_handler_test)
+
+    add_test(NAME btstack_output_report_handler_test COMMAND btstack_output_report_handler_test)
 endif()

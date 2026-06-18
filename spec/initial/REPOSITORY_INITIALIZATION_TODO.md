@@ -126,7 +126,7 @@ Initialize swbt-daemon skeleton
 ### Phase 4: BTstack bridge
 
 - [x] HID Device registration
-- [ ] Output Report parser 接続
+- [x] Output Report parser 接続
 - [ ] Subcommand `0x21` reply
 - [ ] Periodic `0x30` input report
 - [ ] libusb build
