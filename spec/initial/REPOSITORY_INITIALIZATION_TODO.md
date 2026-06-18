@@ -128,7 +128,7 @@ Initialize swbt-daemon skeleton
 - [x] HID Device registration
 - [x] Output Report parser 接続
 - [x] Subcommand `0x21` reply
-- [ ] Periodic `0x30` input report
+- [x] Periodic `0x30` input report
 - [ ] libusb build
 - [ ] windows-winusb MinGW build
 
