@@ -2,7 +2,7 @@
 
 ## 1. 状態
 
-draft。
+recorded。
 
 この reference は Phase 1: BTstack source selection の根拠監査である。
 対象は親リポジトリが固定している BTstack submodule `v1.8.2` / `075a0780f0fad7ff67d58ac19f46e8953656a752`。

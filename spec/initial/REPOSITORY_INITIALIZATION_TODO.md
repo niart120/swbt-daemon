@@ -129,8 +129,8 @@ Initialize swbt-daemon skeleton
 - [x] Output Report parser 接続
 - [x] Subcommand `0x21` reply
 - [x] Periodic `0x30` input report
-- [ ] libusb build
-- [ ] windows-winusb MinGW build
+- [x] libusb build
+- [x] windows-winusb MinGW build
 
 ### Phase 5: Windows 実機確認
 

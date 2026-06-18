@@ -1,0 +1,30 @@
+# BTstack Backend Build Matrix
+
+## 1. 状態
+
+recorded。
+
+この reference は Phase 4 の `libusb build` と `windows-winusb MinGW build` の検証結果を記録する。
+
+## 2. 対象
+
+| build path | preset / target | backend | result |
+|---|---|---|---|
+| Linux debug build/test | `make debug` / `linux-debug` | `libusb` | pass, CTest 13/13 |
+| Windows MinGW cross build | `make windows-cross` / `windows-mingw-debug` | `windows-winusb` | pass, `swbt-daemon.exe` linked |
+| Full non-hardware verification | `make verify` | `libusb`, `windows-winusb` | pass |
+
+## 3. 根拠
+
+| 項目 | 値 | 根拠 | source | status |
+|---|---:|---|---|---|
+| Linux preset backend | `SWBT_BACKEND=libusb` | implementation fact | `CMakePresets.json` `linux-debug`; `make debug` configure output | verified |
+| Windows preset backend | `SWBT_BACKEND=windows-winusb` | implementation fact | `CMakePresets.json` `windows-mingw-debug`; `make windows-cross` configure output | verified |
+| libusb selected sources | 182 selected sources | implementation fact | `make debug` configure output; `tests/cmake/btstack_sources_test.cmake` | verified |
+| windows-winusb selected sources | 173 selected sources | implementation fact | `make windows-cross` configure output; `tests/cmake/btstack_sources_test.cmake` | verified |
+| source selection audit | `btstack-source-selection.md` | source fact and implementation fact | `spec/references/btstack-source-selection.md` | recorded |
+
+## 4. 未解決事項
+
+- Windows native execution、WinUSB driver assignment、Bluetooth dongle recognition、Switch pairing は未検証であり、Phase 5 の対象である。
+- この reference は build success を記録する。実機 report loop や latency は証明しない。
