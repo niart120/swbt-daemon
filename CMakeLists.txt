@@ -60,6 +60,7 @@ swbt_define_btstack_source_selection(swbt_btstack_source_selection)
 add_library(swbt_core STATIC
     swbt/core/swbt_version.c
     swbt/ipc/ipc_json.c
+    swbt/ipc/ipc_server.c
     swbt/ipc/ipc_session.c
     swbt/switch/switch_controller_state.c
     swbt/switch/switch_report.c
@@ -72,6 +73,10 @@ target_include_directories(swbt_core
     PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/swbt"
 )
+
+if(WIN32)
+    target_link_libraries(swbt_core PUBLIC ws2_32)
+endif()
 
 swbt_apply_common_warnings(swbt_core)
 swbt_apply_sanitizers(swbt_core)
@@ -168,4 +173,13 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(ipc_json_test)
 
     add_test(NAME ipc_json_test COMMAND ipc_json_test)
+
+    add_executable(ipc_server_test
+        tests/ipc_server_test.c
+    )
+    target_link_libraries(ipc_server_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(ipc_server_test)
+    swbt_apply_sanitizers(ipc_server_test)
+
+    add_test(NAME ipc_server_test COMMAND ipc_server_test)
 endif()
