@@ -47,6 +47,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(cmake/compiler_warnings.cmake)
 include(cmake/sanitizers.cmake)
+include(cmake/btstack_sources.cmake)
 
 set(SWBT_BTSTACK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/btstack" CACHE PATH "BTstack source directory")
 if(EXISTS "${SWBT_BTSTACK_DIR}/LICENSE")
@@ -54,6 +55,7 @@ if(EXISTS "${SWBT_BTSTACK_DIR}/LICENSE")
 else()
     message(WARNING "BTstack submodule not found at ${SWBT_BTSTACK_DIR}. Run: git submodule update --init --recursive")
 endif()
+swbt_define_btstack_source_selection(swbt_btstack_source_selection)
 
 add_library(swbt_core STATIC
     swbt/core/swbt_version.c
@@ -99,4 +101,11 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(swbt_smoke_test)
 
     add_test(NAME swbt_smoke_test COMMAND swbt_smoke_test)
+    add_test(
+        NAME btstack_sources_cmake_test
+        COMMAND
+            "${CMAKE_COMMAND}"
+            "-DSWBT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/btstack_sources_test.cmake"
+    )
 endif()
