@@ -60,6 +60,7 @@ swbt_define_btstack_source_selection(swbt_btstack_source_selection)
 add_library(swbt_core STATIC
     swbt/core/swbt_version.c
     swbt/switch/switch_controller_state.c
+    swbt/switch/switch_report.c
 )
 
 target_include_directories(swbt_core
@@ -108,4 +109,13 @@ if(SWBT_BUILD_TESTS)
             "-DSWBT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/btstack_sources_test.cmake"
     )
+
+    add_executable(switch_report_test
+        tests/switch_report_test.c
+    )
+    target_link_libraries(switch_report_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(switch_report_test)
+    swbt_apply_sanitizers(switch_report_test)
+
+    add_test(NAME switch_report_test COMMAND switch_report_test)
 endif()
