@@ -121,7 +121,7 @@ Initialize swbt-daemon skeleton
 - [x] `set_state`
 - [x] `get_status`
 - [x] owner disconnect neutral
-- [ ] heartbeat / timeout neutral
+- [x] heartbeat / timeout neutral
 
 ### Phase 4: BTstack bridge
 

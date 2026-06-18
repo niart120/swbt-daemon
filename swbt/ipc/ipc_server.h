@@ -15,6 +15,7 @@ typedef enum {
     SWBT_IPC_SERVER_ERROR_UNSUPPORTED_BIND = -3,
     SWBT_IPC_SERVER_ERROR_DISCONNECTED = -4,
     SWBT_IPC_SERVER_ERROR_MESSAGE_TOO_LONG = -5,
+    SWBT_IPC_SERVER_ERROR_HEARTBEAT_TIMEOUT = -6,
 } swbt_ipc_server_result_t;
 
 typedef struct {
@@ -25,8 +26,16 @@ typedef struct {
 typedef struct {
     swbt_ipc_socket_t socket;
     uint32_t client_id;
+    uint64_t last_heartbeat_ms;
+    uint64_t heartbeat_timeout_ms;
+    bool heartbeat_enabled;
     bool open;
 } swbt_ipc_connection_t;
+
+typedef struct {
+    uint64_t now_ms;
+    uint64_t timeout_ms;
+} swbt_ipc_heartbeat_config_t;
 
 typedef struct {
     swbt_ipc_socket_t listen_socket;
@@ -38,6 +47,9 @@ typedef struct {
 
 void swbt_ipc_socket_init(swbt_ipc_socket_t *socket);
 void swbt_ipc_socket_close(swbt_ipc_socket_t *socket);
+void swbt_ipc_connection_configure_heartbeat(swbt_ipc_connection_t *connection,
+                                             swbt_ipc_heartbeat_config_t config);
+void swbt_ipc_connection_record_heartbeat(swbt_ipc_connection_t *connection, uint64_t now_ms);
 
 swbt_ipc_server_result_t swbt_ipc_socket_connect_loopback(swbt_ipc_socket_t *socket, uint16_t port);
 swbt_ipc_server_result_t swbt_ipc_socket_send_all(swbt_ipc_socket_t *socket, const char *data,
@@ -53,6 +65,12 @@ swbt_ipc_server_result_t swbt_ipc_server_accept(swbt_ipc_server_t *server,
                                                 swbt_ipc_connection_t *out_connection);
 swbt_ipc_server_result_t swbt_ipc_server_serve_connection_once(swbt_ipc_server_t *server,
                                                                swbt_ipc_connection_t *connection);
+swbt_ipc_server_result_t swbt_ipc_server_serve_connection_once_at(swbt_ipc_server_t *server,
+                                                                  swbt_ipc_connection_t *connection,
+                                                                  uint64_t now_ms);
+swbt_ipc_server_result_t swbt_ipc_server_check_heartbeat(swbt_ipc_server_t *server,
+                                                         swbt_ipc_connection_t *connection,
+                                                         uint64_t now_ms);
 swbt_ipc_server_result_t swbt_ipc_server_get_status(const swbt_ipc_server_t *server,
                                                     swbt_ipc_status_t *out_status);
 void swbt_ipc_connection_close(swbt_ipc_connection_t *connection);
