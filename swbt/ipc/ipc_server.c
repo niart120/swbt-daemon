@@ -71,6 +71,25 @@ void swbt_ipc_socket_close(swbt_ipc_socket_t *socket) {
     socket->open = false;
 }
 
+void swbt_ipc_connection_configure_heartbeat(swbt_ipc_connection_t *connection,
+                                             swbt_ipc_heartbeat_config_t config) {
+    if (connection == NULL) {
+        return;
+    }
+
+    connection->last_heartbeat_ms = config.now_ms;
+    connection->heartbeat_timeout_ms = config.timeout_ms;
+    connection->heartbeat_enabled = config.timeout_ms > 0u;
+}
+
+void swbt_ipc_connection_record_heartbeat(swbt_ipc_connection_t *connection, uint64_t now_ms) {
+    if (connection == NULL || !connection->heartbeat_enabled) {
+        return;
+    }
+
+    connection->last_heartbeat_ms = now_ms;
+}
+
 static swbt_ipc_server_result_t swbt_ipc_set_reuseaddr(swbt_native_socket_t native_socket) {
     int enabled = 1;
 #ifdef _WIN32
@@ -267,6 +286,9 @@ swbt_ipc_server_result_t swbt_ipc_server_accept(swbt_ipc_server_t *server,
 
     swbt_ipc_socket_init(&out_connection->socket);
     out_connection->client_id = 0;
+    out_connection->last_heartbeat_ms = 0;
+    out_connection->heartbeat_timeout_ms = 0;
+    out_connection->heartbeat_enabled = false;
     out_connection->open = false;
 
     accepted_socket = accept(swbt_ipc_native_socket(&server->listen_socket), NULL, NULL);
@@ -322,8 +344,10 @@ static swbt_ipc_server_result_t swbt_ipc_read_line(swbt_ipc_socket_t *socket, ch
     }
 }
 
-swbt_ipc_server_result_t swbt_ipc_server_serve_connection_once(swbt_ipc_server_t *server,
-                                                               swbt_ipc_connection_t *connection) {
+static swbt_ipc_server_result_t
+swbt_ipc_server_serve_connection_once_internal(swbt_ipc_server_t *server,
+                                               swbt_ipc_connection_t *connection,
+                                               bool update_heartbeat, uint64_t now_ms) {
     char line[SWBT_IPC_JSON_LINE_MAX + 1u];
     char response[SWBT_IPC_JSON_RESPONSE_MAX];
     size_t line_length = 0;
@@ -345,6 +369,9 @@ swbt_ipc_server_result_t swbt_ipc_server_serve_connection_once(swbt_ipc_server_t
     }
 
     (void)line_length;
+    if (update_heartbeat) {
+        swbt_ipc_connection_record_heartbeat(connection, now_ms);
+    }
     json_result = swbt_ipc_json_handle_line(&server->session, connection->client_id, line, response,
                                             sizeof(response));
     if (json_result != SWBT_IPC_JSON_OK) {
@@ -355,6 +382,41 @@ swbt_ipc_server_result_t swbt_ipc_server_serve_connection_once(swbt_ipc_server_t
     }
 
     return swbt_ipc_socket_send_all(&connection->socket, response, strlen(response));
+}
+
+swbt_ipc_server_result_t swbt_ipc_server_serve_connection_once(swbt_ipc_server_t *server,
+                                                               swbt_ipc_connection_t *connection) {
+    return swbt_ipc_server_serve_connection_once_internal(server, connection, false, 0);
+}
+
+swbt_ipc_server_result_t swbt_ipc_server_serve_connection_once_at(swbt_ipc_server_t *server,
+                                                                  swbt_ipc_connection_t *connection,
+                                                                  uint64_t now_ms) {
+    return swbt_ipc_server_serve_connection_once_internal(server, connection, true, now_ms);
+}
+
+swbt_ipc_server_result_t swbt_ipc_server_check_heartbeat(swbt_ipc_server_t *server,
+                                                         swbt_ipc_connection_t *connection,
+                                                         uint64_t now_ms) {
+    uint64_t elapsed_ms = 0;
+
+    if (server == NULL || connection == NULL) {
+        return SWBT_IPC_SERVER_ERROR_INVALID_ARGUMENT;
+    }
+    if (!connection->heartbeat_enabled) {
+        return SWBT_IPC_SERVER_OK;
+    }
+    if (now_ms < connection->last_heartbeat_ms) {
+        return SWBT_IPC_SERVER_OK;
+    }
+
+    elapsed_ms = now_ms - connection->last_heartbeat_ms;
+    if (elapsed_ms < connection->heartbeat_timeout_ms) {
+        return SWBT_IPC_SERVER_OK;
+    }
+
+    (void)swbt_ipc_heartbeat_timeout(&server->session, connection->client_id);
+    return SWBT_IPC_SERVER_ERROR_HEARTBEAT_TIMEOUT;
 }
 
 swbt_ipc_server_result_t swbt_ipc_server_get_status(const swbt_ipc_server_t *server,
@@ -374,6 +436,9 @@ void swbt_ipc_connection_close(swbt_ipc_connection_t *connection) {
     }
     swbt_ipc_socket_close(&connection->socket);
     connection->client_id = 0;
+    connection->last_heartbeat_ms = 0;
+    connection->heartbeat_timeout_ms = 0;
+    connection->heartbeat_enabled = false;
     connection->open = false;
 }
 

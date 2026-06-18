@@ -133,16 +133,54 @@ int main(void) {
         return 24;
     }
 
+    swbt_ipc_connection_configure_heartbeat(&connection, (swbt_ipc_heartbeat_config_t){
+                                                             .now_ms = 1000u,
+                                                             .timeout_ms = 100u,
+                                                         });
+    if (send_line(&client, "{\"v\":1,\"type\":\"get_status\",\"request_id\":\"g2\"}\n") != 0) {
+        return 25;
+    }
+    if (swbt_ipc_server_serve_connection_once_at(&server, &connection, 1050u) !=
+        SWBT_IPC_SERVER_OK) {
+        return 26;
+    }
+    if (receive_response(&client, response, sizeof(response)) != 0) {
+        return 27;
+    }
+    if (expect_contains(response, "\"type\":\"status\"") ||
+        expect_contains(response, "\"request_id\":\"g2\"")) {
+        return 28;
+    }
+    if (swbt_ipc_server_check_heartbeat(&server, &connection, 1149u) != SWBT_IPC_SERVER_OK) {
+        return 29;
+    }
+    if (swbt_ipc_server_get_status(&server, &status) != SWBT_IPC_SERVER_OK) {
+        return 30;
+    }
+    if (!status.has_owner || status.state.buttons != SWBT_BUTTON_A || status.state.lx != 1234u) {
+        return 31;
+    }
+    if (swbt_ipc_server_check_heartbeat(&server, &connection, 1150u) !=
+        SWBT_IPC_SERVER_ERROR_HEARTBEAT_TIMEOUT) {
+        return 32;
+    }
+    if (swbt_ipc_server_get_status(&server, &status) != SWBT_IPC_SERVER_OK) {
+        return 33;
+    }
+    if (status.has_owner || status.state.buttons != 0u || status.state.lx != 2048u) {
+        return 34;
+    }
+
     swbt_ipc_socket_close(&client);
     if (swbt_ipc_server_serve_connection_once(&server, &connection) !=
         SWBT_IPC_SERVER_ERROR_DISCONNECTED) {
-        return 25;
+        return 35;
     }
     if (swbt_ipc_server_get_status(&server, &status) != SWBT_IPC_SERVER_OK) {
-        return 26;
+        return 36;
     }
     if (status.has_owner || status.state.buttons != 0u || status.state.lx != 2048u) {
-        return 27;
+        return 37;
     }
 
     swbt_ipc_connection_close(&connection);
