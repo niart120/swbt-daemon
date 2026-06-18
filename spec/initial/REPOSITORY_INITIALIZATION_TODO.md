@@ -115,12 +115,12 @@ Initialize swbt-daemon skeleton
 
 ### Phase 3: daemon IPC
 
-- [ ] local TCP JSON Lines server
-- [ ] `hello`
-- [ ] `acquire` / `release`
-- [ ] `set_state`
-- [ ] `get_status`
-- [ ] owner disconnect neutral
+- [x] local TCP JSON Lines server
+- [x] `hello`
+- [x] `acquire` / `release`
+- [x] `set_state`
+- [x] `get_status`
+- [x] owner disconnect neutral
 - [ ] heartbeat / timeout neutral
 
 ### Phase 4: BTstack bridge
