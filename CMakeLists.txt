@@ -59,6 +59,7 @@ swbt_define_btstack_source_selection(swbt_btstack_source_selection)
 
 add_library(swbt_core STATIC
     swbt/core/swbt_version.c
+    swbt/ipc/ipc_json.c
     swbt/ipc/ipc_session.c
     swbt/switch/switch_controller_state.c
     swbt/switch/switch_report.c
@@ -158,4 +159,13 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(ipc_session_test)
 
     add_test(NAME ipc_session_test COMMAND ipc_session_test)
+
+    add_executable(ipc_json_test
+        tests/ipc_json_test.c
+    )
+    target_link_libraries(ipc_json_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(ipc_json_test)
+    swbt_apply_sanitizers(ipc_json_test)
+
+    add_test(NAME ipc_json_test COMMAND ipc_json_test)
 endif()
