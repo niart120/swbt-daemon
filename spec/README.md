@@ -24,5 +24,6 @@ spec は設計、protocol、挙動、方針を書く文書である。
 - 根拠や外部資料の要約は `references/` に置き、規範として扱わない。
 - 置き換えた spec は `archive/` に移し、可能なら移動先または後継 spec を記録する。
 - work unit の完了判定、検証結果、実機状態は `work-units/` に記録する。
+- work unit、spec、TDD Test List の作成順序は `operations/work-unit-spec-tdd-flow.md` に従う。
 
 `spec/dev-journal.md` は例外的に、まだ spec や work unit record にするほど固まっていない観測や先送り判断を記録する。

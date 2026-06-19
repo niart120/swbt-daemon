@@ -1,11 +1,12 @@
 ---
 name: dev-journal
-description: "swbt-daemon の設計観測、未解決事項、先送りタスク、根拠監査メモ、report-rate finding、BTstack integration observation、実機以外の bring-up 判断を spec/dev-journal.md に記録する。Codex が memo、journal、follow-up の記録、先送り判断の記録、work unit record や spec にするほどではない小さな観測の保存を求められたときに使う。"
+description: "swbt-daemon の設計観測、未解決事項、先送りタスク、根拠監査メモ、report-rate finding、BTstack integration observation、実機以外の bring-up 判断を spec/dev-journal.md に記録し、後続 work unit / spec の source として扱う。Codex が memo、journal、follow-up の記録、先送り判断の記録、work unit record や spec にするほどではない小さな観測の保存、または journal entry から work unit / spec への昇格判断を求められたときに使う。"
 ---
 
 # 開発ジャーナル
 
 `spec/dev-journal.md` に簡潔な設計観測を追記するときに、この skill を使う。
+journal entry は、後続 work unit または spec の source になり得る。work unit、spec、TDD Test List の作成順序は `spec/operations/work-unit-spec-tdd-flow.md` に従う。
 
 ## ファイル
 
@@ -59,5 +60,6 @@ swbt-daemon の設計観測、未解決事項、先送り判断の記録。
 
 ## 昇格
 
-記録が実装作業になった場合は、`work-unit-record` を使って `work-units/wip/local_{nnn}/FEATURE_NAME.md` を作り、journal entry を参照する。
-複数の work unit から参照される判断になった場合は、`spec-page` を使って spec page を作る。
+記録が実装作業になった場合は、journal entry を source として扱い、use case または観測したい振る舞いへ変換してから `work-unit-record` を使う。作成する work unit record には、参照元の journal entry と、source から use case へ変換した判断を残す。
+
+複数の work unit から参照される判断になった場合は、`spec-page` を使って spec page を作る。作成する spec page には、参照元の journal entry を根拠として残す。
