@@ -67,6 +67,7 @@ add_library(swbt_core STATIC
     swbt/ipc/ipc_server.c
     swbt/ipc/ipc_session.c
     swbt/switch/switch_controller_state.c
+    swbt/switch/switch_hid_descriptor.c
     swbt/switch/switch_report.c
     swbt/switch/switch_rumble.c
     swbt/switch/switch_spi.c
@@ -133,6 +134,15 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(switch_report_test)
 
     add_test(NAME switch_report_test COMMAND switch_report_test)
+
+    add_executable(switch_hid_descriptor_test
+        tests/switch_hid_descriptor_test.c
+    )
+    target_link_libraries(switch_hid_descriptor_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(switch_hid_descriptor_test)
+    swbt_apply_sanitizers(switch_hid_descriptor_test)
+
+    add_test(NAME switch_hid_descriptor_test COMMAND switch_hid_descriptor_test)
 
     add_executable(switch_subcommand_test
         tests/switch_subcommand_test.c
