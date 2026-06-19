@@ -14,6 +14,8 @@ enum {
     SWBT_IPC_JSON_STRING_MAX = 96,
     SWBT_IPC_OWNER_ID_HEX_SIZE = 8,
     SWBT_IPC_OWNER_ID_BUFFER_SIZE = SWBT_IPC_OWNER_ID_HEX_SIZE + 1,
+    SWBT_IPC_RUMBLE_HEX_SIZE = SWBT_SWITCH_RUMBLE_DATA_SIZE * 2,
+    SWBT_IPC_RUMBLE_HEX_BUFFER_SIZE = SWBT_IPC_RUMBLE_HEX_SIZE + 1,
     SWBT_IPC_STICK_MAX = 4095,
 };
 
@@ -222,6 +224,17 @@ static void swbt_ipc_format_owner_id(uint32_t client_id, char out[SWBT_IPC_OWNER
         out[index] = hex[(client_id >> shift) & 0x0Fu];
     }
     out[SWBT_IPC_OWNER_ID_HEX_SIZE] = '\0';
+}
+
+static void swbt_ipc_format_rumble_raw(const uint8_t raw[SWBT_SWITCH_RUMBLE_DATA_SIZE],
+                                       char out[SWBT_IPC_RUMBLE_HEX_BUFFER_SIZE]) {
+    static const char hex[] = "0123456789abcdef";
+
+    for (size_t index = 0; index < SWBT_SWITCH_RUMBLE_DATA_SIZE; ++index) {
+        out[index * 2u] = hex[(raw[index] >> 4u) & 0x0Fu];
+        out[(index * 2u) + 1u] = hex[raw[index] & 0x0Fu];
+    }
+    out[SWBT_IPC_RUMBLE_HEX_SIZE] = '\0';
 }
 
 static bool swbt_ipc_parse_owner_id(const char *owner_id, uint32_t *out_client_id) {
@@ -472,6 +485,7 @@ static swbt_ipc_json_result_t swbt_ipc_handle_get_status(swbt_ipc_session_t *ses
                                                          const char *request_id) {
     swbt_ipc_status_t status;
     char owner_id[SWBT_IPC_OWNER_ID_BUFFER_SIZE] = "00000000";
+    char rumble_raw[SWBT_IPC_RUMBLE_HEX_BUFFER_SIZE];
 
     if (swbt_ipc_get_status(session, &status) != SWBT_IPC_OK) {
         return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
@@ -481,6 +495,7 @@ static swbt_ipc_json_result_t swbt_ipc_handle_get_status(swbt_ipc_session_t *ses
     if (status.has_owner) {
         swbt_ipc_format_owner_id(status.owner_client_id, owner_id);
     }
+    swbt_ipc_format_rumble_raw(status.rumble.raw, rumble_raw);
 
     if (has_request_id) {
         return swbt_json_write(
@@ -489,13 +504,16 @@ static swbt_ipc_json_result_t swbt_ipc_handle_get_status(swbt_ipc_session_t *ses
             "\"owner\":{\"present\":%s,\"owner_id\":\"%s\",\"last_seq\":%llu},"
             "\"state\":{\"buttons\":%u,\"lx\":%u,\"ly\":%u,\"rx\":%u,\"ry\":%u,"
             "\"accel_x\":%d,\"accel_y\":%d,\"accel_z\":%d,"
-            "\"gyro_x\":%d,\"gyro_y\":%d,\"gyro_z\":%d}}\n",
+            "\"gyro_x\":%d,\"gyro_y\":%d,\"gyro_z\":%d},"
+            "\"rumble\":{\"updated\":%s,\"last_update_ms\":%llu,\"raw\":\"%s\"}}\n",
             request_id, status.has_owner ? "true" : "false", owner_id,
             (unsigned long long)status.state.client_seq, (unsigned int)status.state.buttons,
             (unsigned int)status.state.lx, (unsigned int)status.state.ly,
             (unsigned int)status.state.rx, (unsigned int)status.state.ry, (int)status.state.accel_x,
             (int)status.state.accel_y, (int)status.state.accel_z, (int)status.state.gyro_x,
-            (int)status.state.gyro_y, (int)status.state.gyro_z);
+            (int)status.state.gyro_y, (int)status.state.gyro_z,
+            status.rumble.updated ? "true" : "false",
+            (unsigned long long)status.rumble.updated_at_ms, rumble_raw);
     }
 
     return swbt_json_write(
@@ -504,12 +522,15 @@ static swbt_ipc_json_result_t swbt_ipc_handle_get_status(swbt_ipc_session_t *ses
         "\"owner\":{\"present\":%s,\"owner_id\":\"%s\",\"last_seq\":%llu},"
         "\"state\":{\"buttons\":%u,\"lx\":%u,\"ly\":%u,\"rx\":%u,\"ry\":%u,"
         "\"accel_x\":%d,\"accel_y\":%d,\"accel_z\":%d,"
-        "\"gyro_x\":%d,\"gyro_y\":%d,\"gyro_z\":%d}}\n",
+        "\"gyro_x\":%d,\"gyro_y\":%d,\"gyro_z\":%d},"
+        "\"rumble\":{\"updated\":%s,\"last_update_ms\":%llu,\"raw\":\"%s\"}}\n",
         status.has_owner ? "true" : "false", owner_id, (unsigned long long)status.state.client_seq,
         (unsigned int)status.state.buttons, (unsigned int)status.state.lx,
         (unsigned int)status.state.ly, (unsigned int)status.state.rx, (unsigned int)status.state.ry,
         (int)status.state.accel_x, (int)status.state.accel_y, (int)status.state.accel_z,
-        (int)status.state.gyro_x, (int)status.state.gyro_y, (int)status.state.gyro_z);
+        (int)status.state.gyro_x, (int)status.state.gyro_y, (int)status.state.gyro_z,
+        status.rumble.updated ? "true" : "false", (unsigned long long)status.rumble.updated_at_ms,
+        rumble_raw);
 }
 
 swbt_ipc_json_result_t swbt_ipc_json_handle_line(swbt_ipc_session_t *session, uint32_t client_id,

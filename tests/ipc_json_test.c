@@ -5,6 +5,7 @@
 #include "ipc/ipc_json.h"
 #include "ipc/ipc_session.h"
 #include "switch/switch_controller_state.h"
+#include "switch/switch_rumble.h"
 
 static int expect_contains(const char *text, const char *needle) {
     return strstr(text, needle) != NULL ? 0 : 1;
@@ -30,6 +31,9 @@ int main(void) {
     swbt_ipc_session_t session;
     swbt_ipc_status_t status;
     char response[SWBT_IPC_JSON_RESPONSE_MAX];
+    const uint8_t active_rumble[SWBT_SWITCH_RUMBLE_DATA_SIZE] = {
+        0x04, 0x01, 0x80, 0x41, 0x08, 0x01, 0x80, 0x42,
+    };
 
     if (swbt_ipc_session_init(&session) != SWBT_IPC_OK) {
         return 1;
@@ -103,6 +107,9 @@ int main(void) {
         status.state.client_seq != 77) {
         return 13;
     }
+    if (swbt_ipc_record_rumble(&session, active_rumble, 4242u) != SWBT_IPC_OK) {
+        return 32;
+    }
 
     if (handle(&session, 2002, "{\"v\":1,\"type\":\"get_status\",\"request_id\":\"g1\"}\n",
                response, sizeof(response)) != SWBT_IPC_JSON_OK) {
@@ -113,7 +120,9 @@ int main(void) {
         expect_contains(response, "\"present\":true") ||
         expect_contains(response, "\"owner_id\":\"000003e9\"") ||
         expect_contains(response, "\"last_seq\":77") ||
-        expect_contains(response, "\"buttons\":8") || expect_contains(response, "\"lx\":1234")) {
+        expect_contains(response, "\"buttons\":8") || expect_contains(response, "\"lx\":1234") ||
+        expect_contains(response, "\"rumble\":{\"updated\":true,\"last_update_ms\":4242,"
+                                  "\"raw\":\"0401804108018042\"}")) {
         return 15;
     }
 
