@@ -62,6 +62,8 @@ get_property(swbt_btstack_selected_include_dirs TARGET swbt_btstack_source_selec
 add_library(swbt_core STATIC
     swbt/core/swbt_version.c
     swbt/core/state_mailbox.c
+    swbt/daemon/config.c
+    swbt/daemon/runtime.c
     swbt/btstack_bridge/hid_device_btstack_adapter.c
     swbt/btstack_bridge/hid_device_registration.c
     swbt/btstack_bridge/output_report_callbacks.c
@@ -318,4 +320,13 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(btstack_input_report_scheduler_test)
 
     add_test(NAME btstack_input_report_scheduler_test COMMAND btstack_input_report_scheduler_test)
+
+    add_executable(daemon_runtime_test
+        tests/daemon_runtime_test.c
+    )
+    target_link_libraries(daemon_runtime_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(daemon_runtime_test)
+    swbt_apply_sanitizers(daemon_runtime_test)
+
+    add_test(NAME daemon_runtime_test COMMAND daemon_runtime_test)
 endif()
