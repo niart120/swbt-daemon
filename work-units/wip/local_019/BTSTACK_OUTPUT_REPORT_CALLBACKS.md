@@ -30,7 +30,7 @@ DATA callback と SET_REPORT callback の扱いは、実装前の根拠監査と
 - `spec/references/btstack-output-report-parser-bridge.md`
 - `spec/references/switch-subcommand-core.md`
 - `work-units/complete/local_013/BTSTACK_OUTPUT_REPORT_PARSER_BRIDGE.md`
-- `work-units/wip/local_018/BTSTACK_PRODUCTION_ADAPTER.md`
+- `work-units/complete/local_018/BTSTACK_PRODUCTION_ADAPTER.md`
 - `swbt/btstack_bridge/README.md`
 
 ## 5. 根拠監査
