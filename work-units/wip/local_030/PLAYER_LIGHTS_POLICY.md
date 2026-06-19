@@ -28,7 +28,7 @@ local_020 の dispatcher から呼べる policy core として分離する。
 - `spec/references/switch-subcommand-core.md`
 - `spec/references/switch-subcommand-reply-core.md`
 - `work-units/complete/local_014/SWITCH_SUBCOMMAND_REPLY_CORE.md`
-- `work-units/wip/local_020/SUBCOMMAND_DISPATCHER_CORE.md`
+- `work-units/complete/local_020/SUBCOMMAND_DISPATCHER_CORE.md`
 
 ## 5. 根拠監査
 
