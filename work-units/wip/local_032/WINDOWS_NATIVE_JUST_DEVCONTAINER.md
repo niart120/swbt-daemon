@@ -4,7 +4,7 @@
 
 Windows native PowerShell から `just` recipe を実行し、Dev Container CLI 経由で container 内 recipe へ委譲できるかを確認する work unit。
 
-`work-units/wip/local_031/JUST_TASK_RUNNER_MIGRATION_PLAN.md` では、Windows host を WSL2 shell 経路と Windows native shell 経路に分けた。
+`work-units/complete/local_031/JUST_TASK_RUNNER_MIGRATION_PLAN.md` では、Windows host を WSL2 shell 経路と Windows native shell 経路に分けた。
 この work unit は、未検証の Windows native shell 経路を標準入口に含められるか判断するための記録である。
 
 ## 2. 対象範囲
@@ -13,7 +13,7 @@ Windows native PowerShell から `just` recipe を実行し、Dev Container CLI 
 - Windows native PowerShell で `devcontainer --version`、`devcontainer up`、`devcontainer exec` が使える前提を確認する。
 - Docker Desktop と WSL2 backend の前提を確認する。
 - repository が Windows filesystem にある場合と WSL2 filesystem にある場合の workspace path の扱いを確認する。
-- `justfile` の Windows recipe を `windows-shell`、`[windows]` attribute、または PowerShell helper script のどれで書くか判断する。
+- 既存 `justfile` を Windows native PowerShell 経路でも使えるか、`windows-shell`、`[windows]` attribute、または PowerShell helper script が必要か判断する。
 - `CTEST_ARGS` などの environment variable と argument の受け渡しを確認する。
 - Windows native PowerShell から `just debug` または同等の確認用 recipe が host toolchain を使わず Dev Container CLI へ委譲することを確認する。
 
@@ -28,11 +28,10 @@ Windows native PowerShell から `just` recipe を実行し、Dev Container CLI 
 ## 4. 関連 spec / docs
 
 - `spec/operations/just-task-runner-migration.md`
-- `work-units/wip/local_031/JUST_TASK_RUNNER_MIGRATION_PLAN.md`
+- `work-units/complete/local_031/JUST_TASK_RUNNER_MIGRATION_PLAN.md`
 - `.devcontainer/devcontainer.json`
 - `.devcontainer/Dockerfile`
-- `Makefile`
-- future `justfile`
+- `justfile`
 - future Windows helper script if needed
 - https://just.systems/man/en/
 - https://just.systems/man/en/settings.html
@@ -63,8 +62,8 @@ Windows native PowerShell 経路が不安定な場合、標準入口は WSL2 she
 
 - `work-units/wip/local_032/WINDOWS_NATIVE_JUST_DEVCONTAINER.md`
 - `spec/operations/just-task-runner-migration.md`
-- `work-units/wip/local_031/JUST_TASK_RUNNER_MIGRATION_PLAN.md`
-- future `justfile`
+- `work-units/complete/local_031/JUST_TASK_RUNNER_MIGRATION_PLAN.md`
+- `justfile`
 - future Windows helper script if needed
 - future README / AGENTS updates
 

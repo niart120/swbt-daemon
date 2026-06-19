@@ -10,9 +10,9 @@ repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
 
 if [ "${SWBT_FULL_PRE_PUSH:-0}" = "1" ]; then
-    echo "[pre-push] make verify"
-    make verify
+    echo "[pre-push] just verify"
+    just verify
 else
-    echo "[pre-push] make debug"
-    make debug
+    echo "[pre-push] just debug"
+    just debug
 fi

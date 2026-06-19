@@ -41,9 +41,12 @@ Nintendo Switch
 
 ## 開発環境
 
-主開発環境は WSL2 + Dev Containers です。
+主開発環境は Linux、macOS、Windows host + Dev Containers です。
+Windows では、WSL2 shell 内で repository を開いて `just` を実行する経路を標準とします。
+Windows native PowerShell からの `just` 実行は、`work-units/wip/local_032/WINDOWS_NATIVE_JUST_DEVCONTAINER.md` で検証するまで標準入口に含めません。
 Dev Container には主に次のツールを含めています。
 
+- just
 - CMake
 - Ninja
 - コンパイラー
@@ -55,10 +58,14 @@ build / test 環境の扱いは次のとおりです。
 
 - ローカルでの configure、build、test、format、static analysis、cross build は、Dev Container 内で行うことを標準とします。
 - Dev Container 外の host build は通常の検証経路に含めません。手元の未管理 toolchain によって結果が変わることを避けるためです。
-- host で `make` targets を実行した場合は、Makefile が Dev Container CLI へ委譲します。
-- `.devcontainer/` を変更した後は、必要に応じて `make devcontainer-rebuild` で既存コンテナを作り直します。
+- host で `just` recipes を実行した場合は、`justfile` が Dev Container CLI へ委譲します。
+- `.devcontainer/` を変更した後は、必要に応じて `just devcontainer-rebuild` で既存コンテナを作り直します。
 - CI も `.devcontainer/devcontainer.json` を使い、Dev Container 内で検証します。
 - Dev Container 外で host build する場合は、ユーザが明示的に `SWBT_ALLOW_HOST_BUILD=1` または `-DSWBT_ALLOW_HOST_BUILD=ON` を付けて実行します。
+
+host 側には `just` と Dev Container CLI が必要です。
+Ubuntu 24.04 系では `sudo apt install just`、macOS では `brew install just`、Windows では `winget install Casey.Just`、Scoop、Chocolatey などを使えます。
+Dev Container CLI は VS Code Dev Containers または `@devcontainers/cli` で用意します。
 
 実機検証の前提は次のとおりです。
 
@@ -69,25 +76,25 @@ build / test 環境の扱いは次のとおりです。
 通常の configure / build / test:
 
 ```bash
-make debug
+just debug
 ```
 
 sanitizer configure / build / test:
 
 ```bash
-make asan
+just asan
 ```
 
 Windows cross build:
 
 ```bash
-make windows-cross
+just windows-cross
 ```
 
 全体検証:
 
 ```bash
-make verify
+just verify
 ```
 
 Git hooks は `.githooks/` に置いています。
@@ -99,17 +106,17 @@ sh scripts/install-git-hooks.sh
 
 hooks の挙動は次のとおりです。
 
-- `pre-commit` は staged diff の whitespace、Makefile 経由の CMake presets、staged C source の format を確認します。
+- `pre-commit` は staged diff の whitespace、`just` 経由の CMake presets、staged C source の format を確認します。
 - `commit-msg` は Conventional Commits の形式と subject 末尾句点なしを確認します。
-- `pre-push` は `make debug` を実行します。
-- `SWBT_FULL_PRE_PUSH=1` を指定すると `make verify` を実行します。
+- `pre-push` は `just debug` を実行します。
+- `SWBT_FULL_PRE_PUSH=1` を指定すると `just verify` を実行します。
 
 format と lint のコマンド:
 
 ```bash
-make format
-make format-check
-make tidy
+just format
+just format-check
+just tidy
 ```
 
 formatter と linter の選定理由は `spec/operations/development-tooling.md` に記録しています。
