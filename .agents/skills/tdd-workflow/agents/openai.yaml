@@ -1,4 +1,4 @@
 interface:
   display_name: "TDD Workflow"
-  short_description: "CMake/CTest TDD cycle を回す"
-  default_prompt: "$tdd-workflow を使って swbt の CMake/CTest TDD cycle を一つ進める。"
+  short_description: "分割skillでTDDを進める入口"
+  default_prompt: "$tdd-workflow を使って swbt の use case を確認し、必要な分割 skill で TDD を一つ進める。"

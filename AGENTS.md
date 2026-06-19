@@ -167,6 +167,10 @@ just verify
 - `work-unit-record`: work unit record を作成・更新する。
 - `spec-page`: 安定した spec page を作成・更新する。
 - `tdd-workflow`: CMake / CTest 前提で TDD を進める。
+- `tdd-test-list`: use case から TDD Test List を作成・更新する。
+- `tdd-one-cycle`: TDD Test List の 1 item だけを red / green / refactor で進める。
+- `tidy-first`: behavior change と structure change を分離する。
+- `test-desiderata-review`: test の価値と trade-off を確認する。
 - `dev-journal`: `spec/dev-journal.md` に観測や先送り事項を記録する。
 - `agentic-self-review`: PR 前や handoff 前に判定結果を整理する。
 - `pr-merge-cleanup`: PR 作成、マージ、既定ブランチ同期、ブランチの後片付けを行う。

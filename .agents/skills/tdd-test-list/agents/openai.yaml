@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD Test List"
+  short_description: "use case からTDD項目を作る"
+  default_prompt: "$tdd-test-list を使って swbt の use case から TDD Test List を作る。"

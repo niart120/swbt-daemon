@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test Desiderata Review"
+  short_description: "testの価値と脆さを確認する"
+  default_prompt: "$test-desiderata-review を使って swbt の test の trade-off を確認する。"
