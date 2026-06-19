@@ -6,6 +6,9 @@
 
 `vendor/btstack/` は upstream source なので、formatter と linter の対象にしない。
 
+`just` への task runner 移行計画は `spec/operations/just-task-runner-migration.md` に記録する。
+この spec は、移行が実装されるまでの Makefile 前提の current tooling policy を表す。
+
 ## 基本方針
 
 - ローカルの標準実行環境は Dev Container とする。
