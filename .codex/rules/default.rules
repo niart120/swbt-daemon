@@ -2,11 +2,15 @@
 #
 # These rules intentionally cover only repository-local verification commands,
 # local Git bookkeeping, and read-only inspection commands documented in
-# tmp/command-approval-allowlist.md. Network, GitHub, Docker/devcontainer,
-# hardware-facing, and destructive commands remain outside this allowlist.
+# AGENTS.md and spec/operations/development-tooling.md. Network, GitHub,
+# direct Docker/devcontainer, Dev Container rebuilds, hardware-facing, and
+# destructive commands remain outside this allowlist.
 
 prefix_rule(
-    pattern = ["make", [
+    pattern = ["just", [
+        "--list",
+        "help",
+        "devcontainer-up",
         "list-presets",
         "configure-debug",
         "build-debug",
@@ -21,15 +25,51 @@ prefix_rule(
         "verify-ci",
     ]],
     decision = "allow",
-    justification = "swbt-daemon documented non-hardware Makefile verification targets are allowed for this trusted repository.",
+    justification = "swbt-daemon documented non-hardware just verification recipes are allowed for this trusted repository.",
     match = [
-        "make debug",
-        "make verify",
-        "make windows-cross",
+        "just --list",
+        "just help",
+        "just devcontainer-up",
+        "just list-presets",
+        "just debug",
+        "just verify",
+        "just windows-cross",
     ],
     not_match = [
-        "make devcontainer-up",
-        "make devcontainer-rebuild",
+        "just devcontainer-rebuild",
+    ],
+)
+
+prefix_rule(
+    pattern = ["just", "--justfile", "justfile", [
+        "--list",
+        "help",
+        "devcontainer-up",
+        "list-presets",
+        "configure-debug",
+        "build-debug",
+        "test-debug",
+        "debug",
+        "format-check",
+        "format",
+        "tidy",
+        "asan",
+        "windows-cross",
+        "verify",
+        "verify-ci",
+    ]],
+    decision = "allow",
+    justification = "swbt-daemon documented non-hardware just verification recipes are allowed when invoked with the repository justfile.",
+    match = [
+        "just --justfile justfile --list",
+        "just --justfile justfile help",
+        "just --justfile justfile devcontainer-up",
+        "just --justfile justfile debug",
+        "just --justfile justfile verify",
+        "just --justfile justfile windows-cross",
+    ],
+    not_match = [
+        "just --justfile justfile devcontainer-rebuild",
     ],
 )
 

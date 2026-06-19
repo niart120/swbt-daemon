@@ -70,7 +70,8 @@ work-units/             work unit record
 ## 開発環境
 
 - 主開発環境は Linux、macOS、Windows host + Dev Containers とする。
-- Windows では WSL2 shell 内で repository を開いて `just` を実行する経路を標準とする。Windows native PowerShell からの `just` 実行は `work-units/wip/local_032/WINDOWS_NATIVE_JUST_DEVCONTAINER.md` で検証するまで標準入口に含めない。
+- Windows では、Windows filesystem 上の repository は Windows native PowerShell から `just` を実行して Dev Container CLI へ委譲する経路を標準入口に含める。WSL2 filesystem 上の repository は WSL2 shell 内で `just` を実行する経路を標準とする。
+- Windows native PowerShell 経路は `work-units/complete/local_032/WINDOWS_NATIVE_JUST_DEVCONTAINER.md` で検証済みであり、host 側の `just`、Dev Container CLI、Docker Desktop WSL2 backend を前提にする。
 - `.devcontainer/Dockerfile` は Ubuntu 24.04、`just`、CMake、Ninja、clang、clang-format、clang-tidy、mingw-w64、libusb headers、valgrind を含む再現環境である。
 - `.devcontainer/devcontainer.json` は VS Code C/C++ と CMake Tools extension を推奨し、container user は `ubuntu` とする。
 - Linux native build、sanitizer、unit test、Windows MinGW cross build は Dev Container 内で再現できる前提にする。
