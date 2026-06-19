@@ -42,8 +42,9 @@ Nintendo Switch
 ## 開発環境
 
 主開発環境は Linux、macOS、Windows host + Dev Containers です。
-Windows では、WSL2 shell 内で repository を開いて `just` を実行する経路を標準とします。
-Windows native PowerShell からの `just` 実行は、`work-units/wip/local_032/WINDOWS_NATIVE_JUST_DEVCONTAINER.md` で検証するまで標準入口に含めません。
+Windows では、Windows filesystem 上の repository は Windows native PowerShell から `just` を実行して Dev Container CLI へ委譲する経路を標準入口に含めます。
+WSL2 filesystem 上の repository は、WSL2 shell 内で `just` を実行する経路を標準とします。
+Windows native PowerShell 経路は、`work-units/complete/local_032/WINDOWS_NATIVE_JUST_DEVCONTAINER.md` で検証しています。
 Dev Container には主に次のツールを含めています。
 
 - just
