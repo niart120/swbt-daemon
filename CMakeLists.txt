@@ -59,6 +59,7 @@ swbt_define_btstack_source_selection(swbt_btstack_source_selection)
 
 add_library(swbt_core STATIC
     swbt/core/swbt_version.c
+    swbt/core/state_mailbox.c
     swbt/btstack_bridge/hid_device_registration.c
     swbt/btstack_bridge/input_report_scheduler.c
     swbt/btstack_bridge/output_report_handler.c
@@ -177,6 +178,15 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(ipc_session_test)
 
     add_test(NAME ipc_session_test COMMAND ipc_session_test)
+
+    add_executable(state_mailbox_test
+        tests/state_mailbox_test.c
+    )
+    target_link_libraries(state_mailbox_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(state_mailbox_test)
+    swbt_apply_sanitizers(state_mailbox_test)
+
+    add_test(NAME state_mailbox_test COMMAND state_mailbox_test)
 
     add_executable(ipc_json_test
         tests/ipc_json_test.c
