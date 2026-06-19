@@ -28,7 +28,7 @@ local_015 で対象外にした Subcommand reply priority queue を扱う。
 - `spec/references/switch-subcommand-reply-core.md`
 - `work-units/complete/local_014/SWITCH_SUBCOMMAND_REPLY_CORE.md`
 - `work-units/complete/local_015/PERIODIC_INPUT_REPORT_CORE.md`
-- `work-units/wip/local_020/SUBCOMMAND_DISPATCHER_CORE.md`
+- `work-units/complete/local_020/SUBCOMMAND_DISPATCHER_CORE.md`
 
 ## 5. 根拠監査
 
