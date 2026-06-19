@@ -102,7 +102,7 @@ Switch-facing daemon run、Bluetooth adapter open、HID advertising、pairing、
 
 ## 12. 先送り事項
 
-- daemon lifecycle への組み込み、connection open / close event からの start / stop は未実装である。後続 source は `work-units/wip/local_025/DAEMON_RUNTIME_INTEGRATION.md` に置く。
+- daemon lifecycle への組み込み、connection open / close event からの start / stop は `work-units/complete/local_025/DAEMON_RUNTIME_INTEGRATION.md` で扱った。実 adapter open と実機 report loop は未検証である。
 - 実機 Switch での report period acceptability と jitter tolerance は未検証である。実機承認を得た work unit で `docs/hardware-test-log.md` に記録する。
 
 ## 13. チェックリスト
