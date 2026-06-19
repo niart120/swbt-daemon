@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "core/state_mailbox.h"
 #include "switch/switch_controller_state.h"
 
 typedef enum {
@@ -23,9 +24,13 @@ typedef struct {
     bool has_owner;
     uint32_t owner_client_id;
     swbt_state_t state;
+    swbt_state_mailbox_t *mailbox;
 } swbt_ipc_session_t;
 
 swbt_ipc_result_t swbt_ipc_session_init(swbt_ipc_session_t *session);
+
+swbt_ipc_result_t swbt_ipc_session_bind_mailbox(swbt_ipc_session_t *session,
+                                                swbt_state_mailbox_t *mailbox);
 
 swbt_ipc_result_t swbt_ipc_acquire(swbt_ipc_session_t *session, uint32_t client_id);
 
