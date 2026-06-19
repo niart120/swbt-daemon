@@ -1,0 +1,202 @@
+# Project-local Codex command rules for swbt-daemon.
+#
+# These rules intentionally cover only repository-local verification commands,
+# local Git bookkeeping, and read-only inspection commands documented in
+# tmp/command-approval-allowlist.md. Network, GitHub, Docker/devcontainer,
+# hardware-facing, and destructive commands remain outside this allowlist.
+
+prefix_rule(
+    pattern = ["make", [
+        "list-presets",
+        "configure-debug",
+        "build-debug",
+        "test-debug",
+        "debug",
+        "format-check",
+        "format",
+        "tidy",
+        "asan",
+        "windows-cross",
+        "verify",
+        "verify-ci",
+    ]],
+    decision = "allow",
+    justification = "swbt-daemon documented non-hardware Makefile verification targets are allowed for this trusted repository.",
+    match = [
+        "make debug",
+        "make verify",
+        "make windows-cross",
+    ],
+    not_match = [
+        "make devcontainer-up",
+        "make devcontainer-rebuild",
+    ],
+)
+
+prefix_rule(
+    pattern = ["cmake", "--list-presets"],
+    decision = "allow",
+    justification = "Listing CMake presets is a read-only project inspection command.",
+    match = [
+        "cmake --list-presets",
+    ],
+)
+
+prefix_rule(
+    pattern = ["cmake", "--fresh", "--preset", [
+        "linux-debug",
+        "linux-asan",
+        "linux-clang-tidy",
+        "windows-mingw-debug",
+    ]],
+    decision = "allow",
+    justification = "Configured swbt-daemon CMake presets are allowed non-hardware build setup commands.",
+    match = [
+        "cmake --fresh --preset linux-debug",
+        "cmake --fresh --preset windows-mingw-debug",
+    ],
+)
+
+prefix_rule(
+    pattern = ["cmake", "--build", "--preset", [
+        "linux-debug",
+        "linux-asan",
+        "linux-clang-tidy",
+        "windows-mingw-debug",
+    ]],
+    decision = "allow",
+    justification = "Configured swbt-daemon CMake build presets are allowed non-hardware build commands.",
+    match = [
+        "cmake --build --preset linux-debug",
+        "cmake --build --preset windows-mingw-debug",
+    ],
+)
+
+prefix_rule(
+    pattern = ["ctest", "--preset", [
+        "linux-debug",
+        "linux-asan",
+    ]],
+    decision = "allow",
+    justification = "Configured swbt-daemon CTest presets are allowed non-hardware test commands.",
+    match = [
+        "ctest --preset linux-debug",
+        "ctest --preset linux-asan --output-on-failure",
+    ],
+)
+
+prefix_rule(
+    pattern = [["scripts/check-format.sh", "scripts/format.sh"]],
+    decision = "allow",
+    justification = "Repository-local formatting scripts are allowed for this trusted repository.",
+    match = [
+        "scripts/check-format.sh",
+        "scripts/format.sh",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", [
+        "add",
+        "commit",
+        "mv",
+    ]],
+    decision = "allow",
+    justification = "Local Git staging, commit, and move operations are allowed for this trusted repository.",
+    match = [
+        "git add swbt tests",
+        "git commit -m 'docs(work-units): example'",
+        "git mv old.md new.md",
+    ],
+    not_match = [
+        "git push",
+        "git pull",
+        "git fetch",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "switch", "-c"],
+    decision = "allow",
+    justification = "Creating a local work branch is allowed for this trusted repository.",
+    match = [
+        "git switch -c docs/example",
+    ],
+    not_match = [
+        "git switch main",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "branch", "--show-current"],
+    decision = "allow",
+    justification = "Reading the current Git branch is allowed.",
+    match = [
+        "git branch --show-current",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "status", "--short"],
+    decision = "allow",
+    justification = "Reading short Git status is allowed.",
+    match = [
+        "git status --short",
+        "git status --short --branch",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", [
+        "diff",
+        "log",
+        "show",
+    ]],
+    decision = "allow",
+    justification = "Read-only Git inspection commands are allowed.",
+    match = [
+        "git diff",
+        "git diff --cached",
+        "git log --oneline -5",
+        "git show HEAD",
+    ],
+)
+
+prefix_rule(
+    pattern = [["rg", "ls"]],
+    decision = "allow",
+    justification = "Read-only file discovery and search commands are allowed.",
+    match = [
+        "rg --files",
+        "rg TODO swbt tests",
+        "ls",
+        "ls docs",
+    ],
+)
+
+prefix_rule(
+    pattern = ["sed", "-n"],
+    decision = "allow",
+    justification = "Read-only targeted file printing with sed -n is allowed.",
+    match = [
+        "sed -n 1,120p README.md",
+    ],
+)
+
+prefix_rule(
+    pattern = ["nl", "-ba"],
+    decision = "allow",
+    justification = "Read-only numbered file printing with nl -ba is allowed.",
+    match = [
+        "nl -ba README.md",
+    ],
+)
+
+prefix_rule(
+    pattern = ["wc", "-l"],
+    decision = "allow",
+    justification = "Read-only line counting with wc -l is allowed.",
+    match = [
+        "wc -l README.md",
+    ],
+)
