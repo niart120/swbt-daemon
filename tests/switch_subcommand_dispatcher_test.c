@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 #include "switch/switch_controller_state.h"
+#include "switch/switch_player_lights.h"
 #include "switch/switch_report.h"
 #include "switch/switch_spi.h"
 #include "switch/switch_subcommand.h"
@@ -61,6 +62,15 @@ sample_config(const swbt_state_t *state, const swbt_switch_report_options_t *rep
         .report_options = report_options,
         .spi = spi,
     };
+    return config;
+}
+
+static swbt_switch_subcommand_dispatcher_config_t
+sample_config_with_player_lights(const swbt_state_t *state,
+                                 const swbt_switch_report_options_t *report_options,
+                                 swbt_switch_player_lights_state_t *player_lights) {
+    swbt_switch_subcommand_dispatcher_config_t config = sample_config(state, report_options, NULL);
+    config.player_lights = player_lights;
     return config;
 }
 
@@ -133,6 +143,85 @@ static int test_spi_flash_read_builds_reply_data_from_virtual_spi(void) {
     return failed;
 }
 
+static int test_set_player_lights_updates_state_and_builds_ack(void) {
+    const uint8_t data[] = {0x53u};
+    const swbt_state_t state = sample_state();
+    const swbt_switch_report_options_t report_options = sample_report_options();
+    swbt_switch_player_lights_state_t player_lights;
+    swbt_switch_subcommand_dispatcher_config_t config =
+        sample_config_with_player_lights(&state, &report_options, &player_lights);
+    swbt_switch_output_report_t output =
+        subcommand_report(SWBT_SWITCH_SUBCOMMAND_SET_PLAYER_LIGHTS, data, sizeof(data));
+    swbt_switch_subcommand_dispatcher_response_t response;
+
+    int failed = 0;
+    failed +=
+        expect_eq_int(swbt_switch_player_lights_init(&player_lights), SWBT_SWITCH_PLAYER_LIGHTS_OK);
+    failed += expect_eq_int(swbt_switch_subcommand_dispatch(&config, &output, &response),
+                            SWBT_SWITCH_SUBCOMMAND_DISPATCH_OK);
+    failed += expect_eq_action(response.action, SWBT_SWITCH_SUBCOMMAND_DISPATCH_ACTION_REPLY);
+    failed += expect_eq_u8(response.report[13], SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_SIMPLE);
+    failed += expect_eq_u8(response.report[14], SWBT_SWITCH_SUBCOMMAND_SET_PLAYER_LIGHTS);
+    failed += expect_zero_range(response.report, SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET,
+                                SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE);
+    failed += expect_eq_u8(player_lights.raw, 0x53u);
+    failed += expect_eq_u8(player_lights.on_mask, 0x03u);
+    failed += expect_eq_u8(player_lights.flash_mask, 0x05u);
+    failed += expect_eq_u8(player_lights.effective_flash_mask, 0x04u);
+    return failed;
+}
+
+static int test_get_player_lights_builds_current_state_reply(void) {
+    const uint8_t data[] = {0x86u};
+    const swbt_state_t state = sample_state();
+    const swbt_switch_report_options_t report_options = sample_report_options();
+    swbt_switch_player_lights_state_t player_lights;
+    swbt_switch_subcommand_dispatcher_config_t config =
+        sample_config_with_player_lights(&state, &report_options, &player_lights);
+    swbt_switch_output_report_t output =
+        subcommand_report(SWBT_SWITCH_SUBCOMMAND_GET_PLAYER_LIGHTS, NULL, 0u);
+    swbt_switch_subcommand_dispatcher_response_t response;
+
+    int failed = 0;
+    failed +=
+        expect_eq_int(swbt_switch_player_lights_init(&player_lights), SWBT_SWITCH_PLAYER_LIGHTS_OK);
+    failed += expect_eq_int(swbt_switch_player_lights_apply_set(&player_lights, data, sizeof(data)),
+                            SWBT_SWITCH_PLAYER_LIGHTS_OK);
+    failed += expect_eq_int(swbt_switch_subcommand_dispatch(&config, &output, &response),
+                            SWBT_SWITCH_SUBCOMMAND_DISPATCH_OK);
+    failed += expect_eq_action(response.action, SWBT_SWITCH_SUBCOMMAND_DISPATCH_ACTION_REPLY);
+    failed += expect_eq_u8(response.report[13], SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_PLAYER_LIGHTS);
+    failed += expect_eq_u8(response.report[14], SWBT_SWITCH_SUBCOMMAND_GET_PLAYER_LIGHTS);
+    failed += expect_eq_u8(response.report[15], 0x86u);
+    failed += expect_zero_range(response.report, SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET + 1u,
+                                SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE);
+    return failed;
+}
+
+static int test_malformed_player_lights_request_does_not_update_state(void) {
+    const uint8_t data[] = {0x21u};
+    const swbt_state_t state = sample_state();
+    const swbt_switch_report_options_t report_options = sample_report_options();
+    swbt_switch_player_lights_state_t player_lights;
+    swbt_switch_subcommand_dispatcher_config_t config =
+        sample_config_with_player_lights(&state, &report_options, &player_lights);
+    swbt_switch_output_report_t output =
+        subcommand_report(SWBT_SWITCH_SUBCOMMAND_SET_PLAYER_LIGHTS, NULL, 0u);
+    swbt_switch_subcommand_dispatcher_response_t response;
+
+    int failed = 0;
+    failed +=
+        expect_eq_int(swbt_switch_player_lights_init(&player_lights), SWBT_SWITCH_PLAYER_LIGHTS_OK);
+    failed += expect_eq_int(swbt_switch_player_lights_apply_set(&player_lights, data, sizeof(data)),
+                            SWBT_SWITCH_PLAYER_LIGHTS_OK);
+    failed += expect_eq_int(swbt_switch_subcommand_dispatch(&config, &output, &response),
+                            SWBT_SWITCH_SUBCOMMAND_DISPATCH_ERROR_MALFORMED_SUBCOMMAND);
+    failed += expect_eq_action(response.action, SWBT_SWITCH_SUBCOMMAND_DISPATCH_ACTION_NONE);
+    failed += expect_eq_size(response.report_size, 0u);
+    failed += expect_eq_u8(player_lights.raw, 0x21u);
+    return failed;
+}
+
 static int test_unsupported_subcommand_returns_explicit_result(void) {
     const swbt_state_t state = sample_state();
     const swbt_switch_report_options_t report_options = sample_report_options();
@@ -197,6 +286,9 @@ int main(void) {
     int failed = 0;
     failed += test_simple_ack_dispatches_set_report_mode_reply();
     failed += test_spi_flash_read_builds_reply_data_from_virtual_spi();
+    failed += test_set_player_lights_updates_state_and_builds_ack();
+    failed += test_get_player_lights_builds_current_state_reply();
+    failed += test_malformed_player_lights_request_does_not_update_state();
     failed += test_unsupported_subcommand_returns_explicit_result();
     failed += test_malformed_spi_request_does_not_build_reply();
     failed += test_rumble_only_report_has_no_reply_action();
