@@ -32,7 +32,7 @@ BTstack production adapter は `swbt/btstack_bridge/` に閉じ込め、BTstack 
 - `spec/references/btstack-source-selection.md`
 - `spec/references/btstack-backend-build-matrix.md`
 - `work-units/complete/local_012/BTSTACK_HID_DEVICE_REGISTRATION.md`
-- `work-units/wip/local_017/SWITCH_HID_DESCRIPTOR_CORE.md`
+- `work-units/complete/local_017/SWITCH_HID_DESCRIPTOR_CORE.md`
 - `swbt/btstack_bridge/README.md`
 - `THIRD_PARTY_NOTICES.md`
 
@@ -41,8 +41,8 @@ BTstack production adapter は `swbt/btstack_bridge/` に閉じ込め、BTstack 
 | 項目 | 値 | 根拠 | source | status |
 |---|---:|---|---|---|
 | BTstack HID Device setup API | `hid_create_sdp_record`, `hid_device_init`, `hid_device_register_packet_handler` | source fact | `spec/references/btstack-hid-device-registration.md` | recorded for core registration |
-| production adapter include/link set | 未定 | 未監査 | TBD | 実装前に根拠監査が必要 |
-| SDP record length function | 未定 | 未監査 for production adapter | TBD | 実装前に根拠監査が必要 |
+| production adapter include/link set | 未定 | 未監査 | 未記録 | 実装前に根拠監査が必要 |
+| SDP record length function | 未定 | 未監査 for production adapter | 未記録 | 実装前に根拠監査が必要 |
 | BTstack run loop ownership | BTstack-owning thread only | design policy | `swbt/btstack_bridge/README.md` | adapter must preserve boundary |
 | backend build matrix | `libusb` / `windows-winusb` build success | verification fact | `spec/references/btstack-backend-build-matrix.md` | recorded before adapter |
 | 実機 advertising / pairing | 未実行 | 実機根拠なし | `docs/hardware-test-log.md` | 実機未実行 |

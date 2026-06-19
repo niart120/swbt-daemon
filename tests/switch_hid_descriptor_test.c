@@ -1,0 +1,109 @@
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
+
+#include "btstack_bridge/hid_device_registration.h"
+#include "switch/switch_hid_descriptor.h"
+
+static const uint8_t k_expected_descriptor[] = {
+    0x05, 0x01, 0x15, 0x00, 0x09, 0x04, 0xA1, 0x01, 0x85, 0x30, 0x05, 0x01, 0x05, 0x09, 0x19, 0x01,
+    0x29, 0x0A, 0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x0A, 0x55, 0x00, 0x65, 0x00, 0x81, 0x02,
+    0x05, 0x09, 0x19, 0x0B, 0x29, 0x0E, 0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x04, 0x81, 0x02,
+    0x75, 0x01, 0x95, 0x02, 0x81, 0x03, 0x0B, 0x01, 0x00, 0x01, 0x00, 0xA1, 0x00, 0x0B, 0x30, 0x00,
+    0x01, 0x00, 0x0B, 0x31, 0x00, 0x01, 0x00, 0x0B, 0x32, 0x00, 0x01, 0x00, 0x0B, 0x35, 0x00, 0x01,
+    0x00, 0x15, 0x00, 0x27, 0xFF, 0xFF, 0x00, 0x00, 0x75, 0x10, 0x95, 0x04, 0x81, 0x02, 0xC0, 0x0B,
+    0x39, 0x00, 0x01, 0x00, 0x15, 0x00, 0x25, 0x07, 0x35, 0x00, 0x46, 0x3B, 0x01, 0x65, 0x14, 0x75,
+    0x04, 0x95, 0x01, 0x81, 0x02, 0x05, 0x09, 0x19, 0x0F, 0x29, 0x12, 0x15, 0x00, 0x25, 0x01, 0x75,
+    0x01, 0x95, 0x04, 0x81, 0x02, 0x75, 0x08, 0x95, 0x34, 0x81, 0x03, 0x06, 0x00, 0xFF, 0x85, 0x21,
+    0x09, 0x01, 0x75, 0x08, 0x95, 0x3F, 0x81, 0x03, 0x85, 0x81, 0x09, 0x02, 0x75, 0x08, 0x95, 0x3F,
+    0x81, 0x03, 0x85, 0x01, 0x09, 0x03, 0x75, 0x08, 0x95, 0x3F, 0x91, 0x83, 0x85, 0x10, 0x09, 0x04,
+    0x75, 0x08, 0x95, 0x3F, 0x91, 0x83, 0x85, 0x80, 0x09, 0x05, 0x75, 0x08, 0x95, 0x3F, 0x91, 0x83,
+    0x85, 0x82, 0x09, 0x06, 0x75, 0x08, 0x95, 0x3F, 0x91, 0x83, 0xC0,
+};
+
+static int expect_true(bool value) {
+    return value ? 0 : 1;
+}
+
+static int expect_eq_size(size_t actual, size_t expected) {
+    return actual == expected ? 0 : 1;
+}
+
+typedef struct {
+    const uint8_t *descriptor;
+    size_t descriptor_size;
+} descriptor_view_t;
+
+static size_t count_report_id_markers(descriptor_view_t view, uint8_t report_id) {
+    size_t count = 0u;
+    for (size_t i = 0u; i + 1u < view.descriptor_size; ++i) {
+        if (view.descriptor[i] == 0x85u && view.descriptor[i + 1u] == report_id) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+static int test_descriptor_accessor_returns_stable_data(void) {
+    const uint8_t *first = swbt_switch_hid_descriptor_data();
+    const uint8_t *second = swbt_switch_hid_descriptor_data();
+
+    int failed = 0;
+    failed += expect_true(first != NULL);
+    failed += expect_true(first == second);
+    failed += expect_eq_size(swbt_switch_hid_descriptor_size(), SWBT_SWITCH_HID_DESCRIPTOR_SIZE);
+    failed += expect_eq_size(swbt_switch_hid_descriptor_size(), sizeof(k_expected_descriptor));
+    return failed;
+}
+
+static int test_descriptor_matches_source_audited_fixture(void) {
+    const uint8_t *descriptor = swbt_switch_hid_descriptor_data();
+    const size_t descriptor_size = swbt_switch_hid_descriptor_size();
+
+    int failed = 0;
+    failed += expect_eq_size(descriptor_size, sizeof(k_expected_descriptor));
+    failed +=
+        expect_true(memcmp(descriptor, k_expected_descriptor, sizeof(k_expected_descriptor)) == 0);
+    return failed;
+}
+
+static int test_descriptor_exposes_expected_report_ids(void) {
+    const descriptor_view_t descriptor = {
+        .descriptor = swbt_switch_hid_descriptor_data(),
+        .descriptor_size = swbt_switch_hid_descriptor_size(),
+    };
+
+    int failed = 0;
+    failed += expect_eq_size(count_report_id_markers(descriptor, 0x30u), 1u);
+    failed += expect_eq_size(count_report_id_markers(descriptor, 0x21u), 1u);
+    failed += expect_eq_size(count_report_id_markers(descriptor, 0x81u), 1u);
+    failed += expect_eq_size(count_report_id_markers(descriptor, 0x01u), 1u);
+    failed += expect_eq_size(count_report_id_markers(descriptor, 0x10u), 1u);
+    failed += expect_eq_size(count_report_id_markers(descriptor, 0x80u), 1u);
+    failed += expect_eq_size(count_report_id_markers(descriptor, 0x82u), 1u);
+    return failed;
+}
+
+static int test_registration_config_can_reference_descriptor(void) {
+    const uint8_t *descriptor = swbt_switch_hid_descriptor_data();
+    const size_t descriptor_size = swbt_switch_hid_descriptor_size();
+    swbt_btstack_hid_registration_config_t config = {
+        .hid_descriptor = descriptor,
+        .hid_descriptor_size = (uint16_t)descriptor_size,
+    };
+
+    int failed = 0;
+    failed += expect_true(descriptor_size <= UINT16_MAX);
+    failed += expect_true(config.hid_descriptor == descriptor);
+    failed += expect_eq_size(config.hid_descriptor_size, descriptor_size);
+    return failed;
+}
+
+int main(void) {
+    int failed = 0;
+    failed += test_descriptor_accessor_returns_stable_data();
+    failed += test_descriptor_matches_source_audited_fixture();
+    failed += test_descriptor_exposes_expected_report_ids();
+    failed += test_registration_config_can_reference_descriptor();
+    return failed == 0 ? 0 : 1;
+}
