@@ -61,9 +61,6 @@ Windows では、Windows filesystem 上の repository は Windows native PowerSh
 WSL2 filesystem 上の repository は、Windows native PowerShell から UNC path として扱わず、WSL2 shell 内で `just` を実行する経路を標準とする。
 Windows native PowerShell 経路は `work-units/complete/local_032/WINDOWS_NATIVE_JUST_DEVCONTAINER.md` で検証済みである。
 
-`Makefile` は標準入口から外し、削除する。
-completed work unit record や initial docs に残る過去の `make` command は historical evidence として残す。
-
 Dev Container image は `just`、CMake、Ninja、clang、clang-format、clang-tidy、mingw-w64、libusb headers、valgrind を含む。
 Dev Container 定義を変更した後の再作成は `just devcontainer-rebuild` で行う。
 Windows filesystem checkout から Linux Dev Container へ bind mount するため、`justfile` と shell scripts は `.gitattributes` で LF に固定する。
@@ -88,8 +85,6 @@ CI では Dev Container 内で `just verify-ci` を実行する。
 
 ## 5. 根拠
 
-`just` への移行判断と現行記述の修正方針は `spec/operations/just-task-runner-migration.md` に記録した。
-
 `just` 公式 manual は、`just` を project-specific command を保存して実行する command runner と説明している。
 同 manual は Linux、macOS、Windows の導入経路と OS 別 recipe の機能を説明している。
 
@@ -99,6 +94,8 @@ VS Code Dev Containers docs は、Windows では Docker Desktop と WSL2 backend
 参照:
 
 - `justfile`
+- `.gitattributes`
+- `.codex/rules/default.rules`
 - `.devcontainer/Dockerfile`
 - `.github/workflows/ci.yml`
 - `.githooks/`

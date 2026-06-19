@@ -12,7 +12,7 @@ Windows native PowerShell から `just` recipe を実行し、Dev Container CLI 
 source:
 
 - `work-units/complete/local_031/JUST_TASK_RUNNER_MIGRATION_PLAN.md` の未解決事項。
-- `spec/operations/just-task-runner-migration.md` の Windows native PowerShell 経路確認。
+- `spec/archive/just-task-runner-migration.md` の Windows native PowerShell 経路確認。
 - ユーザ要求: `$tdd-workflow に従って work-units\wip\local_032 を完了させる。`
 
 use case:
@@ -45,8 +45,8 @@ use case:
 
 ## 5. 関連 spec / docs
 
-- `spec/operations/just-task-runner-migration.md`
 - `spec/operations/development-tooling.md`
+- `spec/archive/just-task-runner-migration.md`
 - `work-units/complete/local_031/JUST_TASK_RUNNER_MIGRATION_PLAN.md`
 - `.devcontainer/devcontainer.json`
 - `.devcontainer/Dockerfile`
@@ -83,8 +83,8 @@ Windows filesystem checkout では shell scripts が CRLF になると Linux con
 ## 8. 対象ファイル
 
 - `work-units/complete/local_032/WINDOWS_NATIVE_JUST_DEVCONTAINER.md`
-- `spec/operations/just-task-runner-migration.md`
 - `spec/operations/development-tooling.md`
+- `spec/archive/just-task-runner-migration.md`
 - `work-units/complete/local_031/JUST_TASK_RUNNER_MIGRATION_PLAN.md`
 - `.gitattributes`
 - `.codex/rules/default.rules`

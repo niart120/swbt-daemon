@@ -2,11 +2,14 @@
 
 ## 1. 状態
 
-current。
+superseded。
 
 この spec は、Makefile によるタスクランナー運用を `just` に移すための移行計画である。
 `work-units/complete/local_031/JUST_TASK_RUNNER_MIGRATION_PLAN.md` で実装した結果、現在の実行経路は `spec/operations/development-tooling.md` に記録された `just` 前提の方針である。
 `Makefile` は削除済みである。
+
+この spec は移行履歴として `spec/archive/` に置く。
+現在有効な task runner、formatter、static analysis、Git hooks、CI、host / Dev Container entry の運用方針は `spec/operations/development-tooling.md` を正本とする。
 
 ## 2. 目的
 
