@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD One Cycle"
+  short_description: "1項目だけred/green/refactorする"
+  default_prompt: "$tdd-one-cycle を使って swbt の TDD Test List から 1 item だけ進める。"

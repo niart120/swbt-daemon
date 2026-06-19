@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tidy First"
+  short_description: "振る舞い変更と構造変更を分ける"
+  default_prompt: "$tidy-first を使って swbt の変更を behavior change と structure change に分ける。"
