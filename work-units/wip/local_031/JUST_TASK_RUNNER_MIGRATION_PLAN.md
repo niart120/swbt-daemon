@@ -28,6 +28,7 @@ Makefile によるタスクランナー運用を `just` に移す work unit。
 - `spec/operations/just-task-runner-migration.md`
 - `spec/operations/development-tooling.md`
 - `work-units/complete/local_002/DEVCONTAINER_VERIFICATION_POLICY.md`
+- `work-units/wip/local_032/WINDOWS_NATIVE_JUST_DEVCONTAINER.md`
 - `AGENTS.md`
 - `README.md`
 - `.github/workflows/ci.yml`
@@ -105,7 +106,7 @@ Windows native PowerShell からの `just` は、Windows 版 `just`、Dev Contai
 | todo | Dev Container image に `just` が入っている | new | workflow | no |
 | todo | `justfile` が既存 Makefile public target 相当の recipe を提供する | new | workflow | no |
 | todo | Linux、macOS、WSL2 shell から `just debug` が Dev Container CLI へ委譲する | new | workflow | no |
-| todo | Windows native PowerShell からの `just debug` 実行可否を characterization する | characterization | workflow | no |
+| todo | Windows native PowerShell からの `just debug` 実行可否を `local_032` で characterization する | characterization | workflow | no |
 | todo | CI と Git hooks が `just` recipe を標準入口にする | regression | workflow | no |
 | todo | README、AGENTS、project skills が `just` 前提に更新されている | regression | docs | no |
 | todo | 置き換え済みの tooling spec が必要に応じて `spec/archive/` に移されている | regression | docs | no |
