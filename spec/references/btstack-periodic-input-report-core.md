@@ -4,7 +4,7 @@
 
 recorded。
 
-この reference は Phase 4 の periodic input report scheduler core で使う `0x30` input report、report period、BTstack send/timer 境界の根拠監査である。
+この reference は Phase 4 の periodic input report scheduler core と BTstack input report timer adapter で使う `0x30` input report、report period、BTstack send/timer 境界の根拠監査である。
 
 ## 2. 参照元
 
@@ -22,10 +22,11 @@ recorded。
 | standard full report size | `49` bytes, report ID included | implementation contract via existing audit | `spec/references/switch-report-core.md` | stable for implementation |
 | default report period | `8000us` | design policy with upstream background | `spec/initial/BTSTACK_SWITCH_DAEMON_IPC_DESIGN.md:145-180`, `CMakeLists.txt` `SWBT_REPORT_PERIOD_US` | configurable default; not hardware-proven |
 | scheduler drift handling | `next_deadline += period`, reset from now when multiple deadlines were missed | design policy | `spec/initial/BTSTACK_SWITCH_DAEMON_IPC_DESIGN.md:661-708` | stable for scheduler core |
-| BTstack run loop timer API | set handler, set timeout, add timer | source fact | `vendor/btstack/src/btstack_run_loop.c:193-285` | stable BTstack API at pinned submodule |
+| BTstack run loop timer API | set handler, set context, set timeout, add timer, remove timer, get time ms | source fact | `vendor/btstack/src/btstack_run_loop.h:101-259`; `vendor/btstack/src/btstack_run_loop.c:193-294` | stable BTstack API at pinned submodule |
 | BTstack HID interrupt send API | request can-send event, send interrupt message | source fact | `vendor/btstack/src/classic/hid_device.h:130-143`; `vendor/btstack/example/hid_keyboard_demo.c:246-251,408-414` | stable BTstack API at pinned submodule |
+| input report timer adapter order | timer callback requests can-send; can-send callback sends one scheduler report | implementation contract | `swbt/btstack_bridge/input_report_timer_adapter.c`; `tests/btstack_input_report_timer_adapter_test.c` | unit-tested with fake BTstack backend |
 
 ## 4. 未解決事項
 
-- この work unit は BTstack timer registration と `hid_device_request_can_send_now_event` の production adapter を実装しない。
+- daemon lifecycle への組み込み、connection open / close event からの start / stop は後続 work unit で扱う。
 - 実機 Switch での report period acceptability と jitter tolerance は未検証である。

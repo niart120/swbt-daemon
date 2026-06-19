@@ -66,6 +66,7 @@ add_library(swbt_core STATIC
     swbt/btstack_bridge/hid_device_registration.c
     swbt/btstack_bridge/output_report_callbacks.c
     swbt/btstack_bridge/input_report_scheduler.c
+    swbt/btstack_bridge/input_report_timer_adapter.c
     swbt/btstack_bridge/output_report_handler.c
     swbt/btstack_bridge/subcommand_reply_queue.c
     swbt/ipc/ipc_json.c
@@ -295,6 +296,19 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(btstack_subcommand_reply_queue_test)
 
     add_test(NAME btstack_subcommand_reply_queue_test COMMAND btstack_subcommand_reply_queue_test)
+
+    add_executable(btstack_input_report_timer_adapter_test
+        tests/btstack_input_report_timer_adapter_test.c
+    )
+    target_link_libraries(btstack_input_report_timer_adapter_test PRIVATE swbt_core)
+    target_include_directories(btstack_input_report_timer_adapter_test
+        PRIVATE
+            ${swbt_btstack_selected_include_dirs}
+    )
+    swbt_apply_common_warnings(btstack_input_report_timer_adapter_test)
+    swbt_apply_sanitizers(btstack_input_report_timer_adapter_test)
+
+    add_test(NAME btstack_input_report_timer_adapter_test COMMAND btstack_input_report_timer_adapter_test)
 
     add_executable(btstack_input_report_scheduler_test
         tests/btstack_input_report_scheduler_test.c
