@@ -1,89 +1,122 @@
 # Development Tooling
 
-この spec は、formatter と linter の選定理由、実行経路、初期ルールを定める。
+## 1. 状態
 
-対象は `api/`、`apps/`、`swbt/`、`tests/` にある自前の C source と header である。
+current。
 
+この spec は、task runner、formatter、linter、Git hooks、CI quality job の選定理由と運用方針を定める。
+
+対象は repository 全体の開発入口と、`api/`、`apps/`、`swbt/`、`tests/` にある自前の C source と header である。
 `vendor/btstack/` は upstream source なので、formatter と linter の対象にしない。
 
-## 基本方針
+## 2. 目的
 
-- ローカルの標準実行環境は Dev Container とする。
-- 標準検証コマンドの入口は Makefile target とする。
-- host から Makefile target を実行した場合は、Dev Container CLI へ委譲する。
-- Dev Container 定義を変更した後の再作成は `make devcontainer-rebuild` で行う。
-- CI は GitHub Actions から Dev Container を起動して実行する。
-- host OS に formatter や linter を入れることは必須にしない。
-- host OS へ入れる場合は、エディタ補助や手元の事前確認として扱う。
-- `SWBT_ALLOW_HOST_BUILD=1` はユーザが明示的に unsupported host build を許可した場合だけ使う。
+Linux、macOS、Windows host から同じ標準タスク入口を使い、実際の C toolchain は Dev Container 内で再現する。
 
-host OS を標準経路にしない理由は、toolchain、system include、tool version の差で結果が揺れることを避けるためである。
+host OS の未管理 toolchain、system include、tool version の差で configure、build、test、format、static analysis、cross build の結果が揺れることを避ける。
 
-## formatter
+## 3. 適用範囲
+
+- host と Dev Container 内の標準 command entry。
+- CMake presets、CTest presets、format script、clang-tidy、sanitizer、Windows cross build の実行入口。
+- Git hooks と GitHub Actions CI の検証入口。
+- host build opt-in の扱い。
+
+次は対象外である。
+
+- CMake presets の再設計。
+- BTstack source selection。
+- Windows native PowerShell からの `just` 実行可否の最終判断。
+- Switch pairing、HID advertising、report loop、Bluetooth adapter 操作。
+
+## 4. 決定事項
+
+標準タスクランナーは `just` とする。
+repository root の `justfile` を標準入口にし、`just --list` を開発者向けの recipe 一覧にする。
+
+標準 recipe は次を提供する。
+
+- `list-presets`
+- `configure-debug`
+- `build-debug`
+- `test-debug`
+- `debug`
+- `format`
+- `format-check`
+- `tidy`
+- `asan`
+- `windows-cross`
+- `verify`
+- `verify-ci`
+- `devcontainer-up`
+- `devcontainer-rebuild`
+
+Dev Container 内では、recipe が CMake、CTest、format script、clang-tidy、Windows MinGW cross build を直接実行する。
+Dev Container 外の Linux、macOS、WSL2 shell では、recipe が Dev Container CLI の `devcontainer up` と `devcontainer exec` に委譲し、container 内の同等 recipe を実行する。
+host 側 recipe は `SWBT_ALLOW_HOST_BUILD=1` を自動で付けない。
+
+Windows では、WSL2 shell 内で repository を開いて `just` を実行する経路を標準とする。
+Windows native PowerShell からの `just` 実行は `work-units/wip/local_032/WINDOWS_NATIVE_JUST_DEVCONTAINER.md` で検証するまで標準入口に含めない。
+
+`Makefile` は標準入口から外し、削除する。
+completed work unit record や initial docs に残る過去の `make` command は historical evidence として残す。
+
+Dev Container image は `just`、CMake、Ninja、clang、clang-format、clang-tidy、mingw-w64、libusb headers、valgrind を含む。
+Dev Container 定義を変更した後の再作成は `just devcontainer-rebuild` で行う。
+
+Dev Container 外で host build する場合は、ユーザが明示的に `SWBT_ALLOW_HOST_BUILD=1` または `-DSWBT_ALLOW_HOST_BUILD=ON` を付けて実行する。
+この host build は unsupported opt-in であり、primary verification として扱わない。
 
 formatter は `clang-format` を使う。
-
-選定理由は次のとおりである。
-
-- C/C++ ecosystem で広く使われている。
-- `.clang-format` だけで機械的に結果を揃えられる。
-- Dev Container と CI に入れやすい。
-- CMake や Ninja の build 経路に依存せず、format check を単独で実行できる。
-
 初期ルールは `.clang-format` に置く。
-
-現在の主な方針は次のとおりである。
-
-- `BasedOnStyle: LLVM` を土台にする。
-- indent は 4 spaces とする。
-- column limit は 100 とする。
-- tab は使わない。
-- include の並び替えはしない。
-- pointer alignment は `char *value` の形に寄せる。
-- 短い `if` と loop を一行に畳まない。
-
-format check は `make format-check` で実行する。
-
-自動整形は `make format` で実行する。
-
-## linter
+format check は `just format-check`、自動整形は `just format` で実行する。
 
 linter と static analysis は `clang-tidy` を使う。
-
-選定理由は次のとおりである。
-
-- CMake の `C_CLANG_TIDY` に自然に接続できる。
-- project には既に `SWBT_ENABLE_CLANG_TIDY` の入口がある。
-- compile commands を前提に解析できるため、C source の include path や build option と整合しやすい。
-- `clang-analyzer-*`、`bugprone-*`、`portability-*` で初期段階から検出価値の高い問題を拾える。
-
 初期ルールは `.clang-tidy` に置く。
+`clang-tidy` は `just tidy` で実行する。
 
-現在は対象範囲を `api/`、`apps/`、`swbt/`、`tests/` に絞り、system header は対象にしない。
+Git hooks は `.githooks/` を正本とする。
+`pre-commit` は staged diff の whitespace、`just list-presets`、staged C source がある場合の `just format-check` を確認する。
+`pre-push` は通常 `just debug` を実行し、`SWBT_FULL_PRE_PUSH=1` のとき `just verify` を実行する。
 
-`WarningsAsErrors: '*'` は初期段階の小さい codebase を前提にした強い設定である。
+CI では Dev Container 内で `just verify-ci` を実行する。
 
-BTstack integration が進んで false positive やノイズが増えた場合は、check set または warnings-as-errors の範囲を見直す。
+## 5. 根拠
 
-`clang-tidy` は Makefile 経由で実行する。
+`just` への移行判断と現行記述の修正方針は `spec/operations/just-task-runner-migration.md` に記録した。
 
-```console
-make tidy
-```
+`just` 公式 manual は、`just` を project-specific command を保存して実行する command runner と説明している。
+同 manual は Linux、macOS、Windows の導入経路と OS 別 recipe の機能を説明している。
 
-## 採用しなかった候補
+Dev Container CLI の docs は、`devcontainer up` で container を作成し、`devcontainer exec` で running container 内の command を実行できると説明している。
+VS Code Dev Containers docs は、Windows では Docker Desktop と WSL2 backend を使う構成、および WSL2 内に置いた source code を扱う構成を説明している。
 
-- `cpplint` は Google C++ style への寄りが強く、この C11/CMake project の標準にはしない。
-- `ruff` や `prettier` は主対象言語が異なるため採用しない。
-- `uncrustify` や `astyle` は使えるが、Dev Container、CMake、CI との接続を増やす理由が薄い。
-- `include-what-you-use` は有用だが、初期導入ではノイズと運用負荷が大きいため採用しない。
+参照:
 
-## Git hooks と CI
+- `justfile`
+- `.devcontainer/Dockerfile`
+- `.github/workflows/ci.yml`
+- `.githooks/`
+- https://just.systems/man/en/
+- https://just.systems/man/en/packages.html
+- https://just.systems/man/en/settings.html
+- https://just.systems/man/en/attributes.html
+- https://just.systems/man/en/functions.html
+- https://github.com/devcontainers/cli
+- https://code.visualstudio.com/docs/devcontainers/devcontainer-cli
+- https://code.visualstudio.com/docs/devcontainers/containers
 
-`pre-commit` は staged C source がある場合に `make format-check` を実行する。
+この spec は task runner と開発運用を扱う。
+Switch HID protocol、BTstack source selection、report timing、WinUSB/libusb の実装値は変更しない。
+根拠監査は not applicable とする。
 
-`pre-push` は通常 `make debug` で configure、build、test を実行する。
+## 6. 関連 work units
 
-`SWBT_FULL_PRE_PUSH=1` を指定した場合は `make verify` で format check、`linux-clang-tidy`、sanitizer、Windows cross build も実行する。
+- `work-units/complete/local_002/DEVCONTAINER_VERIFICATION_POLICY.md`
+- `work-units/complete/local_031/JUST_TASK_RUNNER_MIGRATION_PLAN.md`
+- `work-units/wip/local_032/WINDOWS_NATIVE_JUST_DEVCONTAINER.md`
 
-CI では Dev Container 内で `make verify-ci` を実行する。
+## 7. 未解決事項
+
+- Windows native PowerShell からの `just` 実行可否、workspace path、environment variable、exit code の扱いは `work-units/wip/local_032/WINDOWS_NATIVE_JUST_DEVCONTAINER.md` で検証する。
+- host 側 `just` がない場合に README の install guidance だけで足りるか、bootstrap script を用意するかは未決定である。

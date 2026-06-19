@@ -12,8 +12,8 @@ cd "$repo_root"
 echo "[pre-commit] git diff --cached --check"
 git diff --cached --check
 
-echo "[pre-commit] cmake --list-presets"
-make list-presets
+echo "[pre-commit] just list-presets"
+just list-presets
 
 staged_c_source=0
 for path in $(git diff --cached --name-only --diff-filter=ACMR -- api apps swbt tests); do
@@ -25,6 +25,6 @@ for path in $(git diff --cached --name-only --diff-filter=ACMR -- api apps swbt 
 done
 
 if [ "$staged_c_source" = "1" ]; then
-    echo "[pre-commit] make format-check"
-    make format-check
+    echo "[pre-commit] just format-check"
+    just format-check
 fi

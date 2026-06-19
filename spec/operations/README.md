@@ -6,4 +6,5 @@
 
 ## 現在の spec
 
-- [Development Tooling](development-tooling.md): formatter、linter、Git hooks、CI quality job の選定理由と運用方針。
+- [Development Tooling](development-tooling.md): `just`、formatter、linter、Git hooks、CI quality job の選定理由と運用方針。
+- [Just Task Runner Migration](just-task-runner-migration.md): Makefile から `just` への移行判断、実装結果、マルチプラットフォーム host + Dev Container 方針。

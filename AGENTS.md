@@ -69,11 +69,12 @@ work-units/             work unit record
 
 ## 開発環境
 
-- 主開発環境は WSL2 + Dev Containers とする。
-- `.devcontainer/Dockerfile` は Ubuntu 24.04、CMake、Ninja、clang、clang-format、clang-tidy、mingw-w64、libusb headers、valgrind を含む再現環境である。
+- 主開発環境は Linux、macOS、Windows host + Dev Containers とする。
+- Windows では WSL2 shell 内で repository を開いて `just` を実行する経路を標準とする。Windows native PowerShell からの `just` 実行は `work-units/wip/local_032/WINDOWS_NATIVE_JUST_DEVCONTAINER.md` で検証するまで標準入口に含めない。
+- `.devcontainer/Dockerfile` は Ubuntu 24.04、`just`、CMake、Ninja、clang、clang-format、clang-tidy、mingw-w64、libusb headers、valgrind を含む再現環境である。
 - `.devcontainer/devcontainer.json` は VS Code C/C++ と CMake Tools extension を推奨し、container user は `ubuntu` とする。
 - Linux native build、sanitizer、unit test、Windows MinGW cross build は Dev Container 内で再現できる前提にする。
-- ローカルの標準 configure、build、test、format、static analysis、cross build は Makefile target を入口にする。host からの Makefile target は Dev Container CLI へ委譲する。
+- ローカルの標準 configure、build、test、format、static analysis、cross build は `just` recipe を入口にする。host からの `just` recipe は Dev Container CLI へ委譲する。
 - ローカルの host build は既定で止める。ユーザが Dev Container 外で host build を明示的に許可した場合だけ `SWBT_ALLOW_HOST_BUILD=1` または `-DSWBT_ALLOW_HOST_BUILD=ON` で opt-in する。
 - Windows native は WinUSB ドライバー、Bluetooth ドングル、Switch pairing、latency / report rate 実測のための実機検証環境として別扱いにする。
 - host OS へ個別 toolchain を手作業で入れることを通常の前提にしない。
@@ -124,25 +125,25 @@ Switch protocol、BTstack source selection、report timing、HID descriptor、su
 通常のローカル検証:
 
 ```console
-make debug
+just debug
 ```
 
 sanitizer:
 
 ```console
-make asan
+just asan
 ```
 
 Windows cross build:
 
 ```console
-make windows-cross
+just windows-cross
 ```
 
 全体検証:
 
 ```console
-make verify
+just verify
 ```
 
 変更範囲に応じて、targeted CTest、sanitizer、cross build、実機未実行理由を報告する。
@@ -175,10 +176,10 @@ make verify
 - 変更を伴う作業では開始時にブランチと `git status --short` を確認する。
 - 既定ブランチへの直接コミットは、ユーザの明示指示がある場合を除き避ける。
 - Git hooks は `.githooks/` を正本とし、clone 後は `sh scripts/install-git-hooks.sh` または `scripts/install-git-hooks.ps1` で有効化する。
-- `pre-commit` は staged diff の whitespace、Makefile 経由の CMake presets の読み取り、staged C source がある場合の format を確認する。
+- `pre-commit` は staged diff の whitespace、`just` 経由の CMake presets の読み取り、staged C source がある場合の format を確認する。
 - `commit-msg` は Conventional Commits の形式と subject 末尾句点なしを確認する。
-- `pre-push` は `make debug` を実行する。host からは Makefile が Dev Container CLI へ委譲する。
-- `pre-push` は `SWBT_FULL_PRE_PUSH=1` のとき `make verify` を実行する。
+- `pre-push` は `just debug` を実行する。host からは `justfile` が Dev Container CLI へ委譲する。
+- `pre-push` は `SWBT_FULL_PRE_PUSH=1` のとき `just verify` を実行する。
 - PR では `.github/PULL_REQUEST_TEMPLATE.md` に従い、テスト、実機、根拠監査、BTstack / License impact を明記する。
 
 ## Commit ルール
