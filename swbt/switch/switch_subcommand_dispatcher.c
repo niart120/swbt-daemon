@@ -90,6 +90,47 @@ swbt_switch_subcommand_dispatcher_spi_read(const swbt_switch_subcommand_dispatch
         reply_data, SWBT_SWITCH_SPI_READ_REPLY_PREFIX_SIZE + read_size);
 }
 
+static swbt_switch_subcommand_dispatch_result_t swbt_switch_subcommand_dispatcher_set_player_lights(
+    const swbt_switch_subcommand_dispatcher_config_t *config,
+    const swbt_switch_output_report_t *output_report,
+    swbt_switch_subcommand_dispatcher_response_t *response) {
+    if (config->player_lights == NULL) {
+        return SWBT_SWITCH_SUBCOMMAND_DISPATCH_ERROR_INVALID_ARGUMENT;
+    }
+
+    const swbt_switch_player_lights_result_t player_lights_result =
+        swbt_switch_player_lights_apply_set(config->player_lights, output_report->subcommand_data,
+                                            output_report->subcommand_data_len);
+    if (player_lights_result != SWBT_SWITCH_PLAYER_LIGHTS_OK) {
+        return SWBT_SWITCH_SUBCOMMAND_DISPATCH_ERROR_MALFORMED_SUBCOMMAND;
+    }
+
+    return swbt_switch_subcommand_dispatcher_simple_ack(config, output_report, response);
+}
+
+static swbt_switch_subcommand_dispatch_result_t swbt_switch_subcommand_dispatcher_get_player_lights(
+    const swbt_switch_subcommand_dispatcher_config_t *config,
+    const swbt_switch_output_report_t *output_report,
+    swbt_switch_subcommand_dispatcher_response_t *response) {
+    uint8_t reply_data[SWBT_SWITCH_PLAYER_LIGHTS_REPLY_DATA_SIZE];
+    size_t reply_data_len = 0;
+
+    if (config->player_lights == NULL) {
+        return SWBT_SWITCH_SUBCOMMAND_DISPATCH_ERROR_INVALID_ARGUMENT;
+    }
+
+    const swbt_switch_player_lights_result_t player_lights_result =
+        swbt_switch_player_lights_get_reply_data(config->player_lights, reply_data,
+                                                 sizeof(reply_data), &reply_data_len);
+    if (player_lights_result != SWBT_SWITCH_PLAYER_LIGHTS_OK) {
+        return SWBT_SWITCH_SUBCOMMAND_DISPATCH_ERROR_PLAYER_LIGHTS_FAILED;
+    }
+
+    return swbt_switch_subcommand_dispatcher_build_reply(
+        config, response, SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_PLAYER_LIGHTS,
+        output_report->subcommand_id, reply_data, reply_data_len);
+}
+
 swbt_switch_subcommand_dispatch_result_t
 swbt_switch_subcommand_dispatch(const swbt_switch_subcommand_dispatcher_config_t *config,
                                 const swbt_switch_output_report_t *output_report,
@@ -112,6 +153,10 @@ swbt_switch_subcommand_dispatch(const swbt_switch_subcommand_dispatcher_config_t
         return swbt_switch_subcommand_dispatcher_simple_ack(config, output_report, response);
     case SWBT_SWITCH_SUBCOMMAND_SPI_FLASH_READ:
         return swbt_switch_subcommand_dispatcher_spi_read(config, output_report, response);
+    case SWBT_SWITCH_SUBCOMMAND_SET_PLAYER_LIGHTS:
+        return swbt_switch_subcommand_dispatcher_set_player_lights(config, output_report, response);
+    case SWBT_SWITCH_SUBCOMMAND_GET_PLAYER_LIGHTS:
+        return swbt_switch_subcommand_dispatcher_get_player_lights(config, output_report, response);
     default:
         return SWBT_SWITCH_SUBCOMMAND_DISPATCH_UNSUPPORTED;
     }

@@ -79,6 +79,7 @@ add_library(swbt_core STATIC
     swbt/switch/switch_controller_state.c
     swbt/switch/switch_hid_descriptor.c
     swbt/switch/switch_report.c
+    swbt/switch/switch_player_lights.c
     swbt/switch/switch_rumble.c
     swbt/switch/switch_spi.c
     swbt/switch/switch_spi_seed.c
@@ -211,6 +212,15 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(switch_rumble_test)
 
     add_test(NAME switch_rumble_test COMMAND switch_rumble_test)
+
+    add_executable(switch_player_lights_test
+        tests/switch_player_lights_test.c
+    )
+    target_link_libraries(switch_player_lights_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(switch_player_lights_test)
+    swbt_apply_sanitizers(switch_player_lights_test)
+
+    add_test(NAME switch_player_lights_test COMMAND switch_player_lights_test)
 
     add_executable(ipc_session_test
         tests/ipc_session_test.c

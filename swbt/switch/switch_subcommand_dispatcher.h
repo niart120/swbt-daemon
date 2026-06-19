@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "switch/switch_controller_state.h"
+#include "switch/switch_player_lights.h"
 #include "switch/switch_report.h"
 #include "switch/switch_spi.h"
 #include "switch/switch_subcommand.h"
@@ -18,6 +19,7 @@ typedef enum {
     SWBT_SWITCH_SUBCOMMAND_DISPATCH_ERROR_MALFORMED_SUBCOMMAND = -2,
     SWBT_SWITCH_SUBCOMMAND_DISPATCH_ERROR_SPI_READ_FAILED = -3,
     SWBT_SWITCH_SUBCOMMAND_DISPATCH_ERROR_REPLY_BUILD_FAILED = -4,
+    SWBT_SWITCH_SUBCOMMAND_DISPATCH_ERROR_PLAYER_LIGHTS_FAILED = -5,
 } swbt_switch_subcommand_dispatch_result_t;
 
 typedef enum {
@@ -29,6 +31,7 @@ typedef struct {
     const swbt_state_t *state;
     const swbt_switch_report_options_t *report_options;
     const swbt_switch_spi_t *spi;
+    swbt_switch_player_lights_state_t *player_lights;
 } swbt_switch_subcommand_dispatcher_config_t;
 
 typedef struct {
