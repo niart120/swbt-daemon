@@ -56,10 +56,13 @@ else()
     message(WARNING "BTstack submodule not found at ${SWBT_BTSTACK_DIR}. Run: git submodule update --init --recursive")
 endif()
 swbt_define_btstack_source_selection(swbt_btstack_source_selection)
+get_property(swbt_btstack_selected_include_dirs TARGET swbt_btstack_source_selection
+             PROPERTY SWBT_BTSTACK_SELECTED_INCLUDE_DIRS)
 
 add_library(swbt_core STATIC
     swbt/core/swbt_version.c
     swbt/core/state_mailbox.c
+    swbt/btstack_bridge/hid_device_btstack_adapter.c
     swbt/btstack_bridge/hid_device_registration.c
     swbt/btstack_bridge/input_report_scheduler.c
     swbt/btstack_bridge/output_report_handler.c
@@ -83,6 +86,8 @@ target_include_directories(swbt_core
 if(WIN32)
     target_link_libraries(swbt_core PUBLIC ws2_32)
 endif()
+
+target_include_directories(swbt_core PRIVATE ${swbt_btstack_selected_include_dirs})
 
 swbt_apply_common_warnings(swbt_core)
 swbt_apply_sanitizers(swbt_core)
@@ -224,6 +229,19 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(btstack_hid_device_registration_test)
 
     add_test(NAME btstack_hid_device_registration_test COMMAND btstack_hid_device_registration_test)
+
+    add_executable(btstack_hid_device_btstack_adapter_test
+        tests/btstack_hid_device_btstack_adapter_test.c
+    )
+    target_link_libraries(btstack_hid_device_btstack_adapter_test PRIVATE swbt_core)
+    target_include_directories(btstack_hid_device_btstack_adapter_test
+        PRIVATE
+            ${swbt_btstack_selected_include_dirs}
+    )
+    swbt_apply_common_warnings(btstack_hid_device_btstack_adapter_test)
+    swbt_apply_sanitizers(btstack_hid_device_btstack_adapter_test)
+
+    add_test(NAME btstack_hid_device_btstack_adapter_test COMMAND btstack_hid_device_btstack_adapter_test)
 
     add_executable(btstack_output_report_handler_test
         tests/btstack_output_report_handler_test.c

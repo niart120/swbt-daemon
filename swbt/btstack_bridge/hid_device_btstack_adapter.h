@@ -1,0 +1,8 @@
+#ifndef SWBT_BTSTACK_BRIDGE_HID_DEVICE_BTSTACK_ADAPTER_H
+#define SWBT_BTSTACK_BRIDGE_HID_DEVICE_BTSTACK_ADAPTER_H
+
+#include "btstack_bridge/hid_device_registration.h"
+
+const swbt_btstack_hid_registration_backend_t *swbt_btstack_hid_registration_backend_btstack(void);
+
+#endif
