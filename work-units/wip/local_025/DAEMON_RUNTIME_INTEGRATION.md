@@ -37,7 +37,7 @@ IPC server、state mailbox、BTstack bridge、periodic report adapter、shutdown
 - `work-units/complete/local_015/PERIODIC_INPUT_REPORT_CORE.md`
 - `work-units/complete/local_018/BTSTACK_PRODUCTION_ADAPTER.md`
 - `work-units/complete/local_019/BTSTACK_OUTPUT_REPORT_CALLBACKS.md`
-- `work-units/wip/local_022/SUBCOMMAND_REPLY_SEND_QUEUE.md`
+- `work-units/complete/local_022/SUBCOMMAND_REPLY_SEND_QUEUE.md`
 - `work-units/wip/local_023/BTSTACK_INPUT_REPORT_TIMER_ADAPTER.md`
 - `work-units/complete/local_024/STATE_MAILBOX_THREAD_BOUNDARY.md`
 - `docs/hardware-test-log.md`
