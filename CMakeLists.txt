@@ -75,6 +75,7 @@ add_library(swbt_core STATIC
     swbt/switch/switch_report.c
     swbt/switch/switch_rumble.c
     swbt/switch/switch_spi.c
+    swbt/switch/switch_spi_seed.c
     swbt/switch/switch_subcommand.c
     swbt/switch/switch_subcommand_dispatcher.c
     swbt/switch/switch_subcommand_reply.c
@@ -186,6 +187,15 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(switch_spi_test)
 
     add_test(NAME switch_spi_test COMMAND switch_spi_test)
+
+    add_executable(switch_spi_seed_test
+        tests/switch_spi_seed_test.c
+    )
+    target_link_libraries(switch_spi_seed_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(switch_spi_seed_test)
+    swbt_apply_sanitizers(switch_spi_seed_test)
+
+    add_test(NAME switch_spi_seed_test COMMAND switch_spi_seed_test)
 
     add_executable(switch_rumble_test
         tests/switch_rumble_test.c
