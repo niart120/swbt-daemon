@@ -12,7 +12,7 @@ DATA callback と SET_REPORT callback の扱いは、実装前の根拠監査と
 - BTstack callback から `swbt_btstack_output_report_handler_handle` へ接続する trampoline を追加する。
 - callback で受け取る `cid`、`report_type`、`report_id`、payload を既存 handler に渡す。
 - SET_REPORT callback を登録するか、後続に残すか、同じ handler に流すかを実装前に根拠監査で判断する。
-- callback registration と dispatch behavior を unit test で固定する。
+- callback registration と dispatch 挙動を unit test で固定する。
 
 ## 3. 対象外
 
@@ -41,7 +41,7 @@ DATA callback と SET_REPORT callback の扱いは、実装前の根拠監査と
 | report data callback registration | `hid_device_register_report_data_callback` | source fact | `spec/references/btstack-output-report-parser-bridge.md` | recorded |
 | BTstack DATA report payload shape | report ID may be separated before callback | source fact | `spec/references/btstack-output-report-parser-bridge.md` | recorded |
 | SET_REPORT callback API and call path | 未定 | 未監査 | TBD | 実装前に根拠監査が必要 |
-| 実機 Switch output report transport | 未定 | hardware fact missing | `docs/hardware-test-log.md` | 実機未実行 |
+| 実機 Switch output report transport | 未定 | 実機根拠なし | `docs/hardware-test-log.md` | 実機未実行 |
 | callback thread ownership | BTstack-owning thread | design policy | `swbt/btstack_bridge/README.md` | adapter must preserve boundary |
 
 SET_REPORT callback の必要性と exact API は実装前に `source-audit` で確認する。
@@ -56,7 +56,7 @@ unsupported output report の実機 acceptability は未検証である。
 - 複数 controller 同時接続は対象外であり、global trampoline を使う場合も単一接続前提を record に残す。
 - callback は BTstack-owning thread で実行される前提とし、IPC socket へ直接 write しない。
 - parsed output report は同期 callback または後続 mailbox 境界へ渡し、send reply path は別 work unit に残す。
-- DATA callback と SET_REPORT callback の両方を扱う場合も、既存 `swbt_btstack_output_report_handler_t` を再利用して parser behavior を重複させない。
+- DATA callback と SET_REPORT callback の両方を扱う場合も、既存 `swbt_btstack_output_report_handler_t` を再利用して parser 挙動を重複させない。
 
 ## 7. 対象ファイル
 

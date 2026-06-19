@@ -35,6 +35,9 @@ IPC server、state mailbox、BTstack bridge、periodic report adapter、shutdown
 - `work-units/complete/local_012/BTSTACK_HID_DEVICE_REGISTRATION.md`
 - `work-units/complete/local_013/BTSTACK_OUTPUT_REPORT_PARSER_BRIDGE.md`
 - `work-units/complete/local_015/PERIODIC_INPUT_REPORT_CORE.md`
+- `work-units/wip/local_018/BTSTACK_PRODUCTION_ADAPTER.md`
+- `work-units/wip/local_019/BTSTACK_OUTPUT_REPORT_CALLBACKS.md`
+- `work-units/wip/local_022/SUBCOMMAND_REPLY_SEND_QUEUE.md`
 - `work-units/wip/local_023/BTSTACK_INPUT_REPORT_TIMER_ADAPTER.md`
 - `work-units/wip/local_024/STATE_MAILBOX_THREAD_BOUNDARY.md`
 - `docs/hardware-test-log.md`
@@ -45,14 +48,14 @@ IPC server、state mailbox、BTstack bridge、periodic report adapter、shutdown
 |---|---:|---|---|---|
 | current daemon entrypoint | stub | implementation fact | `apps/swbt-daemon/main.c` | verified by inspection |
 | daemon lifecycle order | 未確定 | design policy | `spec/initial/BTSTACK_SWITCH_DAEMON_IPC_DESIGN.md` | pending |
-| real BTstack adapter open behavior | 未監査 | source audit and hardware gate required | `vendor/btstack`, `docs/hardware-test-log.md` | pending |
+| real BTstack adapter open behavior | 未監査 | 根拠監査と実機実行条件が必要 | `vendor/btstack`, `docs/hardware-test-log.md` | pending |
 | neutral cleanup through real HID disconnect | 未記録 | hardware observation required | `docs/hardware-test-log.md` | not run |
 
 daemon lifecycle の実 BTstack backend 順序は未監査である。
 
-fake backend integration test は real Bluetooth adapter behavior を証明しない。
+fake backend integration test は real Bluetooth adapter 挙動を証明しない。
 
-実機 pairing、advertising、report loop はこの planning record の時点で未実行である。
+実機 pairing、advertising、report loop はこの record の時点で未実行である。
 
 ## 6. 設計メモ
 

@@ -23,7 +23,7 @@ Phase 5 の Windows 実機確認の前に、Windows native、WinUSB、専用 USB
 - report period `8000 / 8333 / 15000 / 16667 us` の実測。
 - BTstack source selection の変更。
 - `vendor/btstack` の変更。
-- rumble callback と status behavior の実機確認。
+- rumble callback と status 挙動の実機確認。
 
 ## 4. 関連 spec / docs
 
@@ -39,7 +39,7 @@ Phase 5 の Windows 実機確認の前に、Windows native、WinUSB、専用 USB
 
 Windows native、WinUSB、専用 USB Bluetooth ドングル、Switch pairing、report period comparison は実機検証または根拠監査が必要である。
 
-既存の `spec/references/btstack-backend-build-matrix.md` は cross build の成功だけを記録しており、Windows native runtime behavior は証明しない。
+既存の `spec/references/btstack-backend-build-matrix.md` は cross build の成功だけを記録しており、Windows native runtime 挙動は証明しない。
 
 BTstack source selection または WinUSB backend facts を追加変更する場合は、`source-audit` を先に使う。
 
@@ -49,7 +49,7 @@ BTstack source selection または WinUSB backend facts を追加変更する場
 | Windows native execution | pending | 実機未実行であり、`docs/hardware-test-log.md` への記録が必要である。 |
 | WinUSB driver assignment | pending | Zadig の割り当て状態、USB VID/PID、driver を記録する必要がある。 |
 | Switch pairing | pending | 人間の明示承認なしに実行しない。 |
-| report period comparison | pending | 実測値は未記録であり、既定値を hardware fact として扱わない。 |
+| report period comparison | pending | 実測値は未記録であり、既定値を実機事実として扱わない。 |
 
 ## 6. 設計メモ
 
@@ -108,4 +108,4 @@ Switch pairing、HID advertising、report loop、report period comparison は承
 - [ ] TDD テストまたは docs verification を実行した。
 - [ ] 検証結果を記録した。
 - [ ] 根拠監査を完了した。
-- [ ] 実機検証を実行し `docs/hardware-test-log.md` に記録した。
+- [ ] 実機状態または未実行理由を記録した。

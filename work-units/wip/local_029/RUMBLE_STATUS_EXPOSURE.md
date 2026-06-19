@@ -41,7 +41,7 @@ raw rumble payload size、neutral payload、raw state separation は `spec/refer
 
 BTstack report data callback shape は `spec/references/btstack-output-report-parser-bridge.md` に記録済みである。
 
-実機 Switch の output report transport path、rumble effect、callback-to-status runtime behavior は未検証である。
+実機 Switch の output report transport path、rumble effect、callback-to-status runtime 挙動は未検証である。
 
 SET_REPORT callback facts または hardware callback facts を追加する場合は、`source-audit` を先に使う。
 
@@ -119,4 +119,4 @@ Windows native では Zadig による WinUSB assignment、USB VID/PID、driver s
 - [ ] 根拠監査を完了した。
 - [ ] `make debug` を実行した。
 - [ ] sanitizer または cross build の結果を記録した。
-- [ ] 実機検証を実行し `docs/hardware-test-log.md` に記録した。
+- [ ] 実機状態または未実行理由を記録した。

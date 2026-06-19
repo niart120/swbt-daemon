@@ -2,7 +2,7 @@
 
 ## 1. 概要
 
-local_012 で追加した fake-testable registration core を、pinned BTstack の Classic HID Device API に接続するための計画 record。
+local_012 で追加した fake backend で testable な registration core を、pinned BTstack の Classic HID Device API に接続するための計画 record。
 
 BTstack production adapter は `swbt/btstack_bridge/` に閉じ込め、BTstack header と license 境界を Switch protocol core へ漏らさない。
 
@@ -45,13 +45,13 @@ BTstack production adapter は `swbt/btstack_bridge/` に閉じ込め、BTstack 
 | SDP record length function | 未定 | 未監査 for production adapter | TBD | 実装前に根拠監査が必要 |
 | BTstack run loop ownership | BTstack-owning thread only | design policy | `swbt/btstack_bridge/README.md` | adapter must preserve boundary |
 | backend build matrix | `libusb` / `windows-winusb` build success | verification fact | `spec/references/btstack-backend-build-matrix.md` | recorded before adapter |
-| 実機 advertising / pairing | 未実行 | hardware fact missing | `docs/hardware-test-log.md` | 実機未実行 |
+| 実機 advertising / pairing | 未実行 | 実機根拠なし | `docs/hardware-test-log.md` | 実機未実行 |
 
 production adapter が直接参照する BTstack functions と headers は実装前に `source-audit` で確認する。
 
 BTstack を link する成果物の license notice 境界は `THIRD_PARTY_NOTICES.md` を確認してから記録する。
 
-Windows native runtime behavior は cross build だけでは証明しない。
+Windows native runtime 挙動は cross build だけでは証明しない。
 
 ## 6. 設計メモ
 

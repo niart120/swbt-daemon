@@ -41,7 +41,7 @@ not applicable。
 
 この work unit は local IPC client と controller state snapshot serialization を扱うだけであり、Switch HID protocol、BTstack source selection、report timing、WinUSB facts を追加しない。
 
-ただし、この client を hardware-connected daemon に対して使う行為は実機検証に含まれる。
+ただし、この client を実機接続済み daemon に対して使う行為は実機検証に含まれる。
 
 実機 daemon と組み合わせる場合は、別 work unit の実機実行条件に従う。
 

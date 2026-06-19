@@ -40,7 +40,7 @@ BTstack HID Device registration に渡す descriptor bytes を swbt 側の read-
 | HID descriptor length | 未定 | 未監査 | TBD | 実装前に根拠監査が必要 |
 | report ID 構成 | 未定 | 未監査 | TBD | 実装前に根拠監査が必要 |
 | BTstack registration pass-through | caller-supplied descriptor pointer/size | source fact | `spec/references/btstack-hid-device-registration.md` | recorded |
-| 実機 acceptability | 未検証 | hardware fact missing | `docs/hardware-test-log.md` | 実機未実行 |
+| 実機 acceptability | 未検証 | 実機根拠なし | `docs/hardware-test-log.md` | 実機未実行 |
 
 HID descriptor bytes は未監査であり、実装前に `source-audit` で根拠を記録する。
 
@@ -52,7 +52,7 @@ descriptor 由来の protocol 値を推定で断定しない。
 
 - descriptor data は `swbt/switch/` 配下に置き、BTstack header へ直接依存しない。
 - accessor は `const uint8_t *` と size を返すだけにし、registration 順序は local_012 の API に任せる。
-- descriptor bytes は監査済み reference と対応づけ、magic byte の出所を work unit record だけに閉じ込めない。
+- descriptor bytes は監査済み reference と対応づけ、値の出所を work unit record だけに閉じ込めない。
 - descriptor の実機調整が必要になった場合は別 work unit として扱う。
 
 ## 7. 対象ファイル
@@ -69,8 +69,8 @@ descriptor 由来の protocol 値を推定で断定しない。
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | todo | descriptor accessor returns a non-null read-only byte sequence and size | new | unit | no |
-| todo | descriptor size matches the audited HID descriptor length | new | unit | no |
-| todo | descriptor bytes match the audited source fixture | characterization | unit | no |
+| todo | descriptor size matches the source-audited HID descriptor length | new | unit | no |
+| todo | descriptor bytes match the source-audited fixture | characterization | unit | no |
 | todo | HID registration config can receive descriptor pointer and size without copying | regression | unit | no |
 
 ## 9. 検証
