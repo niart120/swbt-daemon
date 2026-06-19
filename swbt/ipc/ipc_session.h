@@ -6,6 +6,8 @@
 
 #include "core/state_mailbox.h"
 #include "switch/switch_controller_state.h"
+#include "switch/switch_rumble.h"
+#include "switch/switch_subcommand.h"
 
 typedef enum {
     SWBT_IPC_OK = 0,
@@ -18,12 +20,14 @@ typedef struct {
     bool has_owner;
     uint32_t owner_client_id;
     swbt_state_t state;
+    swbt_switch_rumble_state_t rumble;
 } swbt_ipc_status_t;
 
 typedef struct {
     bool has_owner;
     uint32_t owner_client_id;
     swbt_state_t state;
+    swbt_switch_rumble_state_t rumble;
     swbt_state_mailbox_t *mailbox;
 } swbt_ipc_session_t;
 
@@ -41,6 +45,14 @@ swbt_ipc_result_t swbt_ipc_set_state(swbt_ipc_session_t *session, uint32_t clien
 
 swbt_ipc_result_t swbt_ipc_get_status(const swbt_ipc_session_t *session,
                                       swbt_ipc_status_t *out_status);
+
+swbt_ipc_result_t swbt_ipc_record_rumble(swbt_ipc_session_t *session, const uint8_t *payload,
+                                         uint64_t updated_at_ms);
+
+swbt_ipc_result_t
+swbt_ipc_record_output_report_rumble(swbt_ipc_session_t *session,
+                                     const swbt_switch_output_report_t *output_report,
+                                     uint64_t updated_at_ms);
 
 swbt_ipc_result_t swbt_ipc_disconnect(swbt_ipc_session_t *session, uint32_t client_id);
 
