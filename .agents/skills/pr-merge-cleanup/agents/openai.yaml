@@ -1,4 +1,4 @@
 interface:
   display_name: "PR Merge Cleanup"
-  short_description: "PR を作成、マージ、後片付けする"
-  default_prompt: "$pr-merge-cleanup を使って swbt ブランチを PR として公開し、既定ブランチを同期する。"
+  short_description: "PR を merge commit で取り込み後片付けする"
+  default_prompt: "$pr-merge-cleanup を使って swbt ブランチを PR として公開し、merge commit で取り込み、既定ブランチを同期する。"
