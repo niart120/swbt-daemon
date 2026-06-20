@@ -14,6 +14,7 @@ typedef struct {
     bool sdp_register_service_called;
     bool hid_device_init_called;
     bool hid_device_register_packet_handler_called;
+    bool hci_add_event_handler_called;
     uint32_t service_record_handle;
     uint32_t record_len;
     uint8_t register_status;
@@ -23,6 +24,7 @@ typedef struct {
     uint16_t hid_descriptor_len;
     const uint8_t *hid_descriptor;
     btstack_packet_handler_t packet_handler;
+    btstack_packet_callback_registration_t *hci_event_registration;
 } fake_btstack_t;
 
 static fake_btstack_t g_fake_btstack;
@@ -86,6 +88,11 @@ void hid_device_init(bool boot_protocol_mode_supported, uint16_t hid_descriptor_
 void hid_device_register_packet_handler(btstack_packet_handler_t callback) {
     g_fake_btstack.hid_device_register_packet_handler_called = true;
     g_fake_btstack.packet_handler = callback;
+}
+
+void hci_add_event_handler(btstack_packet_callback_registration_t *callback_handler) {
+    g_fake_btstack.hci_add_event_handler_called = true;
+    g_fake_btstack.hci_event_registration = callback_handler;
 }
 
 static int expect_true(bool value) {
@@ -154,6 +161,7 @@ static int test_backend_forwards_registration_calls_to_btstack(void) {
     failed += expect_true(g_fake_btstack.sdp_register_service_called);
     failed += expect_true(g_fake_btstack.hid_device_init_called);
     failed += expect_true(g_fake_btstack.hid_device_register_packet_handler_called);
+    failed += expect_true(g_fake_btstack.hci_add_event_handler_called);
     failed += expect_eq_u32(g_fake_btstack.service_record_handle, 0x01020304u);
     failed += expect_true(g_fake_btstack.service_pointer == service_buffer);
     failed += expect_eq_u16(g_fake_btstack.sdp_record.hid_device_subclass, 0x2508u);
@@ -166,6 +174,11 @@ static int test_backend_forwards_registration_calls_to_btstack(void) {
     failed += expect_eq_u16(g_fake_btstack.hid_descriptor_len, 3u);
     failed += expect_true(g_fake_btstack.hid_descriptor == descriptor);
     failed += expect_true(g_fake_btstack.packet_handler == fake_packet_handler);
+    failed += expect_true(g_fake_btstack.hci_event_registration != NULL);
+    if (g_fake_btstack.hci_event_registration != NULL) {
+        failed +=
+            expect_true(g_fake_btstack.hci_event_registration->callback == fake_packet_handler);
+    }
     return failed;
 }
 
