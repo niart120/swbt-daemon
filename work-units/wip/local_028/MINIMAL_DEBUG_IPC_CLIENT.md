@@ -8,6 +8,8 @@ Phase 5 前後の手動確認に使う最小 debug IPC client を追加する wo
 
 この work unit は software IPC client だけを扱う。Switch 実機への入力反映は検証しない。
 
+NyX handoff の macro は、`local_037` の実機 bring-up で使える一時的な外部 IPC client である。この work unit は、Project NyX に依存しない repo-local C client を追加する作業として残す。
+
 ## 2. 起点 / ユースケース
 
 source:
@@ -16,6 +18,7 @@ source:
 - `spec/initial/BTSTACK_SWITCH_DAEMON_IPC_DESIGN.md` の Windows 実機確認手順。debug IPC client から controller state を送信する手順がある。
 - `spec/protocols/daemon-ipc-v1.md`。current IPC contract は `hello`、`acquire`、`release`、`set_state`、`get_status` を含む。
 - `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`。実機 bring-up では state snapshot を手動で送る入口が必要になる。
+- NyX handoff。NyX macro を起動済み daemon の debug IPC client として使う手順を示すが、swbt repo-local client の実装完了を代替しない。
 
 use case:
 
@@ -23,7 +26,7 @@ use case:
 - 入力または状態: 起動済み daemon、loopback IPC endpoint、CLI で指定した button / stick / neutral state。
 - 期待する観測結果: debug client は daemon IPC へ接続し、owner を取得して full state snapshot を送信し、status を表示し、終了時に release または neutral state を試みる。
 - 制約: daemon protocol に timing macro を追加しない。Bluetooth adapter、Switch pairing、HID advertising、report loop はこの work unit で開始しない。
-- 対象外: Python / C# / GUI client、macro executor、multi-client event subscribe、authentication token。
+- 対象外: Python / C# / GUI client、Project NyX macro、macro executor、multi-client event subscribe、authentication token。
 - source から use case へ変換した判断: 実機 bring-up の入力送信に必要なのは daemon protocol 拡張ではなく、既存 IPC contract を使う最小 CLI client である。
 
 ## 3. 対象範囲
@@ -72,6 +75,7 @@ not applicable。
 - timing macro は client-side helper の将来課題に残す。
 - CLI argument の validation は送信前に行い、不正値では IPC message を送らない。
 - owner 取得後の error path では release または neutral state の送信を試みる。
+- NyX macro を `local_037` で使った実機結果は `local_037` と `docs/hardware-test-log.md` に記録する。NyX 経路で入力反映を確認しても、この C client の build、validation、cleanup path は未実装のまま扱う。
 
 ## 8. 対象ファイル
 
