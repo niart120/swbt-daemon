@@ -207,3 +207,25 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: NyXpy は未実行。なし
 - cleanup: 手動 `Ctrl+C` 後、trace は `btstack: hci power off`、`production: run loop returned`、`runtime: stop enter` まで到達した。`runtime: stop done` は記録されていないため、cleanup 完了は未確認である
 - notes: SDP record buffer fix の実機再実行としては green。Switch pairing、Switch 側での HID advertising 視認、NyXpy IPC input、report loop の実機 input 反映、neutral fail-safe は未観測である
+
+## 2026-06-21: local_037 CSR8510 A10 8000us cleanup direct rerun
+
+- OS: Microsoft Windows NT 10.0.26200.0
+- environment: Windows native PowerShell、ブランチ `local-037-hardware-verification`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Service `WinUSB`、Class `USBDevice`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: `88f0188aa17be524446a25ea0763aacc35ce5c88`
+- Switch firmware: 未記録
+- approval scope: ユーザ承認済み。CSR8510 A10、`8000 us`、`Tee-Object` なしの foreground daemon 直接起動、手動 `Ctrl+C` cleanup 確認
+- environment variables: `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`
+- IPC endpoint: 予定値 `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: foreground PowerShell で `build/windows-mingw-debug/swbt-daemon.exe` を `Tee-Object` なしで直接起動し、10 秒程度の観測後に同じ console で `Ctrl+C` した。`tmp/hardware/local_037/20260620-235943-8000us-cleanup-direct-rerun` へ exit marker / startup trace / minidump path を保存した
+- result: cleanup 完了を確認。PowerShell の exit marker は `exit=0`。artifact directory には `daemon-8000us-exit.txt` と `startup-trace.txt` が作成され、`swbt-daemon-crash.dmp` と daemon stdout / stderr log は作成されなかった。trace は `btstack: hci power on ok`、`production: run loop execute` まで到達した後、手動 `Ctrl+C` により `btstack: hci power off`、`production: run loop returned`、`runtime: report timer stop`、`runtime: output handler stop`、`runtime: hid stop`、`production: hid stop`、`production: platform stop`、`btstack: hci close done`、`btstack: run loop deinit done`、`runtime: ipc stop`、`runtime: stop done`、`production: runtime stop done` まで到達した
+- daemon log: 未作成。今回は `Tee-Object` を使わず、`SWBT_DIAGNOSTIC_TRACE_PATH` の startup trace を正本にする
+- artifact root: NyXpy は未実行。なし
+- cleanup: pass。手動 `Ctrl+C` から HCI power-off、BTstack close / run loop deinit、IPC stop、runtime stop done まで到達し、process exit は `0`
+- notes: pairing、Switch 側での HID advertising 視認、NyXpy IPC input、report loop の実機 input 反映は未観測である。`Tee-Object` pipeline を使った前回の `exit=-1` は cleanup 未完了の根拠として扱わず、直接起動結果を cleanup 判定の根拠にする
