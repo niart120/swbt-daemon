@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "core/spin_lock.h"
 #include "switch/switch_controller_state.h"
 
 typedef enum {
@@ -12,6 +13,7 @@ typedef enum {
 } swbt_state_mailbox_result_t;
 
 typedef struct {
+    swbt_spin_lock_t lock;
     swbt_state_t state;
     uint64_t generation;
     uint64_t loaded_generation;

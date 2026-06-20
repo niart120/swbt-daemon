@@ -15,7 +15,7 @@ source:
 - `spec/operations/windows-hardware-bringup-sequence.md` の gate 3。
 - `work-units/complete/local_025/DAEMON_RUNTIME_INTEGRATION.md` の先送り事項。production daemon が実 Bluetooth adapter を開く順序と失敗時 cleanup は fake backend test だけでは証明できない。
 - `work-units/complete/local_038/BTSTACK_SEND_READY_INTEGRATION.md`。production send-ready path が実機前の software gate である。
-- `work-units/wip/local_042/PRODUCTION_IPC_RUNNER_AND_STATE_SYNC.md`。NyXpy が接続する IPC endpoint と state handoff が前提である。
+- `work-units/complete/local_042/PRODUCTION_IPC_RUNNER_AND_STATE_SYNC.md`。NyXpy が接続する IPC endpoint と state handoff が前提である。
 
 use case:
 
@@ -56,7 +56,7 @@ use case:
 - `docs/hardware-test-log.md`
 - `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
 - `work-units/complete/local_038/BTSTACK_SEND_READY_INTEGRATION.md`
-- `work-units/wip/local_042/PRODUCTION_IPC_RUNNER_AND_STATE_SYNC.md`
+- `work-units/complete/local_042/PRODUCTION_IPC_RUNNER_AND_STATE_SYNC.md`
 - `work-units/complete/local_018/BTSTACK_PRODUCTION_ADAPTER.md`
 - `work-units/complete/local_019/BTSTACK_OUTPUT_REPORT_CALLBACKS.md`
 - `work-units/complete/local_023/BTSTACK_INPUT_REPORT_TIMER_ADAPTER.md`
@@ -81,7 +81,7 @@ use case:
 - entrypoint は config 作成、approval gate、backend selection、exit code 変換に限定する。
 - production backend の BTstack API 呼び出しは `swbt/btstack_bridge/` に閉じる。
 - approval gate は adapter open より前に評価する。環境変数が欠ける場合は、IPC runner や BTstack run loop も開始しない。
-- `local_042` が完了していない場合、この work unit は実装に入らない。`local_038` の send-ready software gate は完了済みである。
+- `local_042` の IPC runner software gate と `local_038` の send-ready software gate は完了済みである。この work unit では production backend composition と hardware approval gate を扱う。
 - 実機成功は `local_037` でだけ記録する。この work unit では build / fake backend / source-audit の根拠を pass 条件にする。
 
 ## 8. 対象ファイル
@@ -136,7 +136,7 @@ use case:
 ## 13. チェックリスト
 
 - [x] `local_038` 完了後に着手した。
-- [ ] `local_042` 完了後に着手した。
+- [x] `local_042` 完了後に着手した。
 - [ ] source-audit を実施または既存 reference で足りることを記録した。
 - [ ] red test を追加した。
 - [ ] production backend entrypoint を実装した。

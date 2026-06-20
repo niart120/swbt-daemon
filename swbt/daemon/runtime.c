@@ -58,12 +58,7 @@ static void swbt_daemon_runtime_on_output_report(void *context, uint16_t hid_cid
 }
 
 static void swbt_daemon_runtime_store_neutral(swbt_daemon_runtime_t *runtime) {
-    const swbt_state_t neutral = swbt_state_neutral();
-
-    runtime->ipc_session.has_owner = false;
-    runtime->ipc_session.owner_client_id = 0u;
-    runtime->ipc_session.state = neutral;
-    (void)swbt_state_mailbox_store(&runtime->mailbox, &neutral);
+    (void)swbt_ipc_clear_owner(&runtime->ipc_session);
 }
 
 swbt_daemon_runtime_result_t swbt_daemon_runtime_init(swbt_daemon_runtime_t *runtime,

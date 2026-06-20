@@ -39,7 +39,8 @@ typedef struct {
 
 typedef struct {
     swbt_ipc_socket_t listen_socket;
-    swbt_ipc_session_t session;
+    swbt_ipc_session_t default_session;
+    swbt_ipc_session_t *session;
     uint32_t next_client_id;
     uint16_t bound_port;
     bool listening;
@@ -58,6 +59,8 @@ swbt_ipc_server_result_t swbt_ipc_socket_receive(swbt_ipc_socket_t *socket, char
                                                  size_t buffer_size, size_t *out_received);
 
 swbt_ipc_server_result_t swbt_ipc_server_init(swbt_ipc_server_t *server);
+swbt_ipc_server_result_t swbt_ipc_server_bind_session(swbt_ipc_server_t *server,
+                                                      swbt_ipc_session_t *session);
 swbt_ipc_server_result_t swbt_ipc_server_listen(swbt_ipc_server_t *server, const char *host,
                                                 uint16_t port, int backlog);
 uint16_t swbt_ipc_server_port(const swbt_ipc_server_t *server);

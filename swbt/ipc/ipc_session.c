@@ -2,11 +2,11 @@
 
 #include <stddef.h>
 
-static void swbt_ipc_apply_neutral(swbt_ipc_session_t *session) {
+static void swbt_ipc_apply_neutral_unlocked(swbt_ipc_session_t *session) {
     session->state = swbt_state_neutral();
 }
 
-static swbt_ipc_result_t swbt_ipc_publish_state(swbt_ipc_session_t *session) {
+static swbt_ipc_result_t swbt_ipc_publish_state_unlocked(swbt_ipc_session_t *session) {
     if (session->mailbox == NULL) {
         return SWBT_IPC_OK;
     }
@@ -19,11 +19,11 @@ static int swbt_ipc_is_owner(const swbt_ipc_session_t *session, uint32_t client_
     return session->has_owner && session->owner_client_id == client_id;
 }
 
-static swbt_ipc_result_t swbt_ipc_clear_owner(swbt_ipc_session_t *session) {
+static swbt_ipc_result_t swbt_ipc_clear_owner_unlocked(swbt_ipc_session_t *session) {
     session->has_owner = false;
     session->owner_client_id = 0;
-    swbt_ipc_apply_neutral(session);
-    return swbt_ipc_publish_state(session);
+    swbt_ipc_apply_neutral_unlocked(session);
+    return swbt_ipc_publish_state_unlocked(session);
 }
 
 swbt_ipc_result_t swbt_ipc_session_init(swbt_ipc_session_t *session) {
@@ -31,10 +31,11 @@ swbt_ipc_result_t swbt_ipc_session_init(swbt_ipc_session_t *session) {
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
 
+    swbt_spin_lock_init(&session->lock);
     session->has_owner = false;
     session->owner_client_id = 0;
     session->mailbox = NULL;
-    swbt_ipc_apply_neutral(session);
+    swbt_ipc_apply_neutral_unlocked(session);
     if (swbt_switch_rumble_init(&session->rumble) != SWBT_SWITCH_RUMBLE_OK) {
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
@@ -47,20 +48,26 @@ swbt_ipc_result_t swbt_ipc_session_bind_mailbox(swbt_ipc_session_t *session,
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
 
+    swbt_spin_lock_acquire(&session->lock);
     session->mailbox = mailbox;
-    return swbt_ipc_publish_state(session);
+    const swbt_ipc_result_t result = swbt_ipc_publish_state_unlocked(session);
+    swbt_spin_lock_release(&session->lock);
+    return result;
 }
 
 swbt_ipc_result_t swbt_ipc_acquire(swbt_ipc_session_t *session, uint32_t client_id) {
     if (session == NULL) {
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
+    swbt_spin_lock_acquire(&session->lock);
     if (session->has_owner && session->owner_client_id != client_id) {
+        swbt_spin_lock_release(&session->lock);
         return SWBT_IPC_ERROR_OWNER_BUSY;
     }
 
     session->has_owner = true;
     session->owner_client_id = client_id;
+    swbt_spin_lock_release(&session->lock);
     return SWBT_IPC_OK;
 }
 
@@ -68,11 +75,26 @@ swbt_ipc_result_t swbt_ipc_release(swbt_ipc_session_t *session, uint32_t client_
     if (session == NULL) {
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
+    swbt_spin_lock_acquire(&session->lock);
     if (!swbt_ipc_is_owner(session, client_id)) {
+        swbt_spin_lock_release(&session->lock);
         return SWBT_IPC_ERROR_NOT_OWNER;
     }
 
-    return swbt_ipc_clear_owner(session);
+    const swbt_ipc_result_t result = swbt_ipc_clear_owner_unlocked(session);
+    swbt_spin_lock_release(&session->lock);
+    return result;
+}
+
+swbt_ipc_result_t swbt_ipc_clear_owner(swbt_ipc_session_t *session) {
+    if (session == NULL) {
+        return SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    }
+
+    swbt_spin_lock_acquire(&session->lock);
+    const swbt_ipc_result_t result = swbt_ipc_clear_owner_unlocked(session);
+    swbt_spin_lock_release(&session->lock);
+    return result;
 }
 
 swbt_ipc_result_t swbt_ipc_set_state(swbt_ipc_session_t *session, uint32_t client_id,
@@ -80,12 +102,16 @@ swbt_ipc_result_t swbt_ipc_set_state(swbt_ipc_session_t *session, uint32_t clien
     if (session == NULL || state == NULL) {
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
+    swbt_spin_lock_acquire(&session->lock);
     if (!swbt_ipc_is_owner(session, client_id)) {
+        swbt_spin_lock_release(&session->lock);
         return SWBT_IPC_ERROR_NOT_OWNER;
     }
 
     session->state = *state;
-    return swbt_ipc_publish_state(session);
+    const swbt_ipc_result_t result = swbt_ipc_publish_state_unlocked(session);
+    swbt_spin_lock_release(&session->lock);
+    return result;
 }
 
 swbt_ipc_result_t swbt_ipc_get_status(const swbt_ipc_session_t *session,
@@ -94,10 +120,13 @@ swbt_ipc_result_t swbt_ipc_get_status(const swbt_ipc_session_t *session,
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
 
+    swbt_ipc_session_t *mutable_session = (swbt_ipc_session_t *)session;
+    swbt_spin_lock_acquire(&mutable_session->lock);
     out_status->has_owner = session->has_owner;
     out_status->owner_client_id = session->owner_client_id;
     out_status->state = session->state;
     out_status->rumble = session->rumble;
+    swbt_spin_lock_release(&mutable_session->lock);
     return SWBT_IPC_OK;
 }
 
@@ -107,10 +136,13 @@ swbt_ipc_result_t swbt_ipc_record_rumble(swbt_ipc_session_t *session, const uint
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
 
-    return swbt_switch_rumble_update(&session->rumble, payload, updated_at_ms) ==
-                   SWBT_SWITCH_RUMBLE_OK
-               ? SWBT_IPC_OK
-               : SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    swbt_spin_lock_acquire(&session->lock);
+    const swbt_ipc_result_t result =
+        swbt_switch_rumble_update(&session->rumble, payload, updated_at_ms) == SWBT_SWITCH_RUMBLE_OK
+            ? SWBT_IPC_OK
+            : SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    swbt_spin_lock_release(&session->lock);
+    return result;
 }
 
 swbt_ipc_result_t
@@ -128,9 +160,13 @@ swbt_ipc_result_t swbt_ipc_disconnect(swbt_ipc_session_t *session, uint32_t clie
     if (session == NULL) {
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
+    swbt_spin_lock_acquire(&session->lock);
     if (swbt_ipc_is_owner(session, client_id)) {
-        return swbt_ipc_clear_owner(session);
+        const swbt_ipc_result_t result = swbt_ipc_clear_owner_unlocked(session);
+        swbt_spin_lock_release(&session->lock);
+        return result;
     }
+    swbt_spin_lock_release(&session->lock);
     return SWBT_IPC_OK;
 }
 
@@ -138,8 +174,12 @@ swbt_ipc_result_t swbt_ipc_heartbeat_timeout(swbt_ipc_session_t *session, uint32
     if (session == NULL) {
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
+    swbt_spin_lock_acquire(&session->lock);
     if (swbt_ipc_is_owner(session, client_id)) {
-        return swbt_ipc_clear_owner(session);
+        const swbt_ipc_result_t result = swbt_ipc_clear_owner_unlocked(session);
+        swbt_spin_lock_release(&session->lock);
+        return result;
     }
+    swbt_spin_lock_release(&session->lock);
     return SWBT_IPC_OK;
 }

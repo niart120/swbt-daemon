@@ -375,6 +375,7 @@ heartbeat timeout は input timing 機能ではない。connection health 用の
 - `work-units/complete/local_010/IPC_TCP_SERVER_CORE.md`
 - `work-units/complete/local_011/IPC_HEARTBEAT_CORE.md`
 - `work-units/complete/local_024/STATE_MAILBOX_THREAD_BOUNDARY.md`
+- `work-units/complete/local_042/PRODUCTION_IPC_RUNNER_AND_STATE_SYNC.md`
 - `work-units/complete/local_036/SPEC_WORK_UNIT_INVENTORY.md`
 - `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
 - `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`
