@@ -14,7 +14,7 @@ source:
 - `spec/references/btstack-subcommand-reply-send-queue.md` の未解決事項。
 - `work-units/complete/local_019/BTSTACK_OUTPUT_REPORT_CALLBACKS.md` の先送り事項。subcommand reply send queue への接続、DATA / SET_REPORT の実機確認、callback timing が未完了である。
 - `work-units/complete/local_025/DAEMON_RUNTIME_INTEGRATION.md`。runtime は fake backend で output handler と report timer を接続しているが、実 BTstack send-ready path は未検証である。
-- `spec/protocols/switch-hid-core.md`。Subcommand reply `0x21` は periodic `0x30` より優先する。
+- `spec/protocols/switch-hid-core.md`。Subcommand reply `0x21` は periodic `0x30` より優先する方針であり、BTstack can-send event 上の production integration はこの work unit で扱う。
 
 use case:
 

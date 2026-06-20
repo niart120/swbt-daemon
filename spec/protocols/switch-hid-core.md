@@ -53,7 +53,7 @@ virtual SPI は caller-seeded storage を読む。実機相当の factory data g
 
 rumble は controller input state と分けて raw 8 bytes として保持する。frequency / amplitude semantic decode と actuator-safe conversion は current contract に含めない。
 
-Subcommand reply `0x21` は periodic `0x30` より優先する。reply queue は already-built report bytes を保持し、send failure では head item を残して retry できる。
+Subcommand reply `0x21` は periodic `0x30` より優先する方針とする。現行実装では reply queue core が already-built report bytes を保持し、send failure では head item を残して retry できる。BTstack can-send event 上で reply queue と periodic scheduler を統合する production path は未完成である。
 
 periodic input report scheduler の default period は `8000us` とする。ただしこれは configurable default であり、実機で最適値として確認済みの値ではない。
 
