@@ -73,8 +73,8 @@ use case:
 | HID Device registration API | recorded | `work-units/complete/local_018` と `spec/references/btstack-production-adapter.md` を使う。 |
 | output report callbacks | recorded | `work-units/complete/local_019` と `spec/references/btstack-output-report-callbacks.md` を使う。 |
 | input report timer API | recorded | `work-units/complete/local_023` と `spec/references/btstack-periodic-input-report-core.md` を使う。 |
-| BTstack run loop startup / shutdown | pending | この work unit で source-audit が必要である。 |
-| Windows WinUSB adapter open behavior | pending | 実装前に source-audit、実行結果は `local_037` で hardware observation として記録する。 |
+| BTstack run loop startup / shutdown | recorded | `spec/references/btstack-daemon-entrypoint.md` に記録した。 |
+| Windows WinUSB adapter open behavior | recorded / hardware pending | `hci_power_control(HCI_POWER_ON)` が transport `open()` に進む source fact を記録した。実行結果は `local_037` で hardware observation として記録する。 |
 
 ## 7. 設計メモ
 
@@ -88,6 +88,7 @@ use case:
 
 - `CMakeLists.txt`
 - `apps/swbt-daemon/main.c`
+- `cmake/mingw-compat-include/*`
 - `swbt/daemon/config.h`
 - `swbt/daemon/config.c`
 - `swbt/daemon/runtime.h`
@@ -97,24 +98,41 @@ use case:
 - `swbt/btstack_bridge/*`
 - `tests/daemon_production_backend_test.c`
 - `spec/references/`
-- `work-units/wip/local_043/PRODUCTION_DAEMON_BTSTACK_ENTRYPOINT.md`
+- `work-units/complete/local_043/PRODUCTION_DAEMON_BTSTACK_ENTRYPOINT.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | daemon entrypoint rejects production hardware mode before adapter open when approval environment is missing | edge | unit | no |
-| todo | approved production config composes IPC runner, HID registration, output callbacks, report timer, and run loop in start order with fake backend ops | new | integration | no |
-| todo | start failure cleans up only resources that were started, in reverse order | edge | integration | no |
-| todo | report period and IPC endpoint config are logged or exposed before hardware run | new | unit | no |
-| todo | Windows `windows-winusb` cross build links production backend boundary without editing `vendor/btstack` | regression | build | no |
+| pass | daemon entrypoint rejects production hardware mode before adapter open when approval environment is missing | edge | unit | no |
+| pass | approved production config composes IPC runner, HID registration, output callbacks, report timer, and run loop in start order with fake backend ops | new | integration | no |
+| pass | start failure cleans up only resources that were started, in reverse order | edge | integration | no |
+| pass | report period and IPC endpoint config are logged or exposed before hardware run | new | unit | no |
+| pass | Windows `windows-winusb` cross build links production backend boundary without editing `vendor/btstack` | regression | build | no |
 | deferred | approved daemon run opens the selected WinUSB dongle and reaches Switch pairing / HID advertising | characterization | hardware | yes |
 
 ## 10. 検証
 
-未実行。
+TDD red:
 
-この record は work unit の範囲と TDD Test List を作成しただけであり、code、CTest、実機コマンドは実行していない。
+- `just build-debug` は `daemon/production_backend.h` missing で失敗した。
+
+Green:
+
+- `swbt/daemon/production_backend.*` を追加し、fake ops で approval gate、runtime backend composition、HID event timer control、failure cleanup、report period / IPC config exposure を固定した。
+- `swbt/btstack_bridge/production_btstack.*` を追加し、BTstack memory/run loop/HCI/L2CAP/HID/output callback/timer adapter を executable 用 ops に閉じた。
+- `apps/swbt-daemon/main.c` は `SWBT_DAEMON_BACKEND=production` のときだけ production backend を選び、`SWBT_RUN_HARDWARE=1` と `SWBT_HARDWARE_APPROVED=1` が欠ける場合は adapter open 前に失敗する。
+- `swbt-daemon` は daemon link 用 BTstack source set をリンクする。source selection の broad audit list は維持し、daemon link では platform helper を除いて selected backend の transport/run loop だけを追加する。
+- Windows filesystem 上の MinGW cross build では、BTstack の `#include <Windows.h>`、`#include <SetupAPI.h>`、`#include <Winusb.h>` が小文字 header 名と合わないため、`cmake/mingw-compat-include/*` の `include_next` wrapper を `windows-winusb` + MinGW の BTstack link target だけに追加した。
+
+検証:
+
+- `just build-debug` は成功した。
+- `just test-debug` は 27/27 passed。`daemon_production_backend_test` を含む。
+- `just debug` は 27/27 passed。
+- `just windows-cross` は成功した。`windows-mingw-debug` preset、`SWBT_BACKEND=windows-winusb` で `swbt-daemon.exe` と `swbt-debug-client.exe` の link まで確認した。
+- `just verify` は成功した。format-check、clang-tidy、linux-debug、linux-asan、windows-mingw-debug を実行した。
+- 実機コマンド、pairing、HID advertising、report loop は実行していない。
 
 ## 11. 実機実行条件
 
@@ -137,10 +155,10 @@ use case:
 
 - [x] `local_038` 完了後に着手した。
 - [x] `local_042` 完了後に着手した。
-- [ ] source-audit を実施または既存 reference で足りることを記録した。
-- [ ] red test を追加した。
-- [ ] production backend entrypoint を実装した。
-- [ ] targeted CTest を実行した。
-- [ ] `just debug` を実行した。
-- [ ] `just windows-cross` を実行した。
-- [ ] 実機状態または未実行理由を記録した。
+- [x] source-audit を実施または既存 reference で足りることを記録した。
+- [x] red test を追加した。
+- [x] production backend entrypoint を実装した。
+- [x] targeted CTest を実行した。
+- [x] `just debug` を実行した。
+- [x] `just windows-cross` を実行した。
+- [x] 実機状態または未実行理由を記録した。

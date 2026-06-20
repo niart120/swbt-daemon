@@ -56,7 +56,7 @@ use case:
 - `work-units/complete/local_025/DAEMON_RUNTIME_INTEGRATION.md`
 - `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
 - `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
-- `work-units/wip/local_043/PRODUCTION_DAEMON_BTSTACK_ENTRYPOINT.md`
+- `work-units/complete/local_043/PRODUCTION_DAEMON_BTSTACK_ENTRYPOINT.md`
 
 ## 6. 根拠監査
 
