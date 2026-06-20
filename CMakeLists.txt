@@ -58,6 +58,54 @@ endif()
 swbt_define_btstack_source_selection(swbt_btstack_source_selection)
 get_property(swbt_btstack_selected_include_dirs TARGET swbt_btstack_source_selection
              PROPERTY SWBT_BTSTACK_SELECTED_INCLUDE_DIRS)
+get_property(swbt_btstack_selected_sources TARGET swbt_btstack_source_selection
+             PROPERTY SWBT_BTSTACK_SELECTED_SOURCES)
+get_property(swbt_btstack_selected_link_libraries TARGET swbt_btstack_source_selection
+             PROPERTY SWBT_BTSTACK_SELECTED_LINK_LIBRARIES)
+
+set(swbt_btstack_link_sources ${swbt_btstack_selected_sources})
+list(FILTER swbt_btstack_link_sources EXCLUDE REGEX ".*/platform/(posix|libusb|windows)/.*")
+set(swbt_btstack_link_include_dirs ${swbt_btstack_selected_include_dirs})
+set(swbt_btstack_link_libraries ${swbt_btstack_selected_link_libraries})
+if(SWBT_BACKEND STREQUAL "libusb")
+    list(APPEND swbt_btstack_link_sources
+        "${SWBT_BTSTACK_DIR}/platform/libusb/hci_transport_h2_libusb.c"
+        "${SWBT_BTSTACK_DIR}/platform/posix/btstack_run_loop_posix.c"
+    )
+    find_path(swbt_libusb_include_dir NAMES libusb.h PATH_SUFFIXES libusb-1.0)
+    if(swbt_libusb_include_dir)
+        list(APPEND swbt_btstack_link_include_dirs "${swbt_libusb_include_dir}")
+    endif()
+    find_library(swbt_libusb_library NAMES usb-1.0)
+    if(swbt_libusb_library)
+        list(REMOVE_ITEM swbt_btstack_link_libraries libusb-1.0)
+        list(APPEND swbt_btstack_link_libraries "${swbt_libusb_library}")
+    endif()
+elseif(SWBT_BACKEND STREQUAL "windows-winusb")
+    list(APPEND swbt_btstack_link_sources
+        "${SWBT_BTSTACK_DIR}/platform/windows/hci_transport_h2_winusb.c"
+        "${SWBT_BTSTACK_DIR}/platform/windows/btstack_run_loop_windows.c"
+    )
+    if(MINGW)
+        list(APPEND swbt_btstack_link_include_dirs
+            "${CMAKE_CURRENT_SOURCE_DIR}/cmake/mingw-compat-include"
+        )
+    endif()
+endif()
+list(REMOVE_DUPLICATES swbt_btstack_link_sources)
+list(REMOVE_DUPLICATES swbt_btstack_link_include_dirs)
+
+add_library(swbt_btstack STATIC
+    ${swbt_btstack_link_sources}
+)
+target_include_directories(swbt_btstack
+    PUBLIC
+        ${swbt_btstack_link_include_dirs}
+)
+target_link_libraries(swbt_btstack
+    PUBLIC
+        ${swbt_btstack_link_libraries}
+)
 
 add_library(swbt_core STATIC
     swbt/core/swbt_version.c
@@ -66,6 +114,7 @@ add_library(swbt_core STATIC
     swbt/core/metrics.c
     swbt/daemon/config.c
     swbt/daemon/ipc_runner.c
+    swbt/daemon/production_backend.c
     swbt/daemon/runtime.c
     swbt/btstack_bridge/hid_device_btstack_adapter.c
     swbt/btstack_bridge/hid_device_registration.c
@@ -118,8 +167,13 @@ endif()
 
 add_executable(swbt-daemon
     apps/swbt-daemon/main.c
+    swbt/btstack_bridge/production_btstack.c
 )
-target_link_libraries(swbt-daemon PRIVATE swbt_core)
+target_link_libraries(swbt-daemon PRIVATE swbt_core swbt_btstack)
+target_include_directories(swbt-daemon
+    PRIVATE
+        ${swbt_btstack_selected_include_dirs}
+)
 swbt_apply_common_warnings(swbt-daemon)
 swbt_apply_sanitizers(swbt-daemon)
 
@@ -370,6 +424,19 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(daemon_ipc_runner_test)
 
     add_test(NAME daemon_ipc_runner_test COMMAND daemon_ipc_runner_test)
+
+    add_executable(daemon_production_backend_test
+        tests/daemon_production_backend_test.c
+    )
+    target_link_libraries(daemon_production_backend_test PRIVATE swbt_core)
+    target_include_directories(daemon_production_backend_test
+        PRIVATE
+            ${swbt_btstack_selected_include_dirs}
+    )
+    swbt_apply_common_warnings(daemon_production_backend_test)
+    swbt_apply_sanitizers(daemon_production_backend_test)
+
+    add_test(NAME daemon_production_backend_test COMMAND daemon_production_backend_test)
 
     add_executable(report_metrics_test
         tests/report_metrics_test.c
