@@ -2,12 +2,16 @@
 #define SWBT_DAEMON_RUNTIME_H
 
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #include "btstack_bridge/output_report_handler.h"
 #include "core/state_mailbox.h"
 #include "daemon/config.h"
 #include "ipc/ipc_session.h"
 #include "switch/switch_controller_state.h"
+#include "switch/switch_player_lights.h"
+#include "switch/switch_spi.h"
 
 typedef enum {
     SWBT_DAEMON_RUNTIME_OK = 0,
@@ -27,6 +31,8 @@ typedef struct {
     int (*report_timer_start)(void *context, swbt_daemon_state_provider_t state_provider,
                               void *state_context);
     void (*report_timer_stop)(void *context);
+    int (*subcommand_reply_enqueue)(void *context, uint16_t hid_cid, const uint8_t *report,
+                                    size_t report_size);
 } swbt_daemon_runtime_backend_t;
 
 typedef struct {
@@ -36,6 +42,8 @@ typedef struct {
     swbt_state_mailbox_t mailbox;
     swbt_ipc_session_t ipc_session;
     swbt_btstack_output_report_handler_t output_handler;
+    swbt_switch_spi_t spi;
+    swbt_switch_player_lights_state_t player_lights;
     bool initialized;
     bool running;
     bool ipc_started;

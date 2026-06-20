@@ -6,6 +6,8 @@
 #include "daemon/runtime.h"
 #include "ipc/ipc_session.h"
 #include "switch/switch_controller_state.h"
+#include "switch/switch_subcommand.h"
+#include "switch/switch_subcommand_reply.h"
 
 typedef struct {
     int ipc_start_result;
@@ -19,10 +21,14 @@ typedef struct {
     int output_handler_stop_calls;
     int report_timer_start_calls;
     int report_timer_stop_calls;
+    int subcommand_reply_enqueue_calls;
     const swbt_ipc_session_t *ipc_session;
     const swbt_btstack_output_report_handler_t *output_handler;
     swbt_daemon_state_provider_t state_provider;
     void *state_context;
+    uint16_t reply_hid_cid;
+    uint8_t reply_report[SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE];
+    size_t reply_report_size;
 } fake_backend_t;
 
 static int expect_true(bool value) {
@@ -98,6 +104,18 @@ static void fake_report_timer_stop(void *context) {
     fake->report_timer_stop_calls += 1;
 }
 
+static int fake_subcommand_reply_enqueue(void *context, uint16_t hid_cid, const uint8_t *report,
+                                         size_t report_size) {
+    fake_backend_t *fake = context;
+    fake->subcommand_reply_enqueue_calls += 1;
+    fake->reply_hid_cid = hid_cid;
+    fake->reply_report_size = report_size;
+    for (size_t index = 0; index < report_size && index < sizeof(fake->reply_report); ++index) {
+        fake->reply_report[index] = report[index];
+    }
+    return 0;
+}
+
 static swbt_daemon_runtime_backend_t fake_backend_ops(void) {
     swbt_daemon_runtime_backend_t backend = {
         .ipc_start = fake_ipc_start,
@@ -108,6 +126,7 @@ static swbt_daemon_runtime_backend_t fake_backend_ops(void) {
         .output_handler_stop = fake_output_handler_stop,
         .report_timer_start = fake_report_timer_start,
         .report_timer_stop = fake_report_timer_stop,
+        .subcommand_reply_enqueue = fake_subcommand_reply_enqueue,
     };
     return backend;
 }
@@ -176,6 +195,49 @@ static int start_wires_session_mailbox_hid_output_and_timer(void) {
     } else {
         failed += expect_eq_u16(fake.state_provider(fake.state_context).ly, 2345u);
     }
+
+    swbt_daemon_runtime_stop(&runtime);
+    return failed;
+}
+
+static int output_report_dispatcher_response_enqueues_reply(void) {
+    const uint8_t set_report_mode[] = {
+        SWBT_SWITCH_OUTPUT_REPORT_RUMBLE_AND_SUBCOMMAND,
+        0x0Au,
+        0x00u,
+        0x01u,
+        0x40u,
+        0x40u,
+        0x00u,
+        0x01u,
+        0x40u,
+        0x40u,
+        SWBT_SWITCH_SUBCOMMAND_SET_REPORT_MODE,
+        0x30u,
+    };
+    swbt_daemon_runtime_t runtime;
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_backend_t fake;
+    const swbt_daemon_runtime_backend_t backend = fake_backend_ops();
+
+    fake_backend_init(&fake);
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_runtime_init(&runtime, &config, &backend, &fake),
+                            SWBT_DAEMON_RUNTIME_OK);
+    failed += expect_eq_int(swbt_daemon_runtime_start(&runtime), SWBT_DAEMON_RUNTIME_OK);
+    failed += expect_eq_int(
+        swbt_btstack_output_report_handler_handle(swbt_daemon_runtime_output_handler(&runtime),
+                                                  0x0042u, SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT, 0u,
+                                                  set_report_mode, sizeof(set_report_mode)),
+        SWBT_BTSTACK_OUTPUT_REPORT_OK);
+    failed += expect_eq_int(fake.subcommand_reply_enqueue_calls, 1);
+    failed += expect_eq_u16(fake.reply_hid_cid, 0x0042u);
+    failed +=
+        expect_eq_int((int)fake.reply_report_size, (int)SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE);
+    failed += expect_eq_int(fake.reply_report[0], SWBT_SWITCH_INPUT_REPORT_SUBCOMMAND_REPLY);
+    failed += expect_eq_int(fake.reply_report[13], SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_SIMPLE);
+    failed += expect_eq_int(fake.reply_report[14], SWBT_SWITCH_SUBCOMMAND_SET_REPORT_MODE);
 
     swbt_daemon_runtime_stop(&runtime);
     return failed;
@@ -261,6 +323,7 @@ int main(void) {
     int failed = 0;
     failed += invalid_config_rejects_without_opening_backends();
     failed += start_wires_session_mailbox_hid_output_and_timer();
+    failed += output_report_dispatcher_response_enqueues_reply();
     failed += shutdown_neutralizes_state_and_stops_resources_once();
     failed += backend_failure_cleans_up_started_resources();
     failed += main_with_backend_returns_runtime_exit_without_hardware_backend();

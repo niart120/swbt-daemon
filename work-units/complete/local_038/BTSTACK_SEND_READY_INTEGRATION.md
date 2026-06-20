@@ -66,6 +66,22 @@ use case:
 
 実機 acceptability は hardware observation として扱い、この work unit の software verification だけでは pass としない。
 
+今回の実装では、新しい Switch protocol byte、BTstack source selection、report period 採用値、WinUSB/libusb 実測値は追加していない。
+
+### 根拠監査
+
+| 項目 | 値 | 根拠 | source | status |
+|---|---:|---|---|---|
+| subcommand reply report | input report `0x21` built by dispatcher | implementation fact via existing audit | `swbt/switch/switch_subcommand_dispatcher.c`, `spec/references/switch-subcommand-dispatcher-core.md`, `spec/references/switch-subcommand-reply-core.md` | stable for software integration |
+| periodic report | input report `0x30` built by scheduler | implementation fact via existing audit | `swbt/btstack_bridge/input_report_scheduler.c`, `spec/references/btstack-periodic-input-report-core.md` | stable for software integration |
+| can-send priority | queued `0x21` is sent before pending periodic `0x30` | design policy + unit test | `spec/references/btstack-subcommand-reply-send-queue.md`, `tests/btstack_input_report_timer_adapter_test.c` | software verified; hardware not proven |
+| BTstack send API result | production wrapper maps BTstack `hid_device_send_interrupt_message` to success | source fact / implementation fact | `vendor/btstack/src/classic/hid_device.h`, `swbt/btstack_bridge/input_report_timer_adapter.c` | production API has no return value; fake backend injects failure for retry policy |
+
+### 未解決事項
+
+- Switch 実機が prioritized `0x21` reply と 1 tick slipped periodic `0x30` を受け入れるかは、この work unit では未検証である。
+- DATA callback と SET_REPORT callback の実機上の選択結果、callback timing、BTstack send failure の実機観測は `local_037` の実機 bring-up で扱う。
+
 ## 7. 設計メモ
 
 - `0x21` reply は already-built report bytes として queue に入れる。
@@ -82,29 +98,66 @@ use case:
 - `swbt/btstack_bridge/subcommand_reply_queue.*`
 - `swbt/btstack_bridge/input_report_timer_adapter.*`
 - `swbt/daemon/runtime.*`
+- `swbt/daemon/config.*`
 - `tests/btstack_output_report_callbacks_test.c`
 - `tests/btstack_subcommand_reply_queue_test.c`
 - `tests/btstack_input_report_timer_adapter_test.c`
 - `tests/daemon_runtime_test.c`
 - `spec/references/btstack-subcommand-reply-send-queue.md`
-- `work-units/wip/local_038/BTSTACK_SEND_READY_INTEGRATION.md`
+- `work-units/complete/local_038/BTSTACK_SEND_READY_INTEGRATION.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | output report dispatcher response enqueues an already-built `0x21` reply | new | unit | no |
-| todo | can-send event sends queued `0x21` before periodic `0x30` | new | integration | no |
-| todo | send failure keeps queued reply for retry | edge | unit | no |
-| todo | queued reply can delay periodic report without losing scheduler state | edge | integration | no |
-| todo | production BTstack backend compiles without moving BTstack API calls outside bridge | regression | build | no |
+| refactor-skipped | output report dispatcher response enqueues an already-built `0x21` reply | new | unit | no |
+| refactor-skipped | can-send event sends queued `0x21` before periodic `0x30` | new | integration | no |
+| refactor-skipped | send failure keeps queued reply for retry | edge | unit | no |
+| refactor-skipped | queued reply can delay periodic report without losing scheduler state | edge | integration | no |
+| green | stopped adapter clears queued replies before a later session | edge | unit | no |
+| green | production BTstack backend compiles without moving BTstack API calls outside bridge | regression | build | no |
 | deferred | Switch accepts prioritized `0x21` replies during a real HID session | characterization | hardware | yes |
+
+TDD status:
+
+- source: `work-units/complete/local_022/SUBCOMMAND_REPLY_SEND_QUEUE.md` の先送り事項と `spec/operations/windows-hardware-bringup-sequence.md` の `local_037` 前 gate。
+- use case: parsed output report から dispatcher response を作り、BTstack can-send event 上では queued `0x21` reply を periodic `0x30` より先に送る。
+- red:
+  - command: `just build-debug`
+  - result: expected failure。`tests/daemon_runtime_test.c` が `swbt_daemon_runtime_backend_t.subcommand_reply_enqueue` を要求し、実装前の struct に member がないため compile 失敗。
+- green:
+  - command: `just build-debug`
+  - result: pass。
+  - command: `just test-debug`
+  - result: pass。CTest 25/25。
+  - command: `just debug`
+  - result: pass。clean configure から build、CTest 25/25。
+- refactor:
+  - decision: `refactor-skipped` for the main behavior items。
+  - reason: runtime dispatcher hook と timer adapter queue arbitration は既存境界に沿った最小接続であり、追加抽象化は次の production entrypoint work unit まで不要である。
+  - cleanup edge: stop 後に queued reply が次 session へ残らないことを `btstack_input_report_timer_adapter_test` に追加し、`stop` で queue を初期化する。
+
+Test desiderata:
+
+- purpose: output report -> dispatcher -> enqueue と can-send priority を fake backend で固定する。
+- key trade-offs: deterministic / fast / specific を優先した。実機 acceptability と BTstack の実送信結果は証明しない。
+- risks: production `hid_device_send_interrupt_message` は void API なので、fake backend の send failure は adapter retry policy の unit-level fault injection であり、BTstack 実機送信失敗の観測ではない。
+- action: 実機 acceptance と DATA / SET_REPORT callback timing は `local_037` に残す。
 
 ## 10. 検証
 
-未実行。
+実行済み:
 
-この record は follow-up を作成しただけであり、code、CTest、実機コマンドは実行していない。
+- red: `just build-debug` failed as expected。`swbt_daemon_runtime_backend_t` に `subcommand_reply_enqueue` member がない compile error。
+- green build: `just build-debug` passed。
+- green tests: `just test-debug` passed。CTest 25/25。
+- debug gate: `just debug` passed。clean configure、linux debug build、CTest 25/25。
+- first verify: `just verify` failed in format check because the host-side direct `scripts/format.sh` run did not apply container clang-format to changed C files.
+- final verify: `just verify` passed after `just format`。format check、clang-tidy、linux debug tests、ASan/UBSan tests、Windows MinGW cross build が通った。
+
+未実行:
+
+- 実機コマンドは実行していない。
 
 ## 11. 実機実行条件
 
@@ -120,10 +173,10 @@ Switch pairing、HID advertising、DATA / SET_REPORT observation、reply accepta
 
 ## 13. チェックリスト
 
-- [ ] source audit を更新する必要があるか判断した。
-- [ ] red test を追加した。
-- [ ] send-ready integration を実装した。
-- [ ] targeted CTest を実行した。
-- [ ] `just debug` を実行した。
-- [ ] sanitizer または Windows cross build の必要性を判断した。
-- [ ] 実機状態を記録した。
+- [x] source audit を更新する必要があるか判断した。
+- [x] red test を追加した。
+- [x] send-ready integration を実装した。
+- [x] targeted CTest を実行した。
+- [x] `just debug` を実行した。
+- [x] sanitizer または Windows cross build の必要性を判断した。
+- [x] 実機状態を記録した。
