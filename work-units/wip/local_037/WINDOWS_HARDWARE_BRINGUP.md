@@ -117,6 +117,9 @@ report period の採用判断は実測後に行う。`8000us` は current config
 | single-shot IPC input observation | `1877` outgoing 57 byte ACL packets all had the same timer-excluded neutral state; incoming ACL payloads were L2CAP setup only | hardware observation / inference | `tmp/hardware/local_037/20260621-013528-8000us-hci-event-handler-hci-dump-pairing/hci-dump.txt` | exact client command / stdout not captured; held-state input still required |
 | NyXPy held-input IPC timeout | macro initialized `scenario=held_input_probe` then timed out waiting for daemon IPC response | software observation / inference | user-provided NyXPy stdout at 2026-06-21 01:56 and swbt production IPC code inspection | production daemon listened but did not pump accept / serve during BTstack run loop |
 | production IPC pump | `swbt_daemon_ipc_runner_poll_once` checks readable listener / connection sockets and accepts or serves one ready request; BTstack production schedules it every 1 ms | implementation fact | `swbt/ipc/ipc_server.c`, `swbt/daemon/ipc_runner.c`, `swbt/btstack_bridge/production_btstack.c`, `tests/daemon_ipc_runner_test.c` | covered by non-hardware tests; hardware rerun required |
+| NyXPy held-input IPC success | `hello_ok`, `acquired`, Button A `state_accepted`, neutral `state_accepted`, and cleanup `release_sent=true` were recorded | hardware observation | Project NyX artifact `resources/swbt_hardware_bringup/artifacts/20260621T022219_74b5/swbt_hardware_bringup/handoff/ipc_session.json` | IPC client path pass on this run |
+| NyXPy held Button A HCI report | 57 byte input reports were sent `1093` times; timer-excluded states were neutral `1034` and Button A `0x000008` `59` | hardware observation | `tmp/hardware/local_037/20260621-022214-8000us-held-input-nyxpy/hci-dump.txt` | daemon state reached HCI; Switch UI reaction still red |
+| NyXPy held Button A Switch capture | baseline, Button A, and neutral captures all showed the same `L + R` prompt | hardware observation | Project NyX artifact `resources/swbt_hardware_bringup/artifacts/20260621T022219_74b5/swbt_hardware_bringup/observations/*.png` | Button A alone is not evidence of UI adoption |
 
 ## 7. 設計メモ
 
@@ -142,7 +145,8 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - 2026-06-21 の SSP confirmation fix 後 rerun では、Switch2 から incoming connection と `HCI_EVENT_USER_CONFIRMATION_REQUEST` は来たが、HCI dump には `User Confirmation Request Reply` opcode `0x042c` が出なかった。BTstack の `hid_device_register_packet_handler` は HID device callback を保存するだけで、HCI event list には登録しない。BTstack HID examples と同じく production packet handler を `hci_add_event_handler` にも登録する。
 - 2026-06-21 の HCI event handler registration fix 後 rerun では、`User Confirmation Request Reply` opcode `0x042c` が送信され、`Simple Pairing Complete` は status `0x00` になった。PSM `0x11` と `0x13` の L2CAP channel も status `0x0` で開いたため、Bluetooth SSP pairing と HID control / interrupt channel open は pass とする。Switch2 側の画面は変化せず、Switch からの HID output report / subcommand は観測されていないため、次の切り分け対象は Switch が controller として採用しない理由である。
 - 2026-06-21 の単発 IPC input rerun では、HCI dump 上の 57 byte report が `1877` 個に増えたが、timer byte を除いた input report state は全件 neutral だった。これは Switch が非 neutral input を無視した根拠ではなく、`swbt-debug-client` の単発 `set_state` / `release` が 8000 us report tick に捕捉されなかった可能性を残す観測である。次の入力反映確認は NyXpy または held-state capable client で、非 neutral state を 1 秒以上保持する。
-- 2026-06-21 の NyXPy `held_input_probe` 初回実行は、macro 初期化後に daemon IPC 応答待ちで `timed out` した。これは Switch 側の入力反映結果ではなく、production daemon が IPC listener を開始しても BTstack run loop 中に accept / serve を回していなかった software gate red と扱う。修正後は production BTstack platform start で 1 ms IPC pump timer を登録し、readable な listener / connection socket がある場合だけ accept または 1 request serve を行う。修正後の NyXPy held-state input 実機再実行は未実行である。
+- 2026-06-21 の NyXPy `held_input_probe` 初回実行は、macro 初期化後に daemon IPC 応答待ちで `timed out` した。これは Switch 側の入力反映結果ではなく、production daemon が IPC listener を開始しても BTstack run loop 中に accept / serve を回していなかった software gate red と扱う。修正後は production BTstack platform start で 1 ms IPC pump timer を登録し、readable な listener / connection socket がある場合だけ accept または 1 request serve を行う。この時点では、修正後の NyXPy held-state input 実機再実行は未実行だった。
+- 2026-06-21 の production IPC pump fix 後 NyXPy rerun では、NyXPy が `hello_ok`、`acquired`、Button A `state_accepted`、neutral `state_accepted` を受け取り、cleanup で `release_sent=true` を記録した。HCI dump では timer byte を除外した state が neutral `1034` 個、Button A `0x000008` `59` 個に分かれたため、NyXPy IPC から daemon state を経由して HCI input report へ到達する経路は pass とする。一方、Switch2 capture は baseline / Button A / neutral で同じ `L + R` prompt のままだったため、Switch UI 上の入力反映は未達である。次の held-state 入力確認は、この画面が要求する L+R 同時押しで行う。
 
 ## 8. 対象ファイル
 
@@ -196,9 +200,10 @@ report period の採用判断は実測後に行う。`8000us` は current config
 | green | 8000us report loop sends neutral input reports after HID interrupt channel opens | characterization | hardware | yes |
 | green | single-shot IPC input attempt is not observed as a non-neutral HID report in HCI dump | characterization | hardware | yes |
 | green | production daemon pumps pending IPC connections and requests during the BTstack run loop | regression | unit / integration | no |
+| green | NyXPy held Button A request is accepted by daemon IPC and appears as non-neutral HCI input reports | characterization | hardware | yes |
 | todo | Switch sends HID output report or subcommand after HID channels open | characterization | hardware | yes |
 | todo | periodic input report loop runs at each selected report period and records result | characterization | hardware | yes |
-| todo | held IPC client or NyX macro state updates are observed as button and stick changes | new | hardware | yes |
+| todo | held IPC client or NyX macro state updates are observed as Switch UI button and stick changes | new | hardware | yes |
 | todo | owner disconnect and heartbeat timeout leave neutral state | edge | hardware | yes |
 
 ## 10. 検証
@@ -256,11 +261,11 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - 2026-06-21 NyXPy held_input_probe timeout: ユーザが Project NyX 側で macro を実行し、`swbt hardware bring-up IPC probe initialized: scenario=held_input_probe, steps=5` の後に `timed out` した。daemon 側 code inspection では、production IPC runner が `listen()` だけを開始し、BTstack run loop 中に `accept` / JSON Lines `serve` を呼んでいなかった。
 - 2026-06-21 production IPC pump fix: `swbt_daemon_ipc_runner_poll_once` を追加し、listener / connection の readable 状態を non-blocking に確認して、ready な場合だけ accept または 1 request serve を行うようにした。production BTstack platform start では 1 ms timer で IPC pump を回す。停止時は platform stop / IPC stop で timer を外す。
 - 2026-06-21 production IPC pump validation: `just format` は pass。`just format-check` は pass。`just windows-cross` は pass。`just debug` は pass（31/31）。`git diff --check` は exit 0（CRLF warning のみ）。host PowerShell から直接 `cmake --build --preset windows-mingw-debug` を実行すると、Dev Container 内の CMake cache path `/workspaces/swbt-daemon/...` を Windows host から解決できず失敗したため、標準入口の `just windows-cross` を正本とする。
+- 2026-06-21 NyXPy held Button A rerun: ユーザ承認後、production IPC pump fix 後の daemon と Project NyX `held_input_probe` を組み合わせて実行した。daemon artifact は `tmp/hardware/local_037/20260621-022214-8000us-held-input-nyxpy`、NyXPy artifact は `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T022219_74b5`。NyXPy `ipc_session.json` は `hello_ok`、`acquired`、Button A `state_accepted`、neutral `state_accepted`、cleanup `release_sent=true` を記録した。daemon startup trace は `btstack: ipc pump start ok`、`hid_registration: ok`、`btstack: hci power on ok`、手動停止後の `production: runtime stop done` まで到達し、exit marker は `exit=0`。HCI dump の 57 byte input report は `1093` 個で、timer byte を除外した state は neutral `1034` 個、Button A `0x000008` `59` 個だった。NyXPy capture は baseline / Button A / neutral ともに Switch2 の `L + R` prompt のままで、Switch UI 入力反映は未達である。
 
 未実行:
 
-- Switch UI 上の controller 採用、HID output report / subcommand 受信、held-state IPC input の実機反映。理由は、Bluetooth SSP pairing と HID L2CAP channel open までは到達したが、Switch2 22.1.0 の画面は変化せず、Switch からの HID output report / subcommand は観測されなかったためである。単発 IPC input rerun では非 neutral HID report も観測されなかった。
-- NyXPy held-state input の実機完了確認。NyXPy macro は `scenario=held_input_probe` の初期化まで進んだが、daemon IPC 応答待ちで timeout した。daemon 側 IPC pump 修正後の hardware rerun は未実行である。
+- Switch UI 上の controller 採用、HID output report / subcommand 受信、held-state IPC input の Switch UI 反映。理由は、NyXPy held Button A は daemon IPC と HCI input report までは到達したが、Switch2 22.1.0 の画面は `L + R` prompt のまま変化せず、Switch からの HID output report / subcommand も観測されていないためである。
 - owner disconnect と heartbeat timeout の実機 neutral 確認。理由は、cleanup 直接再実行では IPC owner を取得していないためである。
 
 ## 11. 実機実行条件
@@ -327,9 +332,10 @@ NyX handoff を使う場合も承認範囲は swbt-daemon 側で記録する。N
 - [x] `8000us` の neutral input report 送信を HCI dump で記録した。
 - [x] 単発 IPC input rerun を HCI dump で記録した。非 neutral report は観測されなかったため、held-state 入力反映は未達である。
 - [x] NyXPy held_input_probe timeout の daemon 側原因を切り分け、production IPC pump を追加した。
+- [x] production IPC pump fix 後の NyXPy held Button A rerun を記録した。daemon IPC と HCI input report までは pass、Switch UI 入力反映は未達である。
 - [ ] Switch UI 上の controller 採用、HID output report / subcommand 受信、または採用されない理由を記録した。
 - [ ] report period comparison を記録した。
-- [ ] IPC input 反映を記録した。
-- [ ] NyX handoff を使った場合は artifact root と daemon log path を記録した。
+- [ ] Switch UI での IPC input 反映を記録した。
+- [x] NyX handoff を使った場合は artifact root と daemon log path を記録した。
 - [ ] neutral fail-safe を記録した。
 - [x] `docs/hardware-test-log.md` を preflight 結果で更新した。

@@ -383,3 +383,25 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: NyXPy artifact path は未提示。Codex はこの項目で新しい daemon hardware artifact を作成していない
 - cleanup: この項目では新しい実機 daemon run を実行していないため、追加 cleanup はない
 - notes: この項目は held input が Switch に反映されることを示さない。次の rerun では修正後 binary を使い、startup trace に `btstack: ipc pump start ok` が出ること、NyXPy が timeout せず IPC response を受け取ること、HCI dump の timer byte 除外 state に非 neutral state が出ることを別々に確認する
+
+## 2026-06-21: local_037 CSR8510 A10 8000us NyXPy held Button A rerun on Switch2
+
+- OS: Microsoft Windows NT 10.0.26200.0
+- environment: Windows native PowerShell、swbt branch `local-037-hardware-verification`、Project NyX branch `feat/swbt-hardware-bringup-macro`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Service `WinUSB`、Class `USBDevice`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: `2cd003b fix(daemon): production IPC を run loop で処理する`
+- Switch firmware: Switch2 `22.1.0`
+- approval scope: ユーザ承認済み。CSR8510 A10、production IPC pump fix 後、HCI dump text 付き、`8000 us`、Switch2 controller pairing 画面での NyXPy held input 反映確認、手動停止 cleanup 確認。NyXPy 操作はユーザが実行した
+- environment variables: daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: foreground PowerShell で `build/windows-mingw-debug/swbt-daemon.exe` を直接起動し、Project NyX 側で `swbt_hardware_bringup` macro の `held_input_probe` を実行した。daemon artifact は `tmp/hardware/local_037/20260621-022214-8000us-held-input-nyxpy`。NyXPy artifact は `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T022219_74b5`
+- result: IPC と HCI report 送信は pass。NyXPy の `ipc_session.json` は `hello_ok`、`acquired`、`state_accepted` for `seq=3` Button A、`state_accepted` for `seq=4` neutral、cleanup `release_sent=true` を記録した。daemon startup trace は `btstack: ipc pump start ok`、`hid_registration: ok`、`btstack: hci power on ok`、`production: run loop execute`、手動停止後の `production: runtime stop done` まで到達した。HCI dump は `pairing complete, status 00`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0`、57 byte input report `1093` 個を記録した。timer byte を除外して集計すると state は 2 種類で、neutral `1034` 個、Button A `0x000008` が `59` 個だった。Button A report は HCI dump の report index `469` から `527`、line `1214` から `1330` に出ている
+- daemon log: daemon stdout / stderr log は未作成。`SWBT_DIAGNOSTIC_TRACE_PATH` の startup trace と `SWBT_HCI_DUMP_TRACE_PATH` の HCI dump text を正本にする
+- artifact root: daemon `tmp/hardware/local_037/20260621-022214-8000us-held-input-nyxpy`、NyXPy `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T022219_74b5`
+- cleanup: pass。daemon exit marker は `exit=0`。startup trace は HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done まで到達した。NyXPy artifact は cleanup `release_sent=true` と socket close を記録した
+- notes: Switch2 の画面は baseline、Button A、neutral の NyXPy capture で同じ「使いたいコントローラーの L + R を押してください」画面だった。したがって今回の red は「IPC input が daemon または HCI に届かない」ではない。Button A 単体がこの画面の期待入力ではないこと、または Switch2 がこの virtual controller の input report を UI 入力としてまだ採用していないことが残る。次の入力反映確認は L+R 同時押しを held state として送る。swbt の定義では `SWBT_BUTTON_R = 1u << 6`、`SWBT_BUTTON_L = 1u << 22` なので L+R は `0x00400040`、decimal `4194368`
