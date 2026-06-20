@@ -361,3 +361,25 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: `tmp/hardware/local_037/20260621-013528-8000us-hci-event-handler-hci-dump-pairing`
 - cleanup: pass。手動 `Ctrl+C` から HCI power-off、BTstack close / run loop deinit、HCI dump close、IPC stop、runtime stop done まで到達し、process exit は `0`
 - notes: 今回の実機観測は「入力が Switch に無視された」ではなく、「単発 IPC input が 8000 us report loop に捕捉された根拠がない」と扱う。`swbt-debug-client` は `set_state` 後に `release` するため、held state を作らない単発実行では次の report tick 前に neutral へ戻る可能性がある。次の入力反映確認は NyXpy または held-state capable client で、非 neutral state を 1 秒以上維持し、同時に HCI dump の timer byte 除外 state を再集計する
+
+## 2026-06-21: local_037 NyXPy held-input IPC timeout diagnosis
+
+- OS: Microsoft Windows NT 10.0.26200.0
+- environment: Windows native PowerShell、swbt branch `local-037-hardware-verification`、Project NyX branch `feat/swbt-hardware-bringup-macro`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Service `WinUSB`、Class `USBDevice`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: pre-fix `2e08336`; IPC pump fix はこの commit に含める
+- Switch firmware: Switch2 `22.1.0`
+- approval scope: NyXPy 操作はユーザが実行した。Codex は software diagnosis / fix だけを実施し、この項目では新しい実機 daemon run を実行していない
+- environment variables: planned daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: ユーザが Project NyX 側で `uv run nyxpy run swbt_hardware_bringup ...` を実行した。NyXPy stdout は `swbt hardware bring-up IPC probe initialized: scenario=held_input_probe, steps=5` の後に `MacroRuntime | runtime.failed | macro failed` と `timed out` を記録した。Codex は swbt production IPC path を確認した
+- result: software-gate red。production daemon は IPC listener を開始していたが、BTstack run loop 中に pending connection の accept と JSON Lines request serve を回していなかった。そのため TCP connect は OS backlog で成立し得る一方、NyXPy は `hello_ok` などの daemon response を受け取れず timeout したと判断した。修正として `swbt_daemon_ipc_runner_poll_once` と production BTstack の 1 ms IPC pump timer を追加した。`just debug` は 31/31 pass、`just windows-cross` は pass。修正後の実機 rerun は未実行
+- daemon log: この timeout では daemon 側 artifact は提示されていない。NyXPy stdout はユーザ提供
+- artifact root: NyXPy artifact path は未提示。Codex はこの項目で新しい daemon hardware artifact を作成していない
+- cleanup: この項目では新しい実機 daemon run を実行していないため、追加 cleanup はない
+- notes: この項目は held input が Switch に反映されることを示さない。次の rerun では修正後 binary を使い、startup trace に `btstack: ipc pump start ok` が出ること、NyXPy が timeout せず IPC response を受け取ること、HCI dump の timer byte 除外 state に非 neutral state が出ることを別々に確認する

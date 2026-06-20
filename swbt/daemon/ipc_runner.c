@@ -151,6 +151,36 @@ swbt_daemon_ipc_runner_serve_connection_once(swbt_daemon_ipc_runner_t *runner) {
     return swbt_daemon_ipc_runner_map_server_result(result);
 }
 
+swbt_daemon_ipc_runner_result_t swbt_daemon_ipc_runner_poll_once(swbt_daemon_ipc_runner_t *runner) {
+    bool pending = false;
+    swbt_ipc_server_result_t result;
+
+    if (runner == NULL || !runner->running) {
+        return SWBT_DAEMON_IPC_RUNNER_ERROR_NOT_RUNNING;
+    }
+
+    if (!runner->has_connection) {
+        result = swbt_ipc_server_has_pending_connection(&runner->server, &pending);
+        if (result != SWBT_IPC_SERVER_OK) {
+            return swbt_daemon_ipc_runner_map_server_result(result);
+        }
+        if (!pending) {
+            return SWBT_DAEMON_IPC_RUNNER_OK;
+        }
+        return swbt_daemon_ipc_runner_accept(runner);
+    }
+
+    result = swbt_ipc_connection_has_pending_data(&runner->connection, &pending);
+    if (result != SWBT_IPC_SERVER_OK) {
+        return swbt_daemon_ipc_runner_map_server_result(result);
+    }
+    if (!pending) {
+        return SWBT_DAEMON_IPC_RUNNER_OK;
+    }
+
+    return swbt_daemon_ipc_runner_serve_connection_once(runner);
+}
+
 void swbt_daemon_ipc_runner_stop(swbt_daemon_ipc_runner_t *runner) {
     if (runner == NULL || !runner->initialized) {
         return;

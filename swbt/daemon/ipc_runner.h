@@ -59,6 +59,8 @@ swbt_daemon_ipc_runner_result_t swbt_daemon_ipc_runner_accept(swbt_daemon_ipc_ru
 swbt_daemon_ipc_runner_result_t
 swbt_daemon_ipc_runner_serve_connection_once(swbt_daemon_ipc_runner_t *runner);
 
+swbt_daemon_ipc_runner_result_t swbt_daemon_ipc_runner_poll_once(swbt_daemon_ipc_runner_t *runner);
+
 void swbt_daemon_ipc_runner_stop(swbt_daemon_ipc_runner_t *runner);
 
 bool swbt_daemon_ipc_runner_is_running(const swbt_daemon_ipc_runner_t *runner);

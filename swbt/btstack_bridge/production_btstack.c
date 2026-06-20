@@ -27,18 +27,74 @@
 #include "btstack_run_loop_posix.h"
 #endif
 
+#define SWBT_BTSTACK_IPC_PUMP_PERIOD_MS 1u
+
 static bool g_swbt_btstack_production_hci_dump_open;
+static swbt_daemon_ipc_runner_t *g_swbt_btstack_production_ipc_runner;
+static btstack_timer_source_t g_swbt_btstack_production_ipc_pump_timer;
+static bool g_swbt_btstack_production_ipc_pump_timer_pending;
+
+static void swbt_btstack_production_ipc_pump_schedule(void);
+
+static void swbt_btstack_production_ipc_pump_timer_handler(btstack_timer_source_t *timer) {
+    swbt_daemon_ipc_runner_t *runner = (swbt_daemon_ipc_runner_t *)timer->context;
+
+    g_swbt_btstack_production_ipc_pump_timer_pending = false;
+    if (runner != NULL && swbt_daemon_ipc_runner_is_running(runner)) {
+        (void)swbt_daemon_ipc_runner_poll_once(runner);
+    }
+    swbt_btstack_production_ipc_pump_schedule();
+}
+
+static void swbt_btstack_production_ipc_pump_schedule(void) {
+    if (g_swbt_btstack_production_ipc_runner == NULL ||
+        g_swbt_btstack_production_ipc_pump_timer_pending) {
+        return;
+    }
+
+    btstack_run_loop_set_timer(&g_swbt_btstack_production_ipc_pump_timer,
+                               SWBT_BTSTACK_IPC_PUMP_PERIOD_MS);
+    btstack_run_loop_add_timer(&g_swbt_btstack_production_ipc_pump_timer);
+    g_swbt_btstack_production_ipc_pump_timer_pending = true;
+}
+
+static void swbt_btstack_production_ipc_pump_start(swbt_daemon_ipc_runner_t *runner) {
+    if (runner == NULL) {
+        return;
+    }
+
+    swbt_diagnostic_trace("btstack: ipc pump start");
+    g_swbt_btstack_production_ipc_runner = runner;
+    g_swbt_btstack_production_ipc_pump_timer_pending = false;
+    btstack_run_loop_set_timer_handler(&g_swbt_btstack_production_ipc_pump_timer,
+                                       swbt_btstack_production_ipc_pump_timer_handler);
+    btstack_run_loop_set_timer_context(&g_swbt_btstack_production_ipc_pump_timer, runner);
+    swbt_btstack_production_ipc_pump_schedule();
+    swbt_diagnostic_trace("btstack: ipc pump start ok");
+}
+
+static void swbt_btstack_production_ipc_pump_stop(void) {
+    if (g_swbt_btstack_production_ipc_pump_timer_pending) {
+        (void)btstack_run_loop_remove_timer(&g_swbt_btstack_production_ipc_pump_timer);
+        g_swbt_btstack_production_ipc_pump_timer_pending = false;
+    }
+    g_swbt_btstack_production_ipc_runner = NULL;
+}
 
 static int swbt_btstack_production_ipc_start(void *context, swbt_daemon_ipc_runner_t *runner,
                                              swbt_ipc_session_t *session,
                                              const swbt_daemon_ipc_runner_config_t *config) {
     (void)context;
-    return swbt_daemon_ipc_runner_start(runner, session, config) == SWBT_DAEMON_IPC_RUNNER_OK ? 0
-                                                                                              : -1;
+    if (swbt_daemon_ipc_runner_start(runner, session, config) != SWBT_DAEMON_IPC_RUNNER_OK) {
+        return -1;
+    }
+    g_swbt_btstack_production_ipc_runner = runner;
+    return 0;
 }
 
 static void swbt_btstack_production_ipc_stop(void *context, swbt_daemon_ipc_runner_t *runner) {
     (void)context;
+    swbt_btstack_production_ipc_pump_stop();
     swbt_daemon_ipc_runner_stop(runner);
 }
 
@@ -117,11 +173,15 @@ static int swbt_btstack_production_platform_start(void *context) {
     swbt_diagnostic_trace("btstack: classic discovery configure ok");
     swbt_diagnostic_trace("btstack: l2cap init");
     l2cap_init();
+    swbt_btstack_production_ipc_pump_start(g_swbt_btstack_production_ipc_runner);
     return 0;
 }
 
 static void swbt_btstack_production_platform_stop(void *context) {
     (void)context;
+    swbt_diagnostic_trace("btstack: ipc pump stop");
+    swbt_btstack_production_ipc_pump_stop();
+    swbt_diagnostic_trace("btstack: ipc pump stop done");
     swbt_diagnostic_trace("btstack: hci close");
     hci_close();
     swbt_diagnostic_trace("btstack: hci close done");

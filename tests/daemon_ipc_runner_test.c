@@ -99,6 +99,45 @@ static int test_exposes_loopback_endpoint_before_accept(void) {
     return failed;
 }
 
+static int test_poll_once_accepts_and_serves_when_ready(void) {
+    swbt_daemon_ipc_runner_t runner;
+    swbt_ipc_session_t session;
+    swbt_state_mailbox_t mailbox;
+    swbt_daemon_ipc_endpoint_t endpoint;
+    swbt_ipc_socket_t client;
+    char response[SWBT_IPC_JSON_RESPONSE_MAX];
+    const swbt_daemon_ipc_runner_config_t config = loopback_port_zero_config();
+
+    int failed = 0;
+    failed += init_bound_session(&session, &mailbox);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, &session, &config),
+                            SWBT_DAEMON_IPC_RUNNER_OK);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_endpoint(&runner, &endpoint),
+                            SWBT_DAEMON_IPC_RUNNER_OK);
+
+    failed += expect_eq_int(swbt_daemon_ipc_runner_poll_once(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
+    failed += expect_false(swbt_daemon_ipc_runner_has_connection(&runner));
+
+    swbt_ipc_socket_init(&client);
+    failed +=
+        expect_eq_int(swbt_ipc_socket_connect_loopback(&client, endpoint.port), SWBT_IPC_SERVER_OK);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_poll_once(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
+    failed += expect_true(swbt_daemon_ipc_runner_has_connection(&runner));
+
+    failed += expect_eq_int(swbt_daemon_ipc_runner_poll_once(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
+
+    failed += expect_eq_int(swbt_debug_client_send_hello(&client), 0);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_poll_once(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
+    failed +=
+        expect_eq_int(swbt_debug_client_receive_response(&client, response, sizeof(response)), 0);
+    failed += expect_contains(response, "\"type\":\"hello_ok\"");
+
+    swbt_ipc_socket_close(&client);
+    swbt_daemon_ipc_runner_stop(&runner);
+    return failed;
+}
+
 static int test_debug_client_sequence_updates_mailbox(void) {
     swbt_daemon_ipc_runner_t runner;
     swbt_ipc_session_t session;
@@ -219,6 +258,7 @@ int main(void) {
     int failed = 0;
     failed += test_rejects_non_loopback_bind();
     failed += test_exposes_loopback_endpoint_before_accept();
+    failed += test_poll_once_accepts_and_serves_when_ready();
     failed += test_debug_client_sequence_updates_mailbox();
     failed += test_stop_closes_connection_and_stores_neutral();
     return failed == 0 ? 0 : 1;
