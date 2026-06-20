@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "btstack_bridge/input_report_scheduler.h"
+#include "btstack_bridge/subcommand_reply_queue.h"
 #include "btstack_run_loop.h"
 
 typedef enum {
@@ -14,6 +15,7 @@ typedef enum {
     SWBT_BTSTACK_INPUT_REPORT_TIMER_STOPPED = 2,
     SWBT_BTSTACK_INPUT_REPORT_TIMER_ERROR_INVALID_ARGUMENT = -1,
     SWBT_BTSTACK_INPUT_REPORT_TIMER_ERROR_SCHEDULER = -2,
+    SWBT_BTSTACK_INPUT_REPORT_TIMER_ERROR_REPLY_QUEUE = -3,
 } swbt_btstack_input_report_timer_result_t;
 
 typedef swbt_state_t (*swbt_btstack_input_report_timer_state_provider_t)(void *context);
@@ -27,7 +29,7 @@ typedef struct {
     int (*remove_timer)(btstack_timer_source_t *timer);
     uint32_t (*get_time_ms)(void);
     void (*request_can_send_now_event)(uint16_t hid_cid);
-    void (*send_interrupt_message)(uint16_t hid_cid, const uint8_t *message, uint16_t message_len);
+    int (*send_interrupt_message)(uint16_t hid_cid, const uint8_t *message, uint16_t message_len);
 } swbt_btstack_input_report_timer_backend_t;
 
 typedef struct {
@@ -47,6 +49,7 @@ typedef struct {
     swbt_btstack_input_report_timer_state_provider_t state_provider;
     void *state_context;
     swbt_btstack_input_report_scheduler_t scheduler;
+    swbt_btstack_subcommand_reply_queue_t reply_queue;
     btstack_timer_source_t timer;
     uint16_t hid_cid;
     bool initialized;
@@ -71,6 +74,11 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
 
 swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter_on_can_send_now(
     swbt_btstack_input_report_timer_adapter_t *adapter);
+
+swbt_btstack_input_report_timer_result_t
+swbt_btstack_input_report_timer_adapter_enqueue_subcommand_reply(
+    swbt_btstack_input_report_timer_adapter_t *adapter, uint16_t hid_cid, const uint8_t *report,
+    size_t report_size);
 
 void swbt_btstack_input_report_timer_adapter_stop(
     swbt_btstack_input_report_timer_adapter_t *adapter);

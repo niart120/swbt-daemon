@@ -57,7 +57,7 @@ use case:
 - `spec/references/README.md`
 - `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
 - `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
-- `work-units/wip/local_038/BTSTACK_SEND_READY_INTEGRATION.md`
+- `work-units/complete/local_038/BTSTACK_SEND_READY_INTEGRATION.md`
 - `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`
 
 ## 6. 根拠監査
@@ -78,7 +78,7 @@ use case:
 | IPC session / JSON / TCP / heartbeat の完了済み record | daemon IPC wire protocol であり通信仕様として protocol spec に昇格する | `spec/protocols/daemon-ipc-v1.md` |
 | Switch report / subcommand / SPI / rumble / player lights / scheduler references | 実装が従う protocol contract であり protocol spec に昇格する | `spec/protocols/switch-hid-core.md` |
 | Phase 5、hardware acceptability、report period comparison | 実機承認が必要な follow-up であり wip work unit にする | `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` |
-| subcommand reply queue と periodic scheduler の exact integration | software integration と実機確認を分ける follow-up であり wip work unit にする | `work-units/wip/local_038/BTSTACK_SEND_READY_INTEGRATION.md` |
+| subcommand reply queue と periodic scheduler の exact integration | software integration と実機確認を分ける follow-up であり local_036 当時は wip work unit にした | `work-units/complete/local_038/BTSTACK_SEND_READY_INTEGRATION.md` |
 | stable IPC metrics / status protocol | `get_status` contract とは別に定義すべき follow-up であり wip work unit にする | `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` |
 | `work-units/complete/local_028` | local_036 当時は wip として有効だが旧構成のため source / use case を追記する対象だった | `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md` |
 | `spec/dev-journal.md` の Dev Container 導線観測 | `development-tooling` と `windows-native-preflight`、`local_032` で吸収済み | 新規 record なし |
@@ -96,7 +96,7 @@ use case:
 - `work-units/complete/local_036/SPEC_WORK_UNIT_INVENTORY.md`
 - `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
 - `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
-- `work-units/wip/local_038/BTSTACK_SEND_READY_INTEGRATION.md`
+- `work-units/complete/local_038/BTSTACK_SEND_READY_INTEGRATION.md`
 - `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`
 
 ## 9. TDD Test List（TDD テスト一覧）

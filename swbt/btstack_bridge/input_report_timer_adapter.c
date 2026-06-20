@@ -29,6 +29,22 @@ map_scheduler_result(swbt_btstack_input_report_result_t result) {
     return SWBT_BTSTACK_INPUT_REPORT_TIMER_ERROR_SCHEDULER;
 }
 
+static swbt_btstack_input_report_timer_result_t
+map_reply_queue_result(swbt_btstack_subcommand_reply_queue_result_t result) {
+    switch (result) {
+    case SWBT_BTSTACK_SUBCOMMAND_REPLY_QUEUE_OK:
+        return SWBT_BTSTACK_INPUT_REPORT_TIMER_OK;
+    case SWBT_BTSTACK_SUBCOMMAND_REPLY_QUEUE_EMPTY:
+        return SWBT_BTSTACK_INPUT_REPORT_TIMER_NOT_DUE;
+    case SWBT_BTSTACK_SUBCOMMAND_REPLY_QUEUE_ERROR_INVALID_ARGUMENT:
+    case SWBT_BTSTACK_SUBCOMMAND_REPLY_QUEUE_ERROR_FULL:
+    case SWBT_BTSTACK_SUBCOMMAND_REPLY_QUEUE_ERROR_INVALID_REPORT_SIZE:
+    case SWBT_BTSTACK_SUBCOMMAND_REPLY_QUEUE_ERROR_SEND_FAILED:
+        return SWBT_BTSTACK_INPUT_REPORT_TIMER_ERROR_REPLY_QUEUE;
+    }
+    return SWBT_BTSTACK_INPUT_REPORT_TIMER_ERROR_REPLY_QUEUE;
+}
+
 static bool backend_is_valid(const swbt_btstack_input_report_timer_backend_t *backend) {
     return backend != NULL && backend->set_timer_handler != NULL &&
            backend->set_timer_context != NULL && backend->set_timer != NULL &&
@@ -55,8 +71,17 @@ static int scheduler_send_callback(void *context, uint16_t hid_cid, const uint8_
     if (adapter == NULL || report == NULL || report_size > UINT16_MAX) {
         return -1;
     }
-    adapter->backend->send_interrupt_message(hid_cid, report, (uint16_t)report_size);
-    return 0;
+    return adapter->backend->send_interrupt_message(hid_cid, report, (uint16_t)report_size);
+}
+
+static int reply_queue_send_callback(void *context, uint16_t hid_cid, const uint8_t *report,
+                                     size_t report_size) {
+    swbt_btstack_input_report_timer_adapter_t *adapter =
+        (swbt_btstack_input_report_timer_adapter_t *)context;
+    if (adapter == NULL || report == NULL || report_size > UINT16_MAX) {
+        return -1;
+    }
+    return adapter->backend->send_interrupt_message(hid_cid, report, (uint16_t)report_size);
 }
 
 static void adapter_timer_handler(btstack_timer_source_t *timer) {
@@ -94,9 +119,10 @@ static void backend_request_can_send_now_event(uint16_t hid_cid) {
     hid_device_request_can_send_now_event(hid_cid);
 }
 
-static void backend_send_interrupt_message(uint16_t hid_cid, const uint8_t *message,
-                                           uint16_t message_len) {
+static int backend_send_interrupt_message(uint16_t hid_cid, const uint8_t *message,
+                                          uint16_t message_len) {
     hid_device_send_interrupt_message(hid_cid, message, message_len);
+    return 0;
 }
 
 const swbt_btstack_input_report_timer_backend_t *
@@ -127,9 +153,11 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
     adapter->state_provider = config->state_provider;
     adapter->state_context = config->state_context;
 
-    if (swbt_btstack_input_report_scheduler_init(&adapter->scheduler, scheduler_send_callback,
+    if (swbt_btstack_subcommand_reply_queue_init(&adapter->reply_queue) !=
+            SWBT_BTSTACK_SUBCOMMAND_REPLY_QUEUE_OK ||
+        swbt_btstack_input_report_scheduler_init(&adapter->scheduler, scheduler_send_callback,
                                                  adapter, &config->scheduler_config) !=
-        SWBT_BTSTACK_INPUT_REPORT_OK) {
+            SWBT_BTSTACK_INPUT_REPORT_OK) {
         return SWBT_BTSTACK_INPUT_REPORT_TIMER_ERROR_INVALID_ARGUMENT;
     }
 
@@ -182,6 +210,20 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
     if (!adapter->running) {
         return SWBT_BTSTACK_INPUT_REPORT_TIMER_STOPPED;
     }
+    if (swbt_btstack_subcommand_reply_queue_size(&adapter->reply_queue) > 0u) {
+        const swbt_btstack_subcommand_reply_queue_result_t reply_result =
+            swbt_btstack_subcommand_reply_queue_send_next(&adapter->reply_queue,
+                                                          reply_queue_send_callback, adapter);
+        if (reply_result != SWBT_BTSTACK_SUBCOMMAND_REPLY_QUEUE_OK) {
+            return map_reply_queue_result(reply_result);
+        }
+        if (swbt_btstack_subcommand_reply_queue_size(&adapter->reply_queue) > 0u ||
+            adapter->can_send_pending) {
+            adapter->backend->request_can_send_now_event(adapter->hid_cid);
+        }
+        return SWBT_BTSTACK_INPUT_REPORT_TIMER_OK;
+    }
+
     if (!adapter->can_send_pending) {
         return SWBT_BTSTACK_INPUT_REPORT_TIMER_NOT_DUE;
     }
@@ -198,6 +240,28 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
     return schedule_next_timer(adapter, now_us);
 }
 
+swbt_btstack_input_report_timer_result_t
+swbt_btstack_input_report_timer_adapter_enqueue_subcommand_reply(
+    swbt_btstack_input_report_timer_adapter_t *adapter, uint16_t hid_cid, const uint8_t *report,
+    size_t report_size) {
+    if (adapter == NULL || !adapter->initialized) {
+        return SWBT_BTSTACK_INPUT_REPORT_TIMER_ERROR_INVALID_ARGUMENT;
+    }
+    if (!adapter->running) {
+        return SWBT_BTSTACK_INPUT_REPORT_TIMER_STOPPED;
+    }
+
+    const swbt_btstack_subcommand_reply_queue_result_t enqueue_result =
+        swbt_btstack_subcommand_reply_queue_enqueue(&adapter->reply_queue, hid_cid, report,
+                                                    report_size);
+    if (enqueue_result != SWBT_BTSTACK_SUBCOMMAND_REPLY_QUEUE_OK) {
+        return map_reply_queue_result(enqueue_result);
+    }
+
+    adapter->backend->request_can_send_now_event(hid_cid);
+    return SWBT_BTSTACK_INPUT_REPORT_TIMER_OK;
+}
+
 void swbt_btstack_input_report_timer_adapter_stop(
     swbt_btstack_input_report_timer_adapter_t *adapter) {
     if (adapter == NULL) {
@@ -209,5 +273,6 @@ void swbt_btstack_input_report_timer_adapter_stop(
     }
     adapter->can_send_pending = false;
     adapter->running = false;
+    (void)swbt_btstack_subcommand_reply_queue_init(&adapter->reply_queue);
     swbt_btstack_input_report_scheduler_stop(&adapter->scheduler);
 }

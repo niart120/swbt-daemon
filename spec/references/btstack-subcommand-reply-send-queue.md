@@ -34,9 +34,10 @@ caller buffer の lifetime には依存しない。
 send callback が失敗した場合、head item は queue に残し、次の呼び出しで同じ item を retry できる。
 
 queue core は BTstack header に依存しない。
-BTstack の `hid_device_request_can_send_now_event` と `hid_device_send_interrupt_message` への接続は、この reference では実装しない。
+BTstack の `hid_device_request_can_send_now_event` と `hid_device_send_interrupt_message` への接続は、`work-units/complete/local_038/BTSTACK_SEND_READY_INTEGRATION.md` で `swbt_btstack_input_report_timer_adapter` に統合した。
+production wrapper は BTstack の void API を success として扱う。fake backend test は send failure を注入し、queue retry policy を検証する。
 
 ## 5. 未解決事項
 
-- BTstack send-ready callback と periodic scheduler の exact integration は未実装である。
 - Switch 実機で `0x21` reply を優先したときの acceptability は未検証である。
+- production daemon entrypoint から実 BTstack backend と IPC runner を起動する接続は `local_042` と `local_043` で扱う。

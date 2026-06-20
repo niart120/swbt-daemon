@@ -2,11 +2,15 @@
 
 #include <stddef.h>
 
+#include "switch/switch_spi_seed.h"
+#include "switch/switch_subcommand_dispatcher.h"
+
 static bool swbt_daemon_backend_is_valid(const swbt_daemon_runtime_backend_t *backend) {
     return backend != NULL && backend->ipc_start != NULL && backend->ipc_stop != NULL &&
            backend->hid_register != NULL && backend->hid_stop != NULL &&
            backend->output_handler_start != NULL && backend->output_handler_stop != NULL &&
-           backend->report_timer_start != NULL && backend->report_timer_stop != NULL;
+           backend->report_timer_start != NULL && backend->report_timer_stop != NULL &&
+           backend->subcommand_reply_enqueue != NULL;
 }
 
 static bool swbt_daemon_config_is_valid(const swbt_daemon_config_t *config) {
@@ -27,9 +31,30 @@ static swbt_state_t swbt_daemon_runtime_read_state(void *context) {
 
 static void swbt_daemon_runtime_on_output_report(void *context, uint16_t hid_cid,
                                                  const swbt_switch_output_report_t *report) {
-    (void)context;
-    (void)hid_cid;
-    (void)report;
+    swbt_daemon_runtime_t *runtime = context;
+    swbt_switch_subcommand_dispatcher_response_t response;
+
+    if (runtime == NULL || report == NULL) {
+        return;
+    }
+
+    const swbt_state_t state = swbt_daemon_runtime_read_state(runtime);
+    const swbt_switch_subcommand_dispatcher_config_t dispatch_config = {
+        .state = &state,
+        .report_options = &runtime->config.report_options,
+        .spi = &runtime->spi,
+        .player_lights = &runtime->player_lights,
+    };
+
+    const swbt_switch_subcommand_dispatch_result_t dispatch_result =
+        swbt_switch_subcommand_dispatch(&dispatch_config, report, &response);
+    if (dispatch_result != SWBT_SWITCH_SUBCOMMAND_DISPATCH_OK ||
+        response.action != SWBT_SWITCH_SUBCOMMAND_DISPATCH_ACTION_REPLY) {
+        return;
+    }
+
+    (void)runtime->backend->subcommand_reply_enqueue(runtime->backend_context, hid_cid,
+                                                     response.report, response.report_size);
 }
 
 static void swbt_daemon_runtime_store_neutral(swbt_daemon_runtime_t *runtime) {
@@ -55,9 +80,13 @@ swbt_daemon_runtime_result_t swbt_daemon_runtime_init(swbt_daemon_runtime_t *run
     runtime->backend = backend;
     runtime->backend_context = backend_context;
 
+    const swbt_switch_spi_seed_profile_t spi_profile = swbt_switch_spi_seed_dev_profile();
     if (swbt_state_mailbox_init(&runtime->mailbox) != SWBT_STATE_MAILBOX_OK ||
         swbt_ipc_session_init(&runtime->ipc_session) != SWBT_IPC_OK ||
-        swbt_ipc_session_bind_mailbox(&runtime->ipc_session, &runtime->mailbox) != SWBT_IPC_OK) {
+        swbt_ipc_session_bind_mailbox(&runtime->ipc_session, &runtime->mailbox) != SWBT_IPC_OK ||
+        swbt_switch_spi_init(&runtime->spi) != SWBT_SWITCH_SPI_OK ||
+        swbt_switch_spi_seed_apply(&runtime->spi, &spi_profile) != SWBT_SWITCH_SPI_OK ||
+        swbt_switch_player_lights_init(&runtime->player_lights) != SWBT_SWITCH_PLAYER_LIGHTS_OK) {
         return SWBT_DAEMON_RUNTIME_ERROR_INVALID_ARGUMENT;
     }
     swbt_btstack_output_report_handler_init(&runtime->output_handler,
@@ -173,6 +202,15 @@ static int swbt_daemon_noop_report_timer_start(void *context,
     return 0;
 }
 
+static int swbt_daemon_noop_subcommand_reply_enqueue(void *context, uint16_t hid_cid,
+                                                     const uint8_t *report, size_t report_size) {
+    (void)context;
+    (void)hid_cid;
+    (void)report;
+    (void)report_size;
+    return 0;
+}
+
 const swbt_daemon_runtime_backend_t *swbt_daemon_runtime_noop_backend(void) {
     static const swbt_daemon_runtime_backend_t backend = {
         .ipc_start = swbt_daemon_noop_ipc_start,
@@ -183,6 +221,7 @@ const swbt_daemon_runtime_backend_t *swbt_daemon_runtime_noop_backend(void) {
         .output_handler_stop = swbt_daemon_noop_stop,
         .report_timer_start = swbt_daemon_noop_report_timer_start,
         .report_timer_stop = swbt_daemon_noop_stop,
+        .subcommand_reply_enqueue = swbt_daemon_noop_subcommand_reply_enqueue,
     };
     return &backend;
 }
