@@ -110,6 +110,10 @@ report period の採用判断は実測後に行う。`8000us` は current config
 | BTstack HCI event handler registration | `hci_add_event_handler` appends callback registration to `hci_stack->event_handlers` | source fact | `vendor/btstack/src/hci.c:5383-5385`, `vendor/btstack/src/hci.h:1561` | fixed BTstack source |
 | BTstack HID device packet handler registration | `hid_device_register_packet_handler` only stores the HID device callback | source fact | `vendor/btstack/src/classic/hid_device.c:882-884` | fixed BTstack source |
 | production HID BTstack adapter HCI registration | production packet handler is registered for both HCI events and HID device events | implementation fact | `swbt/btstack_bridge/hid_device_btstack_adapter.c`, `tests/btstack_hid_device_btstack_adapter_test.c` | covered by unit regression; post-fix hardware rerun required |
+| HCI event handler rerun SSP confirmation | `User Confirmation Request Reply` opcode `0x042c` is sent; `Simple Pairing Complete` status is `0x00` | hardware observation | `tmp/hardware/local_037/20260621-012253-8000us-hci-event-handler-hci-dump-pairing/hci-dump.txt` | CSR8510 A10 / Switch2 firmware `22.1.0` |
+| HCI event handler rerun HID L2CAP channels | PSM `0x11` and PSM `0x13` opened with status `0x0` | hardware observation | `tmp/hardware/local_037/20260621-012253-8000us-hci-event-handler-hci-dump-pairing/hci-dump.txt` | Bluetooth HID control / interrupt channels open |
+| 8000us input report loop after HID channel open | 57 byte ACL packets from swbt to Switch-side interrupt channel were sent 548 times | hardware observation | `tmp/hardware/local_037/20260621-012253-8000us-hci-event-handler-hci-dump-pairing/hci-dump.txt` | neutral report loop observed; report interval not analyzed here |
+| Switch HID output after HID channel open | no `packet type=0x02 in=1` payload beyond L2CAP setup was observed | hardware observation / inference | `tmp/hardware/local_037/20260621-012253-8000us-hci-event-handler-hci-dump-pairing/hci-dump.txt` | next diagnosis target; UI did not change |
 
 ## 7. 設計メモ
 
@@ -133,6 +137,7 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - 2026-06-21 の Classic GAP discovery config 修正後 rerun では、trace に `btstack: classic discovery configure ok` が記録されたが、Switch2 pairing 画面は動かなかった。daemon startup trace だけでは、BTstack がどの HCI command を controller へ送ったか、controller が status を返したかを確認できない。次の診断では `SWBT_HCI_DUMP_TRACE_PATH` を追加し、HCI command / event の text dump を artifact に残す。
 - 2026-06-21 の HCI dump 付き pairing rerun では、`Write Scan Enable` value `0x03` が status `0x00` で返り、`C8:48:05:F7:B5:21` から incoming connection が複数回来た。発見可能化の不足ではなく、SSP pairing 中の `HCI_EVENT_USER_CONFIRMATION_REQUEST` に応答していないことが次の失敗点である。BTstack HID examples はこの event に対して `gap_ssp_confirmation_response` を呼ぶ。production handler は HID meta event だけを処理していたため、SSP confirmation を ops 境界へ追加した。post-fix の Switch2 pairing 成功は未検証である。
 - 2026-06-21 の SSP confirmation fix 後 rerun では、Switch2 から incoming connection と `HCI_EVENT_USER_CONFIRMATION_REQUEST` は来たが、HCI dump には `User Confirmation Request Reply` opcode `0x042c` が出なかった。BTstack の `hid_device_register_packet_handler` は HID device callback を保存するだけで、HCI event list には登録しない。BTstack HID examples と同じく production packet handler を `hci_add_event_handler` にも登録する。
+- 2026-06-21 の HCI event handler registration fix 後 rerun では、`User Confirmation Request Reply` opcode `0x042c` が送信され、`Simple Pairing Complete` は status `0x00` になった。PSM `0x11` と `0x13` の L2CAP channel も status `0x0` で開いたため、Bluetooth SSP pairing と HID control / interrupt channel open は pass とする。Switch2 側の画面は変化せず、Switch からの HID output report / subcommand は観測されていないため、次の切り分け対象は Switch が controller として採用しない理由である。
 
 ## 8. 対象ファイル
 
@@ -172,11 +177,14 @@ report period の採用判断は実測後に行う。`8000us` は current config
 | green | production HID service buffer fits the BTstack SDP record generated from the Switch HID descriptor | regression | unit | no |
 | green | Windows native daemon reaches HCI power-on on the CSR8510 A10 WinUSB path without using an ambiguous adapter | new | hardware | yes |
 | green | direct Ctrl+C shutdown reaches HCI power-off, BTstack close, IPC stop, and runtime stop done | characterization | hardware | yes |
-| red | Switch pairing reaches HID connection state and is recorded in hardware log | new | hardware | yes |
+| green | Switch pairing reaches HID L2CAP connection state and is recorded in hardware log | new | hardware | yes |
 | refactor-skipped | Classic GAP discovery configuration sets discoverable, class of device, local name, link policy, and role switch before production power-on | regression | unit | no |
 | green | HCI command and event packets can be written to a text artifact when `SWBT_HCI_DUMP_TRACE_PATH` is set | characterization | unit | no |
 | green | production packet handler confirms SSP user confirmation request with the reversed event address | regression | unit | no |
 | green | BTstack HID adapter registers the production packet handler for both HCI events and HID device events | regression | unit | no |
+| green | HCI event handler rerun sends SSP confirmation reply and opens HID control / interrupt L2CAP channels | characterization | hardware | yes |
+| green | 8000us report loop sends neutral input reports after HID interrupt channel opens | characterization | hardware | yes |
+| todo | Switch sends HID output report or subcommand after HID channels open | characterization | hardware | yes |
 | todo | periodic input report loop runs at each selected report period and records result | characterization | hardware | yes |
 | todo | IPC client or NyX macro state updates are observed as button and stick changes | new | hardware | yes |
 | todo | owner disconnect and heartbeat timeout leave neutral state | edge | hardware | yes |
@@ -231,11 +239,11 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - 2026-06-21 SSP confirmation post-fix HCI dump pairing rerun: ユーザ承認後に `SWBT_HCI_DUMP_TRACE_PATH` を設定して daemon を foreground 直接起動し、Switch2 firmware `22.1.0` の pairing 画面を観測した。Switch2 側の pairing 画面は変化しなかった。PowerShell exit marker は `exit=0`。`tmp/hardware/local_037/20260621-010951-8000us-ssp-confirm-hci-dump-pairing` には `daemon-8000us-exit.txt`、`startup-trace.txt`、`hci-dump.txt` が残った。HCI dump は incoming connection、connection complete status `0`、SSP pairing start、`HCI_EVENT_USER_CONFIRMATION_REQUEST`、`Simple Pairing Complete` status `0x13` を記録した。`User Confirmation Request Reply` opcode `0x042c` はまだ見えていない。
 - 2026-06-21 HCI event handler registration fix: BTstack HID examples は同じ packet handler を `hci_add_event_handler` と `hid_device_register_packet_handler` の両方へ登録している。`hid_device_register_packet_handler` は HCI event list へ登録しないため、production HID BTstack adapter で production packet handler を HCI events にも登録するようにした。
 - 2026-06-21 HCI event handler registration fix validation: `just build-debug` は pass。`just test-debug` は pass（31/31）。`just format-check` は pass。`just windows-cross` は pass。`git diff --check` は exit 0。
+- 2026-06-21 HCI event handler registration fix HCI dump pairing rerun: ユーザ承認後に `SWBT_HCI_DUMP_TRACE_PATH` を設定して daemon を foreground 直接起動し、Switch2 firmware `22.1.0` の pairing 画面を観測した。Switch2 側の画面は変化しなかった。PowerShell exit marker は `exit=0`。`tmp/hardware/local_037/20260621-012253-8000us-hci-event-handler-hci-dump-pairing` には `daemon-8000us-exit.txt`、`startup-trace.txt`、`hci-dump.txt` が残った。HCI dump は `User Confirmation Request Reply` opcode `0x042c`、`Simple Pairing Complete` status `0x00`、security level `2`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0`、57 byte ACL packet 548 個の送信を記録した。Switch 側からの `packet type=0x02 in=1` は L2CAP setup までで、HID output report / subcommand は観測されなかった。
 
 未実行:
 
-- Switch pairing success、Switch 側での HID advertising 視認、report loop の実機 input 反映。理由は、Switch2 22.1.0 では pairing 画面に何も表示されなかったためである。
-- HCI event handler registration fix 後の CSR8510 A10 / Switch2 pairing rerun。理由は、実機に触れる再実行には別途承認が必要であり、現時点では software validation まで完了したためである。
+- Switch UI 上の controller 採用、HID output report / subcommand 受信、report loop の実機 input 反映。理由は、Bluetooth SSP pairing と HID L2CAP channel open までは到達したが、Switch2 22.1.0 の画面は変化せず、Switch からの HID output report / subcommand は観測されなかったためである。
 - NyXpy macro 実行。理由は、今回の再実行は swbt daemon の固定後起動確認に限定したためである。
 - owner disconnect と heartbeat timeout の実機 neutral 確認。理由は、cleanup 直接再実行では IPC owner を取得していないためである。
 
@@ -299,7 +307,9 @@ NyX handoff を使う場合も承認範囲は swbt-daemon 側で記録する。N
 - [x] SSP user confirmation に応答する production handler を追加した。
 - [x] SSP confirmation 修正後の HCI dump text 診断付き `8000us` pairing rerun を記録した。`User Confirmation Request Reply` opcode `0x042c` は出ず、HCI event handler 登録漏れを確認した。
 - [x] production packet handler を HCI events と HID device events の両方に登録する修正を追加した。
-- [ ] HCI event handler 登録修正後の HCI dump text 診断付き `8000us` pairing rerun を記録した。
+- [x] HCI event handler 登録修正後の HCI dump text 診断付き `8000us` pairing rerun を記録した。SSP pairing は status `0x00`、HID L2CAP channel open は status `0x0` まで到達した。
+- [x] `8000us` の neutral input report 送信を HCI dump で記録した。
+- [ ] Switch UI 上の controller 採用、HID output report / subcommand 受信、または採用されない理由を記録した。
 - [ ] report period comparison を記録した。
 - [ ] IPC input 反映を記録した。
 - [ ] NyX handoff を使った場合は artifact root と daemon log path を記録した。
