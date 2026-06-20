@@ -68,7 +68,9 @@ not applicable。
 
 ## 7. 設計メモ
 
-- 最初の実装候補は mutex 付き mailbox である。理由は、NyXpy bring-up に必要なのは latest snapshot の一貫した copy であり、lock-free queue の必要性は未証明だからである。
+- 実装は C11 `atomic_bool` の短い spin lock を `swbt_spin_lock_t` として使う。理由は、latest snapshot の copy 境界を守るだけであり、OS thread や lock-free queue の導入はこの段階では不要だからである。
+- `swbt_ipc_server_t` は既定の内部 session を維持しつつ、production runner では runtime-owned `swbt_ipc_session_t` を外部 session として bind できるようにする。
+- `swbt_daemon_ipc_runner_t` は start で bind し、endpoint を公開し、accept / serve / stop を明示的に呼ぶ API にする。BTstack run loop や background thread の採用は `local_043` の entrypoint composition で扱う。
 - IPC endpoint は test では port `0` を許可し、実機 run では設定値または log から取得できるようにする。
 - IPC runner は daemon protocol を拡張しない。NyXpy 側も `daemon-ipc-v1` の `hello`、`acquire`、`set_state`、`get_status`、`release` を使う。
 - stop path は `release` 未送信の client disconnect でも neutral を保存する。
@@ -86,30 +88,48 @@ not applicable。
 - `swbt/daemon/runtime.c`
 - `tests/daemon_ipc_runner_test.c`
 - `tests/state_mailbox_test.c`
-- `work-units/wip/local_042/PRODUCTION_IPC_RUNNER_AND_STATE_SYNC.md`
+- `swbt/core/spin_lock.h`
+- `work-units/complete/local_042/PRODUCTION_IPC_RUNNER_AND_STATE_SYNC.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | IPC runner binds only `127.0.0.1` and exposes the bound endpoint before accepting clients | new | integration | no |
-| todo | IPC runner serves `hello` / `acquire` / `set_state` / `get_status` and publishes the latest state through the daemon state boundary | new | integration | no |
-| todo | state mailbox or equivalent boundary prevents concurrent store / load from reading partial state | edge | unit | no |
-| todo | runner stop closes listener and active connection, clears owner, and stores neutral state once | edge | integration | no |
-| todo | NyXpy-compatible JSON Lines sequence works through loopback without Bluetooth hardware | characterization | integration | no |
+| done | IPC runner binds only `127.0.0.1` and exposes the bound endpoint before accepting clients | new | integration | no |
+| done | IPC runner serves `hello` / `acquire` / `set_state` / `get_status` and publishes the latest state through the daemon state boundary | new | integration | no |
+| done | state mailbox or equivalent boundary prevents concurrent store / load from reading partial state | edge | unit | no |
+| done | runner stop closes listener and active connection, clears owner, and stores neutral state once | edge | integration | no |
+| done | NyXpy-compatible JSON Lines sequence works through loopback without Bluetooth hardware | characterization | integration | no |
 | deferred | NyXpy macro connects to production daemon during Switch-facing hardware run | characterization | hardware | yes |
 
 ## 10. 検証
 
-未実行。
+実行済み:
 
-この record は work unit の範囲と TDD Test List を作成しただけであり、code、CTest、実機コマンドは実行していない。
+- red: `just build-debug` failed。`tests/daemon_ipc_runner_test.c` が未実装の `daemon/ipc_runner.h` を参照したため。
+- green: `just build-debug` passed。
+- targeted: `just test-debug` passed。CTest 26/26。
+- format: `just format` passed。
+- clean verification: `just debug` passed。clean configure、build、CTest 26/26。
+- full verification: `just verify` passed。format check、clang-tidy、linux debug tests、ASan/UBSan tests、Windows MinGW cross build。
+
+TDD status:
+
+- red: 未実装 runner API と外部 session bind を test から要求した。
+- green: `swbt_daemon_ipc_runner_t`、`swbt_ipc_server_bind_session`、state mailbox / IPC session lock を実装して pass させた。
+- refactor: runner `stop` は、failed start 後に session を不要に neutral 化しないよう、running または active connection がある場合だけ cleanup する形に絞った。
+
+Test Desiderata review:
+
+- isolated: `daemon_ipc_runner_test` は loopback TCP と既存 JSON Lines client helper を使うが、Bluetooth adapter、BTstack run loop、HID advertising には触れない。
+- behavior-focused: endpoint exposure、non-loopback rejection、JSON Lines command sequence、mailbox handoff、stop neutral cleanup を観測する。
+- risk: background thread と BTstack run loop への組み込みは未実装であり、`local_043` の production entrypoint composition で扱う。
 
 ## 11. 実機実行条件
 
 この work unit 自体に実機検証は不要である。
 
-対象は loopback IPC と state synchronization の software integration であり、Bluetooth adapter、Switch pairing、HID advertising、report loop を開始しない。
+対象は loopback IPC と state synchronization の software integration であり、Bluetooth adapter、Switch pairing、HID advertising、report loop を開始していない。
 
 この runner を production BTstack backend と組み合わせて実機 daemon に使う場合は、`work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` と `spec/operations/windows-native-preflight.md` の実機実行条件に従う。
 
@@ -124,11 +144,11 @@ not applicable。
 
 ## 13. チェックリスト
 
-- [ ] source / use case を実装前に再確認した。
-- [ ] red test を追加した。
-- [ ] IPC runner を実装した。
-- [ ] state handoff の同期方式を記録した。
-- [ ] targeted CTest を実行した。
-- [ ] `just debug` を実行した。
-- [ ] sanitizer または Windows cross build の必要性を判断した。
-- [ ] 実機状態または未実行理由を記録した。
+- [x] source / use case を実装前に再確認した。
+- [x] red test を追加した。
+- [x] IPC runner を実装した。
+- [x] state handoff の同期方式を記録した。
+- [x] targeted CTest を実行した。
+- [x] `just debug` を実行した。
+- [x] sanitizer または Windows cross build の必要性を判断した。
+- [x] 実機状態または未実行理由を記録した。

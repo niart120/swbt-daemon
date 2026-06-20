@@ -16,6 +16,7 @@ swbt_state_mailbox_result_t swbt_state_mailbox_init(swbt_state_mailbox_t *mailbo
         return SWBT_STATE_MAILBOX_ERROR_INVALID_ARGUMENT;
     }
 
+    swbt_spin_lock_init(&mailbox->lock);
     mailbox->state = swbt_state_neutral();
     mailbox->generation = 0u;
     mailbox->loaded_generation = 0u;
@@ -28,8 +29,10 @@ swbt_state_mailbox_result_t swbt_state_mailbox_store(swbt_state_mailbox_t *mailb
         return SWBT_STATE_MAILBOX_ERROR_INVALID_ARGUMENT;
     }
 
+    swbt_spin_lock_acquire(&mailbox->lock);
     mailbox->state = *state;
     mailbox->generation += 1u;
+    swbt_spin_lock_release(&mailbox->lock);
     return SWBT_STATE_MAILBOX_OK;
 }
 
@@ -39,11 +42,13 @@ swbt_state_mailbox_result_t swbt_state_mailbox_load(swbt_state_mailbox_t *mailbo
         return SWBT_STATE_MAILBOX_ERROR_INVALID_ARGUMENT;
     }
 
+    swbt_spin_lock_acquire(&mailbox->lock);
     out_snapshot->state = mailbox->state;
     out_snapshot->generation = mailbox->generation;
     out_snapshot->coalesced_updates =
         swbt_state_mailbox_count_coalesced(mailbox->generation, mailbox->loaded_generation);
     out_snapshot->has_update = mailbox->generation != mailbox->loaded_generation;
     mailbox->loaded_generation = mailbox->generation;
+    swbt_spin_lock_release(&mailbox->lock);
     return SWBT_STATE_MAILBOX_OK;
 }

@@ -67,7 +67,7 @@ use case:
 - `docs/hardware-test-log.md`
 - `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
 - `work-units/complete/local_038/BTSTACK_SEND_READY_INTEGRATION.md`
-- `work-units/wip/local_042/PRODUCTION_IPC_RUNNER_AND_STATE_SYNC.md`
+- `work-units/complete/local_042/PRODUCTION_IPC_RUNNER_AND_STATE_SYNC.md`
 - `work-units/wip/local_043/PRODUCTION_DAEMON_BTSTACK_ENTRYPOINT.md`
 - `work-units/complete/local_025/DAEMON_RUNTIME_INTEGRATION.md`
 - `work-units/complete/local_026/REPORT_METRICS_AND_LOGGING.md`
@@ -91,7 +91,7 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - report period comparison は period ごとに別記録にする。
 - 実機結果は `docs/hardware-test-log.md` を正本にし、work unit record には要約と実行条件を残す。
 - 2026-06-20 時点の `swbt-daemon.exe` は no-op runtime entrypoint で即時終了する。NyXpy handoff の準備は進められるが、実機 daemon run、pairing、advertising、report loop は production backend entrypoint が接続されるまで開始しない。
-- 実機 bring-up の開始順は `spec/operations/windows-hardware-bringup-sequence.md` に従う。`local_038` は完了済み software gate であり、残る `local_042` と `local_043` の後に、この record は実機観測と hardware log を扱う。
+- 実機 bring-up の開始順は `spec/operations/windows-hardware-bringup-sequence.md` に従う。`local_038` と `local_042` は完了済み software gate であり、残る `local_043` の後に、この record は実機観測と hardware log を扱う。
 
 ## 8. 対象ファイル
 
@@ -150,7 +150,7 @@ NyX handoff を使う場合も承認範囲は swbt-daemon 側で記録する。N
 
 - 観測: 現行 `swbt-daemon.exe` は no-op backend を使い、Bluetooth adapter、実 IPC listener、BTstack run loop、HID advertising、periodic report loop を起動しない。
   先送り理由: この work unit は実機 bring-up の記録単位であり、production backend entrypoint の実装は software integration として tests を伴って扱う必要がある。
-  次の置き場: `work-units/complete/local_038/BTSTACK_SEND_READY_INTEGRATION.md`、`work-units/wip/local_042/PRODUCTION_IPC_RUNNER_AND_STATE_SYNC.md`、`work-units/wip/local_043/PRODUCTION_DAEMON_BTSTACK_ENTRYPOINT.md`。
+  次の置き場: `work-units/complete/local_038/BTSTACK_SEND_READY_INTEGRATION.md`、`work-units/complete/local_042/PRODUCTION_IPC_RUNNER_AND_STATE_SYNC.md`、`work-units/wip/local_043/PRODUCTION_DAEMON_BTSTACK_ENTRYPOINT.md`。
 
 ## 13. チェックリスト
 

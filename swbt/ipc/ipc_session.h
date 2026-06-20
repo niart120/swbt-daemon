@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "core/spin_lock.h"
 #include "core/state_mailbox.h"
 #include "switch/switch_controller_state.h"
 #include "switch/switch_rumble.h"
@@ -24,6 +25,7 @@ typedef struct {
 } swbt_ipc_status_t;
 
 typedef struct {
+    swbt_spin_lock_t lock;
     bool has_owner;
     uint32_t owner_client_id;
     swbt_state_t state;
@@ -39,6 +41,8 @@ swbt_ipc_result_t swbt_ipc_session_bind_mailbox(swbt_ipc_session_t *session,
 swbt_ipc_result_t swbt_ipc_acquire(swbt_ipc_session_t *session, uint32_t client_id);
 
 swbt_ipc_result_t swbt_ipc_release(swbt_ipc_session_t *session, uint32_t client_id);
+
+swbt_ipc_result_t swbt_ipc_clear_owner(swbt_ipc_session_t *session);
 
 swbt_ipc_result_t swbt_ipc_set_state(swbt_ipc_session_t *session, uint32_t client_id,
                                      const swbt_state_t *state);
