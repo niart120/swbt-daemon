@@ -14,7 +14,7 @@ source:
 - `spec/README.md`。実装が従う文書は `architecture/`、`protocols/`、`operations/` に置き、`references/` は規範として扱わない。
 - `spec/operations/work-unit-spec-tdd-flow.md`。source から use case を作り、work unit record と spec の責務を分ける。
 - `spec/references/*.md` と完了済み work unit record。Switch HID、daemon IPC、BTstack bridge、runtime lifecycle の current contract が reference や individual record に分散していた。
-- `work-units/wip/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`。現行 required sections に合っておらず、source / use case が不足していた。
+- `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`。当時は現行 required sections に合っておらず、source / use case が不足していた。
 
 use case:
 
@@ -55,7 +55,7 @@ use case:
 - `spec/operations/work-unit-spec-tdd-flow.md`
 - `spec/operations/windows-native-preflight.md`
 - `spec/references/README.md`
-- `work-units/wip/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
+- `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
 - `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
 - `work-units/wip/local_038/BTSTACK_SEND_READY_INTEGRATION.md`
 - `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`
@@ -80,7 +80,7 @@ use case:
 | Phase 5、hardware acceptability、report period comparison | 実機承認が必要な follow-up であり wip work unit にする | `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` |
 | subcommand reply queue と periodic scheduler の exact integration | software integration と実機確認を分ける follow-up であり wip work unit にする | `work-units/wip/local_038/BTSTACK_SEND_READY_INTEGRATION.md` |
 | stable IPC metrics / status protocol | `get_status` contract とは別に定義すべき follow-up であり wip work unit にする | `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` |
-| `work-units/wip/local_028` | wip として有効だが旧構成のため source / use case を追記する | `work-units/wip/local_028/MINIMAL_DEBUG_IPC_CLIENT.md` |
+| `work-units/complete/local_028` | local_036 当時は wip として有効だが旧構成のため source / use case を追記する対象だった | `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md` |
 | `spec/dev-journal.md` の Dev Container 導線観測 | `development-tooling` と `windows-native-preflight`、`local_032` で吸収済み | 新規 record なし |
 | archived `just-task-runner-migration` の未解決事項 | current tooling spec に同じ未解決事項が残るため archive は編集しない | `spec/operations/development-tooling.md` の未解決事項として維持 |
 
@@ -94,7 +94,7 @@ use case:
 - `spec/protocols/switch-hid-core.md`
 - `spec/references/README.md`
 - `work-units/complete/local_036/SPEC_WORK_UNIT_INVENTORY.md`
-- `work-units/wip/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
+- `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
 - `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
 - `work-units/wip/local_038/BTSTACK_SEND_READY_INTEGRATION.md`
 - `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`
@@ -117,7 +117,7 @@ use case:
 - `rg --files work-units`: work unit record 一覧を確認した。
 - `rg -n "未解決事項|先送り事項|deferred|昇格|journal|spec" spec work-units docs`: 未解決事項、先送り事項、wip source を抽出した。
 - `Get-Content -Raw spec/dev-journal.md`: journal entry を確認した。
-- `Get-Content -Raw work-units/wip/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`: 唯一の wip record を確認した。
+- 当時の `Get-Content -Raw` による `local_028` record 確認: 唯一の wip record を確認した。現在の file path は `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`。
 - required section check: 新規 spec 3 件は 7 required sections、更新または新規 work unit record 5 件は 13 required sections をすべて含む。欠落出力なし。
 - placeholder pattern search on new and updated files: no matches。
 - `rg --files spec work-units | Sort-Object`: 新規 spec 3 件、`local_036`、`local_037`、`local_038`、`local_039`、更新済み `local_028` が一覧に含まれることを確認した。

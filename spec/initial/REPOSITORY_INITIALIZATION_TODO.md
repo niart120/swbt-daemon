@@ -1,7 +1,7 @@
 # swbt-daemon repository initialization TODO
 
 作成日: 2026-06-16
-更新日: 2026-06-18
+更新日: 2026-06-20
 
 ## 現在の方針
 
@@ -144,7 +144,7 @@ Initialize swbt-daemon skeleton
 ### Future: client libraries
 
 - [ ] Python client
-- [ ] CLI debug client
+- [x] CLI debug client
 - [ ] C# client
 - [ ] GUI
 

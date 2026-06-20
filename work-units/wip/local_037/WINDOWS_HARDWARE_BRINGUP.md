@@ -62,7 +62,7 @@ use case:
 - `spec/protocols/switch-hid-core.md`
 - `spec/operations/windows-native-preflight.md`
 - `docs/hardware-test-log.md`
-- `work-units/wip/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
+- `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
 - `work-units/wip/local_038/BTSTACK_SEND_READY_INTEGRATION.md`
 - `work-units/complete/local_025/DAEMON_RUNTIME_INTEGRATION.md`
 - `work-units/complete/local_026/REPORT_METRICS_AND_LOGGING.md`
@@ -80,7 +80,7 @@ report period の採用判断は実測後に行う。`8000us` は current config
 
 - 実機実行前に adapter identity を固定する。
 - daemon cleanup behavior が不明な code path は実行しない。
-- repo-local debug IPC client が未完成でも、NyX handoff の macro で `hello`、`acquire`、`get_status`、`set_state`、`release` を送れる場合は、実機入力反映を別経路で確認してよい。この場合も `local_028` の完了条件は満たした扱いにしない。
+- repo-local debug IPC client は software integration 済みである。NyX handoff の macro は、Project NyX 側の capture と request artifact を同じ実機 run に対応付けたい場合の外部 client 経路として扱う。
 - swbt-daemon 側 agent は NyX を導入しない。swbt 側は daemon 起動、IPC endpoint、daemon log、adapter / driver / firmware 情報を渡し、NyX 側 agent が Project NyX repo で `uv run nyxpy run swbt_hardware_bringup` を実行する。
 - NyX artifact と daemon log の対応は、NyX `request.id`、時刻、report period、daemon log excerpt で確認する。
 - report period comparison は period ごとに別記録にする。
