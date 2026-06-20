@@ -27,3 +27,12 @@ spec は設計、protocol、挙動、方針を書く文書である。
 - work unit、spec、TDD Test List の作成順序は `operations/work-unit-spec-tdd-flow.md` に従う。
 
 `spec/dev-journal.md` は例外的に、まだ spec や work unit record にするほど固まっていない観測や先送り判断を記録する。
+
+## 現在の主要 spec
+
+- `architecture/daemon-runtime-boundaries.md`: daemon runtime と BTstack bridge の責務境界。
+- `protocols/daemon-ipc-v1.md`: daemon IPC v1 の通信仕様。
+- `protocols/switch-hid-core.md`: Switch HID protocol core の current contract。
+- `operations/development-tooling.md`: `just` を入口にする開発運用。
+- `operations/windows-native-preflight.md`: Windows native 実機検証前の gate。
+- `operations/work-unit-spec-tdd-flow.md`: source、use case、work unit、spec、TDD Test List の作成順序。
