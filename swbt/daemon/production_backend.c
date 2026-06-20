@@ -268,25 +268,43 @@ swbt_daemon_production_power_on(swbt_daemon_production_backend_t *backend) {
     if (backend->ops->power_on(backend->ops_context) != 0) {
         return SWBT_DAEMON_PRODUCTION_ERROR_HARDWARE;
     }
-    backend->hardware_powered = true;
+    atomic_store(&backend->hardware_powered, true);
     return SWBT_DAEMON_PRODUCTION_OK;
 }
 
 static void swbt_daemon_production_power_off(swbt_daemon_production_backend_t *backend) {
-    if (backend != NULL && backend->hardware_powered) {
+    if (backend != NULL && atomic_exchange(&backend->hardware_powered, false)) {
         backend->ops->power_off(backend->ops_context);
-        backend->hardware_powered = false;
     }
 }
 
-swbt_daemon_production_result_t
-swbt_daemon_production_main_with_backend(swbt_daemon_production_backend_t *backend,
-                                         const swbt_daemon_hardware_approval_t *approval) {
+static bool
+swbt_daemon_shutdown_listener_is_valid(const swbt_daemon_shutdown_listener_t *shutdown_listener) {
+    return shutdown_listener == NULL ||
+           (shutdown_listener->install != NULL && shutdown_listener->uninstall != NULL);
+}
+
+static void swbt_daemon_production_request_shutdown(void *context) {
+    swbt_daemon_production_backend_t *backend = context;
+    if (backend == NULL || !backend->initialized ||
+        atomic_exchange(&backend->shutdown_requested, true)) {
+        return;
+    }
+
+    swbt_daemon_production_power_off(backend);
+    backend->ops->run_loop_trigger_exit(backend->ops_context);
+}
+
+swbt_daemon_production_result_t swbt_daemon_production_main_with_backend_and_shutdown(
+    swbt_daemon_production_backend_t *backend, const swbt_daemon_hardware_approval_t *approval,
+    const swbt_daemon_shutdown_listener_t *shutdown_listener, void *shutdown_context) {
     swbt_daemon_runtime_t runtime;
     swbt_daemon_runtime_result_t runtime_result;
     swbt_daemon_production_result_t result = SWBT_DAEMON_PRODUCTION_OK;
+    bool shutdown_listener_installed = false;
 
-    if (backend == NULL || !backend->initialized) {
+    if (backend == NULL || !backend->initialized ||
+        !swbt_daemon_shutdown_listener_is_valid(shutdown_listener)) {
         return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
     }
     if (!swbt_daemon_hardware_approval_is_granted(approval)) {
@@ -305,12 +323,32 @@ swbt_daemon_production_main_with_backend(swbt_daemon_production_backend_t *backe
 
     result = swbt_daemon_production_power_on(backend);
     if (result == SWBT_DAEMON_PRODUCTION_OK) {
-        backend->ops->run_loop_execute(backend->ops_context);
+        atomic_store(&backend->shutdown_requested, false);
+        if (shutdown_listener != NULL) {
+            if (shutdown_listener->install(shutdown_context,
+                                           swbt_daemon_production_request_shutdown, backend) != 0) {
+                result = SWBT_DAEMON_PRODUCTION_ERROR_RUNTIME;
+            } else {
+                shutdown_listener_installed = true;
+            }
+        }
+        if (result == SWBT_DAEMON_PRODUCTION_OK) {
+            backend->ops->run_loop_execute(backend->ops_context);
+        }
+        if (shutdown_listener_installed) {
+            shutdown_listener->uninstall(shutdown_context);
+        }
     }
 
     swbt_daemon_production_power_off(backend);
     swbt_daemon_runtime_stop(&runtime);
     return result;
+}
+
+swbt_daemon_production_result_t
+swbt_daemon_production_main_with_backend(swbt_daemon_production_backend_t *backend,
+                                         const swbt_daemon_hardware_approval_t *approval) {
+    return swbt_daemon_production_main_with_backend_and_shutdown(backend, approval, NULL, NULL);
 }
 
 uint32_t

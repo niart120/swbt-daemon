@@ -5,10 +5,61 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+
 #include "btstack_bridge/production_btstack.h"
 #include "daemon/config.h"
 #include "daemon/production_backend.h"
 #include "daemon/runtime.h"
+
+#if defined(_WIN32)
+static swbt_daemon_shutdown_request_t g_swbt_daemon_shutdown_request;
+static void *g_swbt_daemon_shutdown_context;
+
+static BOOL WINAPI swbt_daemon_console_control_handler(DWORD control_type) {
+    switch (control_type) {
+    case CTRL_C_EVENT:
+    case CTRL_BREAK_EVENT:
+    case CTRL_CLOSE_EVENT:
+    case CTRL_SHUTDOWN_EVENT:
+        if (g_swbt_daemon_shutdown_request != NULL) {
+            g_swbt_daemon_shutdown_request(g_swbt_daemon_shutdown_context);
+        }
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
+static int swbt_daemon_install_process_shutdown_listener(
+    void *context, swbt_daemon_shutdown_request_t request_shutdown, void *request_context) {
+    (void)context;
+    g_swbt_daemon_shutdown_request = request_shutdown;
+    g_swbt_daemon_shutdown_context = request_context;
+    return SetConsoleCtrlHandler(swbt_daemon_console_control_handler, TRUE) ? 0 : -1;
+}
+
+static void swbt_daemon_uninstall_process_shutdown_listener(void *context) {
+    (void)context;
+    (void)SetConsoleCtrlHandler(swbt_daemon_console_control_handler, FALSE);
+    g_swbt_daemon_shutdown_request = NULL;
+    g_swbt_daemon_shutdown_context = NULL;
+}
+
+static const swbt_daemon_shutdown_listener_t *swbt_daemon_process_shutdown_listener(void) {
+    static const swbt_daemon_shutdown_listener_t listener = {
+        .install = swbt_daemon_install_process_shutdown_listener,
+        .uninstall = swbt_daemon_uninstall_process_shutdown_listener,
+    };
+    return &listener;
+}
+#else
+static const swbt_daemon_shutdown_listener_t *swbt_daemon_process_shutdown_listener(void) {
+    return NULL;
+}
+#endif
 
 static bool swbt_daemon_env_is_enabled(const char *value) {
     return value != NULL && strcmp(value, "1") == 0;
@@ -83,7 +134,8 @@ static int swbt_daemon_run_production(const swbt_daemon_config_t *config) {
                                             NULL) != SWBT_DAEMON_PRODUCTION_OK) {
         return 1;
     }
-    return swbt_daemon_production_main_with_backend(&backend, &approval) ==
+    return swbt_daemon_production_main_with_backend_and_shutdown(
+               &backend, &approval, swbt_daemon_process_shutdown_listener(), NULL) ==
                    SWBT_DAEMON_PRODUCTION_OK
                ? 0
                : 1;
