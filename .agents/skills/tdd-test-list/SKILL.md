@@ -48,7 +48,7 @@ work unit record では次の形を使う。
 |---|---|---|---|---|
 | todo | observable behavior | new/regression/edge/characterization | unit/integration/hardware | no/yes |
 
-status は `todo`、`red`、`green`、`refactor-done`、`deferred` を使う。
+status は `todo`、`red`、`green`、`refactor-done`、`refactor-skipped`、`deferred` を使う。
 
 ## Quality Gate
 

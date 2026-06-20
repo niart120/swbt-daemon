@@ -1,6 +1,6 @@
 ---
 name: tdd-one-cycle
-description: "swbt-daemon の TDD Test List から 1 item だけを選び、CMake/CTest/just で red、green、必要な refactor を 1 cycle 進める skill。Codex が失敗する C test を追加し、最小実装で通し、work unit record の TDD status を更新するときに使う。"
+description: "swbt-daemon の TDD Test List から 1 item だけを選び、CMake/CTest/just で red、green、必要な refactor を 1 cycle 進める skill。Codex が失敗する C test を追加し、最小実装で通し、refactor-done / refactor-skipped を含む work unit record の TDD status を更新するときに使う。"
 ---
 
 # TDD One Cycle
@@ -34,7 +34,7 @@ red を確認したら work unit record の対象 item を `red` に更新する
 
 ## Green
 
-1. 今の item と関連する既存契約を通すための最小実装にする。
+1. 今の item と関連する既存契約を通す実装にする。必要な構造変更は入れてよいが、選んだ item 以外の新しい振る舞いは混ぜない。
 2. 途中で別の振る舞いに気づいたら、実装へ混ぜず TDD Test List または先送り事項に追加する。
 3. 対象 command と関連 command を実行し、green を確認する。
 
@@ -55,9 +55,11 @@ docs / skill guidance の item では、該当する file path、routing、front
 
 ## Refactor
 
-1. green の後だけ実行する。
-2. behavior change と structure change を分ける必要がある場合は `tidy-first` を使う。
-3. refactor 後は同じ command を再実行し、リスクに応じて sanitizer または cross build を追加する。
+1. green の後だけ実行する。green baseline の command と結果を確認してから始める。
+2. green 後に構造変更を行う、または行わない判断を記録する必要がある場合は `../refactor-after-green/SKILL.md` を読む。
+3. behavior change と structure change を分ける必要がある場合は `../tidy-first/SKILL.md` を使う。
+4. formatter / linter の実行だけを refactor 本体として扱わない。構造変更がない、または行うべきでない場合は `refactor-skipped` と記録する。
+5. refactor 後は同じ command を再実行し、リスクに応じて sanitizer または cross build を追加する。
 
 ```console
 just asan
@@ -73,14 +75,14 @@ just windows-cross
 
 ## Status Update
 
-work unit record に対象 item の状態を `red`、`green`、`refactor-done`、`deferred` のいずれかで反映する。実行した command、失敗理由、追加した Test List item、実機未実行理由も記録する。
+work unit record に対象 item の状態を `red`、`green`、`refactor-done`、`refactor-skipped`、`deferred` のいずれかで反映する。実行した command、失敗理由、追加した Test List item、refactor の判断、実機未実行理由も記録する。
 
 ```text
 TDD status:
 - source:
 - use case:
 - item:
-- state: red | green | refactor-done | deferred
+- state: red | green | refactor-done | refactor-skipped | deferred
 - commands:
 - notes:
 ```
