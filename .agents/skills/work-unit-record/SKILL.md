@@ -93,7 +93,7 @@ protocol、実機、BTstack、backend facts に触れない作業だけ、根拠
 |---|---|---|---|---|
 | todo | observable behavior | new/regression/edge/characterization | unit/integration/hardware | no/yes |
 
-状態値は `todo`、`red`、`green`、`refactor-done`、`deferred` とする。実装都合、file list、roadmap TODO だけを test item にしない。
+状態値は `todo`、`red`、`green`、`refactor-done`、`refactor-skipped`、`deferred` とする。実装都合、file list、roadmap TODO だけを test item にしない。
 
 ## 実機実行条件
 

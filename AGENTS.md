@@ -170,6 +170,7 @@ just verify
 - `tdd-workflow`: CMake / CTest 前提で TDD を進める。
 - `tdd-test-list`: use case から TDD Test List を作成・更新する。
 - `tdd-one-cycle`: TDD Test List の 1 item だけを red / green / refactor で進める。
+- `refactor-after-green`: green 後の構造変更と `refactor-skipped` 判断を扱う。
 - `tidy-first`: behavior change と structure change を分離する。
 - `test-desiderata-review`: test の価値と trade-off を確認する。
 - `dev-journal`: `spec/dev-journal.md` に観測や先送り事項を記録する。

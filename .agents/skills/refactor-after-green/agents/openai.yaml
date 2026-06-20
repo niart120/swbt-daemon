@@ -1,0 +1,4 @@
+interface:
+  display_name: "Refactor After Green"
+  short_description: "green後の構造変更を判断して進める"
+  default_prompt: "$refactor-after-green を使って green 後の swbt 変更を小さくリファクタリングする。"
