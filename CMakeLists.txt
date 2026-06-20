@@ -122,6 +122,14 @@ target_link_libraries(swbt-daemon PRIVATE swbt_core)
 swbt_apply_common_warnings(swbt-daemon)
 swbt_apply_sanitizers(swbt-daemon)
 
+add_executable(swbt-debug-client
+    apps/swbt-debug-client/debug_client.c
+    apps/swbt-debug-client/main.c
+)
+target_link_libraries(swbt-debug-client PRIVATE swbt_core)
+swbt_apply_common_warnings(swbt-debug-client)
+swbt_apply_sanitizers(swbt-debug-client)
+
 if(SWBT_BUILD_TESTS)
     enable_testing()
 
@@ -257,6 +265,16 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(ipc_server_test)
 
     add_test(NAME ipc_server_test COMMAND ipc_server_test)
+
+    add_executable(debug_ipc_client_test
+        apps/swbt-debug-client/debug_client.c
+        tests/debug_ipc_client_test.c
+    )
+    target_link_libraries(debug_ipc_client_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(debug_ipc_client_test)
+    swbt_apply_sanitizers(debug_ipc_client_test)
+
+    add_test(NAME debug_ipc_client_test COMMAND debug_ipc_client_test)
 
     add_executable(btstack_hid_device_registration_test
         tests/btstack_hid_device_registration_test.c

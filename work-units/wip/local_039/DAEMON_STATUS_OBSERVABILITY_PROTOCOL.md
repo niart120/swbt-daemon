@@ -49,7 +49,7 @@ use case:
 - `spec/initial/BTSTACK_SWITCH_DAEMON_IPC_DESIGN.md`
 - `work-units/complete/local_009/IPC_JSON_PROTOCOL_CORE.md`
 - `work-units/complete/local_026/REPORT_METRICS_AND_LOGGING.md`
-- `work-units/wip/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
+- `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
 - `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
 
 ## 6. 根拠監査
