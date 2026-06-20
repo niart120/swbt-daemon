@@ -229,3 +229,25 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: NyXpy は未実行。なし
 - cleanup: pass。手動 `Ctrl+C` から HCI power-off、BTstack close / run loop deinit、IPC stop、runtime stop done まで到達し、process exit は `0`
 - notes: pairing、Switch 側での HID advertising 視認、NyXpy IPC input、report loop の実機 input 反映は未観測である。`Tee-Object` pipeline を使った前回の `exit=-1` は cleanup 未完了の根拠として扱わず、直接起動結果を cleanup 判定の根拠にする
+
+## 2026-06-21: local_037 CSR8510 A10 8000us pairing attempt on Switch2
+
+- OS: Microsoft Windows NT 10.0.26200.0
+- environment: Windows native PowerShell、ブランチ `local-037-hardware-verification`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Service `WinUSB`、Class `USBDevice`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: `248049f725688afcc2efca48bfa06bf87373fbba`
+- Switch firmware: Switch2 `22.1.0`
+- approval scope: ユーザ承認済み。CSR8510 A10、`8000 us`、daemon 起動、Switch2 の pairing 画面での HID advertising / connection state 観測、手動 `Ctrl+C` cleanup 確認。NyXpy IPC input は未実行
+- environment variables: `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`
+- IPC endpoint: 予定値 `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: foreground PowerShell で `build/windows-mingw-debug/swbt-daemon.exe` を直接起動し、Switch2 側で pairing 画面を観測した。`tmp/hardware/local_037/20260621-000629-8000us-pairing` へ exit marker / startup trace / minidump path を保存した
+- result: Switch2 側には何も表示されなかった。daemon 側は `btstack: hci power on ok` と `production: run loop execute` まで到達し、手動 `Ctrl+C` 後に `runtime: stop done` と `production: runtime stop done` まで到達した。PowerShell の exit marker は `exit=0`。artifact directory には `daemon-8000us-exit.txt` と `startup-trace.txt` が作成され、`swbt-daemon-crash.dmp` と daemon stdout / stderr log は作成されなかった
+- daemon log: 未作成。`SWBT_DIAGNOSTIC_TRACE_PATH` の startup trace を正本にする
+- artifact root: NyXpy は未実行。なし
+- cleanup: pass。手動 `Ctrl+C` から HCI power-off、BTstack close / run loop deinit、IPC stop、runtime stop done まで到達し、process exit は `0`
+- notes: pairing / HID advertising の実機結果は red。daemon は power-on と run loop へ到達しているため、次の切り分けは BTstack の discoverable / connectable / class of device / local name / HID service advertising 状態を trace で確認するのが妥当である。Switch2 22.1.0 固有の観測であり、他の Switch firmware へ一般化しない

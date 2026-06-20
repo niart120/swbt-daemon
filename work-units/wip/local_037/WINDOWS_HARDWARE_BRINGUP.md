@@ -93,6 +93,7 @@ report period の採用判断は実測後に行う。`8000us` は current config
 | production HID service buffer capacity | `512` bytes | implementation fact | `swbt/daemon/production_backend.h` | configurable implementation capacity, not protocol fact |
 | fixed rerun startup marker | `hid_registration: ok` and `btstack: hci power on ok` | hardware observation | `tmp/hardware/local_037/20260620-234720-8000us-fixed-rerun/startup-trace.txt` | CSR8510 A10 / Windows local observation |
 | direct cleanup marker | `runtime: stop done` and `production: runtime stop done` | hardware observation | `tmp/hardware/local_037/20260620-235943-8000us-cleanup-direct-rerun/startup-trace.txt` | CSR8510 A10 / Windows local observation |
+| Switch2 pairing observation | pairing screen showed no device | hardware observation | `tmp/hardware/local_037/20260621-000629-8000us-pairing/startup-trace.txt` and user observation | Switch2 firmware `22.1.0`; not generalized |
 
 ## 7. 設計メモ
 
@@ -111,6 +112,7 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - 2026-06-20 の `8000us` 実機 run は process start 直後に `0xC0000005` で APPCRASH し、stdout / stderr log と WER LocalDumps は残らなかった。次回の切り分けでは `SWBT_DIAGNOSTIC_TRACE_PATH` による起動トレースと、Windows の `SWBT_CRASH_DUMP_PATH` による daemon 自前 minidump を使う。
 - 2026-06-20 の SDP record buffer fix 後の `8000us` 再実行では、`hid_registration: ok`、`btstack: hci power on ok`、`production: run loop execute` まで到達した。前回の `hid_registration: sdp record too large` は再発していない。手動 `Ctrl+C` 後に `btstack: hci power off` と `production: run loop returned` へ到達したが、cleanup trace は `runtime: stop enter` で終わっており、停止完了は未確認である。
 - 2026-06-21 の `8000us` cleanup 直接再実行では、`Tee-Object` を使わず foreground daemon を直接起動した。手動 `Ctrl+C` 後に `runtime: report timer stop`、`runtime: output handler stop`、`runtime: hid stop`、`production: platform stop`、`btstack: hci close done`、`btstack: run loop deinit done`、`runtime: ipc stop`、`runtime: stop done`、`production: runtime stop done` まで到達し、exit marker は `exit=0` だった。これにより Ctrl+C cleanup の実機観測は pass とする。
+- 2026-06-21 の `8000us` pairing attempt では、Switch2 firmware `22.1.0` の pairing 画面に controller が表示されなかった。daemon は `btstack: hci power on ok`、`production: run loop execute` まで到達し、cleanup も `production: runtime stop done` まで到達したため、次の切り分け対象は HID registration 後の discoverable / connectable / class of device / local name / advertising 相当の状態である。
 
 ## 8. 対象ファイル
 
@@ -138,7 +140,7 @@ report period の採用判断は実測後に行う。`8000us` は current config
 | green | production HID service buffer fits the BTstack SDP record generated from the Switch HID descriptor | regression | unit | no |
 | green | Windows native daemon reaches HCI power-on on the CSR8510 A10 WinUSB path without using an ambiguous adapter | new | hardware | yes |
 | green | direct Ctrl+C shutdown reaches HCI power-off, BTstack close, IPC stop, and runtime stop done | characterization | hardware | yes |
-| todo | Switch pairing reaches HID connection state and is recorded in hardware log | new | hardware | yes |
+| red | Switch pairing reaches HID connection state and is recorded in hardware log | new | hardware | yes |
 | todo | periodic input report loop runs at each selected report period and records result | characterization | hardware | yes |
 | todo | IPC client or NyX macro state updates are observed as button and stick changes | new | hardware | yes |
 | todo | owner disconnect and heartbeat timeout leave neutral state | edge | hardware | yes |
@@ -178,10 +180,11 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - 2026-06-20 fixed build validation: `just format` pass、`just debug` pass（29/29）、`just windows-cross` pass、`just format-check` pass、`git diff --check` exit 0（CRLF warning のみ）。
 - 2026-06-20 `8000us` fixed rerun: ユーザ承認後に SDP record buffer fix build で daemon を再実行し、手動 `Ctrl+C` で停止した。PowerShell exit marker は `exit=-1`。`tmp/hardware/local_037/20260620-234720-8000us-fixed-rerun` には `daemon-8000us-exit.txt` と `startup-trace.txt` が残り、`swbt-daemon-crash.dmp` と `daemon-8000us.log` は作成されなかった。trace は `hid_registration: sdp register service`、`hid_registration: hid device init`、`hid_registration: ok`、`btstack: hci power on ok`、`production: run loop execute` まで到達した。前回の `hid_registration: sdp record too large` は再発していない。手動停止後の cleanup は `btstack: hci power off`、`production: run loop returned`、`runtime: stop enter` までで、`runtime: stop done` は未確認である。
 - 2026-06-21 `8000us` cleanup direct rerun: ユーザ承認後に `Tee-Object` なしで daemon を foreground 直接起動し、手動 `Ctrl+C` で停止した。PowerShell exit marker は `exit=0`。`tmp/hardware/local_037/20260620-235943-8000us-cleanup-direct-rerun` には `daemon-8000us-exit.txt` と `startup-trace.txt` が残り、`swbt-daemon-crash.dmp` と daemon stdout / stderr log は作成されなかった。trace は `btstack: hci power off`、`production: run loop returned`、`runtime: report timer stop`、`runtime: output handler stop`、`runtime: hid stop`、`production: hid stop`、`production: platform stop`、`btstack: hci close done`、`btstack: run loop deinit done`、`runtime: ipc stop`、`runtime: stop done`、`production: runtime stop done` まで到達した。cleanup 直接確認は pass。
+- 2026-06-21 `8000us` pairing attempt: ユーザ承認後に daemon を foreground 直接起動し、Switch2 firmware `22.1.0` の pairing 画面を観測した。Switch2 側には何も表示されなかった。PowerShell exit marker は `exit=0`。`tmp/hardware/local_037/20260621-000629-8000us-pairing` には `daemon-8000us-exit.txt` と `startup-trace.txt` が残り、`swbt-daemon-crash.dmp` と daemon stdout / stderr log は作成されなかった。trace は `btstack: hci power on ok`、`production: run loop execute`、手動停止後の `runtime: stop done`、`production: runtime stop done` まで到達した。
 
 未実行:
 
-- Switch pairing、Switch 側での HID advertising 視認、report loop の実機 input 反映。理由は、まだ Switch pairing と NyXpy input step に進んでいないためである。
+- Switch pairing success、Switch 側での HID advertising 視認、report loop の実機 input 反映。理由は、Switch2 22.1.0 では pairing 画面に何も表示されなかったためである。
 - NyXpy macro 実行。理由は、今回の再実行は swbt daemon の固定後起動確認に限定したためである。
 - owner disconnect と heartbeat timeout の実機 neutral 確認。理由は、cleanup 直接再実行では IPC owner を取得していないためである。
 
@@ -237,7 +240,7 @@ NyX handoff を使う場合も承認範囲は swbt-daemon 側で記録する。N
 - [x] `hid_registration: sdp record too large` の regression test を red / green で追加した。
 - [x] SDP record buffer fix 後に `8000us` run を再実行した。
 - [x] `8000us` direct cleanup rerun で `Ctrl+C` から `runtime: stop done` と `production: runtime stop done` まで到達することを記録した。
-- [ ] Switch pairing 結果を記録した。
+- [x] Switch pairing 結果を記録した。Switch2 22.1.0 では何も表示されなかったため、pairing success は未達である。
 - [ ] report period comparison を記録した。
 - [ ] IPC input 反映を記録した。
 - [ ] NyX handoff を使った場合は artifact root と daemon log path を記録した。
