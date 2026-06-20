@@ -2,6 +2,9 @@
 
 #include <stddef.h>
 
+#include "bluetooth.h"
+#include "btstack_bridge/classic_discovery.h"
+#include "btstack_bridge/classic_discovery_btstack_adapter.h"
 #include "btstack_bridge/hid_device_btstack_adapter.h"
 #include "btstack_bridge/input_report_timer_adapter.h"
 #include "btstack_bridge/output_report_callbacks.h"
@@ -33,7 +36,22 @@ static void swbt_btstack_production_ipc_stop(void *context, swbt_daemon_ipc_runn
     swbt_daemon_ipc_runner_stop(runner);
 }
 
+static swbt_btstack_classic_discovery_config_t swbt_btstack_production_discovery_config(void) {
+    const swbt_btstack_hid_registration_config_t hid_config =
+        swbt_daemon_production_hid_registration_config();
+    return (swbt_btstack_classic_discovery_config_t){
+        .class_of_device = hid_config.hid_device_subclass,
+        .local_name = hid_config.device_name,
+        .link_policy_settings =
+            LM_LINK_POLICY_ENABLE_ROLE_SWITCH | LM_LINK_POLICY_ENABLE_SNIFF_MODE,
+        .allow_role_switch = true,
+        .discoverable = true,
+    };
+}
+
 static int swbt_btstack_production_platform_start(void *context) {
+    swbt_btstack_classic_discovery_result_t discovery_result;
+    swbt_btstack_classic_discovery_config_t discovery_config;
     (void)context;
     swbt_diagnostic_trace("btstack: memory init");
     btstack_memory_init();
@@ -46,6 +64,15 @@ static int swbt_btstack_production_platform_start(void *context) {
 #endif
     swbt_diagnostic_trace("btstack: hci init usb transport");
     hci_init(hci_transport_usb_instance(), NULL);
+    swbt_diagnostic_trace("btstack: classic discovery configure");
+    discovery_config = swbt_btstack_production_discovery_config();
+    discovery_result = swbt_btstack_classic_discovery_configure(
+        swbt_btstack_classic_discovery_backend_btstack(), NULL, &discovery_config);
+    if (discovery_result != SWBT_BTSTACK_CLASSIC_DISCOVERY_OK) {
+        swbt_diagnostic_trace("btstack: classic discovery configure failed");
+        return -1;
+    }
+    swbt_diagnostic_trace("btstack: classic discovery configure ok");
     swbt_diagnostic_trace("btstack: l2cap init");
     l2cap_init();
     return 0;

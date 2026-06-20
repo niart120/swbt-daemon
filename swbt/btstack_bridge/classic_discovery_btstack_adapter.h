@@ -1,0 +1,9 @@
+#ifndef SWBT_BTSTACK_BRIDGE_CLASSIC_DISCOVERY_BTSTACK_ADAPTER_H
+#define SWBT_BTSTACK_BRIDGE_CLASSIC_DISCOVERY_BTSTACK_ADAPTER_H
+
+#include "btstack_bridge/classic_discovery.h"
+
+const swbt_btstack_classic_discovery_backend_t *
+swbt_btstack_classic_discovery_backend_btstack(void);
+
+#endif
