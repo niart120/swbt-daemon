@@ -1,6 +1,7 @@
 #ifndef SWBT_DAEMON_PRODUCTION_BACKEND_H
 #define SWBT_DAEMON_PRODUCTION_BACKEND_H
 
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -26,6 +27,14 @@ typedef struct {
     bool run_hardware;
     bool hardware_approved;
 } swbt_daemon_hardware_approval_t;
+
+typedef void (*swbt_daemon_shutdown_request_t)(void *context);
+
+typedef struct {
+    int (*install)(void *context, swbt_daemon_shutdown_request_t request_shutdown,
+                   void *request_context);
+    void (*uninstall)(void *context);
+} swbt_daemon_shutdown_listener_t;
 
 typedef struct {
     int (*ipc_start)(void *context, swbt_daemon_ipc_runner_t *runner, swbt_ipc_session_t *session,
@@ -67,7 +76,8 @@ typedef struct {
     bool platform_started;
     bool hid_registered;
     bool report_timer_initialized;
-    bool hardware_powered;
+    atomic_bool hardware_powered;
+    atomic_bool shutdown_requested;
 } swbt_daemon_production_backend_t;
 
 swbt_daemon_production_result_t swbt_daemon_production_backend_init(
@@ -79,6 +89,10 @@ const swbt_daemon_runtime_backend_t *swbt_daemon_production_runtime_backend(void
 swbt_daemon_production_result_t
 swbt_daemon_production_main_with_backend(swbt_daemon_production_backend_t *backend,
                                          const swbt_daemon_hardware_approval_t *approval);
+
+swbt_daemon_production_result_t swbt_daemon_production_main_with_backend_and_shutdown(
+    swbt_daemon_production_backend_t *backend, const swbt_daemon_hardware_approval_t *approval,
+    const swbt_daemon_shutdown_listener_t *shutdown_listener, void *shutdown_context);
 
 uint32_t
 swbt_daemon_production_backend_report_period_us(const swbt_daemon_production_backend_t *backend);
