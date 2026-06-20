@@ -10,7 +10,7 @@ if ! command -v clang-format >/dev/null 2>&1; then
 fi
 
 set --
-for path in $(git ls-files api apps swbt tests); do
+for path in $(git ls-files --cached --others --exclude-standard -- api apps swbt tests); do
     case "$path" in
         *.c | *.h)
             set -- "$@" "$path"
