@@ -98,6 +98,7 @@ report period の採用判断は実測後に行う。`8000us` は current config
 | BTstack Classic GAP discoverable default | discoverable is OFF by default | source fact | `vendor/btstack/src/gap.h:1222-1234` | fixed BTstack source |
 | BTstack Classic GAP configuration APIs | `gap_set_local_name`, `gap_set_class_of_device`, `gap_set_default_link_policy_settings`, `gap_set_allow_role_switch` | source fact | `vendor/btstack/src/gap.h:417-443` | fixed BTstack source |
 | production Classic GAP discovery config | discoverable `true`, class of device from production HID subclass `0x2508`, local name `Pro Controller`, link policy role switch + sniff, allow role switch `true` | implementation fact | `swbt/btstack_bridge/production_btstack.c`, `swbt/btstack_bridge/classic_discovery.c` | implemented for next hardware rerun; Switch2 acceptability unverified |
+| GAP discovery rerun marker | `btstack: classic discovery configure ok` before `btstack: hci power on`; Switch2 pairing screen did not move | hardware observation | `tmp/hardware/local_037/20260621-004439-8000us-gap-discovery-pairing/startup-trace.txt` and user observation | CSR8510 A10 / Switch2 firmware `22.1.0`; red continues |
 
 ## 7. 設計メモ
 
@@ -118,6 +119,7 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - 2026-06-21 の `8000us` cleanup 直接再実行では、`Tee-Object` を使わず foreground daemon を直接起動した。手動 `Ctrl+C` 後に `runtime: report timer stop`、`runtime: output handler stop`、`runtime: hid stop`、`production: platform stop`、`btstack: hci close done`、`btstack: run loop deinit done`、`runtime: ipc stop`、`runtime: stop done`、`production: runtime stop done` まで到達し、exit marker は `exit=0` だった。これにより Ctrl+C cleanup の実機観測は pass とする。
 - 2026-06-21 の `8000us` pairing attempt では、Switch2 firmware `22.1.0` の pairing 画面に controller が表示されなかった。daemon は `btstack: hci power on ok`、`production: run loop execute` まで到達し、cleanup も `production: runtime stop done` まで到達したため、次の切り分け対象は HID registration 後の discoverable / connectable / class of device / local name / advertising 相当の状態である。
 - BTstack の `hid_keyboard_demo.c` は `hci_power_control(HCI_POWER_ON)` の前に `gap_discoverable_control(1)`、class of device、local name、link policy、role switch を設定している。`gap.h` は Classic discoverable が既定で OFF であることを示す。2026-06-21 の修正では、production BTstack platform start で `hci_init` 後、`l2cap_init` と power-on の前に Classic GAP discovery config を適用する。これは discoverable 設定不足への実装修正であり、Switch2 22.1.0 での pairing 成功はまだ未検証である。
+- 2026-06-21 の Classic GAP discovery config 修正後 rerun では、trace に `btstack: classic discovery configure ok` が記録されたが、Switch2 pairing 画面は動かなかった。daemon startup trace だけでは、BTstack がどの HCI command を controller へ送ったか、controller が status を返したかを確認できない。次の診断では `SWBT_HCI_DUMP_TRACE_PATH` を追加し、HCI command / event の text dump を artifact に残す。
 
 ## 8. 対象ファイル
 
@@ -133,12 +135,15 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - `swbt/btstack_bridge/classic_discovery.c`
 - `swbt/btstack_bridge/classic_discovery_btstack_adapter.h`
 - `swbt/btstack_bridge/classic_discovery_btstack_adapter.c`
+- `swbt/btstack_bridge/hci_dump_text.h`
+- `swbt/btstack_bridge/hci_dump_text.c`
 - `swbt/btstack_bridge/hid_device_registration.c`
 - `swbt/daemon/production_backend.h`
 - `swbt/daemon/production_backend.c`
 - `tests/diagnostics_test.c`
 - `tests/daemon_production_hid_sdp_record_test.c`
 - `tests/btstack_classic_discovery_test.c`
+- `tests/btstack_hci_dump_text_test.c`
 - 実行時に必要な daemon / debug client files。
 
 ## 9. TDD Test List（TDD テスト一覧）
@@ -153,6 +158,7 @@ report period の採用判断は実測後に行う。`8000us` は current config
 | green | direct Ctrl+C shutdown reaches HCI power-off, BTstack close, IPC stop, and runtime stop done | characterization | hardware | yes |
 | red | Switch pairing reaches HID connection state and is recorded in hardware log | new | hardware | yes |
 | refactor-skipped | Classic GAP discovery configuration sets discoverable, class of device, local name, link policy, and role switch before production power-on | regression | unit | no |
+| green | HCI command and event packets can be written to a text artifact when `SWBT_HCI_DUMP_TRACE_PATH` is set | characterization | unit | no |
 | todo | periodic input report loop runs at each selected report period and records result | characterization | hardware | yes |
 | todo | IPC client or NyX macro state updates are observed as button and stick changes | new | hardware | yes |
 | todo | owner disconnect and heartbeat timeout leave neutral state | edge | hardware | yes |
@@ -197,11 +203,15 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - 2026-06-21 Classic GAP discovery green: `swbt/btstack_bridge/classic_discovery.c` と BTstack adapter を追加し、production startup で `hci_init` 後、`l2cap_init` と power-on の前に Classic GAP discovery config を適用するようにした。`just build-debug` は pass。`CTEST_ARGS='-R btstack_classic_discovery_test' just test-debug` は pass。`just format` は pass。
 - 2026-06-21 Classic GAP discovery validation: `just test-debug` は pass（30/30）。`just format-check` は pass。`just windows-cross` は pass。`git diff --check` は exit 0（CRLF warning のみ）。
 - Test desiderata: 追加 test は regression / unit。BTstack 実機状態を固定せず、fake backend に渡る設定値と call order だけを確認するため fast / deterministic / isolated に寄せた。Switch2 22.1.0 で発見されるかは predictive な hardware-gated item として残す。
+- 2026-06-21 GAP discovery pairing rerun: ユーザ承認後に daemon を foreground 直接起動し、Switch2 firmware `22.1.0` の pairing 画面を観測した。Switch2 側の pairing 画面は動かなかった。PowerShell exit marker は `exit=0`。`tmp/hardware/local_037/20260621-004439-8000us-gap-discovery-pairing` には `daemon-8000us-exit.txt` と `startup-trace.txt` が残った。trace は `btstack: classic discovery configure ok`、`btstack: hci power on ok`、`production: run loop execute`、手動停止後の `runtime: stop done`、`production: runtime stop done` まで到達した。
+- 2026-06-21 HCI dump text TDD red: `tests/btstack_hci_dump_text_test.c` と test target を追加し、`just build-debug` を実行した。`swbt/btstack_bridge/hci_dump_text.c` が存在しないため CMake generate が fail した。期待通りの red と判断した。
+- 2026-06-21 HCI dump text green: `swbt/btstack_bridge/hci_dump_text.c` を追加し、`SWBT_HCI_DUMP_TRACE_PATH` が設定された場合だけ production startup で `hci_dump_init()` に text sink を接続するようにした。`just build-debug` は pass。`CTEST_ARGS='-R btstack_hci_dump_text_test' just test-debug` は pass。
+- 2026-06-21 HCI dump text validation: `just test-debug` は pass（31/31）。`just format-check` は pass。`just windows-cross` は pass。`git diff --check` は exit 0（CRLF warning のみ）。
 
 未実行:
 
 - Switch pairing success、Switch 側での HID advertising 視認、report loop の実機 input 反映。理由は、Switch2 22.1.0 では pairing 画面に何も表示されなかったためである。
-- Classic GAP discovery config 修正後の CSR8510 A10 / Switch2 pairing rerun。理由は、実機に触れる再実行には別途承認が必要であり、現時点では software validation まで完了したためである。
+- HCI dump text 診断付きの CSR8510 A10 / Switch2 pairing rerun。理由は、実機に触れる再実行には別途承認が必要であり、現時点では software validation まで完了したためである。
 - NyXpy macro 実行。理由は、今回の再実行は swbt daemon の固定後起動確認に限定したためである。
 - owner disconnect と heartbeat timeout の実機 neutral 確認。理由は、cleanup 直接再実行では IPC owner を取得していないためである。
 
@@ -259,7 +269,9 @@ NyX handoff を使う場合も承認範囲は swbt-daemon 側で記録する。N
 - [x] `8000us` direct cleanup rerun で `Ctrl+C` から `runtime: stop done` と `production: runtime stop done` まで到達することを記録した。
 - [x] Switch pairing 結果を記録した。Switch2 22.1.0 では何も表示されなかったため、pairing success は未達である。
 - [x] BTstack Classic GAP discoverable 設定不足の切り分けを TDD で修正した。
-- [ ] Classic GAP discovery config 修正後の `8000us` pairing rerun を記録した。
+- [x] Classic GAP discovery config 修正後の `8000us` pairing rerun を記録した。`btstack: classic discovery configure ok` は出たが、Switch2 pairing 画面は動かなかった。
+- [x] HCI command / event を text artifact に残す診断機能を追加した。
+- [ ] HCI dump text 診断付きの `8000us` pairing rerun を記録した。
 - [ ] report period comparison を記録した。
 - [ ] IPC input 反映を記録した。
 - [ ] NyX handoff を使った場合は artifact root と daemon log path を記録した。

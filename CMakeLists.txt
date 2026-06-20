@@ -119,6 +119,7 @@ add_library(swbt_core STATIC
     swbt/daemon/runtime.c
     swbt/btstack_bridge/classic_discovery.c
     swbt/btstack_bridge/classic_discovery_btstack_adapter.c
+    swbt/btstack_bridge/hci_dump_text.c
     swbt/btstack_bridge/hid_device_btstack_adapter.c
     swbt/btstack_bridge/hid_device_registration.c
     swbt/btstack_bridge/output_report_callbacks.c
@@ -367,6 +368,19 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(btstack_classic_discovery_test)
 
     add_test(NAME btstack_classic_discovery_test COMMAND btstack_classic_discovery_test)
+
+    add_executable(btstack_hci_dump_text_test
+        tests/btstack_hci_dump_text_test.c
+    )
+    target_link_libraries(btstack_hci_dump_text_test PRIVATE swbt_core)
+    target_include_directories(btstack_hci_dump_text_test
+        PRIVATE
+            ${swbt_btstack_selected_include_dirs}
+    )
+    swbt_apply_common_warnings(btstack_hci_dump_text_test)
+    swbt_apply_sanitizers(btstack_hci_dump_text_test)
+
+    add_test(NAME btstack_hci_dump_text_test COMMAND btstack_hci_dump_text_test)
 
     add_executable(btstack_output_report_handler_test
         tests/btstack_output_report_handler_test.c

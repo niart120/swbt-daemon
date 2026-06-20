@@ -5,6 +5,7 @@
 #include "bluetooth.h"
 #include "btstack_bridge/classic_discovery.h"
 #include "btstack_bridge/classic_discovery_btstack_adapter.h"
+#include "btstack_bridge/hci_dump_text.h"
 #include "btstack_bridge/hid_device_btstack_adapter.h"
 #include "btstack_bridge/input_report_timer_adapter.h"
 #include "btstack_bridge/output_report_callbacks.h"
@@ -13,15 +14,20 @@
 #include "classic/hid_device.h"
 #include "core/diagnostics.h"
 #include "daemon/ipc_runner.h"
+#include "hci_dump.h"
 #include "hci.h"
 #include "hci_transport_usb.h"
 #include "l2cap.h"
+
+#include <stdlib.h>
 
 #if defined(_WIN32)
 #include "btstack_run_loop_windows.h"
 #else
 #include "btstack_run_loop_posix.h"
 #endif
+
+static bool g_swbt_btstack_production_hci_dump_open;
 
 static int swbt_btstack_production_ipc_start(void *context, swbt_daemon_ipc_runner_t *runner,
                                              swbt_ipc_session_t *session,
@@ -49,10 +55,45 @@ static swbt_btstack_classic_discovery_config_t swbt_btstack_production_discovery
     };
 }
 
+static int swbt_btstack_production_hci_dump_start_from_env(void) {
+    const char *path = getenv("SWBT_HCI_DUMP_TRACE_PATH");
+    swbt_btstack_hci_dump_text_result_t result;
+
+    if (path == NULL || path[0] == '\0') {
+        return 0;
+    }
+
+    swbt_diagnostic_trace("btstack: hci dump open");
+    result = swbt_btstack_hci_dump_text_open(path);
+    if (result != SWBT_BTSTACK_HCI_DUMP_TEXT_OK) {
+        swbt_diagnostic_trace("btstack: hci dump open failed");
+        return -1;
+    }
+    hci_dump_init(swbt_btstack_hci_dump_text_instance());
+    g_swbt_btstack_production_hci_dump_open = true;
+    swbt_diagnostic_trace("btstack: hci dump open ok");
+    return 0;
+}
+
+static void swbt_btstack_production_hci_dump_stop(void) {
+    if (!g_swbt_btstack_production_hci_dump_open) {
+        return;
+    }
+
+    swbt_diagnostic_trace("btstack: hci dump close");
+    hci_dump_init(NULL);
+    swbt_btstack_hci_dump_text_close();
+    g_swbt_btstack_production_hci_dump_open = false;
+    swbt_diagnostic_trace("btstack: hci dump close done");
+}
+
 static int swbt_btstack_production_platform_start(void *context) {
     swbt_btstack_classic_discovery_result_t discovery_result;
     swbt_btstack_classic_discovery_config_t discovery_config;
     (void)context;
+    if (swbt_btstack_production_hci_dump_start_from_env() != 0) {
+        return -1;
+    }
     swbt_diagnostic_trace("btstack: memory init");
     btstack_memory_init();
 #if defined(_WIN32)
@@ -70,6 +111,7 @@ static int swbt_btstack_production_platform_start(void *context) {
         swbt_btstack_classic_discovery_backend_btstack(), NULL, &discovery_config);
     if (discovery_result != SWBT_BTSTACK_CLASSIC_DISCOVERY_OK) {
         swbt_diagnostic_trace("btstack: classic discovery configure failed");
+        swbt_btstack_production_hci_dump_stop();
         return -1;
     }
     swbt_diagnostic_trace("btstack: classic discovery configure ok");
@@ -86,6 +128,7 @@ static void swbt_btstack_production_platform_stop(void *context) {
     swbt_diagnostic_trace("btstack: run loop deinit");
     btstack_run_loop_deinit();
     swbt_diagnostic_trace("btstack: run loop deinit done");
+    swbt_btstack_production_hci_dump_stop();
 }
 
 static int
