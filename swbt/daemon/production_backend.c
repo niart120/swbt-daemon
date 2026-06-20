@@ -6,6 +6,7 @@
 #include "switch/switch_hid_descriptor.h"
 
 #define SWBT_BTSTACK_HCI_EVENT_PACKET 0x04u
+#define SWBT_BTSTACK_HCI_EVENT_USER_CONFIRMATION_REQUEST 0x33u
 #define SWBT_BTSTACK_HCI_EVENT_HID_META 0xefu
 #define SWBT_BTSTACK_HID_SUBEVENT_CONNECTION_OPENED 0x02u
 #define SWBT_BTSTACK_HID_SUBEVENT_CONNECTION_CLOSED 0x03u
@@ -24,8 +25,9 @@ static bool swbt_daemon_production_ops_are_valid(const swbt_daemon_production_ba
            ops->output_handler_stop != NULL && ops->report_timer_init != NULL &&
            ops->report_timer_start != NULL && ops->report_timer_on_can_send_now != NULL &&
            ops->report_timer_enqueue_subcommand_reply != NULL && ops->report_timer_stop != NULL &&
-           ops->time_ms != NULL && ops->power_on != NULL && ops->power_off != NULL &&
-           ops->run_loop_execute != NULL && ops->run_loop_trigger_exit != NULL;
+           ops->ssp_confirm_user_confirmation != NULL && ops->time_ms != NULL &&
+           ops->power_on != NULL && ops->power_off != NULL && ops->run_loop_execute != NULL &&
+           ops->run_loop_trigger_exit != NULL;
 }
 
 swbt_btstack_hid_registration_config_t swbt_daemon_production_hid_registration_config(void) {
@@ -107,8 +109,18 @@ static void swbt_daemon_production_hid_packet_handler(uint8_t packet_type, uint1
     swbt_daemon_production_backend_t *backend = g_active_backend;
     (void)channel;
 
-    if (backend == NULL || packet_type != SWBT_BTSTACK_HCI_EVENT_PACKET || packet == NULL ||
-        size < 5u || packet[0] != SWBT_BTSTACK_HCI_EVENT_HID_META ||
+    if (backend == NULL || packet_type != SWBT_BTSTACK_HCI_EVENT_PACKET || packet == NULL) {
+        return;
+    }
+
+    if (size >= 12u && packet[0] == SWBT_BTSTACK_HCI_EVENT_USER_CONFIRMATION_REQUEST) {
+        const uint8_t address[6] = {packet[7], packet[6], packet[5],
+                                    packet[4], packet[3], packet[2]};
+        (void)backend->ops->ssp_confirm_user_confirmation(backend->ops_context, address);
+        return;
+    }
+
+    if (size < 5u || packet[0] != SWBT_BTSTACK_HCI_EVENT_HID_META ||
         !backend->report_timer_initialized) {
         return;
     }

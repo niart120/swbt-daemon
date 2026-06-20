@@ -58,6 +58,7 @@ typedef struct {
                                                  uint16_t hid_cid, const uint8_t *report,
                                                  size_t report_size);
     void (*report_timer_stop)(void *context, swbt_btstack_input_report_timer_adapter_t *adapter);
+    int (*ssp_confirm_user_confirmation)(void *context, const uint8_t address[6]);
     uint32_t (*time_ms)(void *context);
     int (*power_on)(void *context);
     void (*power_off)(void *context);

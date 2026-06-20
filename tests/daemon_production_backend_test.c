@@ -37,9 +37,11 @@ typedef struct {
     int timer_can_send_calls;
     int timer_stop_calls;
     int power_off_calls;
+    int ssp_confirmation_calls;
     int run_loop_trigger_exit_calls;
     int shutdown_requests_to_fire;
     uint16_t timer_hid_cid;
+    uint8_t ssp_confirmation_address[6];
     swbt_btstack_hid_registration_config_t captured_hid_config;
     swbt_daemon_ipc_runner_config_t captured_ipc_config;
     swbt_daemon_shutdown_request_t shutdown_request;
@@ -72,6 +74,15 @@ static int expect_eq_int(int actual, int expected, const char *label) {
 }
 
 static int expect_eq_u16(uint16_t actual, uint16_t expected, const char *label) {
+    if (actual != expected) {
+        // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+        fprintf(stderr, "%s: expected %u, got %u\n", label, (unsigned)expected, (unsigned)actual);
+        return 1;
+    }
+    return 0;
+}
+
+static int expect_eq_u8(uint8_t actual, uint8_t expected, const char *label) {
     if (actual != expected) {
         // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(stderr, "%s: expected %u, got %u\n", label, (unsigned)expected, (unsigned)actual);
@@ -177,6 +188,15 @@ static void fake_timer_stop(void *context, swbt_btstack_input_report_timer_adapt
     record_step(fake, STEP_TIMER_STOP);
 }
 
+static int fake_ssp_confirm_user_confirmation(void *context, const uint8_t address[6]) {
+    fake_ops_t *fake = context;
+    fake->ssp_confirmation_calls += 1;
+    for (size_t index = 0; index < 6u; ++index) {
+        fake->ssp_confirmation_address[index] = address[index];
+    }
+    return 0;
+}
+
 static uint32_t fake_time_ms(void *context) {
     (void)context;
     return 123u;
@@ -240,6 +260,7 @@ static swbt_daemon_production_backend_ops_t fake_backend_ops(void) {
         .report_timer_on_can_send_now = fake_timer_can_send_now,
         .report_timer_enqueue_subcommand_reply = fake_timer_enqueue_reply,
         .report_timer_stop = fake_timer_stop,
+        .ssp_confirm_user_confirmation = fake_ssp_confirm_user_confirmation,
         .time_ms = fake_time_ms,
         .power_on = fake_power_on,
         .power_off = fake_power_off,
@@ -493,6 +514,38 @@ static int hid_packet_handler_starts_sends_and_stops_timer(void) {
     return failed;
 }
 
+static int hid_packet_handler_confirms_ssp_user_confirmation(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {0};
+    const swbt_daemon_production_backend_ops_t ops = fake_backend_ops();
+    swbt_daemon_production_backend_t backend;
+    swbt_daemon_runtime_t runtime;
+    uint8_t user_confirmation_event[] = {0x33u, 0x0au, 0x21u, 0xb5u, 0xf7u, 0x05u,
+                                         0x48u, 0xc8u, 0xc4u, 0xdcu, 0x09u, 0x00u};
+    const uint8_t expected_address[] = {0xc8u, 0x48u, 0x05u, 0xf7u, 0xb5u, 0x21u};
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &ops, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed +=
+        expect_eq_int(swbt_daemon_runtime_init(&runtime, &config,
+                                               swbt_daemon_production_runtime_backend(), &backend),
+                      SWBT_DAEMON_RUNTIME_OK, "runtime init");
+    failed +=
+        expect_eq_int(swbt_daemon_runtime_start(&runtime), SWBT_DAEMON_RUNTIME_OK, "runtime start");
+    fake.captured_hid_config.packet_handler(0x04u, 0x0000u, user_confirmation_event,
+                                            sizeof(user_confirmation_event));
+
+    failed += expect_eq_int(fake.ssp_confirmation_calls, 1, "ssp confirmation calls");
+    for (size_t index = 0; index < sizeof(expected_address); ++index) {
+        failed += expect_eq_u8(fake.ssp_confirmation_address[index], expected_address[index],
+                               "ssp confirmation address");
+    }
+
+    swbt_daemon_runtime_stop(&runtime);
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += missing_hardware_approval_rejects_before_backend_start();
@@ -503,5 +556,6 @@ int main(void) {
     failed += repeated_stop_request_does_not_power_off_twice();
     failed += report_period_and_ipc_config_are_exposed();
     failed += hid_packet_handler_starts_sends_and_stops_timer();
+    failed += hid_packet_handler_confirms_ssp_user_confirmation();
     return failed == 0 ? 0 : 1;
 }

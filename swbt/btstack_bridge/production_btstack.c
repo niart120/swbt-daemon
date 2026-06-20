@@ -215,6 +215,15 @@ swbt_btstack_production_report_timer_stop(void *context,
     swbt_btstack_input_report_timer_adapter_stop(adapter);
 }
 
+static int swbt_btstack_production_ssp_confirm_user_confirmation(void *context,
+                                                                 const uint8_t address[6]) {
+    (void)context;
+    if (address == NULL) {
+        return -1;
+    }
+    return gap_ssp_confirmation_response(address);
+}
+
 static uint32_t swbt_btstack_production_time_ms(void *context) {
     (void)context;
     return btstack_run_loop_get_time_ms();
@@ -261,6 +270,7 @@ const swbt_daemon_production_backend_ops_t *swbt_btstack_production_backend_ops(
         .report_timer_on_can_send_now = swbt_btstack_production_report_timer_on_can_send_now,
         .report_timer_enqueue_subcommand_reply = swbt_btstack_production_report_timer_enqueue_reply,
         .report_timer_stop = swbt_btstack_production_report_timer_stop,
+        .ssp_confirm_user_confirmation = swbt_btstack_production_ssp_confirm_user_confirmation,
         .time_ms = swbt_btstack_production_time_ms,
         .power_on = swbt_btstack_production_power_on,
         .power_off = swbt_btstack_production_power_off,

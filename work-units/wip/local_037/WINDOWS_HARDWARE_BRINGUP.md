@@ -99,6 +99,12 @@ report period の採用判断は実測後に行う。`8000us` は current config
 | BTstack Classic GAP configuration APIs | `gap_set_local_name`, `gap_set_class_of_device`, `gap_set_default_link_policy_settings`, `gap_set_allow_role_switch` | source fact | `vendor/btstack/src/gap.h:417-443` | fixed BTstack source |
 | production Classic GAP discovery config | discoverable `true`, class of device from production HID subclass `0x2508`, local name `Pro Controller`, link policy role switch + sniff, allow role switch `true` | implementation fact | `swbt/btstack_bridge/production_btstack.c`, `swbt/btstack_bridge/classic_discovery.c` | implemented for next hardware rerun; Switch2 acceptability unverified |
 | GAP discovery rerun marker | `btstack: classic discovery configure ok` before `btstack: hci power on`; Switch2 pairing screen did not move | hardware observation | `tmp/hardware/local_037/20260621-004439-8000us-gap-discovery-pairing/startup-trace.txt` and user observation | CSR8510 A10 / Switch2 firmware `22.1.0`; red continues |
+| HCI scan enable after GAP config | `Write Scan Enable` value `0x03` returned status `0x00` | hardware observation | `tmp/hardware/local_037/20260621-005526-8000us-hci-dump-pairing/hci-dump.txt` lines 163-164 | CSR8510 A10 / Windows local observation |
+| HCI incoming connection after scan enable | `Connection_incoming` and `Connection_complete (status=0)` from `C8:48:05:F7:B5:21` repeated | hardware observation | `tmp/hardware/local_037/20260621-005526-8000us-hci-dump-pairing/hci-dump.txt` | Switch-side address inference; pairing screen did not visibly move |
+| SSP confirmation handling expected by BTstack HID examples | `HCI_EVENT_USER_CONFIRMATION_REQUEST` is handled by calling `gap_ssp_confirmation_response` | source fact | `vendor/btstack/example/hid_keyboard_demo.c:366-371`, `vendor/btstack/example/hid_mouse_demo.c:237-242` | fixed BTstack source |
+| BTstack SSP auto accept default | `ssp_auto_accept = 0` | source fact | `vendor/btstack/src/hci.c:5575-5579` | fixed BTstack source |
+| HCI dump SSP failure marker | user confirmation request is followed by `Simple Pairing Complete` status `0x13`; no `User Confirmation Request Reply` opcode `0x042c` is visible | hardware observation / inference | `tmp/hardware/local_037/20260621-005526-8000us-hci-dump-pairing/hci-dump.txt` | next software fix target; post-fix hardware rerun required |
+| production SSP confirmation handler | reverses the HCI event address and calls backend `ssp_confirm_user_confirmation` | implementation fact | `swbt/daemon/production_backend.c`, `tests/daemon_production_backend_test.c` | covered by unit regression; hardware acceptability unverified |
 
 ## 7. 設計メモ
 
@@ -120,6 +126,7 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - 2026-06-21 の `8000us` pairing attempt では、Switch2 firmware `22.1.0` の pairing 画面に controller が表示されなかった。daemon は `btstack: hci power on ok`、`production: run loop execute` まで到達し、cleanup も `production: runtime stop done` まで到達したため、次の切り分け対象は HID registration 後の discoverable / connectable / class of device / local name / advertising 相当の状態である。
 - BTstack の `hid_keyboard_demo.c` は `hci_power_control(HCI_POWER_ON)` の前に `gap_discoverable_control(1)`、class of device、local name、link policy、role switch を設定している。`gap.h` は Classic discoverable が既定で OFF であることを示す。2026-06-21 の修正では、production BTstack platform start で `hci_init` 後、`l2cap_init` と power-on の前に Classic GAP discovery config を適用する。これは discoverable 設定不足への実装修正であり、Switch2 22.1.0 での pairing 成功はまだ未検証である。
 - 2026-06-21 の Classic GAP discovery config 修正後 rerun では、trace に `btstack: classic discovery configure ok` が記録されたが、Switch2 pairing 画面は動かなかった。daemon startup trace だけでは、BTstack がどの HCI command を controller へ送ったか、controller が status を返したかを確認できない。次の診断では `SWBT_HCI_DUMP_TRACE_PATH` を追加し、HCI command / event の text dump を artifact に残す。
+- 2026-06-21 の HCI dump 付き pairing rerun では、`Write Scan Enable` value `0x03` が status `0x00` で返り、`C8:48:05:F7:B5:21` から incoming connection が複数回来た。発見可能化の不足ではなく、SSP pairing 中の `HCI_EVENT_USER_CONFIRMATION_REQUEST` に応答していないことが次の失敗点である。BTstack HID examples はこの event に対して `gap_ssp_confirmation_response` を呼ぶ。production handler は HID meta event だけを処理していたため、SSP confirmation を ops 境界へ追加した。post-fix の Switch2 pairing 成功は未検証である。
 
 ## 8. 対象ファイル
 
@@ -141,6 +148,7 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - `swbt/daemon/production_backend.h`
 - `swbt/daemon/production_backend.c`
 - `tests/diagnostics_test.c`
+- `tests/daemon_production_backend_test.c`
 - `tests/daemon_production_hid_sdp_record_test.c`
 - `tests/btstack_classic_discovery_test.c`
 - `tests/btstack_hci_dump_text_test.c`
@@ -159,6 +167,7 @@ report period の採用判断は実測後に行う。`8000us` は current config
 | red | Switch pairing reaches HID connection state and is recorded in hardware log | new | hardware | yes |
 | refactor-skipped | Classic GAP discovery configuration sets discoverable, class of device, local name, link policy, and role switch before production power-on | regression | unit | no |
 | green | HCI command and event packets can be written to a text artifact when `SWBT_HCI_DUMP_TRACE_PATH` is set | characterization | unit | no |
+| green | production packet handler confirms SSP user confirmation request with the reversed event address | regression | unit | no |
 | todo | periodic input report loop runs at each selected report period and records result | characterization | hardware | yes |
 | todo | IPC client or NyX macro state updates are observed as button and stick changes | new | hardware | yes |
 | todo | owner disconnect and heartbeat timeout leave neutral state | edge | hardware | yes |
@@ -207,11 +216,14 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - 2026-06-21 HCI dump text TDD red: `tests/btstack_hci_dump_text_test.c` と test target を追加し、`just build-debug` を実行した。`swbt/btstack_bridge/hci_dump_text.c` が存在しないため CMake generate が fail した。期待通りの red と判断した。
 - 2026-06-21 HCI dump text green: `swbt/btstack_bridge/hci_dump_text.c` を追加し、`SWBT_HCI_DUMP_TRACE_PATH` が設定された場合だけ production startup で `hci_dump_init()` に text sink を接続するようにした。`just build-debug` は pass。`CTEST_ARGS='-R btstack_hci_dump_text_test' just test-debug` は pass。
 - 2026-06-21 HCI dump text validation: `just test-debug` は pass（31/31）。`just format-check` は pass。`just windows-cross` は pass。`git diff --check` は exit 0（CRLF warning のみ）。
+- 2026-06-21 HCI dump pairing rerun: ユーザ承認後に `SWBT_HCI_DUMP_TRACE_PATH` を設定して daemon を foreground 直接起動し、Switch2 firmware `22.1.0` の pairing 画面を観測した。Switch2 側の pairing 画面は動かなかった。PowerShell exit marker は `exit=0`。`tmp/hardware/local_037/20260621-005526-8000us-hci-dump-pairing` には `daemon-8000us-exit.txt`、`startup-trace.txt`、`hci-dump.txt` が残った。HCI dump は `Write Scan Enable` value `0x03` status `0x00`、incoming connection、connection complete status `0`、SSP pairing start、`HCI_EVENT_USER_CONFIRMATION_REQUEST`、`Simple Pairing Complete` status `0x13` を記録した。`User Confirmation Request Reply` opcode `0x042c` は見えていない。
+- 2026-06-21 SSP confirmation fix: production packet handler で `HCI_EVENT_USER_CONFIRMATION_REQUEST` を検出し、HCI event の BD_ADDR を BTstack accessor と同じ向きへ反転して backend ops の `ssp_confirm_user_confirmation` へ渡すようにした。BTstack production ops は `gap_ssp_confirmation_response` を呼ぶ。
+- 2026-06-21 SSP confirmation fix validation: `just build-debug` は pass。`just test-debug` は pass（31/31）。`just format-check` は pass。`just windows-cross` は pass。`git diff --check` は exit 0（CRLF warning のみ）。host PowerShell から直接 `ctest --preset linux-debug -R daemon_production_backend_test --output-on-failure` を実行すると、CTest が container 内 path `/workspaces/swbt-daemon/...` を Windows host から解決できず `Unable to find executable` で not run になったため、標準入口の `just test-debug` を正本とする。
 
 未実行:
 
 - Switch pairing success、Switch 側での HID advertising 視認、report loop の実機 input 反映。理由は、Switch2 22.1.0 では pairing 画面に何も表示されなかったためである。
-- HCI dump text 診断付きの CSR8510 A10 / Switch2 pairing rerun。理由は、実機に触れる再実行には別途承認が必要であり、現時点では software validation まで完了したためである。
+- SSP confirmation fix 後の CSR8510 A10 / Switch2 pairing rerun。理由は、実機に触れる再実行には別途承認が必要であり、現時点では software validation まで完了したためである。
 - NyXpy macro 実行。理由は、今回の再実行は swbt daemon の固定後起動確認に限定したためである。
 - owner disconnect と heartbeat timeout の実機 neutral 確認。理由は、cleanup 直接再実行では IPC owner を取得していないためである。
 
@@ -271,7 +283,9 @@ NyX handoff を使う場合も承認範囲は swbt-daemon 側で記録する。N
 - [x] BTstack Classic GAP discoverable 設定不足の切り分けを TDD で修正した。
 - [x] Classic GAP discovery config 修正後の `8000us` pairing rerun を記録した。`btstack: classic discovery configure ok` は出たが、Switch2 pairing 画面は動かなかった。
 - [x] HCI command / event を text artifact に残す診断機能を追加した。
-- [ ] HCI dump text 診断付きの `8000us` pairing rerun を記録した。
+- [x] HCI dump text 診断付きの `8000us` pairing rerun を記録した。scan enable と incoming connection は確認できたが、SSP user confirmation に応答できず pairing は完了しなかった。
+- [x] SSP user confirmation に応答する production handler を追加した。
+- [ ] SSP confirmation 修正後の HCI dump text 診断付き `8000us` pairing rerun を記録した。
 - [ ] report period comparison を記録した。
 - [ ] IPC input 反映を記録した。
 - [ ] NyX handoff を使った場合は artifact root と daemon log path を記録した。

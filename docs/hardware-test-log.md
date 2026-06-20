@@ -273,3 +273,25 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: NyXpy は未実行。なし
 - cleanup: pass。手動 `Ctrl+C` から HCI power-off、BTstack close / run loop deinit、IPC stop、runtime stop done まで到達し、process exit は `0`
 - notes: Classic GAP discovery config は production code path へ入ったが、Switch2 22.1.0 の pairing 画面には出なかった。次の切り分けでは `SWBT_HCI_DUMP_TRACE_PATH` を追加し、HCI command / event として inquiry scan、page scan、local name、class of device の設定が controller へ送られているかを確認する
+
+## 2026-06-21: local_037 CSR8510 A10 8000us HCI dump pairing rerun on Switch2
+
+- OS: Microsoft Windows NT 10.0.26200.0
+- environment: Windows native PowerShell、ブランチ `local-037-hardware-verification`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Service `WinUSB`、Class `USBDevice`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: `74c68a74cb02574bea430ce7e7c39df499b478b9`
+- Switch firmware: Switch2 `22.1.0`
+- approval scope: ユーザ承認済み。CSR8510 A10、HCI dump text 付き、Classic GAP discovery config 修正後、`8000 us`、Switch2 pairing 画面での HID advertising / connection state 観測、手動 `Ctrl+C` cleanup 確認。NyXpy IPC input は未実行
+- environment variables: `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`
+- IPC endpoint: 予定値 `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: foreground PowerShell で `build/windows-mingw-debug/swbt-daemon.exe` を直接起動し、Switch2 側で pairing 画面を観測した。`tmp/hardware/local_037/20260621-005526-8000us-hci-dump-pairing` へ exit marker / startup trace / HCI dump text を保存した
+- result: Switch2 側の pairing 画面は動かなかった。daemon は `btstack: hci dump open ok`、`btstack: classic discovery configure ok`、`hid_registration: ok`、`btstack: hci power on ok`、`production: run loop execute` まで到達し、PowerShell の exit marker は `exit=0` だった。HCI dump では CSR8510 A10 `00:1B:DC:F9:9F:7D` を開き、class of device `0x002508`、local name / EIR `Pro Controller`、default link policy `0x0005`、`Write Scan Enable` value `0x03` が status `0x00` で controller に届いた。Switch 側と思われる `C8:48:05:F7:B5:21` から incoming connection が複数回あり、connection complete は status `0` だった。その後 SSP pairing は requested level `2` で開始し、`HCI_EVENT_USER_CONFIRMATION_REQUEST` の直後に `Simple Pairing Complete` status `0x13` と disconnection reason `0x13` で切断された。dump 上では `User Confirmation Request Reply` opcode `0x042c` は見えていない
+- daemon log: 未作成。`SWBT_DIAGNOSTIC_TRACE_PATH` の startup trace と `SWBT_HCI_DUMP_TRACE_PATH` の HCI dump text を正本にする
+- artifact root: `tmp/hardware/local_037/20260621-005526-8000us-hci-dump-pairing`
+- cleanup: pass。手動 `Ctrl+C` から HCI power-off、BTstack close / run loop deinit、HCI dump close、IPC stop、runtime stop done まで到達し、process exit は `0`
+- notes: これにより「発見可能化が controller に届いていない」仮説は棄却する。次の修正対象は production packet handler が `HCI_EVENT_USER_CONFIRMATION_REQUEST` を処理せず、BTstack HID examples と同じ `gap_ssp_confirmation_response` を返していない点である。Switch2 22.1.0 / CSR8510 A10 の観測であり、他環境へ一般化しない
