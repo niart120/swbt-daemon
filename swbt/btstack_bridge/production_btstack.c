@@ -8,6 +8,7 @@
 #include "btstack_memory.h"
 #include "btstack_run_loop.h"
 #include "classic/hid_device.h"
+#include "core/diagnostics.h"
 #include "daemon/ipc_runner.h"
 #include "hci.h"
 #include "hci_transport_usb.h"
@@ -34,33 +35,45 @@ static void swbt_btstack_production_ipc_stop(void *context, swbt_daemon_ipc_runn
 
 static int swbt_btstack_production_platform_start(void *context) {
     (void)context;
+    swbt_diagnostic_trace("btstack: memory init");
     btstack_memory_init();
 #if defined(_WIN32)
+    swbt_diagnostic_trace("btstack: windows run loop init");
     btstack_run_loop_init(btstack_run_loop_windows_get_instance());
 #else
+    swbt_diagnostic_trace("btstack: posix run loop init");
     btstack_run_loop_init(btstack_run_loop_posix_get_instance());
 #endif
+    swbt_diagnostic_trace("btstack: hci init usb transport");
     hci_init(hci_transport_usb_instance(), NULL);
+    swbt_diagnostic_trace("btstack: l2cap init");
     l2cap_init();
     return 0;
 }
 
 static void swbt_btstack_production_platform_stop(void *context) {
     (void)context;
+    swbt_diagnostic_trace("btstack: hci close");
     hci_close();
+    swbt_diagnostic_trace("btstack: hci close done");
+    swbt_diagnostic_trace("btstack: run loop deinit");
     btstack_run_loop_deinit();
+    swbt_diagnostic_trace("btstack: run loop deinit done");
 }
 
 static int
 swbt_btstack_production_hid_register(void *context, uint8_t *service_buffer,
                                      size_t service_buffer_size,
                                      const swbt_btstack_hid_registration_config_t *config) {
+    int result = 0;
     (void)context;
-    return swbt_btstack_hid_device_register(swbt_btstack_hid_registration_backend_btstack(), NULL,
-                                            service_buffer, service_buffer_size,
-                                            config) == SWBT_BTSTACK_HID_REGISTRATION_OK
-               ? 0
-               : -1;
+    swbt_diagnostic_trace("btstack: hid register");
+    result = swbt_btstack_hid_device_register(swbt_btstack_hid_registration_backend_btstack(), NULL,
+                                              service_buffer, service_buffer_size, config);
+    swbt_diagnostic_trace(result == SWBT_BTSTACK_HID_REGISTRATION_OK
+                              ? "btstack: hid register ok"
+                              : "btstack: hid register failed");
+    return result == SWBT_BTSTACK_HID_REGISTRATION_OK ? 0 : -1;
 }
 
 static void swbt_btstack_production_hid_stop(void *context) {
@@ -138,12 +151,18 @@ static uint32_t swbt_btstack_production_time_ms(void *context) {
 }
 
 static int swbt_btstack_production_power_on(void *context) {
+    int result = 0;
     (void)context;
-    return hci_power_control(HCI_POWER_ON);
+    swbt_diagnostic_trace("btstack: hci power on");
+    result = hci_power_control(HCI_POWER_ON);
+    swbt_diagnostic_trace(result == 0 ? "btstack: hci power on ok"
+                                      : "btstack: hci power on failed");
+    return result;
 }
 
 static void swbt_btstack_production_power_off(void *context) {
     (void)context;
+    swbt_diagnostic_trace("btstack: hci power off");
     (void)hci_power_control(HCI_POWER_OFF);
 }
 

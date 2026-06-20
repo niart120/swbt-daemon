@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 
+#include "core/diagnostics.h"
 #include "switch/switch_spi_seed.h"
 #include "switch/switch_subcommand_dispatcher.h"
 
@@ -99,25 +100,35 @@ swbt_daemon_runtime_result_t swbt_daemon_runtime_start(swbt_daemon_runtime_t *ru
         return SWBT_DAEMON_RUNTIME_OK;
     }
 
+    swbt_diagnostic_trace("runtime: ipc start");
     if (runtime->backend->ipc_start(runtime->backend_context, &runtime->ipc_session) != 0) {
+        swbt_diagnostic_trace("runtime: ipc start failed");
         return SWBT_DAEMON_RUNTIME_ERROR_BACKEND;
     }
+    swbt_diagnostic_trace("runtime: ipc start ok");
     runtime->ipc_started = true;
 
+    swbt_diagnostic_trace("runtime: hid register");
     if (runtime->backend->hid_register(runtime->backend_context) != 0) {
+        swbt_diagnostic_trace("runtime: hid register failed");
         swbt_daemon_runtime_stop(runtime);
         return SWBT_DAEMON_RUNTIME_ERROR_BACKEND;
     }
+    swbt_diagnostic_trace("runtime: hid register ok");
     runtime->hid_registered = true;
 
+    swbt_diagnostic_trace("runtime: output handler start");
     runtime->backend->output_handler_start(runtime->backend_context, &runtime->output_handler);
     runtime->output_handler_started = true;
 
+    swbt_diagnostic_trace("runtime: report timer start");
     if (runtime->backend->report_timer_start(runtime->backend_context,
                                              swbt_daemon_runtime_read_state, runtime) != 0) {
+        swbt_diagnostic_trace("runtime: report timer start failed");
         swbt_daemon_runtime_stop(runtime);
         return SWBT_DAEMON_RUNTIME_ERROR_BACKEND;
     }
+    swbt_diagnostic_trace("runtime: report timer start ok");
     runtime->report_timer_started = true;
     runtime->running = true;
     return SWBT_DAEMON_RUNTIME_OK;
@@ -128,26 +139,32 @@ void swbt_daemon_runtime_stop(swbt_daemon_runtime_t *runtime) {
         return;
     }
 
+    swbt_diagnostic_trace("runtime: stop enter");
     swbt_daemon_runtime_store_neutral(runtime);
 
     if (runtime->report_timer_started) {
+        swbt_diagnostic_trace("runtime: report timer stop");
         runtime->backend->report_timer_stop(runtime->backend_context);
         runtime->report_timer_started = false;
     }
     if (runtime->output_handler_started) {
+        swbt_diagnostic_trace("runtime: output handler stop");
         runtime->backend->output_handler_stop(runtime->backend_context);
         runtime->output_handler_started = false;
     }
     if (runtime->hid_registered) {
+        swbt_diagnostic_trace("runtime: hid stop");
         runtime->backend->hid_stop(runtime->backend_context);
         runtime->hid_registered = false;
     }
     if (runtime->ipc_started) {
+        swbt_diagnostic_trace("runtime: ipc stop");
         runtime->backend->ipc_stop(runtime->backend_context);
         runtime->ipc_started = false;
     }
 
     runtime->running = false;
+    swbt_diagnostic_trace("runtime: stop done");
 }
 
 bool swbt_daemon_runtime_is_running(const swbt_daemon_runtime_t *runtime) {

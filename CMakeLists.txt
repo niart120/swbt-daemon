@@ -109,6 +109,7 @@ target_link_libraries(swbt_btstack
 
 add_library(swbt_core STATIC
     swbt/core/swbt_version.c
+    swbt/core/diagnostics.c
     swbt/core/state_mailbox.c
     swbt/core/logging.c
     swbt/core/metrics.c
@@ -170,6 +171,9 @@ add_executable(swbt-daemon
     swbt/btstack_bridge/production_btstack.c
 )
 target_link_libraries(swbt-daemon PRIVATE swbt_core swbt_btstack)
+if(WIN32)
+    target_link_libraries(swbt-daemon PRIVATE dbghelp)
+endif()
 target_include_directories(swbt-daemon
     PRIVATE
         ${swbt_btstack_selected_include_dirs}
@@ -438,6 +442,19 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME daemon_production_backend_test COMMAND daemon_production_backend_test)
 
+    add_executable(daemon_production_hid_sdp_record_test
+        tests/daemon_production_hid_sdp_record_test.c
+    )
+    target_link_libraries(daemon_production_hid_sdp_record_test PRIVATE swbt_core swbt_btstack)
+    target_include_directories(daemon_production_hid_sdp_record_test
+        PRIVATE
+            ${swbt_btstack_selected_include_dirs}
+    )
+    swbt_apply_common_warnings(daemon_production_hid_sdp_record_test)
+    swbt_apply_sanitizers(daemon_production_hid_sdp_record_test)
+
+    add_test(NAME daemon_production_hid_sdp_record_test COMMAND daemon_production_hid_sdp_record_test)
+
     add_executable(report_metrics_test
         tests/report_metrics_test.c
     )
@@ -446,4 +463,13 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(report_metrics_test)
 
     add_test(NAME report_metrics_test COMMAND report_metrics_test)
+
+    add_executable(diagnostics_test
+        tests/diagnostics_test.c
+    )
+    target_link_libraries(diagnostics_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(diagnostics_test)
+    swbt_apply_sanitizers(diagnostics_test)
+
+    add_test(NAME diagnostics_test COMMAND diagnostics_test)
 endif()

@@ -1,5 +1,9 @@
 #include "btstack_bridge/hid_device_registration.h"
 
+#include "core/diagnostics.h"
+
+#define SWBT_BTSTACK_HID_SDP_RECORD_SCRATCH_SIZE 1024u
+
 static bool
 swbt_btstack_hid_backend_is_valid(const swbt_btstack_hid_registration_backend_t *backend) {
     return backend != NULL && backend->sdp_init != NULL &&
@@ -39,36 +43,54 @@ swbt_btstack_hid_device_register(const swbt_btstack_hid_registration_backend_t *
                                  void *backend_context, uint8_t *service_buffer,
                                  size_t service_buffer_size,
                                  const swbt_btstack_hid_registration_config_t *config) {
+    swbt_diagnostic_trace("hid_registration: enter");
     if (!swbt_btstack_hid_backend_is_valid(backend) || !swbt_btstack_hid_config_is_valid(config) ||
         service_buffer == NULL || service_buffer_size == 0u) {
+        swbt_diagnostic_trace("hid_registration: invalid argument");
         return SWBT_BTSTACK_HID_REGISTRATION_ERROR_INVALID_ARGUMENT;
     }
 
+    uint8_t service_scratch[SWBT_BTSTACK_HID_SDP_RECORD_SCRATCH_SIZE];
     for (size_t index = 0; index < service_buffer_size; ++index) {
         service_buffer[index] = 0;
     }
+    for (size_t index = 0; index < sizeof(service_scratch); ++index) {
+        service_scratch[index] = 0;
+    }
 
+    swbt_diagnostic_trace("hid_registration: sdp init");
     backend->sdp_init(backend_context);
+    swbt_diagnostic_trace("hid_registration: sdp create handle");
     const uint32_t service_record_handle =
         backend->sdp_create_service_record_handle(backend_context);
     const swbt_btstack_hid_sdp_record_config_t sdp_record_config =
         swbt_btstack_hid_make_sdp_record_config(config);
 
-    backend->hid_create_sdp_record(backend_context, service_buffer, service_record_handle,
+    swbt_diagnostic_trace("hid_registration: create sdp record");
+    backend->hid_create_sdp_record(backend_context, service_scratch, service_record_handle,
                                    &sdp_record_config);
 
-    const size_t record_len = backend->sdp_record_len(backend_context, service_buffer);
+    const size_t record_len = backend->sdp_record_len(backend_context, service_scratch);
     if (record_len > service_buffer_size) {
+        swbt_diagnostic_trace("hid_registration: sdp record too large");
         return SWBT_BTSTACK_HID_REGISTRATION_ERROR_SDP_RECORD_TOO_LARGE;
     }
+    for (size_t index = 0; index < record_len; ++index) {
+        service_buffer[index] = service_scratch[index];
+    }
 
+    swbt_diagnostic_trace("hid_registration: sdp register service");
     if (backend->sdp_register_service(backend_context, service_buffer) != 0u) {
+        swbt_diagnostic_trace("hid_registration: sdp register failed");
         return SWBT_BTSTACK_HID_REGISTRATION_ERROR_SDP_REGISTER_FAILED;
     }
 
+    swbt_diagnostic_trace("hid_registration: hid device init");
     backend->hid_device_init(backend_context, config->hid_boot_device, config->hid_descriptor_size,
                              config->hid_descriptor);
+    swbt_diagnostic_trace("hid_registration: packet handler register");
     backend->hid_device_register_packet_handler(backend_context, config->packet_handler);
 
+    swbt_diagnostic_trace("hid_registration: ok");
     return SWBT_BTSTACK_HID_REGISTRATION_OK;
 }

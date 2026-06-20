@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 
+#include "core/diagnostics.h"
 #include "switch/switch_hid_descriptor.h"
 
 #define SWBT_BTSTACK_HCI_EVENT_PACKET 0x04u
@@ -27,7 +28,7 @@ static bool swbt_daemon_production_ops_are_valid(const swbt_daemon_production_ba
            ops->run_loop_execute != NULL && ops->run_loop_trigger_exit != NULL;
 }
 
-static swbt_btstack_hid_registration_config_t swbt_daemon_production_hid_config(void) {
+swbt_btstack_hid_registration_config_t swbt_daemon_production_hid_registration_config(void) {
     return (swbt_btstack_hid_registration_config_t){
         .hid_device_subclass = 0x2508u,
         .hid_country_code = 0x21u,
@@ -144,28 +145,37 @@ static int swbt_daemon_production_hid_register(void *context) {
     if (backend == NULL || !backend->initialized) {
         return -1;
     }
+    swbt_diagnostic_trace("production: hid register enter");
     if (!backend->platform_started) {
+        swbt_diagnostic_trace("production: platform start");
         if (backend->ops->platform_start(backend->ops_context) != 0) {
+            swbt_diagnostic_trace("production: platform start failed");
             return -1;
         }
         backend->platform_started = true;
+        swbt_diagnostic_trace("production: platform start ok");
     }
 
-    config = swbt_daemon_production_hid_config();
+    config = swbt_daemon_production_hid_registration_config();
     config.packet_handler = swbt_daemon_production_hid_packet_handler;
     g_active_backend = backend;
+    swbt_diagnostic_trace("production: hid register btstack");
     if (backend->ops->hid_register(backend->ops_context, backend->hid_service_buffer,
                                    sizeof(backend->hid_service_buffer), &config) != 0) {
+        swbt_diagnostic_trace("production: hid register failed");
         if (g_active_backend == backend) {
             g_active_backend = NULL;
         }
         if (backend->platform_started) {
+            swbt_diagnostic_trace("production: platform stop after hid failure");
             backend->ops->platform_stop(backend->ops_context);
             backend->platform_started = false;
+            swbt_diagnostic_trace("production: platform stop after hid failure done");
         }
         return -1;
     }
     backend->hid_registered = true;
+    swbt_diagnostic_trace("production: hid register ok");
     return 0;
 }
 
@@ -175,6 +185,7 @@ static void swbt_daemon_production_hid_stop(void *context) {
         return;
     }
     if (backend->hid_registered) {
+        swbt_diagnostic_trace("production: hid stop");
         backend->ops->hid_stop(backend->ops_context);
         backend->hid_registered = false;
     }
@@ -182,8 +193,10 @@ static void swbt_daemon_production_hid_stop(void *context) {
         g_active_backend = NULL;
     }
     if (backend->platform_started) {
+        swbt_diagnostic_trace("production: platform stop");
         backend->ops->platform_stop(backend->ops_context);
         backend->platform_started = false;
+        swbt_diagnostic_trace("production: platform stop done");
     }
 }
 
@@ -311,16 +324,22 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_backend_and_shu
         return SWBT_DAEMON_PRODUCTION_ERROR_HARDWARE_APPROVAL_REQUIRED;
     }
 
+    swbt_diagnostic_trace("production: runtime init");
     runtime_result = swbt_daemon_runtime_init(&runtime, &backend->config,
                                               swbt_daemon_production_runtime_backend(), backend);
     if (runtime_result != SWBT_DAEMON_RUNTIME_OK) {
+        swbt_diagnostic_trace("production: runtime init failed");
         return SWBT_DAEMON_PRODUCTION_ERROR_RUNTIME;
     }
+    swbt_diagnostic_trace("production: runtime start");
     runtime_result = swbt_daemon_runtime_start(&runtime);
     if (runtime_result != SWBT_DAEMON_RUNTIME_OK) {
+        swbt_diagnostic_trace("production: runtime start failed");
         return SWBT_DAEMON_PRODUCTION_ERROR_RUNTIME;
     }
+    swbt_diagnostic_trace("production: runtime start ok");
 
+    swbt_diagnostic_trace("production: power on");
     result = swbt_daemon_production_power_on(backend);
     if (result == SWBT_DAEMON_PRODUCTION_OK) {
         atomic_store(&backend->shutdown_requested, false);
@@ -333,15 +352,20 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_backend_and_shu
             }
         }
         if (result == SWBT_DAEMON_PRODUCTION_OK) {
+            swbt_diagnostic_trace("production: run loop execute");
             backend->ops->run_loop_execute(backend->ops_context);
+            swbt_diagnostic_trace("production: run loop returned");
         }
         if (shutdown_listener_installed) {
             shutdown_listener->uninstall(shutdown_context);
         }
     }
 
+    swbt_diagnostic_trace("production: power off cleanup");
     swbt_daemon_production_power_off(backend);
+    swbt_diagnostic_trace("production: runtime stop");
     swbt_daemon_runtime_stop(&runtime);
+    swbt_diagnostic_trace("production: runtime stop done");
     return result;
 }
 

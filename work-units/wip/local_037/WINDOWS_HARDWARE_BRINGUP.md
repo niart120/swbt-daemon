@@ -82,6 +82,17 @@ use case:
 
 report period の採用判断は実測後に行う。`8000us` は current configurable default であり、実機で最適値として確認済みの値ではない。
 
+### 根拠監査
+
+| 項目 | 値 | 根拠 | source | status |
+|---|---:|---|---|---|
+| BTstack HID SDP record builder | caller-provided `uint8_t *service` に書き込む | source fact | `vendor/btstack/src/classic/hid_device.h`, `vendor/btstack/src/classic/hid_device.c` の `hid_create_sdp_record` | fixed BTstack source |
+| BTstack SDP record length reader | `de_get_len` で生成済み record length を読む | source fact | `vendor/btstack/src/classic/sdp_util.h`, `vendor/btstack/src/classic/sdp_util.c` | fixed BTstack source |
+| detailed diagnostic crash marker | `hid_registration: sdp record too large` | hardware observation | `tmp/hardware/local_037/20260620-8000us-detailed-diagnostic-rerun/startup-trace.txt` | CSR8510 A10 / Windows local observation |
+| generated Switch HID SDP record length | `404` bytes | implementation fact | `tests/daemon_production_hid_sdp_record_test.c` red output: `required=404 capacity=300` | covered by regression test |
+| production HID service buffer capacity | `512` bytes | implementation fact | `swbt/daemon/production_backend.h` | configurable implementation capacity, not protocol fact |
+| fixed rerun startup marker | `hid_registration: ok` and `btstack: hci power on ok` | hardware observation | `tmp/hardware/local_037/20260620-234720-8000us-fixed-rerun/startup-trace.txt` | CSR8510 A10 / Windows local observation |
+
 ## 7. 設計メモ
 
 - 実機実行前に adapter identity を固定する。
@@ -96,12 +107,23 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - 現行 daemon は IPC endpoint を stdout / stderr へ出力しない。最初の NyXpy run では `SWBT_IPC_PORT=37637` を明示し、Project NyX 側の `swbt_hardware_bringup` macro へ同じ `ipc_port` を渡す。`SWBT_IPC_PORT=0` の自動 port は、endpoint log または実行 metadata で port を確認できるまで使わない。
 - 2026-06-20 にユーザは `CSR8510 A10` を対象に実験を進めることを承認した。NyXpy 操作はユーザが行う。swbt-daemon 側は CSR8510 A10 に限定し、内蔵 `MediaTek Bluetooth Adapter` と常用 Bluetooth device は対象外にする。
 - `local_044` で production daemon の Ctrl+C / Windows console control event 経路を追加した。停止要求は HCI power-off と BTstack run loop exit trigger を 1 回だけ呼ぶ。実機では foreground console から停止し、所要時間と cleanup 到達を `docs/hardware-test-log.md` に記録する。
+- 2026-06-20 の `8000us` 実機 run は process start 直後に `0xC0000005` で APPCRASH し、stdout / stderr log と WER LocalDumps は残らなかった。次回の切り分けでは `SWBT_DIAGNOSTIC_TRACE_PATH` による起動トレースと、Windows の `SWBT_CRASH_DUMP_PATH` による daemon 自前 minidump を使う。
+- 2026-06-20 の SDP record buffer fix 後の `8000us` 再実行では、`hid_registration: ok`、`btstack: hci power on ok`、`production: run loop execute` まで到達した。前回の `hid_registration: sdp record too large` は再発していない。手動 `Ctrl+C` 後に `btstack: hci power off` と `production: run loop returned` へ到達したが、cleanup trace は `runtime: stop enter` で終わっており、停止完了は未確認である。
 
 ## 8. 対象ファイル
 
 - `docs/hardware-test-log.md`
 - `spec/operations/windows-native-preflight.md`
 - `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
+- `swbt/core/diagnostics.h`
+- `swbt/core/diagnostics.c`
+- `apps/swbt-daemon/main.c`
+- `swbt/btstack_bridge/production_btstack.c`
+- `swbt/btstack_bridge/hid_device_registration.c`
+- `swbt/daemon/production_backend.h`
+- `swbt/daemon/production_backend.c`
+- `tests/diagnostics_test.c`
+- `tests/daemon_production_hid_sdp_record_test.c`
 - 実行時に必要な daemon / debug client files。
 
 ## 9. TDD Test List（TDD テスト一覧）
@@ -109,7 +131,10 @@ report period の採用判断は実測後に行う。`8000us` は current config
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | green | preflight records dedicated dongle identity and WinUSB driver state before daemon run | characterization | docs | yes |
-| todo | Windows native daemon opens the selected dongle without touching an ambiguous adapter | new | hardware | yes |
+| green | diagnostic trace writes startup markers when `SWBT_DIAGNOSTIC_TRACE_PATH` is set | new | unit | no |
+| green | diagnostic rerun captures startup trace or minidump for the CSR8510 A10 crash | characterization | hardware | yes |
+| green | production HID service buffer fits the BTstack SDP record generated from the Switch HID descriptor | regression | unit | no |
+| green | Windows native daemon reaches HCI power-on on the CSR8510 A10 WinUSB path without using an ambiguous adapter | new | hardware | yes |
 | todo | Switch pairing reaches HID connection state and is recorded in hardware log | new | hardware | yes |
 | todo | periodic input report loop runs at each selected report period and records result | characterization | hardware | yes |
 | todo | IPC client or NyX macro state updates are observed as button and stick changes | new | hardware | yes |
@@ -129,11 +154,32 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - 2026-06-20 shutdown path review: `run_loop_trigger_exit` は production backend ops に存在するが、当時の `swbt-daemon.exe` には外部停止要求から呼ぶ経路がなかった。背景プロセスとして起動した場合、Codex 側の停止手段は強制終了になり得るため、実機 adapter open は実行しなかった。
 - 2026-06-20 shutdown path software gate: `work-units/complete/local_044/PRODUCTION_DAEMON_SHUTDOWN_PATH.md` で Ctrl+C / Windows console control event から HCI power-off と BTstack run loop exit trigger へ到達する経路を追加した。実機での停止所要時間と cleanup は未観測である。
 - `apps/swbt-daemon/main.c` と `spec/architecture/daemon-runtime-boundaries.md` の確認: `SWBT_DAEMON_BACKEND=production` のときだけ production backend を選び、approval 環境変数が欠ける場合は実 Bluetooth adapter を開く前に失敗する。
+- 2026-06-20 resumed preflight after `local_044` merge: ブランチ `local-037-hardware-verification`、`git rev-parse HEAD` は `c090ab1cc463066a0f1bfa047b583f2ff0589b4a`、`git ls-tree HEAD vendor/btstack` は `075a0780f0fad7ff67d58ac19f46e8953656a752`。
+- 2026-06-20 current Windows cross build: `just windows-cross` は pass。成果物は `build/windows-mingw-debug/swbt-daemon.exe` と `build/windows-mingw-debug/swbt-debug-client.exe`。
+- 2026-06-20 current CSR8510 A10 preflight: `Get-PnpDevice` で Status `OK`、Class `USBDevice`、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1` を確認。`Get-PnpDeviceProperty` で Service `WinUSB`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385` を確認。
+- 2026-06-20 current IPC port preflight: `Test-NetConnection 127.0.0.1:37637` は `TcpTestSucceeded=False`。
+- 2026-06-20 current approval guard preflight: `SWBT_DAEMON_BACKEND=production`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000` を設定し、`SWBT_RUN_HARDWARE` と `SWBT_HARDWARE_APPROVED` を設定せずに current `build/windows-mingw-debug/swbt-daemon.exe` を実行した。exit code は `1`。Bluetooth adapter open は未実行。
+- 2026-06-20 `8000us` initial run: ユーザ承認後に foreground PowerShell で production daemon を起動した。PowerShell exit marker は `exit=-1073741819`。Windows exception としては `0xC0000005` access violation である。`tmp/hardware/local_037/20260620-8000us-initial/daemon-8000us.log` は作成されず、`daemon-8000us-exit.txt` だけが作成された。Windows Event Log / WER は `APPCRASH`、faulting module `ntdll.dll`、exception code `0xc0000005`、fault offset `0x000000000002048a`、loaded module に `WINUSB.DLL` を記録した。Switch pairing、HID advertising、report loop、NyXpy IPC input、Ctrl+C cleanup は未観測。
+- 2026-06-20 `8000us` dump rerun: ユーザ承認後に同じ条件で daemon を再実行した。PowerShell exit marker は再び `exit=-1073741819`。`tmp/hardware/local_037/20260620-8000us-dump-rerun` には `daemon-8000us-exit.txt` だけが残った。HKCU LocalDumps key は確認できたが `.dmp` は保持されず、WER temporary `.tmp.mdmp` は copy 前に削除されていた。HKLM LocalDumps の設定は access denied で未設定。
+- 2026-06-20 TDD red: `tests/diagnostics_test.c` を追加し、`just build-debug` を実行。`core/diagnostics.h` が存在しないため fail した。
+- 2026-06-20 diagnostic trace implementation: `swbt/core/diagnostics.c` と `SWBT_DIAGNOSTIC_TRACE_PATH` を追加し、production daemon startup / BTstack startup の marker を挿入した。Windows では `SWBT_CRASH_DUMP_PATH` が設定されている場合だけ `SetUnhandledExceptionFilter` と `MiniDumpWriteDump` を使う。`SWBT_DIAGNOSTIC_TRACE_PATH` と `SWBT_CRASH_DUMP_PATH` が未設定なら通常実行への影響は no-op である。
+- 2026-06-20 `just test-debug`: pass。28/28 tests passed。`diagnostics_test` は `SWBT_DIAGNOSTIC_TRACE_PATH` 設定時に marker が file へ書かれることを確認した。
+- 2026-06-20 `just windows-cross`: pass。`swbt-daemon.exe` は `dbghelp` link を含めて再生成済み。途中で `dbghelp.h` include order と `setenv` の MinGW 非対応を修正した。
+- 2026-06-20 `just format`: pass。
+- 2026-06-20 `8000us` diagnostic rerun: ユーザ承認後に `SWBT_DIAGNOSTIC_TRACE_PATH` と `SWBT_CRASH_DUMP_PATH` を設定して daemon を再実行した。PowerShell exit marker は `exit=-1073741819`。`tmp/hardware/local_037/20260620-8000us-diagnostic-rerun` には `daemon-8000us-exit.txt` と `startup-trace.txt` だけが残り、`swbt-daemon-crash.dmp` は作成されなかった。trace は `production: enter main`、`btstack: l2cap init`、`btstack: hci close`、`btstack: run loop deinit` まで到達し、`btstack: hci power on` には到達していない。これにより crash は USB power-on 前、HID registration 失敗時 cleanup またはその直後に絞られた。
+- 2026-06-20 detailed diagnostic build: `sdp_register_service`、`hid_device_init`、runtime start / stop、production HID registration cleanup、platform stop の前後 marker を追加した。`SWBT_CRASH_DUMP_PATH` では top-level unhandled exception filter に加え、access violation 用の vectored exception handler も使う。
+- 2026-06-20 detailed diagnostic validation: `just format` pass、`just test-debug` pass（28/28）、`just windows-cross` pass、`just format-check` pass、`git diff --check` exit 0（CRLF warning のみ）。
+- 2026-06-20 `8000us` detailed diagnostic rerun: ユーザ承認後に詳細診断 build で daemon を再実行した。PowerShell exit marker は `exit=-1073741819`。`tmp/hardware/local_037/20260620-8000us-detailed-diagnostic-rerun` には `daemon-8000us-exit.txt`、`startup-trace.txt`、`swbt-daemon-crash.dmp` が残った。trace は `hid_registration: sdp record too large` を記録した。root cause は production HID service buffer が BTstack の生成する Switch SDP record を収容できないこと。
+- 2026-06-20 SDP record regression red: `tests/daemon_production_hid_sdp_record_test.c` を追加し、`just debug` を実行。`daemon_production_hid_sdp_record_test` が `production HID service buffer too small: required=404 capacity=300` で fail した。
+- 2026-06-20 SDP record regression green: `SWBT_DAEMON_PRODUCTION_HID_SERVICE_BUFFER_SIZE` を `512u` に変更した。BTstack `hid_create_sdp_record` は出力先 size を受け取らないため、`swbt_btstack_hid_device_register` は 1024 byte scratch に SDP record を生成し、`de_get_len` 確認後に caller の永続 service buffer へコピーする。
+- 2026-06-20 fixed build validation: `just format` pass、`just debug` pass（29/29）、`just windows-cross` pass、`just format-check` pass、`git diff --check` exit 0（CRLF warning のみ）。
+- 2026-06-20 `8000us` fixed rerun: ユーザ承認後に SDP record buffer fix build で daemon を再実行し、手動 `Ctrl+C` で停止した。PowerShell exit marker は `exit=-1`。`tmp/hardware/local_037/20260620-234720-8000us-fixed-rerun` には `daemon-8000us-exit.txt` と `startup-trace.txt` が残り、`swbt-daemon-crash.dmp` と `daemon-8000us.log` は作成されなかった。trace は `hid_registration: sdp register service`、`hid_registration: hid device init`、`hid_registration: ok`、`btstack: hci power on ok`、`production: run loop execute` まで到達した。前回の `hid_registration: sdp record too large` は再発していない。手動停止後の cleanup は `btstack: hci power off`、`production: run loop returned`、`runtime: stop enter` までで、`runtime: stop done` は未確認である。
 
 未実行:
 
-- daemon run、Switch pairing、HID advertising、report loop。理由は、実機承認前であるため。
-- NyXpy macro 実行。理由は、Project NyX 側の作業であり、swbt 側の実機 daemon run と IPC endpoint 記録がまだないためである。
+- Switch pairing、Switch 側での HID advertising 視認、report loop の実機 input 反映。理由は、まだ Switch pairing と NyXpy input step に進んでいないためである。
+- NyXpy macro 実行。理由は、今回の再実行は swbt daemon の固定後起動確認に限定したためである。
+- cleanup 完了確認。理由は、fixed rerun の trace が `runtime: stop enter` で終わり、`runtime: stop done` まで記録されていないためである。
 
 ## 11. 実機実行条件
 
@@ -162,6 +208,7 @@ NyX handoff を使う場合も承認範囲は swbt-daemon 側で記録する。N
 - 内蔵または普段使いの Bluetooth adapter を使わない。
 - Windows native host で WinUSB driver assignment を確認する。
 - `SWBT_RUN_HARDWARE=1` と `SWBT_HARDWARE_APPROVED=1` を設定する。
+- `8000us` diagnostic rerun では、追加で `SWBT_DIAGNOSTIC_TRACE_PATH` と `SWBT_CRASH_DUMP_PATH` を artifact directory 配下へ設定する。
 - `docs/hardware-test-log.md` に実行記録を残す。
 - cleanup と neutral fail-safe の確認手順を実行前に決める。
 
@@ -178,7 +225,13 @@ NyX handoff を使う場合も承認範囲は swbt-daemon 側で記録する。N
 - [x] Windows cross build を現在の `HEAD` で実行した。
 - [x] 現行 daemon entrypoint が実機 run に進める状態か確認した。
 - [x] 専用 dongle identity と driver state を記録した。
-- [ ] Windows native daemon run を実行した。
+- [x] Windows native daemon run を実行した。2026-06-20 の初回 `8000us` run は APPCRASH したが、SDP record buffer fix 後の再実行は `btstack: hci power on ok` と `production: run loop execute` まで到達した。
+- [x] `8000us` APPCRASH の dump 取得再実行を記録した。
+- [x] stdout / stderr と WER dump が残らない crash に備え、daemon 自前の診断 trace / minidump 経路を追加した。
+- [x] 診断ビルドで `8000us` rerun を実行し、trace / dump artifact を記録した。dump は作成されなかった。
+- [x] 詳細診断ビルドで `8000us` rerun を実行し、HID registration / cleanup の trace と dump artifact を記録した。
+- [x] `hid_registration: sdp record too large` の regression test を red / green で追加した。
+- [x] SDP record buffer fix 後に `8000us` run を再実行した。
 - [ ] Switch pairing 結果を記録した。
 - [ ] report period comparison を記録した。
 - [ ] IPC input 反映を記録した。

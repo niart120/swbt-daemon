@@ -2,14 +2,17 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #if defined(_WIN32)
 #include <windows.h>
+#include <dbghelp.h>
 #endif
 
 #include "btstack_bridge/production_btstack.h"
+#include "core/diagnostics.h"
 #include "daemon/config.h"
 #include "daemon/production_backend.h"
 #include "daemon/runtime.h"
@@ -17,6 +20,54 @@
 #if defined(_WIN32)
 static swbt_daemon_shutdown_request_t g_swbt_daemon_shutdown_request;
 static void *g_swbt_daemon_shutdown_context;
+static const char *g_swbt_daemon_crash_dump_path;
+static volatile LONG g_swbt_daemon_crash_dump_written;
+
+static void swbt_daemon_write_crash_dump(EXCEPTION_POINTERS *exception_info) {
+    HANDLE file = INVALID_HANDLE_VALUE;
+    MINIDUMP_EXCEPTION_INFORMATION dump_exception;
+
+    if (g_swbt_daemon_crash_dump_path == NULL || g_swbt_daemon_crash_dump_path[0] == '\0') {
+        return;
+    }
+    if (InterlockedExchange(&g_swbt_daemon_crash_dump_written, 1) != 0) {
+        return;
+    }
+
+    file = CreateFileA(g_swbt_daemon_crash_dump_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                       FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) {
+        return;
+    }
+
+    dump_exception.ThreadId = GetCurrentThreadId();
+    dump_exception.ExceptionPointers = exception_info;
+    dump_exception.ClientPointers = FALSE;
+    (void)MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), file, MiniDumpNormal,
+                            &dump_exception, NULL, NULL);
+    CloseHandle(file);
+}
+
+static LONG WINAPI swbt_daemon_unhandled_exception_filter(EXCEPTION_POINTERS *exception_info) {
+    swbt_daemon_write_crash_dump(exception_info);
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+
+static LONG WINAPI swbt_daemon_vectored_exception_handler(EXCEPTION_POINTERS *exception_info) {
+    if (exception_info != NULL && exception_info->ExceptionRecord != NULL &&
+        exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        swbt_daemon_write_crash_dump(exception_info);
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+static void swbt_daemon_install_crash_dump_handler(void) {
+    g_swbt_daemon_crash_dump_path = getenv("SWBT_CRASH_DUMP_PATH");
+    if (g_swbt_daemon_crash_dump_path != NULL && g_swbt_daemon_crash_dump_path[0] != '\0') {
+        (void)AddVectoredExceptionHandler(1, swbt_daemon_vectored_exception_handler);
+        SetUnhandledExceptionFilter(swbt_daemon_unhandled_exception_filter);
+    }
+}
 
 static BOOL WINAPI swbt_daemon_console_control_handler(DWORD control_type) {
     switch (control_type) {
@@ -56,6 +107,8 @@ static const swbt_daemon_shutdown_listener_t *swbt_daemon_process_shutdown_liste
     return &listener;
 }
 #else
+static void swbt_daemon_install_crash_dump_handler(void) {}
+
 static const swbt_daemon_shutdown_listener_t *swbt_daemon_process_shutdown_listener(void) {
     return NULL;
 }
@@ -130,10 +183,13 @@ static int swbt_daemon_run_production(const swbt_daemon_config_t *config) {
         .hardware_approved = swbt_daemon_env_is_enabled(getenv("SWBT_HARDWARE_APPROVED")),
     };
 
+    swbt_diagnostic_trace("production: backend init");
     if (swbt_daemon_production_backend_init(&backend, config, swbt_btstack_production_backend_ops(),
                                             NULL) != SWBT_DAEMON_PRODUCTION_OK) {
+        swbt_diagnostic_trace("production: backend init failed");
         return 1;
     }
+    swbt_diagnostic_trace("production: enter main");
     return swbt_daemon_production_main_with_backend_and_shutdown(
                &backend, &approval, swbt_daemon_process_shutdown_listener(), NULL) ==
                    SWBT_DAEMON_PRODUCTION_OK
@@ -145,11 +201,18 @@ int main(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     const char *backend = getenv("SWBT_DAEMON_BACKEND");
 
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
+    swbt_daemon_install_crash_dump_handler();
+    swbt_diagnostic_trace("main: entered");
     if (!swbt_daemon_apply_env_config(&config)) {
+        swbt_diagnostic_trace("main: invalid env config");
         return 1;
     }
     if (backend != NULL && strcmp(backend, "production") == 0) {
+        swbt_diagnostic_trace("main: selected production backend");
         return swbt_daemon_run_production(&config);
     }
+    swbt_diagnostic_trace("main: selected noop backend");
     return swbt_daemon_main_with_backend(&config, swbt_daemon_runtime_noop_backend(), NULL);
 }

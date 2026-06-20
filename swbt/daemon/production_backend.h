@@ -13,7 +13,7 @@
 #include "daemon/ipc_runner.h"
 #include "daemon/runtime.h"
 
-#define SWBT_DAEMON_PRODUCTION_HID_SERVICE_BUFFER_SIZE 300u
+#define SWBT_DAEMON_PRODUCTION_HID_SERVICE_BUFFER_SIZE 512u
 
 typedef enum {
     SWBT_DAEMON_PRODUCTION_OK = 0,
@@ -101,5 +101,7 @@ swbt_daemon_ipc_runner_config_t
 swbt_daemon_production_backend_ipc_config(const swbt_daemon_production_backend_t *backend);
 
 bool swbt_daemon_hardware_approval_is_granted(const swbt_daemon_hardware_approval_t *approval);
+
+swbt_btstack_hid_registration_config_t swbt_daemon_production_hid_registration_config(void);
 
 #endif
