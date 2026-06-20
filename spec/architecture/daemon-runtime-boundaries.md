@@ -1,0 +1,91 @@
+# Daemon Runtime Boundaries
+
+## 1. 状態
+
+current。
+
+## 2. 目的
+
+この spec は、daemon runtime、IPC、Switch protocol core、BTstack bridge、実機実行条件の責務境界を定める。
+
+`spec/initial/BTSTACK_SWITCH_DAEMON_IPC_DESIGN.md` には目標構成と将来案が混在している。現在有効な実装境界は、この spec と関連 protocol / operations spec を正本にする。
+
+## 3. 適用範囲
+
+- `apps/swbt-daemon/` の entrypoint。
+- `swbt/daemon/` の runtime lifecycle。
+- `swbt/ipc/` の local IPC と owner/session 管理。
+- `swbt/core/state_mailbox.*` の IPC/report loop 境界。
+- `swbt/switch/` の BTstack 非依存 protocol core。
+- `swbt/btstack_bridge/` の BTstack integration boundary。
+- unit test、fake backend、実機 bring-up の境界。
+
+次は対象外である。
+
+- Switch HID packet layout の個別値。これは `spec/protocols/switch-hid-core.md` が扱う。
+- daemon IPC message contract の詳細。これは `spec/protocols/daemon-ipc-v1.md` が扱う。
+- Windows native 実機 preflight 手順。これは `spec/operations/windows-native-preflight.md` が扱う。
+
+## 4. 決定事項
+
+daemon runtime の production boundary は Bluetooth adapter、BTstack run loop、HID Device registration、output report handling、periodic input report scheduler、local IPC server を所有する。client は daemon IPC に controller state snapshot を送る。
+
+`apps/swbt-daemon/main.c` は thin entrypoint とし、設定作成、runtime 起動、exit code 変換だけを担当する。runtime lifecycle は `swbt/daemon/runtime.*` に置く。
+現行の entrypoint は `swbt_daemon_runtime_noop_backend()` を渡すため、実 Bluetooth adapter、実 IPC listener、BTstack run loop、HID advertising、periodic report loop は起動しない。
+
+IPC path は `hello`、`acquire`、`release`、`set_state`、`get_status`、owner disconnect、heartbeat timeout を扱う。IPC path は BTstack API を直接呼ばない。
+
+IPC thread と report scheduler の間は latest-state mailbox で分離する。複数の state update が report tick 間に届いた場合、daemon は最新 snapshot を使う。過去の state update を全件 replay しない。
+
+Switch protocol core は `swbt/switch/` に置き、BTstack header に依存しない。input report、output report parser、subcommand reply、dispatcher、virtual SPI、rumble、player lights はこの層で扱う。
+
+BTstack integration は `swbt/btstack_bridge/` に閉じる。BTstack API、timer source、HID registration、DATA / SET_REPORT callback、can-send event、interrupt send はこの境界で扱う。
+
+`vendor/btstack` は固定 submodule として扱い、直接編集しない。BTstack に patch が必要な場合は、まず `swbt/btstack_bridge/` で吸収できるか判断し、fork や upstream patch が必要な場合は `docs/upstream-btstack.md` と関連 spec / work unit record に理由を残す。
+
+unit test と integration test は fake backend を使う。fake backend は runtime lifecycle、cleanup ordering、mailbox connection、BTstack adapter API の呼び出し順を固定するためのものであり、Switch pairing、HID advertising、report loop、WinUSB driver assignment を証明しない。
+
+実 Bluetooth adapter を開く daemon run、Switch pairing、HID advertising、periodic report loop は実機作業である。人間の明示承認、専用 USB Bluetooth dongle、`SWBT_RUN_HARDWARE=1`、`SWBT_HARDWARE_APPROVED=1`、`docs/hardware-test-log.md` への記録を必要条件にする。
+
+metrics と logging は現時点では in-process API と log sink である。stable IPC metrics protocol は未定義であり、`get_status` の公開 schema として扱わない。
+
+BTstack を含む build artifact は MIT-only artifact と表現しない。ライセンスや notice に触れる変更では `THIRD_PARTY_NOTICES.md` を確認する。
+
+## 5. 根拠
+
+この spec は新しい Switch protocol 値、BTstack source selection、report period、WinUSB/libusb 実測値を追加しない。既存実装と完了済み work unit record の設計境界を current spec へ昇格する。
+
+| 項目 | 根拠 | source | status |
+|---|---|---|---|
+| daemon runtime entrypoint | implementation fact | `apps/swbt-daemon/main.c`, `swbt/daemon/runtime.*` | current noop backend |
+| local IPC owner/session model | implementation fact | `swbt/ipc/*`, `work-units/complete/local_008` から `local_011` | current |
+| latest-state mailbox boundary | implementation fact | `swbt/core/state_mailbox.*`, `work-units/complete/local_024/STATE_MAILBOX_THREAD_BOUNDARY.md` | current |
+| fake backend runtime integration | implementation fact | `work-units/complete/local_025/DAEMON_RUNTIME_INTEGRATION.md` | current |
+| in-process metrics/logging only | implementation fact / design policy | `work-units/complete/local_026/REPORT_METRICS_AND_LOGGING.md` | current |
+| BTstack bridge owns BTstack API calls | design policy / implementation fact | `swbt/btstack_bridge/*`, `spec/references/btstack-*.md` | current |
+| real adapter open and pairing | hardware observation required | `docs/hardware-test-log.md` | not recorded |
+
+## 6. 関連 work units
+
+- `work-units/complete/local_008/IPC_SESSION_CORE.md`
+- `work-units/complete/local_009/IPC_JSON_PROTOCOL_CORE.md`
+- `work-units/complete/local_010/IPC_TCP_SERVER_CORE.md`
+- `work-units/complete/local_011/IPC_HEARTBEAT_CORE.md`
+- `work-units/complete/local_012/BTSTACK_HID_DEVICE_REGISTRATION.md`
+- `work-units/complete/local_018/BTSTACK_PRODUCTION_ADAPTER.md`
+- `work-units/complete/local_019/BTSTACK_OUTPUT_REPORT_CALLBACKS.md`
+- `work-units/complete/local_023/BTSTACK_INPUT_REPORT_TIMER_ADAPTER.md`
+- `work-units/complete/local_024/STATE_MAILBOX_THREAD_BOUNDARY.md`
+- `work-units/complete/local_025/DAEMON_RUNTIME_INTEGRATION.md`
+- `work-units/complete/local_026/REPORT_METRICS_AND_LOGGING.md`
+- `work-units/complete/local_036/SPEC_WORK_UNIT_INVENTORY.md`
+- `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
+- `work-units/wip/local_038/BTSTACK_SEND_READY_INTEGRATION.md`
+- `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`
+
+## 7. 未解決事項
+
+- production daemon が実 Bluetooth adapter を開く順序、失敗時 cleanup、HID disconnect cleanup は fake backend だけでは証明できない。`work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` で実機実行条件付きで扱う。
+- production daemon が実 IPC listener と実 BTstack backend を runtime backend として接続する作業は未完成である。現行 entrypoint は noop backend で runtime lifecycle だけを通す。
+- BTstack can-send event と subcommand reply queue / periodic scheduler の exact integration は未完成である。`work-units/wip/local_038/BTSTACK_SEND_READY_INTEGRATION.md` で扱う。
+- stable IPC metrics / status protocol は未定義である。`work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` で扱う。
