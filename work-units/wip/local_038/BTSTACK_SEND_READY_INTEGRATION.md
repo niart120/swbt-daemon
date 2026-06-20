@@ -46,6 +46,7 @@ use case:
 ## 5. 関連 spec / docs
 
 - `spec/architecture/daemon-runtime-boundaries.md`
+- `spec/operations/windows-hardware-bringup-sequence.md`
 - `spec/protocols/switch-hid-core.md`
 - `spec/references/btstack-subcommand-reply-send-queue.md`
 - `spec/references/btstack-periodic-input-report-core.md`
@@ -55,6 +56,7 @@ use case:
 - `work-units/complete/local_023/BTSTACK_INPUT_REPORT_TIMER_ADAPTER.md`
 - `work-units/complete/local_025/DAEMON_RUNTIME_INTEGRATION.md`
 - `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
+- `work-units/wip/local_043/PRODUCTION_DAEMON_BTSTACK_ENTRYPOINT.md`
 
 ## 6. 根拠監査
 
@@ -71,6 +73,7 @@ use case:
 - can-send event が来たとき、queue に reply があれば先に送る。
 - periodic `0x30` は reply 送信のために 1 tick ずれることを許容する。drop / delay policy は test で観測できる形にする。
 - fake backend test は ordering と retry を証明する。Switch がそれを受け入れるかは証明しない。
+- `spec/operations/windows-hardware-bringup-sequence.md` では、この work unit を `local_037` の実機 bring-up 前 gate とする。実機 acceptability は引き続き `local_037` で記録する。
 
 ## 8. 対象ファイル
 
