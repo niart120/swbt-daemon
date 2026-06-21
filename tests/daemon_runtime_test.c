@@ -67,6 +67,29 @@ static int expect_str_eq(const char *actual, const char *expected) {
     return strcmp(actual, expected) == 0 ? 0 : 1;
 }
 
+static int expect_config_eq(const swbt_daemon_config_t *actual,
+                            const swbt_daemon_config_t *expected) {
+    int failed = 0;
+    failed += expect_eq_u32(actual->report_period_us, expected->report_period_us);
+    failed += expect_str_eq(actual->ipc_host, expected->ipc_host);
+    failed += expect_eq_u16(actual->ipc_port, expected->ipc_port);
+    failed += expect_eq_int(actual->ipc_backlog, expected->ipc_backlog);
+    failed += expect_eq_u32(actual->ipc_heartbeat_timeout_ms,
+                            expected->ipc_heartbeat_timeout_ms);
+    failed += expect_eq_u8(actual->report_options.battery_connection,
+                           expected->report_options.battery_connection);
+    failed += expect_eq_u8(actual->report_options.vibrator_report,
+                           expected->report_options.vibrator_report);
+    failed += expect_eq_u8(actual->device_info.firmware_version[0],
+                           expected->device_info.firmware_version[0]);
+    failed += expect_eq_u8(actual->device_info.firmware_version[1],
+                           expected->device_info.firmware_version[1]);
+    failed += expect_eq_u8(actual->device_info.controller_type, expected->device_info.controller_type);
+    failed += expect_eq_u8(actual->device_info.tail_unknown, expected->device_info.tail_unknown);
+    failed += expect_eq_u8(actual->device_info.color_source, expected->device_info.color_source);
+    return failed;
+}
+
 static void fake_backend_init(fake_backend_t *fake) {
     *fake = (fake_backend_t){0};
     fake->device_info = swbt_switch_device_info_default();
@@ -447,16 +470,20 @@ static int config_env_absent_uses_defaults(void) {
 
     int failed = 0;
     failed += expect_true(swbt_daemon_config_apply_env(&config, &env));
-    failed += expect_eq_u32(config.report_period_us, defaults.report_period_us);
-    failed += expect_str_eq(config.ipc_host, defaults.ipc_host);
-    failed += expect_eq_u16(config.ipc_port, defaults.ipc_port);
-    failed += expect_eq_int(config.ipc_backlog, defaults.ipc_backlog);
-    failed += expect_eq_u32(config.ipc_heartbeat_timeout_ms,
-                            defaults.ipc_heartbeat_timeout_ms);
-    failed += expect_eq_u8(config.device_info.firmware_version[0],
-                           defaults.device_info.firmware_version[0]);
-    failed += expect_eq_u8(config.device_info.firmware_version[1],
-                           defaults.device_info.firmware_version[1]);
+    failed += expect_config_eq(&config, &defaults);
+    return failed;
+}
+
+static int config_env_invalid_numeric_rejects_and_preserves_config(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    const swbt_daemon_config_env_t env = {
+        .report_period_us = "0",
+    };
+    const swbt_daemon_config_t expected = config;
+
+    int failed = 0;
+    failed += expect_false(swbt_daemon_config_apply_env(&config, &env));
+    failed += expect_config_eq(&config, &expected);
     return failed;
 }
 
@@ -487,6 +514,7 @@ int main(void) {
     int failed = 0;
     failed += default_config_uses_switch_facing_report_options();
     failed += config_env_absent_uses_defaults();
+    failed += config_env_invalid_numeric_rejects_and_preserves_config();
     failed += config_applies_mizuyoukanao_pro_device_info_profile();
     failed += config_rejects_unknown_device_info_profile();
     failed += invalid_config_rejects_without_opening_backends();

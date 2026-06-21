@@ -124,7 +124,7 @@ Tidy status:
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | refactor-done | daemon config uses defaults when optional runtime environment variables are absent | regression | unit | no |
-| todo | invalid numeric runtime environment override fails startup config instead of silently falling back | edge | unit | no |
+| refactor-done | invalid numeric runtime environment override fails startup config without partially mutating the existing config | edge | unit | no |
 | todo | production hardware mode rejects before IPC runner, BTstack platform, or HCI power-on when approval environment is absent | regression | integration | no |
 | todo | diagnostic trace and crash dump paths are optional and missing paths do not affect normal startup | regression | unit | no |
 | todo | HCI dump path is optional, but explicit dump path open failure is reported as startup failure before hardware observation is trusted | edge | unit/integration | no |
@@ -149,8 +149,14 @@ Tidy status:
 - targeted: `CTEST_ARGS='-R daemon_runtime_test --output-on-failure' just test-debug` pass。最初の sandboxed run は Dev Container の Docker setup で失敗し、同じ command を Docker access 付きで再実行して pass。
 - refactor: `scripts/format.sh` pass。追加の責務移動は行わず、`main.c` の entrypoint 責務を小さくした状態を維持した。
 - refactor verification: `git diff --check` pass、`scripts/check-format.sh` pass、`just test-debug` pass（31/31）、`just windows-cross` pass。
+- red: invalid numeric runtime env item。`just build-debug` pass。`CTEST_ARGS='-R daemon_runtime_test --output-on-failure' just test-debug` failed as expected。`SWBT_REPORT_PERIOD_US=0` に対する `swbt_daemon_config_apply_env` が false を返す前に `config.report_period_us` を `0` へ部分更新するため、追加 test が失敗した。
+- green: `swbt_daemon_config_apply_env` は一時 copy に env override を適用し、全検証に通った場合だけ元 config へ反映する。invalid override では false を返し、既存 config を維持する。
+- green build: `just build-debug` pass。
+- targeted: `CTEST_ARGS='-R daemon_runtime_test --output-on-failure' just test-debug` pass。build と test を並列にした最初の green 確認は古い red binary を拾って fail したため、build 完了後に同じ targeted test を再実行して pass。
+- refactor: `scripts/format.sh` pass。追加の構造変更は行わず、config helper の atomic apply に閉じた。
+- refactor verification: `scripts/check-format.sh` pass、`git diff --check` pass、`just build-debug` pass（no work to do）、`just test-debug` pass（31/31）、`just windows-cross` pass。
 
-この時点では、optional runtime env 未設定時の default config だけを TDD cycle として完了した。invalid override、diagnostic sink、HCI dump path、tooling gate の regression test は未完了である。
+この時点では、optional runtime env 未設定時の default config と invalid numeric runtime env override の 2 cycle を完了した。diagnostic sink、HCI dump path、tooling gate の regression test は未完了である。
 
 ## 11. 実機実行条件
 

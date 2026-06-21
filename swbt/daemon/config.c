@@ -57,31 +57,38 @@ swbt_daemon_config_t swbt_daemon_config_default(void) {
 
 bool swbt_daemon_config_apply_env(swbt_daemon_config_t *config,
                                   const swbt_daemon_config_env_t *env) {
+    swbt_daemon_config_t next;
+
     if (config == NULL || env == NULL) {
         return false;
     }
+    next = *config;
     if (env->report_period_us != NULL &&
-        !swbt_daemon_parse_u32(env->report_period_us, &config->report_period_us)) {
+        !swbt_daemon_parse_u32(env->report_period_us, &next.report_period_us)) {
         return false;
     }
     if (env->ipc_host != NULL && env->ipc_host[0] != '\0') {
-        config->ipc_host = env->ipc_host;
+        next.ipc_host = env->ipc_host;
     }
-    if (env->ipc_port != NULL && !swbt_daemon_parse_u16(env->ipc_port, &config->ipc_port)) {
+    if (env->ipc_port != NULL && !swbt_daemon_parse_u16(env->ipc_port, &next.ipc_port)) {
         return false;
     }
-    if (env->ipc_backlog != NULL && !swbt_daemon_parse_int(env->ipc_backlog, &config->ipc_backlog)) {
+    if (env->ipc_backlog != NULL && !swbt_daemon_parse_int(env->ipc_backlog, &next.ipc_backlog)) {
         return false;
     }
     if (env->ipc_heartbeat_timeout_ms != NULL &&
         !swbt_daemon_parse_u32(env->ipc_heartbeat_timeout_ms,
-                               &config->ipc_heartbeat_timeout_ms)) {
+                               &next.ipc_heartbeat_timeout_ms)) {
         return false;
     }
-    if (!swbt_daemon_config_apply_device_info_profile(config, env->device_info_profile)) {
+    if (!swbt_daemon_config_apply_device_info_profile(&next, env->device_info_profile)) {
         return false;
     }
-    return config->report_period_us != 0u && config->ipc_backlog > 0;
+    if (next.report_period_us == 0u || next.ipc_backlog <= 0) {
+        return false;
+    }
+    *config = next;
+    return true;
 }
 
 bool swbt_daemon_config_apply_device_info_profile(swbt_daemon_config_t *config,
