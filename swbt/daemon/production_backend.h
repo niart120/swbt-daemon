@@ -57,6 +57,8 @@ typedef struct {
                                                  swbt_btstack_input_report_timer_adapter_t *adapter,
                                                  uint16_t hid_cid, const uint8_t *report,
                                                  size_t report_size);
+    int (*report_timer_send_neutral_now)(void *context,
+                                         swbt_btstack_input_report_timer_adapter_t *adapter);
     void (*report_timer_stop)(void *context, swbt_btstack_input_report_timer_adapter_t *adapter);
     int (*ssp_confirm_user_confirmation)(void *context, const uint8_t address[6]);
     int (*read_controller_address)(void *context, uint8_t address[6]);
@@ -73,6 +75,7 @@ typedef struct {
     swbt_btstack_input_report_timer_adapter_t report_timer;
     const swbt_daemon_production_backend_ops_t *ops;
     void *ops_context;
+    swbt_daemon_runtime_t *runtime;
     uint8_t hid_service_buffer[SWBT_DAEMON_PRODUCTION_HID_SERVICE_BUFFER_SIZE];
     bool initialized;
     bool platform_started;

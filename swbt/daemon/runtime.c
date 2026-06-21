@@ -11,6 +11,7 @@ static bool swbt_daemon_backend_is_valid(const swbt_daemon_runtime_backend_t *ba
            backend->hid_register != NULL && backend->hid_stop != NULL &&
            backend->output_handler_start != NULL && backend->output_handler_stop != NULL &&
            backend->report_timer_start != NULL && backend->report_timer_stop != NULL &&
+           backend->report_timer_send_neutral_now != NULL &&
            backend->subcommand_reply_enqueue != NULL;
 }
 
@@ -145,6 +146,22 @@ swbt_daemon_runtime_result_t swbt_daemon_runtime_start(swbt_daemon_runtime_t *ru
     return SWBT_DAEMON_RUNTIME_OK;
 }
 
+swbt_daemon_runtime_result_t swbt_daemon_runtime_send_neutral_now(
+    swbt_daemon_runtime_t *runtime) {
+    if (runtime == NULL || !runtime->initialized) {
+        return SWBT_DAEMON_RUNTIME_ERROR_INVALID_ARGUMENT;
+    }
+
+    swbt_daemon_runtime_store_neutral(runtime);
+    if (!runtime->report_timer_started) {
+        return SWBT_DAEMON_RUNTIME_OK;
+    }
+    if (runtime->backend->report_timer_send_neutral_now(runtime->backend_context) != 0) {
+        return SWBT_DAEMON_RUNTIME_ERROR_BACKEND;
+    }
+    return SWBT_DAEMON_RUNTIME_OK;
+}
+
 void swbt_daemon_runtime_stop(swbt_daemon_runtime_t *runtime) {
     if (runtime == NULL || !runtime->initialized) {
         return;
@@ -225,6 +242,11 @@ static int swbt_daemon_noop_report_timer_start(void *context,
     return 0;
 }
 
+static int swbt_daemon_noop_report_timer_send_neutral_now(void *context) {
+    (void)context;
+    return 0;
+}
+
 static int swbt_daemon_noop_subcommand_reply_enqueue(void *context, uint16_t hid_cid,
                                                      const uint8_t *report, size_t report_size) {
     (void)context;
@@ -244,6 +266,7 @@ const swbt_daemon_runtime_backend_t *swbt_daemon_runtime_noop_backend(void) {
         .output_handler_stop = swbt_daemon_noop_stop,
         .report_timer_start = swbt_daemon_noop_report_timer_start,
         .report_timer_stop = swbt_daemon_noop_stop,
+        .report_timer_send_neutral_now = swbt_daemon_noop_report_timer_send_neutral_now,
         .subcommand_reply_enqueue = swbt_daemon_noop_subcommand_reply_enqueue,
     };
     return &backend;

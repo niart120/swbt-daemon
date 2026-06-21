@@ -376,6 +376,38 @@ static int queued_replies_share_advancing_input_report_timer(void) {
     return failed;
 }
 
+static int send_neutral_now_ignores_non_neutral_provider_state(void) {
+    swbt_btstack_input_report_timer_adapter_t adapter;
+    swbt_state_t state = sample_state();
+
+    fake_reset(1u);
+    int failed = 0;
+    failed += init_adapter(&adapter, &state);
+    failed += expect_eq_int(
+        swbt_btstack_input_report_timer_adapter_start(&adapter, start_options(0x0042u, 1000u)),
+        SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+
+    failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_send_neutral_now(&adapter),
+                            SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+    failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 1);
+    failed += expect_eq_u16(g_fake_btstack.hid_cid, 0x0042u);
+    failed += expect_eq_u16(g_fake_btstack.report_size, 1u + SWBT_SWITCH_STANDARD_FULL_REPORT_SIZE);
+    failed += expect_eq_u8(g_fake_btstack.report[0], 0xA1u);
+    failed += expect_eq_u8(g_fake_btstack.report[1], SWBT_SWITCH_INPUT_REPORT_STANDARD_FULL);
+    failed += expect_eq_u8(g_fake_btstack.report[2], 0x41u);
+    failed += expect_eq_u8(g_fake_btstack.report[3], 0x8Eu);
+    failed += expect_eq_u8(g_fake_btstack.report[4], 0x00u);
+    failed += expect_eq_u8(g_fake_btstack.report[5], 0x00u);
+    failed += expect_eq_u8(g_fake_btstack.report[6], 0x00u);
+    failed += expect_eq_u8(g_fake_btstack.report[13], 0x80u);
+
+    failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_send_neutral_now(&adapter),
+                            SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+    failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 2);
+    failed += expect_eq_u8(g_fake_btstack.report[2], 0x42u);
+    return failed;
+}
+
 static int reply_send_failure_keeps_item_for_retry(void) {
     uint8_t reply[SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE] = {0};
     swbt_btstack_input_report_timer_adapter_t adapter;
@@ -516,6 +548,8 @@ int main(void) {
                        queued_reply_is_sent_before_pending_periodic_report);
     failed += run_test("queued_replies_share_advancing_input_report_timer",
                        queued_replies_share_advancing_input_report_timer);
+    failed += run_test("send_neutral_now_ignores_non_neutral_provider_state",
+                       send_neutral_now_ignores_non_neutral_provider_state);
     failed += run_test("reply_send_failure_keeps_item_for_retry",
                        reply_send_failure_keeps_item_for_retry);
     failed += run_test("stop_cancels_timer_and_prevents_later_sends",

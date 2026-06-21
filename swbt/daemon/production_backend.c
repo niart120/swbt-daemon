@@ -25,10 +25,10 @@ static bool swbt_daemon_production_ops_are_valid(const swbt_daemon_production_ba
            ops->output_handler_stop != NULL && ops->report_timer_init != NULL &&
            ops->report_timer_start != NULL && ops->report_timer_on_can_send_now != NULL &&
            ops->report_timer_enqueue_subcommand_reply != NULL && ops->report_timer_stop != NULL &&
+           ops->report_timer_send_neutral_now != NULL &&
            ops->ssp_confirm_user_confirmation != NULL && ops->time_ms != NULL &&
-           ops->read_controller_address != NULL && ops->power_on != NULL &&
-           ops->power_off != NULL && ops->run_loop_execute != NULL &&
-           ops->run_loop_trigger_exit != NULL;
+           ops->read_controller_address != NULL && ops->power_on != NULL && ops->power_off != NULL &&
+           ops->run_loop_execute != NULL && ops->run_loop_trigger_exit != NULL;
 }
 
 swbt_btstack_hid_registration_config_t swbt_daemon_production_hid_registration_config(void) {
@@ -259,6 +259,15 @@ static void swbt_daemon_production_report_timer_stop(void *context) {
     backend->report_timer_initialized = false;
 }
 
+static int swbt_daemon_production_report_timer_send_neutral_now(void *context) {
+    swbt_daemon_production_backend_t *backend = context;
+    if (backend == NULL || !backend->initialized || !backend->report_timer_initialized) {
+        return -1;
+    }
+    return backend->ops->report_timer_send_neutral_now(backend->ops_context,
+                                                       &backend->report_timer);
+}
+
 static int swbt_daemon_production_subcommand_reply_enqueue(void *context, uint16_t hid_cid,
                                                            const uint8_t *report,
                                                            size_t report_size) {
@@ -292,6 +301,7 @@ const swbt_daemon_runtime_backend_t *swbt_daemon_production_runtime_backend(void
         .output_handler_stop = swbt_daemon_production_output_handler_stop,
         .report_timer_start = swbt_daemon_production_report_timer_start,
         .report_timer_stop = swbt_daemon_production_report_timer_stop,
+        .report_timer_send_neutral_now = swbt_daemon_production_report_timer_send_neutral_now,
         .subcommand_reply_enqueue = swbt_daemon_production_subcommand_reply_enqueue,
         .read_device_info = swbt_daemon_production_read_device_info,
     };
@@ -330,6 +340,14 @@ static void swbt_daemon_production_request_shutdown(void *context) {
         return;
     }
 
+    if (backend->runtime != NULL) {
+        swbt_diagnostic_trace("production: shutdown neutral send");
+        if (swbt_daemon_runtime_send_neutral_now(backend->runtime) == SWBT_DAEMON_RUNTIME_OK) {
+            swbt_diagnostic_trace("production: shutdown neutral send ok");
+        } else {
+            swbt_diagnostic_trace("production: shutdown neutral send failed");
+        }
+    }
     swbt_daemon_production_power_off(backend);
     backend->ops->run_loop_trigger_exit(backend->ops_context);
 }
@@ -364,6 +382,7 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_backend_and_shu
         return SWBT_DAEMON_PRODUCTION_ERROR_RUNTIME;
     }
     swbt_diagnostic_trace("production: runtime start ok");
+    backend->runtime = &runtime;
 
     swbt_diagnostic_trace("production: power on");
     result = swbt_daemon_production_power_on(backend);
@@ -391,6 +410,7 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_backend_and_shu
     swbt_daemon_production_power_off(backend);
     swbt_diagnostic_trace("production: runtime stop");
     swbt_daemon_runtime_stop(&runtime);
+    backend->runtime = NULL;
     swbt_diagnostic_trace("production: runtime stop done");
     return result;
 }

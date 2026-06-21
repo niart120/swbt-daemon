@@ -81,6 +81,10 @@ swbt_btstack_input_report_timer_adapter_enqueue_subcommand_reply(
     swbt_btstack_input_report_timer_adapter_t *adapter, uint16_t hid_cid, const uint8_t *report,
     size_t report_size);
 
+swbt_btstack_input_report_timer_result_t
+swbt_btstack_input_report_timer_adapter_send_neutral_now(
+    swbt_btstack_input_report_timer_adapter_t *adapter);
+
 void swbt_btstack_input_report_timer_adapter_stop(
     swbt_btstack_input_report_timer_adapter_t *adapter);
 

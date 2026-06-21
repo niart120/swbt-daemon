@@ -22,6 +22,7 @@ typedef struct {
     int output_handler_stop_calls;
     int report_timer_start_calls;
     int report_timer_stop_calls;
+    int report_timer_send_neutral_now_calls;
     int subcommand_reply_enqueue_calls;
     int read_device_info_calls;
     const swbt_ipc_session_t *ipc_session;
@@ -112,6 +113,12 @@ static void fake_report_timer_stop(void *context) {
     fake->report_timer_stop_calls += 1;
 }
 
+static int fake_report_timer_send_neutral_now(void *context) {
+    fake_backend_t *fake = context;
+    fake->report_timer_send_neutral_now_calls += 1;
+    return 0;
+}
+
 static int fake_subcommand_reply_enqueue(void *context, uint16_t hid_cid, const uint8_t *report,
                                          size_t report_size) {
     fake_backend_t *fake = context;
@@ -141,6 +148,7 @@ static swbt_daemon_runtime_backend_t fake_backend_ops(void) {
         .output_handler_stop = fake_output_handler_stop,
         .report_timer_start = fake_report_timer_start,
         .report_timer_stop = fake_report_timer_stop,
+        .report_timer_send_neutral_now = fake_report_timer_send_neutral_now,
         .subcommand_reply_enqueue = fake_subcommand_reply_enqueue,
         .read_device_info = fake_read_device_info,
     };
@@ -307,6 +315,39 @@ static int output_report_device_info_uses_backend_identity(void) {
     return failed;
 }
 
+static int send_neutral_now_clears_owner_and_flushes_report_timer(void) {
+    swbt_daemon_runtime_t runtime;
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_backend_t fake;
+    const swbt_daemon_runtime_backend_t backend = fake_backend_ops();
+    const swbt_state_t state = sample_state();
+    swbt_state_mailbox_snapshot_t snapshot;
+
+    fake_backend_init(&fake);
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_runtime_init(&runtime, &config, &backend, &fake),
+                            SWBT_DAEMON_RUNTIME_OK);
+    failed += expect_eq_int(swbt_daemon_runtime_start(&runtime), SWBT_DAEMON_RUNTIME_OK);
+    failed += expect_eq_int(swbt_ipc_acquire(swbt_daemon_runtime_ipc_session(&runtime), 1001u),
+                            SWBT_IPC_OK);
+    failed += expect_eq_int(
+        swbt_ipc_set_state(swbt_daemon_runtime_ipc_session(&runtime), 1001u, &state), SWBT_IPC_OK);
+
+    failed += expect_eq_int(swbt_daemon_runtime_send_neutral_now(&runtime),
+                            SWBT_DAEMON_RUNTIME_OK);
+
+    failed += expect_eq_int(fake.report_timer_send_neutral_now_calls, 1);
+    failed +=
+        expect_eq_int(swbt_state_mailbox_load(swbt_daemon_runtime_mailbox(&runtime), &snapshot),
+                      SWBT_STATE_MAILBOX_OK);
+    failed += expect_eq_u32(snapshot.state.buttons, 0u);
+    failed += expect_eq_u16(snapshot.state.lx, 2048u);
+
+    swbt_daemon_runtime_stop(&runtime);
+    return failed;
+}
+
 static int shutdown_neutralizes_state_and_stops_resources_once(void) {
     swbt_daemon_runtime_t runtime;
     swbt_daemon_config_t config = swbt_daemon_config_default();
@@ -424,6 +465,7 @@ int main(void) {
     failed += start_wires_session_mailbox_hid_output_and_timer();
     failed += output_report_dispatcher_response_enqueues_reply();
     failed += output_report_device_info_uses_backend_identity();
+    failed += send_neutral_now_clears_owner_and_flushes_report_timer();
     failed += shutdown_neutralizes_state_and_stops_resources_once();
     failed += backend_failure_cleans_up_started_resources();
     failed += main_with_backend_returns_runtime_exit_without_hardware_backend();

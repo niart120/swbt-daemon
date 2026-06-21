@@ -23,6 +23,7 @@ enum {
     STEP_SHUTDOWN_INSTALL = 14,
     STEP_RUN_LOOP_TRIGGER_EXIT = 15,
     STEP_SHUTDOWN_UNINSTALL = 16,
+    STEP_TIMER_SEND_NEUTRAL_NOW = 17,
 };
 
 typedef struct {
@@ -35,6 +36,7 @@ typedef struct {
     int hid_register_calls;
     int timer_start_calls;
     int timer_can_send_calls;
+    int timer_send_neutral_now_calls;
     int timer_stop_calls;
     int power_off_calls;
     int read_controller_address_calls;
@@ -183,6 +185,15 @@ static int fake_timer_enqueue_reply(void *context,
     return 0;
 }
 
+static int fake_timer_send_neutral_now(void *context,
+                                       swbt_btstack_input_report_timer_adapter_t *adapter) {
+    fake_ops_t *fake = context;
+    (void)adapter;
+    fake->timer_send_neutral_now_calls += 1;
+    record_step(fake, STEP_TIMER_SEND_NEUTRAL_NOW);
+    return 0;
+}
+
 static void fake_timer_stop(void *context, swbt_btstack_input_report_timer_adapter_t *adapter) {
     fake_ops_t *fake = context;
     (void)adapter;
@@ -270,6 +281,7 @@ static swbt_daemon_production_backend_ops_t fake_backend_ops(void) {
         .report_timer_start = fake_timer_start,
         .report_timer_on_can_send_now = fake_timer_can_send_now,
         .report_timer_enqueue_subcommand_reply = fake_timer_enqueue_reply,
+        .report_timer_send_neutral_now = fake_timer_send_neutral_now,
         .report_timer_stop = fake_timer_stop,
         .ssp_confirm_user_confirmation = fake_ssp_confirm_user_confirmation,
         .read_controller_address = fake_read_controller_address,
@@ -368,7 +380,7 @@ static int start_failure_cleans_started_resources_only(void) {
     return failed;
 }
 
-static int stop_request_powers_off_and_triggers_run_loop_exit_before_cleanup(void) {
+static int stop_request_sends_neutral_before_power_off_and_run_loop_exit(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_ops_t fake = {0};
     const swbt_daemon_production_backend_ops_t ops = fake_backend_ops();
@@ -386,6 +398,7 @@ static int stop_request_powers_off_and_triggers_run_loop_exit_before_cleanup(voi
         STEP_HID_REGISTER,       STEP_OUTPUT_START,
         STEP_TIMER_INIT,         STEP_POWER_ON,
         STEP_SHUTDOWN_INSTALL,   STEP_RUN_LOOP_EXECUTE,
+        STEP_TIMER_SEND_NEUTRAL_NOW,
         STEP_POWER_OFF,          STEP_RUN_LOOP_TRIGGER_EXIT,
         STEP_SHUTDOWN_UNINSTALL, STEP_TIMER_STOP,
         STEP_OUTPUT_STOP,        STEP_HID_STOP,
@@ -399,6 +412,7 @@ static int stop_request_powers_off_and_triggers_run_loop_exit_before_cleanup(voi
                                 &backend, &approval, &shutdown, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
+    failed += expect_eq_int(fake.timer_send_neutral_now_calls, 1, "neutral send calls");
     failed += expect_eq_int(fake.power_off_calls, 1, "power off calls");
     failed += expect_eq_int(fake.run_loop_trigger_exit_calls, 1, "trigger exit calls");
     return failed;
@@ -451,6 +465,7 @@ static int repeated_stop_request_does_not_power_off_twice(void) {
         STEP_HID_REGISTER,       STEP_OUTPUT_START,
         STEP_TIMER_INIT,         STEP_POWER_ON,
         STEP_SHUTDOWN_INSTALL,   STEP_RUN_LOOP_EXECUTE,
+        STEP_TIMER_SEND_NEUTRAL_NOW,
         STEP_POWER_OFF,          STEP_RUN_LOOP_TRIGGER_EXIT,
         STEP_SHUTDOWN_UNINSTALL, STEP_TIMER_STOP,
         STEP_OUTPUT_STOP,        STEP_HID_STOP,
@@ -464,6 +479,7 @@ static int repeated_stop_request_does_not_power_off_twice(void) {
                                 &backend, &approval, &shutdown, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
+    failed += expect_eq_int(fake.timer_send_neutral_now_calls, 1, "neutral send calls");
     failed += expect_eq_int(fake.power_off_calls, 1, "power off calls");
     failed += expect_eq_int(fake.run_loop_trigger_exit_calls, 1, "trigger exit calls");
     return failed;
@@ -566,7 +582,7 @@ int main(void) {
     failed += missing_hardware_approval_rejects_before_backend_start();
     failed += approved_backend_starts_hardware_and_cleans_up_in_order();
     failed += start_failure_cleans_started_resources_only();
-    failed += stop_request_powers_off_and_triggers_run_loop_exit_before_cleanup();
+    failed += stop_request_sends_neutral_before_power_off_and_run_loop_exit();
     failed += shutdown_listener_is_not_installed_when_hardware_approval_is_missing();
     failed += repeated_stop_request_does_not_power_off_twice();
     failed += report_period_and_ipc_config_are_exposed();

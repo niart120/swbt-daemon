@@ -32,6 +32,7 @@ typedef struct {
     int (*report_timer_start)(void *context, swbt_daemon_state_provider_t state_provider,
                               void *state_context);
     void (*report_timer_stop)(void *context);
+    int (*report_timer_send_neutral_now)(void *context);
     int (*subcommand_reply_enqueue)(void *context, uint16_t hid_cid, const uint8_t *report,
                                     size_t report_size);
     int (*read_device_info)(void *context, swbt_switch_device_info_t *out_device_info);
@@ -60,6 +61,9 @@ swbt_daemon_runtime_result_t swbt_daemon_runtime_init(swbt_daemon_runtime_t *run
                                                       void *backend_context);
 
 swbt_daemon_runtime_result_t swbt_daemon_runtime_start(swbt_daemon_runtime_t *runtime);
+
+swbt_daemon_runtime_result_t swbt_daemon_runtime_send_neutral_now(
+    swbt_daemon_runtime_t *runtime);
 
 void swbt_daemon_runtime_stop(swbt_daemon_runtime_t *runtime);
 
