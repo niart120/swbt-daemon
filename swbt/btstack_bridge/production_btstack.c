@@ -112,8 +112,7 @@ static swbt_btstack_classic_discovery_config_t swbt_btstack_production_discovery
     };
 }
 
-static int swbt_btstack_production_hci_dump_start_from_env(void) {
-    const char *path = getenv("SWBT_HCI_DUMP_TRACE_PATH");
+int swbt_btstack_production_hci_dump_start(const char *path) {
     swbt_btstack_hci_dump_text_result_t result;
 
     if (path == NULL || path[0] == '\0') {
@@ -130,6 +129,10 @@ static int swbt_btstack_production_hci_dump_start_from_env(void) {
     g_swbt_btstack_production_hci_dump_open = true;
     swbt_diagnostic_trace("btstack: hci dump open ok");
     return 0;
+}
+
+static int swbt_btstack_production_hci_dump_start_from_env(void) {
+    return swbt_btstack_production_hci_dump_start(getenv("SWBT_HCI_DUMP_TRACE_PATH"));
 }
 
 static void swbt_btstack_production_hci_dump_stop(void) {

@@ -383,6 +383,20 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME btstack_hci_dump_text_test COMMAND btstack_hci_dump_text_test)
 
+    add_executable(btstack_production_hci_dump_test
+        swbt/btstack_bridge/production_btstack.c
+        tests/btstack_production_hci_dump_test.c
+    )
+    target_link_libraries(btstack_production_hci_dump_test PRIVATE swbt_core swbt_btstack)
+    target_include_directories(btstack_production_hci_dump_test
+        PRIVATE
+            ${swbt_btstack_selected_include_dirs}
+    )
+    swbt_apply_common_warnings(btstack_production_hci_dump_test)
+    swbt_apply_sanitizers(btstack_production_hci_dump_test)
+
+    add_test(NAME btstack_production_hci_dump_test COMMAND btstack_production_hci_dump_test)
+
     add_executable(btstack_output_report_handler_test
         tests/btstack_output_report_handler_test.c
     )

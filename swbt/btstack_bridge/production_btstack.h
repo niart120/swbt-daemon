@@ -3,6 +3,8 @@
 
 #include "daemon/production_backend.h"
 
+int swbt_btstack_production_hci_dump_start(const char *path);
+
 const swbt_daemon_production_backend_ops_t *swbt_btstack_production_backend_ops(void);
 
 #endif

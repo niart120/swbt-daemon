@@ -127,7 +127,7 @@ Tidy status:
 | refactor-done | invalid numeric runtime environment override fails startup config without partially mutating the existing config | edge | unit | no |
 | todo | production hardware mode rejects before IPC runner, BTstack platform, or HCI power-on when approval environment is absent | regression | integration | no |
 | refactor-done | diagnostic trace path is optional and missing path does not create output or affect normal execution | regression | unit | no |
-| todo | HCI dump path is optional, but explicit dump path open failure is reported as startup failure before hardware observation is trusted | edge | unit/integration | no |
+| refactor-done | HCI dump path is optional, but explicit dump path open failure is reported as startup failure before hardware observation is trusted | edge | unit/integration | no |
 | todo | `SWBT_DEVICE_INFO_PROFILE` missing keeps default device info and unknown profile is rejected | regression | unit | no |
 | todo | direct `just debug` from host does not require users to set `SWBT_DEVCONTAINER` manually | regression | tooling | no |
 | deferred | decide whether no-op backend should remain the default daemon mode or become an explicit dry-run mode | behavior | design | no |
@@ -161,8 +161,14 @@ Tidy status:
 - targeted: `CTEST_ARGS='-R diagnostics_test --output-on-failure' just test-debug` pass。
 - refactor: `scripts/format.sh` pass。追加の構造変更は行わず、diagnostic trace helper の切り出しに閉じた。
 - refactor verification: `scripts/check-format.sh` pass、`git diff --check` pass、`just build-debug` pass（no work to do）、`just test-debug` pass（31/31）、`just windows-cross` pass。
+- red: HCI dump path item。最初の `just build-debug` は test source の POSIX feature macro 位置が原因で `setenv` / `unsetenv` の implicit declaration となったため、test bug として修正した。再実行した `just build-debug` は expected red。`tests/btstack_production_hci_dump_test.c` が `swbt_btstack_production_hci_dump_start` を参照し、`undefined reference to swbt_btstack_production_hci_dump_start` で link failure。
+- green: `swbt_btstack_production_hci_dump_start` を追加し、`SWBT_HCI_DUMP_TRACE_PATH` から読む private 関数は path 引数の helper へ委譲する構造にした。path 未指定または空文字は no-op、明示された path の open failure は `platform_start` failure として test で固定した。
+- green build: `just build-debug` pass。
+- targeted: `CTEST_ARGS='-R btstack_production_hci_dump_test --output-on-failure' just test-debug` pass。
+- refactor: `scripts/format.sh` pass。追加の構造変更は行わず、HCI dump path helper と production test target の追加に閉じた。
+- refactor verification: `scripts/check-format.sh` pass、`git diff --check` pass、`just build-debug` pass（no work to do）、`just test-debug` pass（32/32）、`just windows-cross` pass。
 
-この時点では、optional runtime env 未設定時の default config、invalid numeric runtime env override、diagnostic trace path optionality の 3 cycle を完了した。HCI dump path、crash dump path、tooling gate の regression test は未完了である。
+この時点では、optional runtime env 未設定時の default config、invalid numeric runtime env override、diagnostic trace path optionality、HCI dump path optionality / explicit failure の 4 cycle を完了した。crash dump path、tooling gate の regression test は未完了である。
 
 ## 11. 実機実行条件
 
@@ -193,6 +199,7 @@ Tidy status:
 - [x] env config parsing の testable boundary を作った。
 - [x] optional runtime override の未設定時 regression test を追加した。
 - [x] diagnostic trace sink の未設定時 no-op を確認した。
-- [ ] HCI dump / crash dump sink の未設定時 no-op と explicit path failure を確認した。
+- [x] HCI dump sink の未設定時 no-op と explicit path failure を確認した。
+- [ ] crash dump sink の未設定時 no-op を確認した。
 - [x] code refactor 前後で同じ検証を実行した。
 - [x] 実機未実行理由を更新した。
