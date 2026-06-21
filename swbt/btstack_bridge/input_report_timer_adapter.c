@@ -96,7 +96,18 @@ static int send_hidp_input_report(swbt_btstack_input_report_timer_adapter_t *ada
         message[index + 1u] = report[index];
     }
 
-    return adapter->backend->send_interrupt_message(hid_cid, message, (uint16_t)(report_size + 1u));
+    const bool uses_shared_timer =
+        report_size > 1u && report[0] == SWBT_SWITCH_INPUT_REPORT_SUBCOMMAND_REPLY;
+    if (uses_shared_timer) {
+        message[2] = adapter->scheduler.timer;
+    }
+
+    const int result =
+        adapter->backend->send_interrupt_message(hid_cid, message, (uint16_t)(report_size + 1u));
+    if (result == 0 && uses_shared_timer) {
+        adapter->scheduler.timer = (uint8_t)(adapter->scheduler.timer + 1u);
+    }
+    return result;
 }
 
 static int scheduler_send_callback(void *context, uint16_t hid_cid, const uint8_t *report,
