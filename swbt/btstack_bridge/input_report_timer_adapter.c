@@ -326,8 +326,7 @@ swbt_btstack_input_report_timer_adapter_enqueue_subcommand_reply(
     return SWBT_BTSTACK_INPUT_REPORT_TIMER_OK;
 }
 
-swbt_btstack_input_report_timer_result_t
-swbt_btstack_input_report_timer_adapter_send_neutral_now(
+swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter_send_neutral_now(
     swbt_btstack_input_report_timer_adapter_t *adapter) {
     if (adapter == NULL) {
         return SWBT_BTSTACK_INPUT_REPORT_TIMER_ERROR_INVALID_ARGUMENT;

@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 typedef enum {
+    STEP_NONE = 0,
     STEP_DISCOVERABLE = 1,
     STEP_CLASS_OF_DEVICE,
     STEP_LOCAL_NAME,

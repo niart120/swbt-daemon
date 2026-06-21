@@ -349,8 +349,7 @@ const swbt_daemon_production_backend_ops_t *swbt_btstack_production_backend_ops(
         .report_timer_start = swbt_btstack_production_report_timer_start,
         .report_timer_on_can_send_now = swbt_btstack_production_report_timer_on_can_send_now,
         .report_timer_enqueue_subcommand_reply = swbt_btstack_production_report_timer_enqueue_reply,
-        .report_timer_send_neutral_now =
-            swbt_btstack_production_report_timer_send_neutral_now,
+        .report_timer_send_neutral_now = swbt_btstack_production_report_timer_send_neutral_now,
         .report_timer_stop = swbt_btstack_production_report_timer_stop,
         .ssp_confirm_user_confirmation = swbt_btstack_production_ssp_confirm_user_confirmation,
         .read_controller_address = swbt_btstack_production_read_controller_address,

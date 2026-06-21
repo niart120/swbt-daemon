@@ -167,14 +167,13 @@ static int test_trigger_buttons_elapsed_time_builds_pairing_reply(void) {
                             SWBT_SWITCH_SUBCOMMAND_DISPATCH_OK);
     failed += expect_eq_action(response.action, SWBT_SWITCH_SUBCOMMAND_DISPATCH_ACTION_REPLY);
     failed += expect_eq_size(response.report_size, SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE);
-    failed += expect_eq_u8(response.report[13],
-                           SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_TRIGGER_BUTTONS_ELAPSED);
+    failed +=
+        expect_eq_u8(response.report[13], SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_TRIGGER_BUTTONS_ELAPSED);
     failed += expect_eq_u8(response.report[14], SWBT_SWITCH_SUBCOMMAND_TRIGGER_BUTTONS_ELAPSED);
     failed += expect_range(&response.report[SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET],
                            expected_data, sizeof(expected_data));
     failed += expect_zero_range(response.report,
-                                SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET +
-                                    sizeof(expected_data),
+                                SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET + sizeof(expected_data),
                                 SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE);
     return failed;
 }
@@ -184,10 +183,9 @@ static int test_set_mcu_config_builds_pairing_reply(void) {
     const swbt_switch_report_options_t report_options = sample_report_options();
     const uint8_t data[] = {0x01u};
     const uint8_t expected_data[] = {
-        0x01u, 0x00u, 0xFFu, 0x00u, 0x08u, 0x00u, 0x1Bu, 0x01u, 0x00u,
-        0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-        0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
-        0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0xC8u,
+        0x01u, 0x00u, 0xFFu, 0x00u, 0x08u, 0x00u, 0x1Bu, 0x01u, 0x00u, 0x00u, 0x00u, 0x00u,
+        0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
+        0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0xC8u,
     };
     swbt_switch_subcommand_dispatcher_config_t config =
         sample_config(&state, &report_options, NULL);
@@ -205,8 +203,7 @@ static int test_set_mcu_config_builds_pairing_reply(void) {
     failed += expect_range(&response.report[SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET],
                            expected_data, sizeof(expected_data));
     failed += expect_zero_range(response.report,
-                                SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET +
-                                    sizeof(expected_data),
+                                SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET + sizeof(expected_data),
                                 SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE);
     return failed;
 }

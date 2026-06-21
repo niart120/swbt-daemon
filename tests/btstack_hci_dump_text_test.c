@@ -12,6 +12,7 @@ static int expect_eq_int(int actual, int expected) {
     return actual == expected ? 0 : 1;
 }
 
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): test helper names both arguments.
 static int expect_file_contains(const char *path, const char *needle) {
     FILE *file = fopen(path, "rb");
     char buffer[512];
@@ -41,7 +42,13 @@ static int writes_hci_packet_as_text(void) {
     failed += expect_eq_int(swbt_btstack_hci_dump_text_open(path), SWBT_BTSTACK_HCI_DUMP_TEXT_OK);
     dump = swbt_btstack_hci_dump_text_instance();
     failed += expect_true(dump != NULL);
+    if (dump == NULL) {
+        return 1;
+    }
     failed += expect_true(dump->log_packet != NULL);
+    if (dump->log_packet == NULL) {
+        return 1;
+    }
     dump->log_packet(0x01u, 0u, packet, sizeof(packet));
     swbt_btstack_hci_dump_text_close();
 

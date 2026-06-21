@@ -394,15 +394,23 @@ static int stop_request_sends_neutral_before_power_off_and_run_loop_exit(void) {
         .hardware_approved = true,
     };
     const int expected[] = {
-        STEP_IPC_START,          STEP_PLATFORM_START,
-        STEP_HID_REGISTER,       STEP_OUTPUT_START,
-        STEP_TIMER_INIT,         STEP_POWER_ON,
-        STEP_SHUTDOWN_INSTALL,   STEP_RUN_LOOP_EXECUTE,
+        STEP_IPC_START,
+        STEP_PLATFORM_START,
+        STEP_HID_REGISTER,
+        STEP_OUTPUT_START,
+        STEP_TIMER_INIT,
+        STEP_POWER_ON,
+        STEP_SHUTDOWN_INSTALL,
+        STEP_RUN_LOOP_EXECUTE,
         STEP_TIMER_SEND_NEUTRAL_NOW,
-        STEP_POWER_OFF,          STEP_RUN_LOOP_TRIGGER_EXIT,
-        STEP_SHUTDOWN_UNINSTALL, STEP_TIMER_STOP,
-        STEP_OUTPUT_STOP,        STEP_HID_STOP,
-        STEP_PLATFORM_STOP,      STEP_IPC_STOP,
+        STEP_POWER_OFF,
+        STEP_RUN_LOOP_TRIGGER_EXIT,
+        STEP_SHUTDOWN_UNINSTALL,
+        STEP_TIMER_STOP,
+        STEP_OUTPUT_STOP,
+        STEP_HID_STOP,
+        STEP_PLATFORM_STOP,
+        STEP_IPC_STOP,
     };
 
     int failed = 0;
@@ -461,15 +469,23 @@ static int repeated_stop_request_does_not_power_off_twice(void) {
         .hardware_approved = true,
     };
     const int expected[] = {
-        STEP_IPC_START,          STEP_PLATFORM_START,
-        STEP_HID_REGISTER,       STEP_OUTPUT_START,
-        STEP_TIMER_INIT,         STEP_POWER_ON,
-        STEP_SHUTDOWN_INSTALL,   STEP_RUN_LOOP_EXECUTE,
+        STEP_IPC_START,
+        STEP_PLATFORM_START,
+        STEP_HID_REGISTER,
+        STEP_OUTPUT_START,
+        STEP_TIMER_INIT,
+        STEP_POWER_ON,
+        STEP_SHUTDOWN_INSTALL,
+        STEP_RUN_LOOP_EXECUTE,
         STEP_TIMER_SEND_NEUTRAL_NOW,
-        STEP_POWER_OFF,          STEP_RUN_LOOP_TRIGGER_EXIT,
-        STEP_SHUTDOWN_UNINSTALL, STEP_TIMER_STOP,
-        STEP_OUTPUT_STOP,        STEP_HID_STOP,
-        STEP_PLATFORM_STOP,      STEP_IPC_STOP,
+        STEP_POWER_OFF,
+        STEP_RUN_LOOP_TRIGGER_EXIT,
+        STEP_SHUTDOWN_UNINSTALL,
+        STEP_TIMER_STOP,
+        STEP_OUTPUT_STOP,
+        STEP_HID_STOP,
+        STEP_PLATFORM_STOP,
+        STEP_IPC_STOP,
     };
 
     int failed = 0;
@@ -507,8 +523,7 @@ static int report_period_and_ipc_config_are_exposed(void) {
     failed += expect_true(ipc_config.host == config.ipc_host, "ipc host");
     failed += expect_eq_u16(ipc_config.port, 34567u, "ipc port");
     failed += expect_eq_int(ipc_config.backlog, 2, "ipc backlog");
-    failed += expect_eq_int((int)ipc_config.heartbeat_timeout_ms, 1234,
-                            "ipc heartbeat timeout");
+    failed += expect_eq_int((int)ipc_config.heartbeat_timeout_ms, 1234, "ipc heartbeat timeout");
     return failed;
 }
 

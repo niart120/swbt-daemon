@@ -1,3 +1,4 @@
+// NOLINTNEXTLINE(bugprone-reserved-identifier): POSIX feature test macro.
 #define _POSIX_C_SOURCE 200112L
 
 #include "core/diagnostics.h"
@@ -26,6 +27,7 @@ static void clear_trace_env(void) {
 #endif
 }
 
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): test helper names both arguments.
 static int expect_contains(const char *path, const char *needle) {
     FILE *file = fopen(path, "rb");
     char buffer[256];

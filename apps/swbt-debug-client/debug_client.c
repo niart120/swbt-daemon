@@ -1,4 +1,5 @@
 #if !defined(_WIN32) && !defined(_POSIX_C_SOURCE)
+// NOLINTNEXTLINE(bugprone-reserved-identifier): POSIX feature test macro.
 #define _POSIX_C_SOURCE 199309L
 #endif
 
@@ -202,9 +203,8 @@ static int swbt_debug_client_parse_args(int argc, const char *const *argv,
 
     if (argc <= 1) {
         swbt_debug_client_write_message(
-            err,
-            "usage: swbt-debug-client --port <port> [state options] [--hold-ms <ms>] "
-            "[--skip-release]\n");
+            err, "usage: swbt-debug-client --port <port> [state options] [--hold-ms <ms>] "
+                 "[--skip-release]\n");
         return -1;
     }
 

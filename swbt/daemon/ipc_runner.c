@@ -164,8 +164,7 @@ swbt_daemon_ipc_runner_serve_connection_once(swbt_daemon_ipc_runner_t *runner) {
 }
 
 static swbt_daemon_ipc_runner_result_t
-swbt_daemon_ipc_runner_serve_connection_once_at(swbt_daemon_ipc_runner_t *runner,
-                                                uint64_t now_ms) {
+swbt_daemon_ipc_runner_serve_connection_once_at(swbt_daemon_ipc_runner_t *runner, uint64_t now_ms) {
     swbt_ipc_server_result_t result;
 
     if (runner == NULL || !runner->running) {
@@ -175,8 +174,7 @@ swbt_daemon_ipc_runner_serve_connection_once_at(swbt_daemon_ipc_runner_t *runner
         return SWBT_DAEMON_IPC_RUNNER_ERROR_INVALID_ARGUMENT;
     }
 
-    result = swbt_ipc_server_serve_connection_once_at(&runner->server, &runner->connection,
-                                                      now_ms);
+    result = swbt_ipc_server_serve_connection_once_at(&runner->server, &runner->connection, now_ms);
     if (result == SWBT_IPC_SERVER_ERROR_DISCONNECTED) {
         swbt_ipc_connection_close(&runner->connection);
         runner->has_connection = false;

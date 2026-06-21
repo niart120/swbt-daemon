@@ -17,10 +17,12 @@ static void swbt_btstack_hci_dump_text_log_packet(uint8_t packet_type, uint8_t i
         return;
     }
 
+    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     fprintf(g_swbt_btstack_hci_dump_text_file,
             "packet type=0x%02x in=%u len=%u data=", (unsigned int)packet_type, (unsigned int)in,
             (unsigned int)len);
     for (uint16_t index = 0; index < len; index += 1u) {
+        // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(g_swbt_btstack_hci_dump_text_file, "%02x", (unsigned int)packet[index]);
     }
     fputc('\n', g_swbt_btstack_hci_dump_text_file);
@@ -33,6 +35,7 @@ static void swbt_btstack_hci_dump_text_log_message(int log_level, const char *fo
         return;
     }
 
+    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     fprintf(g_swbt_btstack_hci_dump_text_file, "log level=%d message=", log_level);
     vfprintf(g_swbt_btstack_hci_dump_text_file, format, argptr);
     fputc('\n', g_swbt_btstack_hci_dump_text_file);

@@ -62,8 +62,7 @@ swbt_daemon_runtime_result_t swbt_daemon_runtime_init(swbt_daemon_runtime_t *run
 
 swbt_daemon_runtime_result_t swbt_daemon_runtime_start(swbt_daemon_runtime_t *runtime);
 
-swbt_daemon_runtime_result_t swbt_daemon_runtime_send_neutral_now(
-    swbt_daemon_runtime_t *runtime);
+swbt_daemon_runtime_result_t swbt_daemon_runtime_send_neutral_now(swbt_daemon_runtime_t *runtime);
 
 void swbt_daemon_runtime_stop(swbt_daemon_runtime_t *runtime);
 

@@ -27,8 +27,9 @@ static bool swbt_daemon_production_ops_are_valid(const swbt_daemon_production_ba
            ops->report_timer_enqueue_subcommand_reply != NULL && ops->report_timer_stop != NULL &&
            ops->report_timer_send_neutral_now != NULL &&
            ops->ssp_confirm_user_confirmation != NULL && ops->time_ms != NULL &&
-           ops->read_controller_address != NULL && ops->power_on != NULL && ops->power_off != NULL &&
-           ops->run_loop_execute != NULL && ops->run_loop_trigger_exit != NULL;
+           ops->read_controller_address != NULL && ops->power_on != NULL &&
+           ops->power_off != NULL && ops->run_loop_execute != NULL &&
+           ops->run_loop_trigger_exit != NULL;
 }
 
 swbt_btstack_hid_registration_config_t swbt_daemon_production_hid_registration_config(void) {

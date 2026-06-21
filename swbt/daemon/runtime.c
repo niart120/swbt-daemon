@@ -146,8 +146,7 @@ swbt_daemon_runtime_result_t swbt_daemon_runtime_start(swbt_daemon_runtime_t *ru
     return SWBT_DAEMON_RUNTIME_OK;
 }
 
-swbt_daemon_runtime_result_t swbt_daemon_runtime_send_neutral_now(
-    swbt_daemon_runtime_t *runtime) {
+swbt_daemon_runtime_result_t swbt_daemon_runtime_send_neutral_now(swbt_daemon_runtime_t *runtime) {
     if (runtime == NULL || !runtime->initialized) {
         return SWBT_DAEMON_RUNTIME_ERROR_INVALID_ARGUMENT;
     }

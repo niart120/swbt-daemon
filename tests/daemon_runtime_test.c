@@ -334,8 +334,7 @@ static int send_neutral_now_clears_owner_and_flushes_report_timer(void) {
     failed += expect_eq_int(
         swbt_ipc_set_state(swbt_daemon_runtime_ipc_session(&runtime), 1001u, &state), SWBT_IPC_OK);
 
-    failed += expect_eq_int(swbt_daemon_runtime_send_neutral_now(&runtime),
-                            SWBT_DAEMON_RUNTIME_OK);
+    failed += expect_eq_int(swbt_daemon_runtime_send_neutral_now(&runtime), SWBT_DAEMON_RUNTIME_OK);
 
     failed += expect_eq_int(fake.report_timer_send_neutral_now_calls, 1);
     failed +=
@@ -437,8 +436,8 @@ static int config_applies_mizuyoukanao_pro_device_info_profile(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
 
     int failed = 0;
-    failed += expect_true(
-        swbt_daemon_config_apply_device_info_profile(&config, "mizuyoukanao-pro"));
+    failed +=
+        expect_true(swbt_daemon_config_apply_device_info_profile(&config, "mizuyoukanao-pro"));
     failed += expect_eq_u8(config.device_info.firmware_version[0], 0x03u);
     failed += expect_eq_u8(config.device_info.firmware_version[1], 0x48u);
     failed += expect_eq_u8(config.device_info.controller_type,
