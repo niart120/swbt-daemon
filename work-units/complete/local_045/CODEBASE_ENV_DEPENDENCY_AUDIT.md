@@ -222,3 +222,15 @@ Tidy status:
 - [x] crash dump sink の未設定時 no-op 判定を確認した。
 - [x] code refactor 前後で同じ検証を実行した。
 - [x] 実機未実行理由を更新した。
+
+## 14. 完了判定
+
+complete。
+
+理由: 非実機で扱う環境変数依存の regression / characterization は 8 cycle で完了した。最終ゲートとして `scripts/check-format.sh`、`git diff --check`、`just build-debug`、`just test-debug`、`just windows-cross`、host PowerShell 入口の `just debug` を確認した。
+
+未実行: Windows crash dump の実書き込み、Bluetooth adapter open、Switch pairing、HID advertising、report loop。
+
+未実行理由: Windows crash dump の実書き込みは意図的な process crash を伴うため、この software cleanup では compile gate と path predicate の unit test に限定した。Bluetooth / Switch-facing 動作はこの work unit の対象外であり、実行には `hardware-harness` とユーザ承認が必要である。
+
+deferred: no-op backend default policy、heartbeat timeout default policy、`SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro` の source-audited default 化は、behavior または hardware 影響を伴うため別 work unit で扱う。
