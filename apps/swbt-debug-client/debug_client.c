@@ -1,3 +1,8 @@
+#if !defined(_WIN32) && !defined(_POSIX_C_SOURCE)
+// NOLINTNEXTLINE(bugprone-reserved-identifier): POSIX feature test macro.
+#define _POSIX_C_SOURCE 199309L
+#endif
+
 #include <errno.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -5,6 +10,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <time.h>
+#endif
 
 #include "debug_client.h"
 
@@ -71,6 +82,28 @@ static void swbt_debug_client_write_u16(FILE *err, uint16_t value) {
         --digit_count;
         fputc(digits[digit_count], err);
     }
+}
+
+static void swbt_debug_client_sleep_ms(uint32_t milliseconds) {
+    if (milliseconds == 0u) {
+        return;
+    }
+#if defined(_WIN32)
+    Sleep(milliseconds);
+#else
+    struct timespec remaining = {
+        .tv_sec = (time_t)(milliseconds / 1000u),
+        .tv_nsec = (long)((milliseconds % 1000u) * 1000000u),
+    };
+    while (remaining.tv_sec != 0 || remaining.tv_nsec != 0) {
+        if (nanosleep(&remaining, &remaining) == 0) {
+            break;
+        }
+        if (errno != EINTR) {
+            break;
+        }
+    }
+#endif
 }
 
 static bool swbt_debug_client_is_unsupported_macro_arg(const char *arg) {
@@ -169,8 +202,9 @@ static int swbt_debug_client_parse_args(int argc, const char *const *argv,
     config.state = swbt_state_neutral();
 
     if (argc <= 1) {
-        swbt_debug_client_write_message(err,
-                                        "usage: swbt-debug-client --port <port> [state options]\n");
+        swbt_debug_client_write_message(
+            err, "usage: swbt-debug-client --port <port> [state options] [--hold-ms <ms>] "
+                 "[--skip-release]\n");
         return -1;
     }
 
@@ -287,6 +321,17 @@ static int swbt_debug_client_parse_args(int argc, const char *const *argv,
             }
             config.state.client_seq = parsed;
             ++index;
+        } else if (strcmp(arg, "--hold-ms") == 0) {
+            uint64_t parsed = 0;
+            if (swbt_debug_client_require_value(argc, argv, index, err) != 0 ||
+                swbt_debug_client_parse_u64(argv[index + 1], UINT32_MAX, &parsed) != 0) {
+                swbt_debug_client_write_message(err, "--hold-ms must be a non-negative integer\n");
+                return -1;
+            }
+            config.hold_ms = (uint32_t)parsed;
+            ++index;
+        } else if (strcmp(arg, "--skip-release") == 0) {
+            config.skip_release = true;
         } else if (strcmp(arg, "--neutral") == 0) {
             config.state = swbt_state_neutral();
         } else {
@@ -605,6 +650,11 @@ int swbt_debug_client_run_io(const swbt_debug_client_config_t *config, swbt_debu
         return 1;
     }
     fputs(response, out);
+
+    swbt_debug_client_sleep_ms(config->hold_ms);
+    if (config->skip_release) {
+        return 0;
+    }
 
     if (swbt_debug_client_io_send_release(io, owner_id) != 0 ||
         swbt_debug_client_receive_io(io, response, sizeof(response)) != 0 ||

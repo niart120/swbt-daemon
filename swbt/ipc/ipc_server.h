@@ -57,6 +57,8 @@ swbt_ipc_server_result_t swbt_ipc_socket_send_all(swbt_ipc_socket_t *socket, con
                                                   size_t size);
 swbt_ipc_server_result_t swbt_ipc_socket_receive(swbt_ipc_socket_t *socket, char *buffer,
                                                  size_t buffer_size, size_t *out_received);
+swbt_ipc_server_result_t swbt_ipc_socket_can_receive(const swbt_ipc_socket_t *socket,
+                                                     bool *out_ready);
 
 swbt_ipc_server_result_t swbt_ipc_server_init(swbt_ipc_server_t *server);
 swbt_ipc_server_result_t swbt_ipc_server_bind_session(swbt_ipc_server_t *server,
@@ -64,8 +66,12 @@ swbt_ipc_server_result_t swbt_ipc_server_bind_session(swbt_ipc_server_t *server,
 swbt_ipc_server_result_t swbt_ipc_server_listen(swbt_ipc_server_t *server, const char *host,
                                                 uint16_t port, int backlog);
 uint16_t swbt_ipc_server_port(const swbt_ipc_server_t *server);
+swbt_ipc_server_result_t swbt_ipc_server_has_pending_connection(const swbt_ipc_server_t *server,
+                                                                bool *out_pending);
 swbt_ipc_server_result_t swbt_ipc_server_accept(swbt_ipc_server_t *server,
                                                 swbt_ipc_connection_t *out_connection);
+swbt_ipc_server_result_t
+swbt_ipc_connection_has_pending_data(const swbt_ipc_connection_t *connection, bool *out_pending);
 swbt_ipc_server_result_t swbt_ipc_server_serve_connection_once(swbt_ipc_server_t *server,
                                                                swbt_ipc_connection_t *connection);
 swbt_ipc_server_result_t swbt_ipc_server_serve_connection_once_at(swbt_ipc_server_t *server,

@@ -3,6 +3,9 @@
 #include "classic/hid_device.h"
 #include "classic/sdp_server.h"
 #include "classic/sdp_util.h"
+#include "hci.h"
+
+static btstack_packet_callback_registration_t g_swbt_hid_hci_event_registration;
 
 static void swbt_btstack_adapter_sdp_init(void *context) {
     (void)context;
@@ -52,12 +55,15 @@ static void swbt_btstack_adapter_hid_device_init(void *context, bool boot_protoc
                                                  const uint8_t *hid_descriptor) {
     (void)context;
     hid_device_init(boot_protocol_mode_supported, hid_descriptor_len, hid_descriptor);
+    hid_device_accept_truncated_hid_reports(true);
 }
 
 static void
 swbt_btstack_adapter_hid_device_register_packet_handler(void *context,
                                                         swbt_btstack_packet_handler_t handler) {
     (void)context;
+    g_swbt_hid_hci_event_registration.callback = handler;
+    hci_add_event_handler(&g_swbt_hid_hci_event_registration);
     hid_device_register_packet_handler(handler);
 }
 

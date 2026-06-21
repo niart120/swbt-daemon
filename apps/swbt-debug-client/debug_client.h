@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #include "ipc/ipc_server.h"
 #include "switch/switch_controller_state.h"
@@ -11,6 +12,8 @@
 typedef struct {
     uint16_t port;
     swbt_state_t state;
+    uint32_t hold_ms;
+    bool skip_release;
 } swbt_debug_client_config_t;
 
 typedef struct {

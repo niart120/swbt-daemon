@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "switch/switch_device_info.h"
 #include "switch/switch_controller_state.h"
 #include "switch/switch_player_lights.h"
 #include "switch/switch_report.h"
@@ -32,6 +33,7 @@ typedef struct {
     const swbt_switch_report_options_t *report_options;
     const swbt_switch_spi_t *spi;
     swbt_switch_player_lights_state_t *player_lights;
+    const swbt_switch_device_info_t *device_info;
 } swbt_switch_subcommand_dispatcher_config_t;
 
 typedef struct {

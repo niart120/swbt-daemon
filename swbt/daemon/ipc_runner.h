@@ -23,6 +23,7 @@ typedef struct {
     const char *host;
     uint16_t port;
     int backlog;
+    uint32_t heartbeat_timeout_ms;
 } swbt_daemon_ipc_runner_config_t;
 
 typedef struct {
@@ -58,6 +59,11 @@ swbt_daemon_ipc_runner_result_t swbt_daemon_ipc_runner_accept(swbt_daemon_ipc_ru
 
 swbt_daemon_ipc_runner_result_t
 swbt_daemon_ipc_runner_serve_connection_once(swbt_daemon_ipc_runner_t *runner);
+
+swbt_daemon_ipc_runner_result_t swbt_daemon_ipc_runner_poll_once(swbt_daemon_ipc_runner_t *runner);
+
+swbt_daemon_ipc_runner_result_t
+swbt_daemon_ipc_runner_poll_once_at(swbt_daemon_ipc_runner_t *runner, uint64_t now_ms);
 
 void swbt_daemon_ipc_runner_stop(swbt_daemon_ipc_runner_t *runner);
 

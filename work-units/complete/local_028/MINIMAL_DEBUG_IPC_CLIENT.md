@@ -17,7 +17,7 @@ source:
 - `spec/initial/REPOSITORY_INITIALIZATION_TODO.md` の Future client libraries にある CLI debug client。
 - `spec/initial/BTSTACK_SWITCH_DAEMON_IPC_DESIGN.md` の Windows 実機確認手順。debug IPC client から controller state を送信する手順がある。
 - `spec/protocols/daemon-ipc-v1.md`。current IPC contract は `hello`、`acquire`、`release`、`set_state`、`get_status` を含む。
-- `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`。実機 bring-up では state snapshot を手動で送る入口が必要になる。
+- `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md`。実機 bring-up では state snapshot を手動で送る入口が必要になる。
 - NyX handoff。NyX macro を起動済み daemon の debug IPC client として使う手順を示すが、swbt repo-local client の実装完了を代替しない。
 
 use case:
@@ -58,7 +58,7 @@ use case:
 - `work-units/complete/local_009/IPC_JSON_PROTOCOL_CORE.md`
 - `work-units/complete/local_010/IPC_TCP_SERVER_CORE.md`
 - `work-units/complete/local_011/IPC_HEARTBEAT_CORE.md`
-- `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
+- `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md`
 
 ## 6. 根拠監査
 
@@ -66,7 +66,7 @@ not applicable。
 
 この work unit は local IPC client と controller state snapshot serialization を扱うだけであり、Switch HID protocol、BTstack source selection、report timing、WinUSB facts を追加しない。
 
-ただし、この client を実機接続済み daemon に対して使う行為は実機検証に含まれる。実機 daemon と組み合わせる場合は、`work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` の実機実行条件に従う。
+ただし、この client を実機接続済み daemon に対して使う行為は実機検証に含まれる。実機 daemon と組み合わせる場合は、`work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` の実機実行条件に従う。
 
 ## 7. 設計メモ
 
@@ -186,7 +186,7 @@ Test desiderata:
 
 - 観測: debug client を実機接続済み daemon に使ったときの button / stick 反映は、この software client work unit では証明しない。
   先送り理由: Switch pairing、HID advertising、report loop、専用 USB Bluetooth dongle が必要である。
-  次の置き場: `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` と `docs/hardware-test-log.md`。
+  次の置き場: `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` と `docs/hardware-test-log.md`。
 
 ## 13. チェックリスト
 

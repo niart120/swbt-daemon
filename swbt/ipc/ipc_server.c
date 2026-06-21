@@ -17,6 +17,7 @@ typedef SOCKET swbt_native_socket_t;
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -203,6 +204,34 @@ swbt_ipc_server_result_t swbt_ipc_socket_receive(swbt_ipc_socket_t *socket, char
     return SWBT_IPC_SERVER_OK;
 }
 
+swbt_ipc_server_result_t swbt_ipc_socket_can_receive(const swbt_ipc_socket_t *socket,
+                                                     bool *out_ready) {
+    fd_set read_set;
+    struct timeval timeout = {0};
+    swbt_native_socket_t native_socket;
+
+    if (socket == NULL || !socket->open || out_ready == NULL) {
+        return SWBT_IPC_SERVER_ERROR_INVALID_ARGUMENT;
+    }
+
+    native_socket = swbt_ipc_native_socket(socket);
+    FD_ZERO(&read_set);
+    FD_SET(native_socket, &read_set);
+
+#ifdef _WIN32
+    const int ready = select(0, &read_set, NULL, NULL, &timeout);
+#else
+    const int ready = select(native_socket + 1, &read_set, NULL, NULL, &timeout);
+#endif
+    if (ready < 0) {
+        *out_ready = false;
+        return SWBT_IPC_SERVER_ERROR_SOCKET;
+    }
+
+    *out_ready = ready > 0 && FD_ISSET(native_socket, &read_set);
+    return SWBT_IPC_SERVER_OK;
+}
+
 swbt_ipc_server_result_t swbt_ipc_server_init(swbt_ipc_server_t *server) {
     if (server == NULL) {
         return SWBT_IPC_SERVER_ERROR_INVALID_ARGUMENT;
@@ -287,6 +316,15 @@ uint16_t swbt_ipc_server_port(const swbt_ipc_server_t *server) {
     return server->bound_port;
 }
 
+swbt_ipc_server_result_t swbt_ipc_server_has_pending_connection(const swbt_ipc_server_t *server,
+                                                                bool *out_pending) {
+    if (server == NULL || !server->listening || out_pending == NULL) {
+        return SWBT_IPC_SERVER_ERROR_INVALID_ARGUMENT;
+    }
+
+    return swbt_ipc_socket_can_receive(&server->listen_socket, out_pending);
+}
+
 swbt_ipc_server_result_t swbt_ipc_server_accept(swbt_ipc_server_t *server,
                                                 swbt_ipc_connection_t *out_connection) {
     swbt_native_socket_t accepted_socket;
@@ -318,6 +356,15 @@ swbt_ipc_server_result_t swbt_ipc_server_accept(swbt_ipc_server_t *server,
     out_connection->open = true;
     ++server->next_client_id;
     return SWBT_IPC_SERVER_OK;
+}
+
+swbt_ipc_server_result_t
+swbt_ipc_connection_has_pending_data(const swbt_ipc_connection_t *connection, bool *out_pending) {
+    if (connection == NULL || !connection->open || out_pending == NULL) {
+        return SWBT_IPC_SERVER_ERROR_INVALID_ARGUMENT;
+    }
+
+    return swbt_ipc_socket_can_receive(&connection->socket, out_pending);
 }
 
 static swbt_ipc_server_result_t swbt_ipc_read_line(swbt_ipc_socket_t *socket, char *line,

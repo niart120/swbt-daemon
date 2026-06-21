@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 
+#include "core/diagnostics.h"
 #include "switch/switch_spi_seed.h"
 #include "switch/switch_subcommand_dispatcher.h"
 
@@ -10,6 +11,7 @@ static bool swbt_daemon_backend_is_valid(const swbt_daemon_runtime_backend_t *ba
            backend->hid_register != NULL && backend->hid_stop != NULL &&
            backend->output_handler_start != NULL && backend->output_handler_stop != NULL &&
            backend->report_timer_start != NULL && backend->report_timer_stop != NULL &&
+           backend->report_timer_send_neutral_now != NULL &&
            backend->subcommand_reply_enqueue != NULL;
 }
 
@@ -33,17 +35,28 @@ static void swbt_daemon_runtime_on_output_report(void *context, uint16_t hid_cid
                                                  const swbt_switch_output_report_t *report) {
     swbt_daemon_runtime_t *runtime = context;
     swbt_switch_subcommand_dispatcher_response_t response;
+    swbt_switch_device_info_t device_info;
 
     if (runtime == NULL || report == NULL) {
         return;
     }
 
     const swbt_state_t state = swbt_daemon_runtime_read_state(runtime);
+    device_info = runtime->config.device_info;
+    if (runtime->backend->read_device_info != NULL) {
+        swbt_switch_device_info_t backend_device_info;
+        if (runtime->backend->read_device_info(runtime->backend_context, &backend_device_info) ==
+            0) {
+            device_info = backend_device_info;
+        }
+    }
+
     const swbt_switch_subcommand_dispatcher_config_t dispatch_config = {
         .state = &state,
         .report_options = &runtime->config.report_options,
         .spi = &runtime->spi,
         .player_lights = &runtime->player_lights,
+        .device_info = &device_info,
     };
 
     const swbt_switch_subcommand_dispatch_result_t dispatch_result =
@@ -99,27 +112,52 @@ swbt_daemon_runtime_result_t swbt_daemon_runtime_start(swbt_daemon_runtime_t *ru
         return SWBT_DAEMON_RUNTIME_OK;
     }
 
+    swbt_diagnostic_trace("runtime: ipc start");
     if (runtime->backend->ipc_start(runtime->backend_context, &runtime->ipc_session) != 0) {
+        swbt_diagnostic_trace("runtime: ipc start failed");
         return SWBT_DAEMON_RUNTIME_ERROR_BACKEND;
     }
+    swbt_diagnostic_trace("runtime: ipc start ok");
     runtime->ipc_started = true;
 
+    swbt_diagnostic_trace("runtime: hid register");
     if (runtime->backend->hid_register(runtime->backend_context) != 0) {
+        swbt_diagnostic_trace("runtime: hid register failed");
         swbt_daemon_runtime_stop(runtime);
         return SWBT_DAEMON_RUNTIME_ERROR_BACKEND;
     }
+    swbt_diagnostic_trace("runtime: hid register ok");
     runtime->hid_registered = true;
 
+    swbt_diagnostic_trace("runtime: output handler start");
     runtime->backend->output_handler_start(runtime->backend_context, &runtime->output_handler);
     runtime->output_handler_started = true;
 
+    swbt_diagnostic_trace("runtime: report timer start");
     if (runtime->backend->report_timer_start(runtime->backend_context,
                                              swbt_daemon_runtime_read_state, runtime) != 0) {
+        swbt_diagnostic_trace("runtime: report timer start failed");
         swbt_daemon_runtime_stop(runtime);
         return SWBT_DAEMON_RUNTIME_ERROR_BACKEND;
     }
+    swbt_diagnostic_trace("runtime: report timer start ok");
     runtime->report_timer_started = true;
     runtime->running = true;
+    return SWBT_DAEMON_RUNTIME_OK;
+}
+
+swbt_daemon_runtime_result_t swbt_daemon_runtime_send_neutral_now(swbt_daemon_runtime_t *runtime) {
+    if (runtime == NULL || !runtime->initialized) {
+        return SWBT_DAEMON_RUNTIME_ERROR_INVALID_ARGUMENT;
+    }
+
+    swbt_daemon_runtime_store_neutral(runtime);
+    if (!runtime->report_timer_started) {
+        return SWBT_DAEMON_RUNTIME_OK;
+    }
+    if (runtime->backend->report_timer_send_neutral_now(runtime->backend_context) != 0) {
+        return SWBT_DAEMON_RUNTIME_ERROR_BACKEND;
+    }
     return SWBT_DAEMON_RUNTIME_OK;
 }
 
@@ -128,26 +166,32 @@ void swbt_daemon_runtime_stop(swbt_daemon_runtime_t *runtime) {
         return;
     }
 
+    swbt_diagnostic_trace("runtime: stop enter");
     swbt_daemon_runtime_store_neutral(runtime);
 
     if (runtime->report_timer_started) {
+        swbt_diagnostic_trace("runtime: report timer stop");
         runtime->backend->report_timer_stop(runtime->backend_context);
         runtime->report_timer_started = false;
     }
     if (runtime->output_handler_started) {
+        swbt_diagnostic_trace("runtime: output handler stop");
         runtime->backend->output_handler_stop(runtime->backend_context);
         runtime->output_handler_started = false;
     }
     if (runtime->hid_registered) {
+        swbt_diagnostic_trace("runtime: hid stop");
         runtime->backend->hid_stop(runtime->backend_context);
         runtime->hid_registered = false;
     }
     if (runtime->ipc_started) {
+        swbt_diagnostic_trace("runtime: ipc stop");
         runtime->backend->ipc_stop(runtime->backend_context);
         runtime->ipc_started = false;
     }
 
     runtime->running = false;
+    swbt_diagnostic_trace("runtime: stop done");
 }
 
 bool swbt_daemon_runtime_is_running(const swbt_daemon_runtime_t *runtime) {
@@ -197,6 +241,11 @@ static int swbt_daemon_noop_report_timer_start(void *context,
     return 0;
 }
 
+static int swbt_daemon_noop_report_timer_send_neutral_now(void *context) {
+    (void)context;
+    return 0;
+}
+
 static int swbt_daemon_noop_subcommand_reply_enqueue(void *context, uint16_t hid_cid,
                                                      const uint8_t *report, size_t report_size) {
     (void)context;
@@ -216,6 +265,7 @@ const swbt_daemon_runtime_backend_t *swbt_daemon_runtime_noop_backend(void) {
         .output_handler_stop = swbt_daemon_noop_stop,
         .report_timer_start = swbt_daemon_noop_report_timer_start,
         .report_timer_stop = swbt_daemon_noop_stop,
+        .report_timer_send_neutral_now = swbt_daemon_noop_report_timer_send_neutral_now,
         .subcommand_reply_enqueue = swbt_daemon_noop_subcommand_reply_enqueue,
     };
     return &backend;

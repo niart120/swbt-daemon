@@ -109,6 +109,7 @@ target_link_libraries(swbt_btstack
 
 add_library(swbt_core STATIC
     swbt/core/swbt_version.c
+    swbt/core/diagnostics.c
     swbt/core/state_mailbox.c
     swbt/core/logging.c
     swbt/core/metrics.c
@@ -116,6 +117,9 @@ add_library(swbt_core STATIC
     swbt/daemon/ipc_runner.c
     swbt/daemon/production_backend.c
     swbt/daemon/runtime.c
+    swbt/btstack_bridge/classic_discovery.c
+    swbt/btstack_bridge/classic_discovery_btstack_adapter.c
+    swbt/btstack_bridge/hci_dump_text.c
     swbt/btstack_bridge/hid_device_btstack_adapter.c
     swbt/btstack_bridge/hid_device_registration.c
     swbt/btstack_bridge/output_report_callbacks.c
@@ -127,6 +131,7 @@ add_library(swbt_core STATIC
     swbt/ipc/ipc_server.c
     swbt/ipc/ipc_session.c
     swbt/switch/switch_controller_state.c
+    swbt/switch/switch_device_info.c
     swbt/switch/switch_hid_descriptor.c
     swbt/switch/switch_report.c
     swbt/switch/switch_player_lights.c
@@ -170,6 +175,9 @@ add_executable(swbt-daemon
     swbt/btstack_bridge/production_btstack.c
 )
 target_link_libraries(swbt-daemon PRIVATE swbt_core swbt_btstack)
+if(WIN32)
+    target_link_libraries(swbt-daemon PRIVATE dbghelp)
+endif()
 target_include_directories(swbt-daemon
     PRIVATE
         ${swbt_btstack_selected_include_dirs}
@@ -353,6 +361,28 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME btstack_hid_device_btstack_adapter_test COMMAND btstack_hid_device_btstack_adapter_test)
 
+    add_executable(btstack_classic_discovery_test
+        tests/btstack_classic_discovery_test.c
+    )
+    target_link_libraries(btstack_classic_discovery_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(btstack_classic_discovery_test)
+    swbt_apply_sanitizers(btstack_classic_discovery_test)
+
+    add_test(NAME btstack_classic_discovery_test COMMAND btstack_classic_discovery_test)
+
+    add_executable(btstack_hci_dump_text_test
+        tests/btstack_hci_dump_text_test.c
+    )
+    target_link_libraries(btstack_hci_dump_text_test PRIVATE swbt_core)
+    target_include_directories(btstack_hci_dump_text_test
+        PRIVATE
+            ${swbt_btstack_selected_include_dirs}
+    )
+    swbt_apply_common_warnings(btstack_hci_dump_text_test)
+    swbt_apply_sanitizers(btstack_hci_dump_text_test)
+
+    add_test(NAME btstack_hci_dump_text_test COMMAND btstack_hci_dump_text_test)
+
     add_executable(btstack_output_report_handler_test
         tests/btstack_output_report_handler_test.c
     )
@@ -438,6 +468,19 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME daemon_production_backend_test COMMAND daemon_production_backend_test)
 
+    add_executable(daemon_production_hid_sdp_record_test
+        tests/daemon_production_hid_sdp_record_test.c
+    )
+    target_link_libraries(daemon_production_hid_sdp_record_test PRIVATE swbt_core swbt_btstack)
+    target_include_directories(daemon_production_hid_sdp_record_test
+        PRIVATE
+            ${swbt_btstack_selected_include_dirs}
+    )
+    swbt_apply_common_warnings(daemon_production_hid_sdp_record_test)
+    swbt_apply_sanitizers(daemon_production_hid_sdp_record_test)
+
+    add_test(NAME daemon_production_hid_sdp_record_test COMMAND daemon_production_hid_sdp_record_test)
+
     add_executable(report_metrics_test
         tests/report_metrics_test.c
     )
@@ -446,4 +489,13 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(report_metrics_test)
 
     add_test(NAME report_metrics_test COMMAND report_metrics_test)
+
+    add_executable(diagnostics_test
+        tests/diagnostics_test.c
+    )
+    target_link_libraries(diagnostics_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(diagnostics_test)
+    swbt_apply_sanitizers(diagnostics_test)
+
+    add_test(NAME diagnostics_test COMMAND diagnostics_test)
 endif()

@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdint.h>
 
 #include "btstack_bridge/input_report_timer_adapter.h"
@@ -22,7 +23,7 @@ typedef struct {
     uint32_t now_ms;
     int send_interrupt_result;
     uint16_t hid_cid;
-    uint8_t report[SWBT_SWITCH_STANDARD_FULL_REPORT_SIZE];
+    uint8_t report[1u + SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE];
     uint16_t report_size;
 } fake_btstack_t;
 
@@ -172,6 +173,31 @@ static int start_registers_timer_for_first_due_tick(void) {
     return failed;
 }
 
+static int start_does_not_send_periodic_until_timer_requests_can_send(void) {
+    swbt_btstack_input_report_timer_adapter_t adapter;
+    swbt_state_t state = sample_state();
+
+    fake_reset(1u);
+    int failed = 0;
+    failed += init_adapter(&adapter, &state);
+    failed += expect_eq_int(
+        swbt_btstack_input_report_timer_adapter_start(&adapter, start_options(0x0042u, 1000u)),
+        SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+    failed += expect_true(g_fake_btstack.set_handler_called);
+    failed += expect_true(g_fake_btstack.set_context_called);
+    failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_on_can_send_now(&adapter),
+                            SWBT_BTSTACK_INPUT_REPORT_TIMER_NOT_DUE);
+    failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 0);
+    return failed;
+}
+
+static void fill_reply(uint8_t *report, uint8_t seed) {
+    for (size_t index = 0; index < SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE; ++index) {
+        report[index] = (uint8_t)(seed + index);
+    }
+    report[0] = SWBT_SWITCH_INPUT_REPORT_SUBCOMMAND_REPLY;
+}
+
 static int timer_callback_requests_can_send_without_sending(void) {
     swbt_btstack_input_report_timer_adapter_t adapter;
     swbt_state_t state = sample_state();
@@ -207,11 +233,12 @@ static int can_send_callback_sends_one_report_and_schedules_next_timer(void) {
                             SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
     failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 1);
     failed += expect_eq_u16(g_fake_btstack.hid_cid, 0x0042u);
-    failed += expect_eq_u16(g_fake_btstack.report_size, SWBT_SWITCH_STANDARD_FULL_REPORT_SIZE);
-    failed += expect_eq_u8(g_fake_btstack.report[0], SWBT_SWITCH_INPUT_REPORT_STANDARD_FULL);
-    failed += expect_eq_u8(g_fake_btstack.report[1], 0x41u);
-    failed += expect_eq_u8(g_fake_btstack.report[2], 0x8Eu);
-    failed += expect_eq_u8(g_fake_btstack.report[12], 0x80u);
+    failed += expect_eq_u16(g_fake_btstack.report_size, 1u + SWBT_SWITCH_STANDARD_FULL_REPORT_SIZE);
+    failed += expect_eq_u8(g_fake_btstack.report[0], 0xA1u);
+    failed += expect_eq_u8(g_fake_btstack.report[1], SWBT_SWITCH_INPUT_REPORT_STANDARD_FULL);
+    failed += expect_eq_u8(g_fake_btstack.report[2], 0x41u);
+    failed += expect_eq_u8(g_fake_btstack.report[3], 0x8Eu);
+    failed += expect_eq_u8(g_fake_btstack.report[13], 0x80u);
     failed += expect_eq_int(g_fake_btstack.add_timer_calls, 2);
     failed += expect_eq_u32(g_fake_btstack.timeout_ms, 8u);
     return failed;
@@ -238,13 +265,6 @@ sample_config_with_backend(swbt_state_t *state,
     return config;
 }
 
-static void fill_reply(uint8_t *report, uint8_t seed) {
-    for (size_t index = 0; index < SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE; ++index) {
-        report[index] = (uint8_t)(seed + index);
-    }
-    report[0] = SWBT_SWITCH_INPUT_REPORT_SUBCOMMAND_REPLY;
-}
-
 static int queued_reply_is_sent_before_pending_periodic_report(void) {
     uint8_t reply[SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE] = {0};
     swbt_btstack_input_report_timer_adapter_t adapter;
@@ -266,15 +286,125 @@ static int queued_reply_is_sent_before_pending_periodic_report(void) {
     failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_on_can_send_now(&adapter),
                             SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
     failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 1);
-    failed += expect_eq_u8(g_fake_btstack.report[0], SWBT_SWITCH_INPUT_REPORT_SUBCOMMAND_REPLY);
-    failed += expect_eq_u16(g_fake_btstack.report_size, SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE);
-    failed += expect_eq_int(g_fake_btstack.request_can_send_calls, 3);
+    failed += expect_eq_u8(g_fake_btstack.report[0], 0xA1u);
+    failed += expect_eq_u8(g_fake_btstack.report[1], SWBT_SWITCH_INPUT_REPORT_SUBCOMMAND_REPLY);
+    failed +=
+        expect_eq_u16(g_fake_btstack.report_size, 1u + SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE);
+    failed += expect_eq_int(g_fake_btstack.request_can_send_calls, 2);
+    failed += expect_eq_int(g_fake_btstack.remove_timer_calls, 0);
+    failed += expect_eq_u32(g_fake_btstack.timeout_ms, 300u);
+    if (failed != 0) {
+        (void)printf("after reply send=%d request=%d remove=%d timeout=%u add=%d\n",
+                     g_fake_btstack.send_interrupt_calls, g_fake_btstack.request_can_send_calls,
+                     g_fake_btstack.remove_timer_calls, g_fake_btstack.timeout_ms,
+                     g_fake_btstack.add_timer_calls);
+    }
 
+    failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_on_can_send_now(&adapter),
+                            SWBT_BTSTACK_INPUT_REPORT_TIMER_NOT_DUE);
+    failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 1);
+
+    g_fake_btstack.now_ms = 309u;
+    g_fake_btstack.timer_handler(g_fake_btstack.timer);
+    failed += expect_eq_int(g_fake_btstack.request_can_send_calls, 3);
     failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_on_can_send_now(&adapter),
                             SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
     failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 2);
-    failed += expect_eq_u8(g_fake_btstack.report[0], SWBT_SWITCH_INPUT_REPORT_STANDARD_FULL);
-    failed += expect_eq_int(g_fake_btstack.add_timer_calls, 2);
+    failed += expect_eq_u8(g_fake_btstack.report[0], 0xA1u);
+    failed += expect_eq_u8(g_fake_btstack.report[1], SWBT_SWITCH_INPUT_REPORT_STANDARD_FULL);
+    failed += expect_eq_int(g_fake_btstack.add_timer_calls, 3);
+    if (failed != 0) {
+        (void)printf("final send=%d request=%d remove=%d timeout=%u add=%d report=%02x %02x\n",
+                     g_fake_btstack.send_interrupt_calls, g_fake_btstack.request_can_send_calls,
+                     g_fake_btstack.remove_timer_calls, g_fake_btstack.timeout_ms,
+                     g_fake_btstack.add_timer_calls, g_fake_btstack.report[0],
+                     g_fake_btstack.report[1]);
+    }
+    return failed;
+}
+
+static int queued_replies_share_advancing_input_report_timer(void) {
+    uint8_t reply[SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE] = {0};
+    swbt_btstack_input_report_timer_adapter_t adapter;
+    swbt_state_t state = sample_state();
+
+    fill_reply(reply, 0x21u);
+    reply[1] = 0x00u;
+    fake_reset(1u);
+
+    int failed = 0;
+    failed += init_adapter(&adapter, &state);
+    failed += expect_eq_int(
+        swbt_btstack_input_report_timer_adapter_start(&adapter, start_options(0x0042u, 1000u)),
+        SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+
+    failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_enqueue_subcommand_reply(
+                                &adapter, 0x0042u, reply, sizeof(reply)),
+                            SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+    failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_on_can_send_now(&adapter),
+                            SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+    failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 1);
+    failed += expect_eq_u8(g_fake_btstack.report[0], 0xA1u);
+    failed += expect_eq_u8(g_fake_btstack.report[1], SWBT_SWITCH_INPUT_REPORT_SUBCOMMAND_REPLY);
+    failed += expect_eq_u8(g_fake_btstack.report[2], 0x41u);
+
+    failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_enqueue_subcommand_reply(
+                                &adapter, 0x0042u, reply, sizeof(reply)),
+                            SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+    failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_on_can_send_now(&adapter),
+                            SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+    failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 2);
+    failed += expect_eq_u8(g_fake_btstack.report[1], SWBT_SWITCH_INPUT_REPORT_SUBCOMMAND_REPLY);
+    failed += expect_eq_u8(g_fake_btstack.report[2], 0x42u);
+
+    failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_enqueue_subcommand_reply(
+                                &adapter, 0x0042u, reply, sizeof(reply)),
+                            SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+    failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_on_can_send_now(&adapter),
+                            SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+    failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 3);
+    failed += expect_eq_u8(g_fake_btstack.report[1], SWBT_SWITCH_INPUT_REPORT_SUBCOMMAND_REPLY);
+    failed += expect_eq_u8(g_fake_btstack.report[2], 0x43u);
+
+    g_fake_btstack.now_ms = 301u;
+    g_fake_btstack.timer_handler(g_fake_btstack.timer);
+    failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_on_can_send_now(&adapter),
+                            SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+    failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 4);
+    failed += expect_eq_u8(g_fake_btstack.report[1], SWBT_SWITCH_INPUT_REPORT_STANDARD_FULL);
+    failed += expect_eq_u8(g_fake_btstack.report[2], 0x44u);
+    return failed;
+}
+
+static int send_neutral_now_ignores_non_neutral_provider_state(void) {
+    swbt_btstack_input_report_timer_adapter_t adapter;
+    swbt_state_t state = sample_state();
+
+    fake_reset(1u);
+    int failed = 0;
+    failed += init_adapter(&adapter, &state);
+    failed += expect_eq_int(
+        swbt_btstack_input_report_timer_adapter_start(&adapter, start_options(0x0042u, 1000u)),
+        SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+
+    failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_send_neutral_now(&adapter),
+                            SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+    failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 1);
+    failed += expect_eq_u16(g_fake_btstack.hid_cid, 0x0042u);
+    failed += expect_eq_u16(g_fake_btstack.report_size, 1u + SWBT_SWITCH_STANDARD_FULL_REPORT_SIZE);
+    failed += expect_eq_u8(g_fake_btstack.report[0], 0xA1u);
+    failed += expect_eq_u8(g_fake_btstack.report[1], SWBT_SWITCH_INPUT_REPORT_STANDARD_FULL);
+    failed += expect_eq_u8(g_fake_btstack.report[2], 0x41u);
+    failed += expect_eq_u8(g_fake_btstack.report[3], 0x8Eu);
+    failed += expect_eq_u8(g_fake_btstack.report[4], 0x00u);
+    failed += expect_eq_u8(g_fake_btstack.report[5], 0x00u);
+    failed += expect_eq_u8(g_fake_btstack.report[6], 0x00u);
+    failed += expect_eq_u8(g_fake_btstack.report[13], 0x80u);
+
+    failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_send_neutral_now(&adapter),
+                            SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+    failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 2);
+    failed += expect_eq_u8(g_fake_btstack.report[2], 0x42u);
     return failed;
 }
 
@@ -307,7 +437,8 @@ static int reply_send_failure_keeps_item_for_retry(void) {
     failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_on_can_send_now(&adapter),
                             SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
     failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 2);
-    failed += expect_eq_u8(g_fake_btstack.report[0], SWBT_SWITCH_INPUT_REPORT_SUBCOMMAND_REPLY);
+    failed += expect_eq_u8(g_fake_btstack.report[0], 0xA1u);
+    failed += expect_eq_u8(g_fake_btstack.report[1], SWBT_SWITCH_INPUT_REPORT_SUBCOMMAND_REPLY);
     return failed;
 }
 
@@ -324,8 +455,9 @@ static int stop_cancels_timer_and_prevents_later_sends(void) {
     swbt_btstack_input_report_timer_adapter_stop(&adapter);
     failed += expect_eq_int(g_fake_btstack.remove_timer_calls, 1);
 
+    const int request_can_send_calls = g_fake_btstack.request_can_send_calls;
     g_fake_btstack.timer_handler(g_fake_btstack.timer);
-    failed += expect_eq_int(g_fake_btstack.request_can_send_calls, 0);
+    failed += expect_eq_int(g_fake_btstack.request_can_send_calls, request_can_send_calls);
     failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_on_can_send_now(&adapter),
                             SWBT_BTSTACK_INPUT_REPORT_TIMER_STOPPED);
     failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 0);
@@ -392,15 +524,38 @@ static int invalid_arguments_are_rejected(void) {
     return failed;
 }
 
+typedef int (*test_fn_t)(void);
+
+static int run_test(const char *name, test_fn_t fn) {
+    const int failed = fn();
+    if (failed != 0) {
+        (void)printf("%s failed=%d\n", name, failed);
+    }
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
-    failed += start_registers_timer_for_first_due_tick();
-    failed += timer_callback_requests_can_send_without_sending();
-    failed += can_send_callback_sends_one_report_and_schedules_next_timer();
-    failed += queued_reply_is_sent_before_pending_periodic_report();
-    failed += reply_send_failure_keeps_item_for_retry();
-    failed += stop_cancels_timer_and_prevents_later_sends();
-    failed += stop_clears_queued_replies_before_later_start();
-    failed += invalid_arguments_are_rejected();
+    failed += run_test("start_registers_timer_for_first_due_tick",
+                       start_registers_timer_for_first_due_tick);
+    failed += run_test("start_does_not_send_periodic_until_timer_requests_can_send",
+                       start_does_not_send_periodic_until_timer_requests_can_send);
+    failed += run_test("timer_callback_requests_can_send_without_sending",
+                       timer_callback_requests_can_send_without_sending);
+    failed += run_test("can_send_callback_sends_one_report_and_schedules_next_timer",
+                       can_send_callback_sends_one_report_and_schedules_next_timer);
+    failed += run_test("queued_reply_is_sent_before_pending_periodic_report",
+                       queued_reply_is_sent_before_pending_periodic_report);
+    failed += run_test("queued_replies_share_advancing_input_report_timer",
+                       queued_replies_share_advancing_input_report_timer);
+    failed += run_test("send_neutral_now_ignores_non_neutral_provider_state",
+                       send_neutral_now_ignores_non_neutral_provider_state);
+    failed += run_test("reply_send_failure_keeps_item_for_retry",
+                       reply_send_failure_keeps_item_for_retry);
+    failed += run_test("stop_cancels_timer_and_prevents_later_sends",
+                       stop_cancels_timer_and_prevents_later_sends);
+    failed += run_test("stop_clears_queued_replies_before_later_start",
+                       stop_clears_queued_replies_before_later_start);
+    failed += run_test("invalid_arguments_are_rejected", invalid_arguments_are_rejected);
     return failed == 0 ? 0 : 1;
 }
