@@ -140,6 +140,9 @@ report period の採用判断は実測後に行う。`8000us` は current config
 | mizuyoukanao profile rerun | outgoing `0x82/0x02` reply data は `03 48 03 02 00 1b dc f9 9f 7d 03 02`; incoming `0x08` は `152` 件で next subcommand なし | hardware observation / inference | `tmp/hardware/local_037/20260621-140355-8000us-device-info-mizuyoukanao-pro-rerun/hci-dump.txt`, Project NyX artifact `20260621T140402_a9e1` | firmware / tail 差分だけでは `0x08` 反復を解消しない |
 | subcommand reply timer observation | latest rerun では outgoing `a1 21` subcommand reply の timer byte が全件 `0x00`; outgoing `a1 30` timer は進んでいた | hardware observation / inference | `tmp/hardware/local_037/20260621-140355-8000us-device-info-mizuyoukanao-pro-rerun/hci-dump.txt` | 次の高蓋然性 software gate; Switch2 が重複 timer を拒否しているかは未検証 |
 | production shared input report timer for `0x21` | queued `0x21` subcommand reply は BTstack HIDP send 直前に scheduler timer を埋め、送信成功時だけ timer を進める | implementation fact | `swbt/btstack_bridge/input_report_timer_adapter.c`, `tests/btstack_input_report_timer_adapter_test.c` | software validated; hardware rerun required |
+| shared timer rerun | outgoing `a1 21` timer は `08`, `0b`, `0c`, `0d`, `0e` へ進み、Switch2 は `0x08` 反復を抜けて `0x10`, `0x03`, repeated `0x04` まで進んだ | hardware observation / inference | `tmp/hardware/local_037/20260621-143010-8000us-subcommand-reply-timer-rerun/hci-dump.txt`, Project NyX artifact `20260621T143135_7049` | fixed timer 仮説は下げる。次の software gate は `0x04` reply |
+| trigger buttons elapsed reply shape | `0x04` は trigger buttons elapsed time を問い合わせ、reply data は 7 個の little-endian `uint16`、単位は `10 ms` | reverse-engineering note | dekuNukem `bluetooth_hid_subcommands_notes.md` | ACK byte と初期値 semantics は未確定。実装前に追加 source 確認が必要 |
+| production trigger buttons elapsed reply | `SWBT_SWITCH_SUBCOMMAND_TRIGGER_BUTTONS_ELAPSED` は known subcommand だが dispatcher reply は未実装 | implementation fact | `swbt/switch/switch_subcommand.h`, `swbt/switch/switch_subcommand.c`, `swbt/switch/switch_subcommand_dispatcher.c` | current hardware stopper candidate |
 | low power mode reply shape | subcommand `0x08` takes `0x00` / `0x01`; Switch sends `0x08 00` after connection; joycontrol replies ACK `0x80` and subcommand `0x08` | source fact | dekuNukem `bluetooth_hid_subcommands_notes.md`; joycontrol `protocol.py` | stable enough for bring-up simple ACK |
 | production low power mode simple ACK | dispatcher builds `0x21` simple ACK for `0x08`; no shipment / low-power state is persisted | implementation fact | `swbt/switch/switch_subcommand_dispatcher.c`, `tests/switch_subcommand_dispatcher_test.c` | covered by unit regression; post-fix hardware rerun required |
 | low power mode ACK rerun | incoming `0x02` `1` 件、incoming `0x08` `78` 件、outgoing `0x82/0x02` `1` 件、outgoing `0x80/0x08` `77` 件、next subcommand なし | hardware observation / inference | `tmp/hardware/local_037/20260621-123338-8000us-device-info-rerun/hci-dump.txt`, Project NyX artifact `20260621T123344_f287` | `0x08` ACK は出たが Switch2 は次へ進まない; first `0x08` was before registered handle |
@@ -195,6 +198,7 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - 2026-06-21 の `mizuyoukanao-pro` profile rerun では、`0x02` reply data は期待通り `03 48 03 02 00 1b dc f9 9f 7d 03 02` になった。NyXPy IPC は `hello_ok`、`acquired`、L+R `state_accepted`、neutral `state_accepted`、cleanup `release_sent=true` まで成功し、HCI dump には L+R `0x400040` が `39` 件出た。一方、Switch2 は `0x08` を `152` 件繰り返し、`0x10` SPI read や `0x03` report mode へ進まず、画面も変化しなかった。firmware bytes と device info tail bytes だけを直接原因とする仮説は下げる。
 - 同じ HCI dump では `a1 30` input report の timer は進んでいたが、`a1 21` subcommand reply の timer は `0x02` reply と `0x08` reply を含め全件 `0x00` だった。Switch2 が固定 timer の subcommand reply を古い応答または重複応答として扱っているなら、`0x08` を繰り返す説明になる。これは直近の候補の中では実装範囲が小さく、HCI dump で直接検証できるため、次に試す。
 - 同日、queued `0x21` subcommand reply は enqueue 時ではなく BTstack HIDP send 直前に scheduler timer を埋める実装にした。これにより `a1 21` と、その後の `a1 30` が送信順の同じ timer 系列を共有する。実機で `0x08` 反復が解消するかは未実行である。
+- 同日の shared timer rerun では、`a1 21` timer は `08`, `0b`, `0c`, `0d`, `0e` と進み、Switch2 は `0x08` 反復から `0x10` SPI read 2 件、`0x03` report mode、repeated `0x04` まで進んだ。画面は変化していないが、固定 timer は直接原因から下げる。次の高蓋然性候補は `0x04` trigger buttons elapsed time への未応答である。dekuNukem note は `0x04` reply data を 7 個の little-endian `uint16`、単位 `10 ms` としているが、ACK byte と初期値 semantics はまだこの work unit の根拠として確定していない。
 
 ## 8. 対象ファイル
 
@@ -280,7 +284,9 @@ report period の採用判断は実測後に行う。`8000us` は current config
 | refactor-skipped | `mizuyoukanao-pro` device info profile emits `03 48 03 02 <addr> 03 02` and is selectable from daemon config | regression | unit | no |
 | green | `mizuyoukanao-pro` device info profile is emitted in hardware rerun, but Switch2 still repeats `0x08` instead of advancing | characterization | hardware | yes |
 | refactor-skipped | queued `0x21` replies and subsequent `0x30` reports share an advancing input report timer at the HIDP send boundary | regression | unit | no |
-| todo | shared timer build is emitted in hardware rerun and `a1 21` timer progression is observed in HCI dump | characterization | hardware | yes |
+| green | shared timer build advances `a1 21` timers and Switch2 reaches repeated `0x04`, but the screen still does not change | characterization | hardware | yes |
+| todo | trigger buttons elapsed time subcommand `0x04` reply is source-audited and covered by dispatcher unit test | regression | unit | no |
+| todo | `0x04` reply build is emitted in hardware rerun and Switch2 advances past repeated `0x04` or the next stopper is recorded | characterization | hardware | yes |
 | todo | periodic input report loop runs at each selected report period and records result | characterization | hardware | yes |
 | todo | held IPC client or NyX macro state updates are observed as Switch UI button and stick changes | new | hardware | yes |
 | todo | owner disconnect and heartbeat timeout leave neutral state | edge | hardware | yes |
@@ -371,10 +377,11 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - 2026-06-21 mizuyoukanao device info profile post-fix NyXPy L+R rerun: ユーザ承認後、`SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro` を指定した daemon と Project NyX `held_input_probe` を組み合わせて実行した。daemon artifact は `tmp/hardware/local_037/20260621-140355-8000us-device-info-mizuyoukanao-pro-rerun`、NyXPy artifact は `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T140402_a9e1`。NyXPy `ipc_session.json` は `hello_ok`、`acquired`、L+R `state_accepted`、neutral `state_accepted`、cleanup `release_sent=true` を記録した。HCI dump では `pairing complete, status 00`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0`、`invalid size` `0` 件、`non-registered handle` `0` 件だった。Switch 側からの `a2 01` subcommand は `0x02` が `1` 件、`0x08` が `152` 件で、swbt は `0x02` に `a1 21 ... 82 02 03 48 03 02 00 1b dc f9 9f 7d 03 02` を `1` 件、`0x08` に `a1 21 ... 80 08` を `152` 件返した。`a1 30` input report は `2818` 件で、buttons は neutral `2779` 件、L+R `0x400040` が `39` 件だった。Switch2 側の画面は変化せず、`0x10` / `0x03` へ進まなかった。
 - 2026-06-21 subcommand reply shared timer TDD red: `tests/btstack_input_report_timer_adapter_test.c` に、queued `0x21` replies が scheduler timer `0x41`、`0x42`、`0x43` を使い、その後の periodic `0x30` が `0x44` を使う regression test を追加した。`just build-debug` pass 後に `just test-debug` を実行し、`btstack_input_report_timer_adapter_test` の新規項目が fail したため期待通りの red と判断した。
 - 2026-06-21 subcommand reply shared timer green: `swbt/btstack_bridge/input_report_timer_adapter.c` で queued `0x21` reply を HIDP `0xA1` で包む直前に scheduler timer を埋め、send success の場合だけ timer を進めるようにした。`just build-debug` pass。`scripts/format.sh` pass。`just test-debug` pass（31/31）。`just windows-cross` pass。`scripts/check-format.sh` pass。`git diff --check` exit 0（Windows checkout 由来の LF to CRLF warning のみ）。実機 rerun は未実行である。
+- 2026-06-21 subcommand reply shared timer post-fix NyXPy L+R rerun: ユーザ承認後、`SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro` と shared timer 修正後の daemon を Project NyX `held_input_probe` と組み合わせて実行した。daemon artifact は `tmp/hardware/local_037/20260621-143010-8000us-subcommand-reply-timer-rerun`、NyXPy artifact は `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T143135_7049`。NyXPy `ipc_session.json` は `hello_ok`、`acquired`、L+R `state_accepted`、neutral `state_accepted`、cleanup `release_sent=true` を記録した。HCI dump では `pairing complete, status 00`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0`、`invalid size` `0` 件、`non-registered handle` `0` 件だった。incoming subcommand は `0x02` `1` 件、`0x08` `1` 件、`0x10` `2` 件、`0x03` `1` 件、`0x04` `369` 件だった。outgoing `a1 21` reply は `5` 件で timer は `08`, `0b`, `0c`, `0d`, `0e` に進んだ。outgoing `a1 30` は `7245` 件で、L+R state は `68` 件出た。Switch2 側の画面は変化せず、swbt が未応答の `0x04` で止まっている。
 
 未実行:
 
-- Switch UI 上の controller 採用と held-state IPC input の Switch UI 反映。理由は、`mizuyoukanao-pro` device info profile rerun 後も Switch2 22.1.0 の画面は `L + R` prompt のままで、`0x10` SPI read や `0x03` report mode へ進んでいないためである。
+- Switch UI 上の controller 採用と held-state IPC input の Switch UI 反映。理由は、shared timer rerun 後も Switch2 22.1.0 の画面は `L + R` prompt のままで、現在の停止点は swbt が未応答の `0x04` trigger buttons elapsed time subcommand である。
 - owner disconnect と heartbeat timeout の実機 neutral 確認。理由は、cleanup 直接再実行では IPC owner を取得していないためである。
 
 ## 11. 実機実行条件
@@ -460,7 +467,9 @@ NyX handoff を使う場合も承認範囲は swbt-daemon 側で記録する。N
 - [x] `mizuyoukanao-pro` device info profile の HCI dump text 診断付き rerun を記録した。profile は反映されたが、Switch2 は `0x08` 反復から進まなかった。
 - [x] `0x21` subcommand reply timer 固定 `0x00` を次の高蓋然性仮説として記録した。
 - [x] queued `0x21` subcommand reply が `0x30` と shared input report timer を使う実装を unit test で検証した。
-- [ ] shared timer build の HCI dump text 診断付き rerun を記録した。
+- [x] shared timer build の HCI dump text 診断付き rerun を記録した。`a1 21` timer は進んだが、Switch2 は未応答の `0x04` で止まった。
+- [ ] trigger buttons elapsed time subcommand `0x04` reply を根拠監査し、unit test で追加した。
+- [ ] `0x04` reply build の HCI dump text 診断付き rerun を記録した。
 - [ ] Switch UI 上の controller 採用または採用されない残理由を記録した。
 - [ ] report period comparison を記録した。
 - [ ] Switch UI での IPC input 反映を記録した。

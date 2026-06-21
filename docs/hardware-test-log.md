@@ -581,3 +581,25 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: daemon `tmp/hardware/local_037/20260621-140355-8000us-device-info-mizuyoukanao-pro-rerun`、NyXPy `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T140402_a9e1`
 - cleanup: pass。startup trace は HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done まで到達した。NyXPy artifact は cleanup `release_sent=true` と socket close を記録した
 - notes: `mizuyoukanao-pro` profile override は実際に `0x02` reply data を変更したが、Switch2 は `0x08` 反復から `0x10` SPI read や `0x03` report mode へ進まなかった。これにより、firmware bytes と device info tail bytes だけが直接原因である可能性は下げる。次の候補は `0x08` reply data / state semantics、または device info 以外の identity 情報である
+
+## 2026-06-21: local_037 CSR8510 A10 8000us shared subcommand timer NyXPy L+R rerun on Switch2
+
+- OS: Microsoft Windows NT 10.0.26200.0
+- environment: Windows native PowerShell、swbt branch `local-037-hardware-verification`、Project NyX branch `feat/swbt-hardware-bringup-macro`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Service `WinUSB`、Class `USBDevice`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: branch `local-037-hardware-verification` at `a186dcb`
+- Switch firmware: Switch2 `22.1.0`
+- approval scope: ユーザ承認済み。CSR8510 A10、`SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`、shared subcommand timer fix 後、HCI dump text 付き、`8000 us`、Switch2 controller pairing 画面での NyXPy held L+R 入力反映確認、手動停止 cleanup 確認。NyXPy 操作はユーザが実行した
+- environment variables: daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: foreground PowerShell で `build/windows-mingw-debug/swbt-daemon.exe` を直接起動し、Project NyX 側で `swbt_hardware_bringup` macro の `held_input_probe` を `probe_label=l_plus_r`、`probe_buttons=0x00400040`、notes `subcommand_reply_timer_shared_rerun` で実行した。daemon artifact は `tmp/hardware/local_037/20260621-143010-8000us-subcommand-reply-timer-rerun`。NyXPy artifact は `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T143135_7049`
+- result: Switch2 側の画面は変化しなかった。daemon startup trace は `btstack: ipc pump start ok`、`hid_registration: ok`、`btstack: hci power on ok`、手動停止後の `production: runtime stop done` まで到達した。exit marker は残っていないが、trace 上の cleanup は pass と扱う。NyXPy `ipc_session.json` は `hello_ok`、`acquired`、L+R `state_accepted`、neutral `state_accepted`、cleanup `release_sent=true` を記録した。HCI dump では `pairing complete, status 00`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0`、BTstack `invalid size` `0` 件、`non-registered handle` `0` 件だった。Switch 側からの `a2 01` subcommand は `0x02` が `1` 件、`0x08` が `1` 件、`0x10` が `2` 件、`0x03` が `1` 件、`0x04` が `369` 件だった。swbt は `0x02`、`0x08`、`0x10` 2 件、`0x03` に対して outgoing `a1 21` を計 `5` 件返し、`0x04` には返していない。`a1 21` の timer byte は `08`、`0b`、`0c`、`0d`、`0e` で、`a1 30` と同じ timer 系列を共有した。`a1 30` input report は `7245` 件で、buttons は neutral `7177` 件、L+R `0x400040` が `68` 件だった。`a1 30` の battery/connection byte は全件 `0x8e`、vibrator byte は全件 `0x80` だった
+- daemon log: daemon stdout / stderr log は未作成。`SWBT_DIAGNOSTIC_TRACE_PATH` の startup trace と `SWBT_HCI_DUMP_TRACE_PATH` の HCI dump text を正本にする
+- artifact root: daemon `tmp/hardware/local_037/20260621-143010-8000us-subcommand-reply-timer-rerun`、NyXPy `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T143135_7049`
+- cleanup: pass by trace。daemon exit marker は未作成。startup trace は HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done まで到達した。NyXPy artifact は cleanup `release_sent=true` と socket close を記録した
+- notes: shared subcommand timer fix により、固定 `0x00` timer 仮説は下げる。Switch2 は `0x08` 反復を抜け、SPI read `0x10` 2 件と report mode `0x03` へ進んだ。次の直接原因候補は、Switch2 が繰り返す `0x04` trigger buttons elapsed time subcommand に swbt が未応答で、初期化列が `0x48` / `0x40` / `0x30` へ進まない点である。次の software gate では `0x04` reply の ACK byte と payload semantics を根拠監査してから実装する
