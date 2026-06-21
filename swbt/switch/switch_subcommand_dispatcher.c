@@ -2,6 +2,8 @@
 
 #define SWBT_SWITCH_SPI_READ_REQUEST_SIZE 5u
 #define SWBT_SWITCH_SPI_READ_REPLY_PREFIX_SIZE 5u
+#define SWBT_SWITCH_TRIGGER_BUTTONS_ELAPSED_REPLY_DATA_SIZE 14u
+#define SWBT_SWITCH_TRIGGER_BUTTONS_ELAPSED_PAIRING_HELD_TICKS 300u
 
 static void swbt_switch_subcommand_dispatcher_reset_response(
     swbt_switch_subcommand_dispatcher_response_t *response) {
@@ -60,6 +62,29 @@ swbt_switch_subcommand_dispatcher_request_device_info(
     swbt_switch_device_info_write_reply_data(config->device_info, reply_data);
     return swbt_switch_subcommand_dispatcher_build_reply(
         config, response, SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_DEVICE_INFO,
+        output_report->subcommand_id, reply_data, sizeof(reply_data));
+}
+
+static void swbt_switch_subcommand_dispatcher_write_u16_le(uint8_t *data, size_t offset,
+                                                           uint16_t value) {
+    data[offset] = (uint8_t)(value & 0xFFu);
+    data[offset + 1u] = (uint8_t)((value >> 8u) & 0xFFu);
+}
+
+static swbt_switch_subcommand_dispatch_result_t
+swbt_switch_subcommand_dispatcher_trigger_buttons_elapsed(
+    const swbt_switch_subcommand_dispatcher_config_t *config,
+    const swbt_switch_output_report_t *output_report,
+    swbt_switch_subcommand_dispatcher_response_t *response) {
+    uint8_t reply_data[SWBT_SWITCH_TRIGGER_BUTTONS_ELAPSED_REPLY_DATA_SIZE] = {0};
+
+    swbt_switch_subcommand_dispatcher_write_u16_le(
+        reply_data, 0u, SWBT_SWITCH_TRIGGER_BUTTONS_ELAPSED_PAIRING_HELD_TICKS);
+    swbt_switch_subcommand_dispatcher_write_u16_le(
+        reply_data, 2u, SWBT_SWITCH_TRIGGER_BUTTONS_ELAPSED_PAIRING_HELD_TICKS);
+
+    return swbt_switch_subcommand_dispatcher_build_reply(
+        config, response, SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_TRIGGER_BUTTONS_ELAPSED,
         output_report->subcommand_id, reply_data, sizeof(reply_data));
 }
 
@@ -167,6 +192,9 @@ swbt_switch_subcommand_dispatch(const swbt_switch_subcommand_dispatcher_config_t
     case SWBT_SWITCH_SUBCOMMAND_REQUEST_DEVICE_INFO:
         return swbt_switch_subcommand_dispatcher_request_device_info(config, output_report,
                                                                      response);
+    case SWBT_SWITCH_SUBCOMMAND_TRIGGER_BUTTONS_ELAPSED:
+        return swbt_switch_subcommand_dispatcher_trigger_buttons_elapsed(config, output_report,
+                                                                         response);
     case SWBT_SWITCH_SUBCOMMAND_LOW_POWER_MODE:
     case SWBT_SWITCH_SUBCOMMAND_SET_REPORT_MODE:
     case SWBT_SWITCH_SUBCOMMAND_ENABLE_IMU:

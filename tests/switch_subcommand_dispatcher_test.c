@@ -151,6 +151,34 @@ static int test_low_power_mode_dispatches_simple_ack_reply(void) {
     return failed;
 }
 
+static int test_trigger_buttons_elapsed_time_builds_pairing_reply(void) {
+    const swbt_state_t state = sample_state();
+    const swbt_switch_report_options_t report_options = sample_report_options();
+    const uint8_t expected_data[] = {0x2Cu, 0x01u, 0x2Cu, 0x01u, 0x00u, 0x00u, 0x00u,
+                                     0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u};
+    swbt_switch_subcommand_dispatcher_config_t config =
+        sample_config(&state, &report_options, NULL);
+    swbt_switch_output_report_t output =
+        subcommand_report(SWBT_SWITCH_SUBCOMMAND_TRIGGER_BUTTONS_ELAPSED, NULL, 0u);
+    swbt_switch_subcommand_dispatcher_response_t response;
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_switch_subcommand_dispatch(&config, &output, &response),
+                            SWBT_SWITCH_SUBCOMMAND_DISPATCH_OK);
+    failed += expect_eq_action(response.action, SWBT_SWITCH_SUBCOMMAND_DISPATCH_ACTION_REPLY);
+    failed += expect_eq_size(response.report_size, SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE);
+    failed += expect_eq_u8(response.report[13],
+                           SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_TRIGGER_BUTTONS_ELAPSED);
+    failed += expect_eq_u8(response.report[14], SWBT_SWITCH_SUBCOMMAND_TRIGGER_BUTTONS_ELAPSED);
+    failed += expect_range(&response.report[SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET],
+                           expected_data, sizeof(expected_data));
+    failed += expect_zero_range(response.report,
+                                SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET +
+                                    sizeof(expected_data),
+                                SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE);
+    return failed;
+}
+
 static int test_spi_flash_read_builds_reply_data_from_virtual_spi(void) {
     static swbt_switch_spi_t spi;
     const uint8_t device_type = SWBT_SWITCH_SPI_DEVICE_TYPE_PRO_CONTROLLER;
@@ -366,6 +394,7 @@ int main(void) {
     int failed = 0;
     failed += test_simple_ack_dispatches_set_report_mode_reply();
     failed += test_low_power_mode_dispatches_simple_ack_reply();
+    failed += test_trigger_buttons_elapsed_time_builds_pairing_reply();
     failed += test_spi_flash_read_builds_reply_data_from_virtual_spi();
     failed += test_set_player_lights_updates_state_and_builds_ack();
     failed += test_get_player_lights_builds_current_state_reply();
