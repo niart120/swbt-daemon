@@ -130,6 +130,7 @@ Tidy status:
 | refactor-done | HCI dump path is optional, but explicit dump path open failure is reported as startup failure before hardware observation is trusted | edge | unit/integration | no |
 | refactor-done | `SWBT_DEVICE_INFO_PROFILE` missing keeps default device info and unknown profile is rejected | regression | unit | no |
 | refactor-done | direct `just debug` from host does not require users to set `SWBT_DEVCONTAINER` manually | regression | tooling | no |
+| refactor-done | crash dump path is optional and missing path uses the same no-op diagnostic path predicate | regression | unit/cross-build | no |
 | deferred | decide whether no-op backend should remain the default daemon mode or become an explicit dry-run mode | behavior | design | no |
 | deferred | decide whether heartbeat timeout default should remain disabled or become a nonzero fail-safe default | behavior | design/hardware | yes |
 
@@ -179,8 +180,14 @@ Tidy status:
 - refactor: `scripts/format.sh` pass。追加の実装変更は行わず、test coverage の補強に閉じた。
 - refactor verification: `scripts/check-format.sh` pass、`git diff --check` pass、`just build-debug` pass（no work to do）、`just test-debug` pass（32/32）、`just windows-cross` pass。
 - tooling verification: `SWBT_DEVCONTAINER` と `SWBT_ALLOW_HOST_BUILD` が未設定であることを確認したうえで、host PowerShell 入口から `just debug` を実行して pass。Dev Container CLI へ委譲され、`cmake --fresh --preset linux-debug`、`cmake --build --preset linux-debug`、`ctest --preset linux-debug --output-on-failure` が通った。CTest は 32/32 pass。
+- red: crash dump path item。`just build-debug` failed as expected。`tests/diagnostics_test.c` が `swbt_diagnostic_path_is_enabled` を参照し、`undefined reference to swbt_diagnostic_path_is_enabled` で link failure。
+- green: `swbt_diagnostic_path_is_enabled` を追加し、diagnostic trace、HCI dump、Windows crash dump handler install / write path の未設定判定を共通 predicate へ寄せた。predicate 自体は `diagnostics_test` で固定した。Windows crash dump の実書き込みは実行せず、Windows 側の使用箇所は `just windows-cross` で compile gate として確認した。
+- green build: `just build-debug` pass。
+- targeted: `CTEST_ARGS='-R diagnostics_test --output-on-failure' just test-debug` pass。
+- refactor: `scripts/format.sh` pass。追加の構造変更は行わず、diagnostic path predicate の導入と既存 path 判定の置き換えに閉じた。
+- refactor verification: `scripts/check-format.sh` pass、`git diff --check` pass、`just build-debug` pass（no work to do）、`just test-debug` pass（32/32）、`just windows-cross` pass。
 
-この時点では、optional runtime env 未設定時の default config、invalid numeric runtime env override、hardware approval env parser、diagnostic trace path optionality、HCI dump path optionality / explicit failure、device info profile env characterization、direct `just debug` host delegation の 7 cycle を完了した。crash dump path の regression test は未完了である。
+この時点では、optional runtime env 未設定時の default config、invalid numeric runtime env override、hardware approval env parser、diagnostic trace path optionality、HCI dump path optionality / explicit failure、device info profile env characterization、direct `just debug` host delegation、crash dump path optionality の 8 cycle を完了した。残る判断は deferred の no-op backend default policy と heartbeat timeout default policy だけであり、どちらも behavior / hardware 影響を伴うため、この work unit では実装しない。
 
 ## 11. 実機実行条件
 
@@ -212,6 +219,6 @@ Tidy status:
 - [x] optional runtime override の未設定時 regression test を追加した。
 - [x] diagnostic trace sink の未設定時 no-op を確認した。
 - [x] HCI dump sink の未設定時 no-op と explicit path failure を確認した。
-- [ ] crash dump sink の未設定時 no-op を確認した。
+- [x] crash dump sink の未設定時 no-op 判定を確認した。
 - [x] code refactor 前後で同じ検証を実行した。
 - [x] 実機未実行理由を更新した。

@@ -3,10 +3,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+bool swbt_diagnostic_path_is_enabled(const char *path) {
+    return path != NULL && path[0] != '\0';
+}
+
 void swbt_diagnostic_trace_to_path(const char *path, const char *message) {
     FILE *file = NULL;
 
-    if (path == NULL || path[0] == '\0' || message == NULL) {
+    if (!swbt_diagnostic_path_is_enabled(path) || message == NULL) {
         return;
     }
 

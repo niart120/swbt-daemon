@@ -115,7 +115,7 @@ static swbt_btstack_classic_discovery_config_t swbt_btstack_production_discovery
 int swbt_btstack_production_hci_dump_start(const char *path) {
     swbt_btstack_hci_dump_text_result_t result;
 
-    if (path == NULL || path[0] == '\0') {
+    if (!swbt_diagnostic_path_is_enabled(path)) {
         return 0;
     }
 

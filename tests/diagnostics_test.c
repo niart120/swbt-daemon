@@ -37,6 +37,10 @@ static int expect_missing(const char *path) {
     return 0;
 }
 
+static int expect_bool(bool actual, bool expected) {
+    return actual == expected ? 0 : 1;
+}
+
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): test helper names both arguments.
 static int expect_contains(const char *path, const char *needle) {
     FILE *file = fopen(path, "rb");
@@ -68,6 +72,15 @@ static int missing_trace_path_is_noop(void) {
     return expect_missing(path);
 }
 
+static int diagnostic_path_requires_nonempty_value(void) {
+    int failed = 0;
+
+    failed += expect_bool(swbt_diagnostic_path_is_enabled(NULL), false);
+    failed += expect_bool(swbt_diagnostic_path_is_enabled(""), false);
+    failed += expect_bool(swbt_diagnostic_path_is_enabled("diagnostics-test.log"), true);
+    return failed;
+}
+
 static int writes_trace_when_env_path_is_set(void) {
     const char *path = "diagnostics-test-trace.log";
 
@@ -83,6 +96,7 @@ static int writes_trace_when_env_path_is_set(void) {
 
 int main(void) {
     int failed = 0;
+    failed += diagnostic_path_requires_nonempty_value();
     failed += missing_trace_path_is_noop();
     failed += writes_trace_when_env_path_is_set();
     return failed == 0 ? 0 : 1;

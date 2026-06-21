@@ -25,7 +25,7 @@ static void swbt_daemon_write_crash_dump(EXCEPTION_POINTERS *exception_info) {
     HANDLE file = INVALID_HANDLE_VALUE;
     MINIDUMP_EXCEPTION_INFORMATION dump_exception;
 
-    if (g_swbt_daemon_crash_dump_path == NULL || g_swbt_daemon_crash_dump_path[0] == '\0') {
+    if (!swbt_diagnostic_path_is_enabled(g_swbt_daemon_crash_dump_path)) {
         return;
     }
     if (InterlockedExchange(&g_swbt_daemon_crash_dump_written, 1) != 0) {
@@ -61,7 +61,7 @@ static LONG WINAPI swbt_daemon_vectored_exception_handler(EXCEPTION_POINTERS *ex
 
 static void swbt_daemon_install_crash_dump_handler(void) {
     g_swbt_daemon_crash_dump_path = getenv("SWBT_CRASH_DUMP_PATH");
-    if (g_swbt_daemon_crash_dump_path != NULL && g_swbt_daemon_crash_dump_path[0] != '\0') {
+    if (swbt_diagnostic_path_is_enabled(g_swbt_daemon_crash_dump_path)) {
         (void)AddVectoredExceptionHandler(1, swbt_daemon_vectored_exception_handler);
         SetUnhandledExceptionFilter(swbt_daemon_unhandled_exception_filter);
     }
