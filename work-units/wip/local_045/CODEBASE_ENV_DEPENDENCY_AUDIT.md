@@ -126,7 +126,7 @@ Tidy status:
 | refactor-done | daemon config uses defaults when optional runtime environment variables are absent | regression | unit | no |
 | refactor-done | invalid numeric runtime environment override fails startup config without partially mutating the existing config | edge | unit | no |
 | todo | production hardware mode rejects before IPC runner, BTstack platform, or HCI power-on when approval environment is absent | regression | integration | no |
-| todo | diagnostic trace and crash dump paths are optional and missing paths do not affect normal startup | regression | unit | no |
+| refactor-done | diagnostic trace path is optional and missing path does not create output or affect normal execution | regression | unit | no |
 | todo | HCI dump path is optional, but explicit dump path open failure is reported as startup failure before hardware observation is trusted | edge | unit/integration | no |
 | todo | `SWBT_DEVICE_INFO_PROFILE` missing keeps default device info and unknown profile is rejected | regression | unit | no |
 | todo | direct `just debug` from host does not require users to set `SWBT_DEVCONTAINER` manually | regression | tooling | no |
@@ -155,8 +155,14 @@ Tidy status:
 - targeted: `CTEST_ARGS='-R daemon_runtime_test --output-on-failure' just test-debug` pass。build と test を並列にした最初の green 確認は古い red binary を拾って fail したため、build 完了後に同じ targeted test を再実行して pass。
 - refactor: `scripts/format.sh` pass。追加の構造変更は行わず、config helper の atomic apply に閉じた。
 - refactor verification: `scripts/check-format.sh` pass、`git diff --check` pass、`just build-debug` pass（no work to do）、`just test-debug` pass（31/31）、`just windows-cross` pass。
+- red: diagnostic trace optional path item。`just build-debug` failed as expected。`tests/diagnostics_test.c` が `swbt_diagnostic_trace_to_path` を参照し、`undefined reference to swbt_diagnostic_trace_to_path` で link failure。
+- green: `swbt_diagnostic_trace_to_path` を追加し、`swbt_diagnostic_trace` は `SWBT_DIAGNOSTIC_TRACE_PATH` を読んで helper へ委譲する構造にした。path 未指定、空文字、message 未指定は no-op として test で固定した。
+- green build: `just build-debug` pass。
+- targeted: `CTEST_ARGS='-R diagnostics_test --output-on-failure' just test-debug` pass。
+- refactor: `scripts/format.sh` pass。追加の構造変更は行わず、diagnostic trace helper の切り出しに閉じた。
+- refactor verification: `scripts/check-format.sh` pass、`git diff --check` pass、`just build-debug` pass（no work to do）、`just test-debug` pass（31/31）、`just windows-cross` pass。
 
-この時点では、optional runtime env 未設定時の default config と invalid numeric runtime env override の 2 cycle を完了した。diagnostic sink、HCI dump path、tooling gate の regression test は未完了である。
+この時点では、optional runtime env 未設定時の default config、invalid numeric runtime env override、diagnostic trace path optionality の 3 cycle を完了した。HCI dump path、crash dump path、tooling gate の regression test は未完了である。
 
 ## 11. 実機実行条件
 
@@ -186,6 +192,7 @@ Tidy status:
 - [x] hardware safety gate を削除対象にしない判断を記録した。
 - [x] env config parsing の testable boundary を作った。
 - [x] optional runtime override の未設定時 regression test を追加した。
-- [ ] diagnostic sink の未設定時 no-op を確認した。
+- [x] diagnostic trace sink の未設定時 no-op を確認した。
+- [ ] HCI dump / crash dump sink の未設定時 no-op と explicit path failure を確認した。
 - [x] code refactor 前後で同じ検証を実行した。
 - [x] 実機未実行理由を更新した。
