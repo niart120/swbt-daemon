@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "daemon/config.h"
 #include "daemon/runtime.h"
@@ -57,6 +58,13 @@ static int expect_eq_u16(uint16_t actual, uint16_t expected) {
 
 static int expect_eq_u32(uint32_t actual, uint32_t expected) {
     return actual == expected ? 0 : 1;
+}
+
+static int expect_str_eq(const char *actual, const char *expected) {
+    if (actual == NULL || expected == NULL) {
+        return actual == expected ? 0 : 1;
+    }
+    return strcmp(actual, expected) == 0 ? 0 : 1;
 }
 
 static void fake_backend_init(fake_backend_t *fake) {
@@ -432,6 +440,26 @@ static int default_config_uses_switch_facing_report_options(void) {
     return failed;
 }
 
+static int config_env_absent_uses_defaults(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    const swbt_daemon_config_t defaults = swbt_daemon_config_default();
+    const swbt_daemon_config_env_t env = {0};
+
+    int failed = 0;
+    failed += expect_true(swbt_daemon_config_apply_env(&config, &env));
+    failed += expect_eq_u32(config.report_period_us, defaults.report_period_us);
+    failed += expect_str_eq(config.ipc_host, defaults.ipc_host);
+    failed += expect_eq_u16(config.ipc_port, defaults.ipc_port);
+    failed += expect_eq_int(config.ipc_backlog, defaults.ipc_backlog);
+    failed += expect_eq_u32(config.ipc_heartbeat_timeout_ms,
+                            defaults.ipc_heartbeat_timeout_ms);
+    failed += expect_eq_u8(config.device_info.firmware_version[0],
+                           defaults.device_info.firmware_version[0]);
+    failed += expect_eq_u8(config.device_info.firmware_version[1],
+                           defaults.device_info.firmware_version[1]);
+    return failed;
+}
+
 static int config_applies_mizuyoukanao_pro_device_info_profile(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
 
@@ -458,6 +486,7 @@ static int config_rejects_unknown_device_info_profile(void) {
 int main(void) {
     int failed = 0;
     failed += default_config_uses_switch_facing_report_options();
+    failed += config_env_absent_uses_defaults();
     failed += config_applies_mizuyoukanao_pro_device_info_profile();
     failed += config_rejects_unknown_device_info_profile();
     failed += invalid_config_rejects_without_opening_backends();

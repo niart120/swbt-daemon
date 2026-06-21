@@ -23,7 +23,19 @@ typedef struct {
     swbt_switch_device_info_t device_info;
 } swbt_daemon_config_t;
 
+typedef struct {
+    const char *report_period_us;
+    const char *ipc_host;
+    const char *ipc_port;
+    const char *ipc_backlog;
+    const char *ipc_heartbeat_timeout_ms;
+    const char *device_info_profile;
+} swbt_daemon_config_env_t;
+
 swbt_daemon_config_t swbt_daemon_config_default(void);
+
+bool swbt_daemon_config_apply_env(swbt_daemon_config_t *config,
+                                  const swbt_daemon_config_env_t *env);
 
 bool swbt_daemon_config_apply_device_info_profile(swbt_daemon_config_t *config,
                                                   const char *profile);
