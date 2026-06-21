@@ -4,6 +4,7 @@
 #define SWBT_SWITCH_SPI_READ_REPLY_PREFIX_SIZE 5u
 #define SWBT_SWITCH_TRIGGER_BUTTONS_ELAPSED_REPLY_DATA_SIZE 14u
 #define SWBT_SWITCH_TRIGGER_BUTTONS_ELAPSED_PAIRING_HELD_TICKS 300u
+#define SWBT_SWITCH_MCU_CONFIG_REPLY_DATA_SIZE 34u
 
 static void swbt_switch_subcommand_dispatcher_reset_response(
     swbt_switch_subcommand_dispatcher_response_t *response) {
@@ -85,6 +86,22 @@ swbt_switch_subcommand_dispatcher_trigger_buttons_elapsed(
 
     return swbt_switch_subcommand_dispatcher_build_reply(
         config, response, SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_TRIGGER_BUTTONS_ELAPSED,
+        output_report->subcommand_id, reply_data, sizeof(reply_data));
+}
+
+static swbt_switch_subcommand_dispatch_result_t swbt_switch_subcommand_dispatcher_set_mcu_config(
+    const swbt_switch_subcommand_dispatcher_config_t *config,
+    const swbt_switch_output_report_t *output_report,
+    swbt_switch_subcommand_dispatcher_response_t *response) {
+    static const uint8_t reply_data[SWBT_SWITCH_MCU_CONFIG_REPLY_DATA_SIZE] = {
+        0x01u, 0x00u, 0xFFu, 0x00u, 0x08u, 0x00u, 0x1Bu, 0x01u, 0x00u,
+        0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
+        0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u,
+        0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0x00u, 0xC8u,
+    };
+
+    return swbt_switch_subcommand_dispatcher_build_reply(
+        config, response, SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_MCU_CONFIG,
         output_report->subcommand_id, reply_data, sizeof(reply_data));
 }
 
@@ -195,6 +212,8 @@ swbt_switch_subcommand_dispatch(const swbt_switch_subcommand_dispatcher_config_t
     case SWBT_SWITCH_SUBCOMMAND_TRIGGER_BUTTONS_ELAPSED:
         return swbt_switch_subcommand_dispatcher_trigger_buttons_elapsed(config, output_report,
                                                                          response);
+    case SWBT_SWITCH_SUBCOMMAND_SET_MCU_CONFIG:
+        return swbt_switch_subcommand_dispatcher_set_mcu_config(config, output_report, response);
     case SWBT_SWITCH_SUBCOMMAND_LOW_POWER_MODE:
     case SWBT_SWITCH_SUBCOMMAND_SET_REPORT_MODE:
     case SWBT_SWITCH_SUBCOMMAND_ENABLE_IMU:
