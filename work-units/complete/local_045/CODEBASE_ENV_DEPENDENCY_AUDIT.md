@@ -189,6 +189,13 @@ Tidy status:
 
 この時点では、optional runtime env 未設定時の default config、invalid numeric runtime env override、hardware approval env parser、diagnostic trace path optionality、HCI dump path optionality / explicit failure、device info profile env characterization、direct `just debug` host delegation、crash dump path optionality の 8 cycle を完了した。残る判断は deferred の no-op backend default policy と heartbeat timeout default policy だけであり、どちらも behavior / hardware 影響を伴うため、この work unit では実装しない。
 
+完了後の任意実機 smoke:
+
+- 2026-06-22 ユーザ承認後、`refactor/env-dependency-audit` branch at `ed6039bca3ac07667a1e10f43116e1897ee5a78d` で CSR8510 A10 / WinUSB / Switch2 `22.1.0` を使い、`8000 us` report loop と `swbt-debug-client` Button A 3 秒入力 + release を実行した。
+- `just windows-cross` pass。実機 run は `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`, diagnostic trace / HCI dump / crash dump path を明示して実行した。
+- 結果: HCI dump は `pairing complete, status 00` `1` 件、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件、BTstack `invalid size` `0` 件、`non-registered handle` `0` 件を記録した。`a1 30` input report は `441` 件で、neutral `13` 件、Button A `110` 件、release 後 neutral `318` 件の順に並んだ。client exit は `0`、daemon exit は `0`、cleanup は強制停止なし。
+- artifact: `tmp/hardware/local_037/20260622-003424-8000us-env-audit-smoke`。durable log は `docs/hardware-test-log.md` の `2026-06-22: local_045 env dependency audit 8000us Button A smoke on Switch2`。
+
 ## 11. 実機実行条件
 
 この work unit の初期監査と software refactor では実機は不要である。
@@ -196,6 +203,8 @@ Tidy status:
 理由: Bluetooth adapter open、Switch pairing、HID advertising、report loop を実行しない。hardware safety gate の regression は fake backend または software test で確認する。
 
 実機を必要とするのは、heartbeat timeout default の変更、report period default の変更、device info profile の正規化、または production backend 既定化のように Switch-facing behavior が変わる後続 work unit である。その場合は `hardware-harness` を使い、`SWBT_RUN_HARDWARE=1`、`SWBT_HARDWARE_APPROVED=1`、専用 USB Bluetooth dongle、WinUSB driver assignment、`docs/hardware-test-log.md` 記録を必要条件にする。
+
+2026-06-22 の完了後 smoke は、上記の対象外を変更するものではない。ユーザ承認のもとで現行 branch の実機起動と diagnostic path 明示時の動作を確認した限定 smoke であり、heartbeat timeout default、report period default、device info profile の正規化、production backend 既定化の判断は依然として後続 work unit の範囲である。
 
 ## 12. 先送り事項
 
@@ -222,6 +231,7 @@ Tidy status:
 - [x] crash dump sink の未設定時 no-op 判定を確認した。
 - [x] code refactor 前後で同じ検証を実行した。
 - [x] 実機未実行理由を更新した。
+- [x] 完了後の任意実機 smoke を `docs/hardware-test-log.md` に記録した。
 
 ## 14. 完了判定
 
@@ -229,8 +239,10 @@ complete。
 
 理由: 非実機で扱う環境変数依存の regression / characterization は 8 cycle で完了した。最終ゲートとして `scripts/check-format.sh`、`git diff --check`、`just build-debug`、`just test-debug`、`just windows-cross`、host PowerShell 入口の `just debug` を確認した。
 
-未実行: Windows crash dump の実書き込み、Bluetooth adapter open、Switch pairing、HID advertising、report loop。
+当初完了時点の未実行: Windows crash dump の実書き込み、Bluetooth adapter open、Switch pairing、HID advertising、report loop。
 
 未実行理由: Windows crash dump の実書き込みは意図的な process crash を伴うため、この software cleanup では compile gate と path predicate の unit test に限定した。Bluetooth / Switch-facing 動作はこの work unit の対象外であり、実行には `hardware-harness` とユーザ承認が必要である。
+
+完了後更新: 2026-06-22 にユーザ承認済みの限定 smoke として、Bluetooth adapter open、Switch pairing、HID advertising、`8000 us` report loop、Button A 入力 + release、cleanup を実行し、pass として `docs/hardware-test-log.md` に記録した。Windows crash dump の実書き込みは未実行のままである。
 
 deferred: no-op backend default policy、heartbeat timeout default policy、`SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro` の source-audited default 化は、behavior または hardware 影響を伴うため別 work unit で扱う。

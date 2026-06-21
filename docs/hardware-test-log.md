@@ -806,3 +806,25 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: daemon `tmp/hardware/local_037/20260621-221559-8000us-shutdown-neutral-postfix-rerun`
 - cleanup: pass by trace。startup trace は HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done、production runtime stop done まで到達した。PowerShell exit marker は `exit=0`、client marker は `client_exit=0`
 - notes: この entry は shutdown request が HCI power-off 前に Switch-facing neutral report を 1 件送ることを確認した実機観測である。HCI dump text には timestamp がないため、shutdown request から neutral report 送信までの時間は測定していない
+
+## 2026-06-22: local_045 env dependency audit 8000us Button A smoke on Switch2
+
+- OS: Microsoft Windows NT 10.0.26200.0
+- environment: Windows native PowerShell、swbt branch `refactor/env-dependency-audit`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Class `USBDevice`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: `ed6039bca3ac07667a1e10f43116e1897ee5a78d`
+- Switch firmware: Switch2 `22.1.0`
+- approval scope: ユーザ承認済み。CSR8510 A10、adapter open、HID advertising / connectable、Switch pairing、L2CAP 接続、`8000 us` report loop、`swbt-debug-client` による Button A 3 秒入力と release、HCI dump / diagnostic trace 保存、cleanup 確認
+- environment variables: daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: preflight として `just windows-cross` pass。PowerShell から `build/windows-mingw-debug/swbt-daemon.exe` を `CREATE_NEW_PROCESS_GROUP` 付きで起動し、HCI dump の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` が 2 件になるまで待った。その後 `build/windows-mingw-debug/swbt-debug-client.exe --port 37637 --button a --seq 9401 --hold-ms 3000` を実行した。client の release 後に `GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT)` で daemon の console control handler 経由の cleanup を要求した
+- result: Button A smoke pass。client log は `owner.present=true`、`owner_id=00000001`、`last_seq=9401`、`state.buttons=8`、`client_exit=0` を記録した。HCI dump では `pairing complete, status 00` `1` 件、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件、BTstack `invalid size` `0` 件、`non-registered handle` `0` 件だった。outgoing `a1 30` input report は `441` 件で、buttons は neutral `000000` が `331` 件、Button A `080000` が `110` 件だった。区間は neutral `13` 件、Button A `110` 件、release 後 neutral `318` 件の順に並んだ
+- daemon log: daemon stdout / stderr log は未作成。`SWBT_DIAGNOSTIC_TRACE_PATH` の startup trace と `SWBT_HCI_DUMP_TRACE_PATH` の HCI dump text を正本にする
+- artifact root: daemon `tmp/hardware/local_037/20260622-003424-8000us-env-audit-smoke`
+- cleanup: pass by trace。startup trace は `production: shutdown neutral send`、`production: shutdown neutral send ok`、HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done、production runtime stop done まで到達した。PowerShell exit marker は `exit=0`、`cleanup_forced=False`、client marker は `client_exit=0`。crash dump は作成されなかった
+- notes: この entry は `local_045` の環境変数依存監査後に、診断系 environment variable と実機 gate を明示した production run が現行 branch で実機接続と Button A / release まで進むことを確認した smoke である。Switch UI capture は今回取得していないため、画面遷移の根拠としては扱わない
