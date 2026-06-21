@@ -8,6 +8,7 @@ swbt_daemon_config_t swbt_daemon_config_default(void) {
         .ipc_host = SWBT_DAEMON_DEFAULT_IPC_HOST,
         .ipc_port = SWBT_DAEMON_DEFAULT_IPC_PORT,
         .ipc_backlog = SWBT_DAEMON_DEFAULT_IPC_BACKLOG,
+        .ipc_heartbeat_timeout_ms = SWBT_DAEMON_DEFAULT_IPC_HEARTBEAT_TIMEOUT_MS,
         .report_options =
             {
                 .battery_connection = 0x8Eu,

@@ -480,6 +480,7 @@ static int report_period_and_ipc_config_are_exposed(void) {
     config.ipc_host = "127.0.0.1";
     config.ipc_port = 34567u;
     config.ipc_backlog = 2;
+    config.ipc_heartbeat_timeout_ms = 1234u;
 
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &ops, &fake),
@@ -490,6 +491,8 @@ static int report_period_and_ipc_config_are_exposed(void) {
     failed += expect_true(ipc_config.host == config.ipc_host, "ipc host");
     failed += expect_eq_u16(ipc_config.port, 34567u, "ipc port");
     failed += expect_eq_int(ipc_config.backlog, 2, "ipc backlog");
+    failed += expect_eq_int((int)ipc_config.heartbeat_timeout_ms, 1234,
+                            "ipc heartbeat timeout");
     return failed;
 }
 

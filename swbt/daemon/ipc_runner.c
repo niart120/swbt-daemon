@@ -47,6 +47,7 @@ swbt_daemon_ipc_runner_config_from_daemon_config(const swbt_daemon_config_t *con
         .host = config->ipc_host,
         .port = config->ipc_port,
         .backlog = config->ipc_backlog,
+        .heartbeat_timeout_ms = config->ipc_heartbeat_timeout_ms,
     };
 }
 
@@ -64,6 +65,7 @@ swbt_daemon_ipc_runner_result_t swbt_daemon_ipc_runner_init(swbt_daemon_ipc_runn
         .host = SWBT_DAEMON_DEFAULT_IPC_HOST,
         .port = SWBT_DAEMON_DEFAULT_IPC_PORT,
         .backlog = SWBT_DAEMON_DEFAULT_IPC_BACKLOG,
+        .heartbeat_timeout_ms = SWBT_DAEMON_DEFAULT_IPC_HEARTBEAT_TIMEOUT_MS,
     };
     swbt_daemon_ipc_runner_clear_endpoint(runner);
     runner->initialized = true;
@@ -113,7 +115,8 @@ swbt_daemon_ipc_runner_endpoint(const swbt_daemon_ipc_runner_t *runner,
     return SWBT_DAEMON_IPC_RUNNER_OK;
 }
 
-swbt_daemon_ipc_runner_result_t swbt_daemon_ipc_runner_accept(swbt_daemon_ipc_runner_t *runner) {
+static swbt_daemon_ipc_runner_result_t
+swbt_daemon_ipc_runner_accept_at(swbt_daemon_ipc_runner_t *runner, uint64_t now_ms) {
     swbt_ipc_server_result_t result;
 
     if (runner == NULL || !runner->running) {
@@ -128,8 +131,17 @@ swbt_daemon_ipc_runner_result_t swbt_daemon_ipc_runner_accept(swbt_daemon_ipc_ru
         return swbt_daemon_ipc_runner_map_server_result(result);
     }
 
+    swbt_ipc_connection_configure_heartbeat(&runner->connection,
+                                            (swbt_ipc_heartbeat_config_t){
+                                                .now_ms = now_ms,
+                                                .timeout_ms = runner->config.heartbeat_timeout_ms,
+                                            });
     runner->has_connection = true;
     return SWBT_DAEMON_IPC_RUNNER_OK;
+}
+
+swbt_daemon_ipc_runner_result_t swbt_daemon_ipc_runner_accept(swbt_daemon_ipc_runner_t *runner) {
+    return swbt_daemon_ipc_runner_accept_at(runner, 0u);
 }
 
 swbt_daemon_ipc_runner_result_t
@@ -151,7 +163,41 @@ swbt_daemon_ipc_runner_serve_connection_once(swbt_daemon_ipc_runner_t *runner) {
     return swbt_daemon_ipc_runner_map_server_result(result);
 }
 
-swbt_daemon_ipc_runner_result_t swbt_daemon_ipc_runner_poll_once(swbt_daemon_ipc_runner_t *runner) {
+static swbt_daemon_ipc_runner_result_t
+swbt_daemon_ipc_runner_serve_connection_once_at(swbt_daemon_ipc_runner_t *runner,
+                                                uint64_t now_ms) {
+    swbt_ipc_server_result_t result;
+
+    if (runner == NULL || !runner->running) {
+        return SWBT_DAEMON_IPC_RUNNER_ERROR_NOT_RUNNING;
+    }
+    if (!runner->has_connection) {
+        return SWBT_DAEMON_IPC_RUNNER_ERROR_INVALID_ARGUMENT;
+    }
+
+    result = swbt_ipc_server_serve_connection_once_at(&runner->server, &runner->connection,
+                                                      now_ms);
+    if (result == SWBT_IPC_SERVER_ERROR_DISCONNECTED) {
+        swbt_ipc_connection_close(&runner->connection);
+        runner->has_connection = false;
+    }
+    return swbt_daemon_ipc_runner_map_server_result(result);
+}
+
+static swbt_daemon_ipc_runner_result_t
+swbt_daemon_ipc_runner_check_heartbeat(swbt_daemon_ipc_runner_t *runner, uint64_t now_ms) {
+    const swbt_ipc_server_result_t result =
+        swbt_ipc_server_check_heartbeat(&runner->server, &runner->connection, now_ms);
+    if (result == SWBT_IPC_SERVER_ERROR_HEARTBEAT_TIMEOUT) {
+        swbt_ipc_connection_close(&runner->connection);
+        runner->has_connection = false;
+        return SWBT_DAEMON_IPC_RUNNER_OK;
+    }
+    return swbt_daemon_ipc_runner_map_server_result(result);
+}
+
+swbt_daemon_ipc_runner_result_t
+swbt_daemon_ipc_runner_poll_once_at(swbt_daemon_ipc_runner_t *runner, uint64_t now_ms) {
     bool pending = false;
     swbt_ipc_server_result_t result;
 
@@ -167,7 +213,7 @@ swbt_daemon_ipc_runner_result_t swbt_daemon_ipc_runner_poll_once(swbt_daemon_ipc
         if (!pending) {
             return SWBT_DAEMON_IPC_RUNNER_OK;
         }
-        return swbt_daemon_ipc_runner_accept(runner);
+        return swbt_daemon_ipc_runner_accept_at(runner, now_ms);
     }
 
     result = swbt_ipc_connection_has_pending_data(&runner->connection, &pending);
@@ -175,10 +221,14 @@ swbt_daemon_ipc_runner_result_t swbt_daemon_ipc_runner_poll_once(swbt_daemon_ipc
         return swbt_daemon_ipc_runner_map_server_result(result);
     }
     if (!pending) {
-        return SWBT_DAEMON_IPC_RUNNER_OK;
+        return swbt_daemon_ipc_runner_check_heartbeat(runner, now_ms);
     }
 
-    return swbt_daemon_ipc_runner_serve_connection_once(runner);
+    return swbt_daemon_ipc_runner_serve_connection_once_at(runner, now_ms);
+}
+
+swbt_daemon_ipc_runner_result_t swbt_daemon_ipc_runner_poll_once(swbt_daemon_ipc_runner_t *runner) {
+    return swbt_daemon_ipc_runner_poll_once_at(runner, 0u);
 }
 
 void swbt_daemon_ipc_runner_stop(swbt_daemon_ipc_runner_t *runner) {

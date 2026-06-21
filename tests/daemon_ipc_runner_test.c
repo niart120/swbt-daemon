@@ -45,6 +45,7 @@ static swbt_daemon_ipc_runner_config_t loopback_port_zero_config(void) {
         .host = "127.0.0.1",
         .port = 0u,
         .backlog = 1,
+        .heartbeat_timeout_ms = 0u,
     };
 }
 
@@ -254,6 +255,77 @@ static int test_stop_closes_connection_and_stores_neutral(void) {
     return failed;
 }
 
+static int test_poll_once_at_heartbeat_timeout_stores_neutral(void) {
+    swbt_daemon_ipc_runner_t runner;
+    swbt_ipc_session_t session;
+    swbt_state_mailbox_t mailbox;
+    swbt_state_mailbox_snapshot_t snapshot;
+    swbt_daemon_ipc_endpoint_t endpoint;
+    swbt_ipc_socket_t client;
+    swbt_state_t state = swbt_state_neutral();
+    char owner_id[9];
+    char response[SWBT_IPC_JSON_RESPONSE_MAX];
+    swbt_daemon_ipc_runner_config_t config = loopback_port_zero_config();
+
+    int failed = 0;
+    config.heartbeat_timeout_ms = 100u;
+
+    failed += init_bound_session(&session, &mailbox);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, &session, &config),
+                            SWBT_DAEMON_IPC_RUNNER_OK);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_endpoint(&runner, &endpoint),
+                            SWBT_DAEMON_IPC_RUNNER_OK);
+
+    swbt_ipc_socket_init(&client);
+    failed +=
+        expect_eq_int(swbt_ipc_socket_connect_loopback(&client, endpoint.port), SWBT_IPC_SERVER_OK);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_poll_once_at(&runner, 1000u),
+                            SWBT_DAEMON_IPC_RUNNER_OK);
+    failed += expect_true(swbt_daemon_ipc_runner_has_connection(&runner));
+
+    failed += expect_eq_int(swbt_debug_client_send_hello(&client), 0);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_poll_once_at(&runner, 1010u),
+                            SWBT_DAEMON_IPC_RUNNER_OK);
+    failed +=
+        expect_eq_int(swbt_debug_client_receive_response(&client, response, sizeof(response)), 0);
+
+    failed += expect_eq_int(swbt_debug_client_send_acquire(&client), 0);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_poll_once_at(&runner, 1020u),
+                            SWBT_DAEMON_IPC_RUNNER_OK);
+    failed +=
+        expect_eq_int(swbt_debug_client_receive_response(&client, response, sizeof(response)), 0);
+    failed += expect_eq_int(
+        swbt_debug_client_response_string(response, "owner_id", owner_id, sizeof(owner_id)), 0);
+
+    state.buttons = SWBT_BUTTON_A;
+    state.client_seq = 9u;
+    failed += expect_eq_int(swbt_debug_client_send_set_state(&client, owner_id, &state), 0);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_poll_once_at(&runner, 1050u),
+                            SWBT_DAEMON_IPC_RUNNER_OK);
+    failed +=
+        expect_eq_int(swbt_debug_client_receive_response(&client, response, sizeof(response)), 0);
+    failed += expect_eq_int(swbt_state_mailbox_load(&mailbox, &snapshot), SWBT_STATE_MAILBOX_OK);
+    failed += expect_eq_u32(snapshot.state.buttons, SWBT_BUTTON_A);
+
+    failed += expect_eq_int(swbt_daemon_ipc_runner_poll_once_at(&runner, 1149u),
+                            SWBT_DAEMON_IPC_RUNNER_OK);
+    failed += expect_true(swbt_daemon_ipc_runner_has_connection(&runner));
+    failed += expect_eq_int(swbt_state_mailbox_load(&mailbox, &snapshot), SWBT_STATE_MAILBOX_OK);
+    failed += expect_eq_u32(snapshot.state.buttons, SWBT_BUTTON_A);
+
+    failed += expect_eq_int(swbt_daemon_ipc_runner_poll_once_at(&runner, 1150u),
+                            SWBT_DAEMON_IPC_RUNNER_OK);
+    failed += expect_false(swbt_daemon_ipc_runner_has_connection(&runner));
+    failed += expect_eq_int(swbt_state_mailbox_load(&mailbox, &snapshot), SWBT_STATE_MAILBOX_OK);
+    failed += expect_eq_u32(snapshot.state.buttons, 0u);
+    failed += expect_eq_u16(snapshot.state.lx, 2048u);
+
+    swbt_ipc_socket_close(&client);
+    swbt_daemon_ipc_runner_stop(&runner);
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += test_rejects_non_loopback_bind();
@@ -261,5 +333,6 @@ int main(void) {
     failed += test_poll_once_accepts_and_serves_when_ready();
     failed += test_debug_client_sequence_updates_mailbox();
     failed += test_stop_closes_connection_and_stores_neutral();
+    failed += test_poll_once_at_heartbeat_timeout_stores_neutral();
     return failed == 0 ? 0 : 1;
 }

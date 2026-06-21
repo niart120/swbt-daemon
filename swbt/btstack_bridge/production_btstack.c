@@ -42,7 +42,7 @@ static void swbt_btstack_production_ipc_pump_timer_handler(btstack_timer_source_
 
     g_swbt_btstack_production_ipc_pump_timer_pending = false;
     if (runner != NULL && swbt_daemon_ipc_runner_is_running(runner)) {
-        (void)swbt_daemon_ipc_runner_poll_once(runner);
+        (void)swbt_daemon_ipc_runner_poll_once_at(runner, btstack_run_loop_get_time_ms());
     }
     swbt_btstack_production_ipc_pump_schedule();
 }
