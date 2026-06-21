@@ -649,3 +649,72 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: daemon `tmp/hardware/local_037/20260621-201840-8000us-nfc-mcu-a-followup-rerun`、NyXPy `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T201845_e709`
 - cleanup: pass by trace。startup trace は HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done、production runtime stop done まで到達した。NyXPy artifact は cleanup `release_sent=true` と socket close を記録した
 - notes: `0x21` NFC/IR MCU config reply は Switch2 22.1.0 / CSR8510 A10 の今回条件で `0x21` 反復を解消した。`0x30` subcommand、Button A の `a1 30` report、capture の画面遷移から、Switch UI 上の IPC input 反映は pass と扱う。NFC/IR semantic state は未実装であり、この結果は pairing / controller setup sequence を進める ACK / payload の確認である。残件は report period comparison、owner disconnect / heartbeat timeout の neutral fail-safe、bonded reconnect persistence である
+
+## 2026-06-21: local_037 CSR8510 A10 8333us report period NyXPy Button A rerun on Switch2
+
+- OS: Microsoft Windows NT 10.0.26200.0
+- environment: Windows native PowerShell、swbt branch `local-037-hardware-verification`、Project NyX branch `feat/swbt-hardware-bringup-macro`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Service `WinUSB`、Class `USBDevice`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: branch `local-037-hardware-verification` at `493235e`; daemon code for `0x21` reply was introduced by `19c6c75`
+- Switch firmware: Switch2 `22.1.0`
+- approval scope: ユーザ承認済み。CSR8510 A10、`SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`、HCI dump text 付き、`8333 us` report period、Switch2 controller pairing 画面での NyXPy Button A 入力反映確認、手動停止 cleanup 確認。NyXPy 操作はユーザが実行した
+- environment variables: daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8333`, `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8333 us`
+- command / procedure: foreground PowerShell で `build/windows-mingw-debug/swbt-daemon.exe` を直接起動し、Project NyX 側で `swbt_hardware_bringup` macro の `held_input_probe` を notes `report_period_8333us_rerun`、`probe_states=button_a` で実行した。daemon artifact は `tmp/hardware/local_037/20260621-203339-8333us-report-period-rerun`。NyXPy artifact は `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T203401_7b18`
+- result: Switch2 側の画面遷移をユーザが観測した。daemon startup trace は `btstack: ipc pump start ok`、`hid_registration: ok`、`btstack: hci power on ok`、手動停止後の `production: runtime stop done` まで到達した。HCI dump では `pairing complete, status 00`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件、BTstack `invalid size` `0` 件、`non-registered handle` `0` 件だった。Switch 側からの `a2 01` subcommand は `0x02` が `1` 件、`0x08` が `1` 件、`0x10` が `8` 件、`0x03` が `1` 件、`0x04` が `1` 件、`0x40` が `1` 件、`0x48` が `1` 件、`0x21` が `1` 件、`0x30` が `2` 件だった。outgoing `a1 21` replies は `82/02` `1` 件、`80/08` `1` 件、`90/10` `8` 件、`80/03` `1` 件、`83/04` `1` 件、`80/40` `1` 件、`80/48` `1` 件、`a0/21` `1` 件、`80/30` `2` 件だった。outgoing `a1 30` input report は `4191` 件で、buttons は neutral `4045` 件、L+R `0x400040` `63` 件、Button A `0x000008` `83` 件だった
+- NyXPy result: `run_context.json` は scenario `held_input_probe`、step count `7`、notes `report_period_8333us_rerun`、probe states `button_a` を記録した。`ipc_session.json` は L+R `state_accepted`、L+R neutral `state_accepted`、Button A `state_accepted`、Button A neutral `state_accepted`、cleanup `release_sent=true`、`socket_closed=true`、`command_release_called=true` を記録した
+- daemon log: daemon stdout / stderr log は未作成。`SWBT_DIAGNOSTIC_TRACE_PATH` の startup trace と `SWBT_HCI_DUMP_TRACE_PATH` の HCI dump text を正本にする
+- artifact root: daemon `tmp/hardware/local_037/20260621-203339-8333us-report-period-rerun`、NyXPy `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T203401_7b18`
+- cleanup: pass by trace。startup trace は HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done、production runtime stop done まで到達した。NyXPy artifact は cleanup `release_sent=true` と socket close を記録した
+- notes: `8333 us` は今回条件で controller setup sequence、subcommand replies、NyXPy state acceptance、Switch UI 画面遷移まで pass と扱う。ただし、この entry は画面遷移を基準にした粗い受理確認であり、report jitter、入力遅延、取りこぼし率の厳密な測定ではない
+
+## 2026-06-21: local_037 CSR8510 A10 15000us report period NyXPy Button A rerun on Switch2
+
+- OS: Microsoft Windows NT 10.0.26200.0
+- environment: Windows native PowerShell、swbt branch `local-037-hardware-verification`、Project NyX branch `feat/swbt-hardware-bringup-macro`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Service `WinUSB`、Class `USBDevice`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: branch `local-037-hardware-verification` at `493235e`; daemon code for `0x21` reply was introduced by `19c6c75`
+- Switch firmware: Switch2 `22.1.0`
+- approval scope: ユーザ承認済み。CSR8510 A10、`SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`、HCI dump text 付き、`15000 us` report period、Switch2 controller pairing 画面での NyXPy Button A 入力反映確認、手動停止 cleanup 確認。NyXPy 操作はユーザが実行した
+- environment variables: daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=15000`, `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `15000 us`
+- command / procedure: foreground PowerShell で `build/windows-mingw-debug/swbt-daemon.exe` を直接起動し、Project NyX 側で `swbt_hardware_bringup` macro の `held_input_probe` を notes `report_period_15000us_rerun`、`probe_states=button_a` で実行した。daemon artifact は `tmp/hardware/local_037/20260621-203531-15000us-report-period-rerun`。NyXPy artifact は `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T203538_6d57`
+- result: Switch2 側の画面遷移をユーザが観測した。daemon startup trace は `btstack: ipc pump start ok`、`hid_registration: ok`、`btstack: hci power on ok`、手動停止後の `production: runtime stop done` まで到達した。HCI dump では `pairing complete, status 00`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件、BTstack `invalid size` `0` 件、`non-registered handle` `0` 件だった。Switch 側からの `a2 01` subcommand は `0x02` が `1` 件、`0x08` が `1` 件、`0x10` が `8` 件、`0x03` が `1` 件、`0x04` が `1` 件、`0x40` が `1` 件、`0x48` が `1` 件、`0x21` が `1` 件、`0x30` が `2` 件だった。outgoing `a1 21` replies は `82/02` `1` 件、`80/08` `1` 件、`90/10` `8` 件、`80/03` `1` 件、`83/04` `1` 件、`80/40` `1` 件、`80/48` `1` 件、`a0/21` `1` 件、`80/30` `2` 件だった。outgoing `a1 30` input report は `2181` 件で、buttons は neutral `2052` 件、L+R `0x400040` `62` 件、Button A `0x000008` `67` 件だった
+- NyXPy result: `run_context.json` は scenario `held_input_probe`、step count `7`、notes `report_period_15000us_rerun`、probe states `button_a` を記録した。`ipc_session.json` は L+R `state_accepted`、L+R neutral `state_accepted`、Button A `state_accepted`、Button A neutral `state_accepted`、cleanup `release_sent=true`、`socket_closed=true`、`command_release_called=true` を記録した
+- daemon log: daemon stdout / stderr log は未作成。`SWBT_DIAGNOSTIC_TRACE_PATH` の startup trace と `SWBT_HCI_DUMP_TRACE_PATH` の HCI dump text を正本にする
+- artifact root: daemon `tmp/hardware/local_037/20260621-203531-15000us-report-period-rerun`、NyXPy `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T203538_6d57`
+- cleanup: pass by trace。startup trace は HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done、production runtime stop done まで到達した。NyXPy artifact は cleanup `release_sent=true` と socket close を記録した
+- notes: `15000 us` は今回条件で controller setup sequence、subcommand replies、NyXPy state acceptance、Switch UI 画面遷移まで pass と扱う。ただし、この entry は画面遷移を基準にした粗い受理確認であり、report jitter、入力遅延、取りこぼし率の厳密な測定ではない
+
+## 2026-06-21: local_037 CSR8510 A10 16667us report period NyXPy Button A rerun on Switch2
+
+- OS: Microsoft Windows NT 10.0.26200.0
+- environment: Windows native PowerShell、swbt branch `local-037-hardware-verification`、Project NyX branch `feat/swbt-hardware-bringup-macro`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Service `WinUSB`、Class `USBDevice`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: branch `local-037-hardware-verification` at `493235e`; daemon code for `0x21` reply was introduced by `19c6c75`
+- Switch firmware: Switch2 `22.1.0`
+- approval scope: ユーザ承認済み。CSR8510 A10、`SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`、HCI dump text 付き、`16667 us` report period、Switch2 controller pairing 画面での NyXPy Button A 入力反映確認、手動停止 cleanup 確認。NyXPy 操作はユーザが実行した
+- environment variables: daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=16667`, `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `16667 us`
+- command / procedure: foreground PowerShell で `build/windows-mingw-debug/swbt-daemon.exe` を直接起動し、Project NyX 側で `swbt_hardware_bringup` macro の `held_input_probe` を notes `report_period_16667us_rerun`、`probe_states=button_a` で実行した。daemon artifact は `tmp/hardware/local_037/20260621-203753-16667us-report-period-rerun`。NyXPy artifact は `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T203807_b671`
+- result: Switch2 側の画面遷移をユーザが観測した。daemon startup trace は `btstack: ipc pump start ok`、`hid_registration: ok`、`btstack: hci power on ok`、手動停止後の `production: runtime stop done` まで到達した。HCI dump では `pairing complete, status 00`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件、BTstack `invalid size` `0` 件、`non-registered handle` `0` 件だった。Switch 側からの `a2 01` subcommand は `0x02` が `1` 件、`0x08` が `1` 件、`0x10` が `8` 件、`0x03` が `1` 件、`0x04` が `1` 件、`0x40` が `1` 件、`0x48` が `1` 件、`0x21` が `1` 件、`0x30` が `2` 件だった。outgoing `a1 21` replies は `82/02` `1` 件、`80/08` `1` 件、`90/10` `8` 件、`80/03` `1` 件、`83/04` `1` 件、`80/40` `1` 件、`80/48` `1` 件、`a0/21` `1` 件、`80/30` `2` 件だった。outgoing `a1 30` input report は `1678` 件で、buttons は neutral `1556` 件、L+R `0x400040` `61` 件、Button A `0x000008` `61` 件だった
+- NyXPy result: `run_context.json` は scenario `held_input_probe`、step count `7`、notes `report_period_16667us_rerun`、probe states `button_a` を記録した。`ipc_session.json` は L+R `state_accepted`、L+R neutral `state_accepted`、Button A `state_accepted`、Button A neutral `state_accepted`、cleanup `release_sent=true`、`socket_closed=true`、`command_release_called=true` を記録した
+- daemon log: daemon stdout / stderr log は未作成。`SWBT_DIAGNOSTIC_TRACE_PATH` の startup trace と `SWBT_HCI_DUMP_TRACE_PATH` の HCI dump text を正本にする
+- artifact root: daemon `tmp/hardware/local_037/20260621-203753-16667us-report-period-rerun`、NyXPy `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T203807_b671`
+- cleanup: pass by trace。startup trace は HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done、production runtime stop done まで到達した。NyXPy artifact は cleanup `release_sent=true` と socket close を記録した
+- notes: `16667 us` は今回条件で controller setup sequence、subcommand replies、NyXPy state acceptance、Switch UI 画面遷移まで pass と扱う。ただし、この entry は画面遷移を基準にした粗い受理確認であり、report jitter、入力遅延、取りこぼし率の厳密な測定ではない
