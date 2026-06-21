@@ -112,10 +112,6 @@ static const swbt_daemon_shutdown_listener_t *swbt_daemon_process_shutdown_liste
 }
 #endif
 
-static bool swbt_daemon_env_is_enabled(const char *value) {
-    return value != NULL && strcmp(value, "1") == 0;
-}
-
 static bool swbt_daemon_apply_env_config(swbt_daemon_config_t *config) {
     const swbt_daemon_config_env_t env = {
         .report_period_us = getenv("SWBT_REPORT_PERIOD_US"),
@@ -129,12 +125,19 @@ static bool swbt_daemon_apply_env_config(swbt_daemon_config_t *config) {
     return swbt_daemon_config_apply_env(config, &env);
 }
 
+static swbt_daemon_hardware_approval_t swbt_daemon_hardware_approval_from_process_env(void) {
+    const swbt_daemon_hardware_approval_env_t env = {
+        .run_hardware = getenv("SWBT_RUN_HARDWARE"),
+        .hardware_approved = getenv("SWBT_HARDWARE_APPROVED"),
+    };
+
+    return swbt_daemon_hardware_approval_from_env(&env);
+}
+
 static int swbt_daemon_run_production(const swbt_daemon_config_t *config) {
     swbt_daemon_production_backend_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = swbt_daemon_env_is_enabled(getenv("SWBT_RUN_HARDWARE")),
-        .hardware_approved = swbt_daemon_env_is_enabled(getenv("SWBT_HARDWARE_APPROVED")),
-    };
+    const swbt_daemon_hardware_approval_t approval =
+        swbt_daemon_hardware_approval_from_process_env();
 
     swbt_diagnostic_trace("production: backend init");
     if (swbt_daemon_production_backend_init(&backend, config, swbt_btstack_production_backend_ops(),

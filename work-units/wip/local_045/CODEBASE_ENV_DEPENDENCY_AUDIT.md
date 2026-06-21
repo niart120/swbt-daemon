@@ -125,7 +125,7 @@ Tidy status:
 |---|---|---|---|---|
 | refactor-done | daemon config uses defaults when optional runtime environment variables are absent | regression | unit | no |
 | refactor-done | invalid numeric runtime environment override fails startup config without partially mutating the existing config | edge | unit | no |
-| todo | production hardware mode rejects before IPC runner, BTstack platform, or HCI power-on when approval environment is absent | regression | integration | no |
+| refactor-done | production hardware mode rejects before IPC runner, BTstack platform, or HCI power-on when approval environment is absent | regression | integration | no |
 | refactor-done | diagnostic trace path is optional and missing path does not create output or affect normal execution | regression | unit | no |
 | refactor-done | HCI dump path is optional, but explicit dump path open failure is reported as startup failure before hardware observation is trusted | edge | unit/integration | no |
 | todo | `SWBT_DEVICE_INFO_PROFILE` missing keeps default device info and unknown profile is rejected | regression | unit | no |
@@ -167,8 +167,14 @@ Tidy status:
 - targeted: `CTEST_ARGS='-R btstack_production_hci_dump_test --output-on-failure' just test-debug` pass。
 - refactor: `scripts/format.sh` pass。追加の構造変更は行わず、HCI dump path helper と production test target の追加に閉じた。
 - refactor verification: `scripts/check-format.sh` pass、`git diff --check` pass、`just build-debug` pass（no work to do）、`just test-debug` pass（32/32）、`just windows-cross` pass。
+- red: hardware approval env parser item。`just build-debug` failed as expected。`tests/daemon_production_backend_test.c` が `swbt_daemon_hardware_approval_from_env` を参照し、`undefined reference to swbt_daemon_hardware_approval_from_env` で link failure。
+- green: `swbt_daemon_hardware_approval_from_env` を追加し、`SWBT_RUN_HARDWARE` と `SWBT_HARDWARE_APPROVED` の文字列解釈を production backend layer で testable にした。`main.c` は process env を集めて helper へ渡す構造にした。両方が `"1"` のときだけ承認され、それ以外は承認されないことを test で固定した。
+- green build: `just build-debug` pass。
+- targeted: `CTEST_ARGS='-R daemon_production_backend_test --output-on-failure' just test-debug` pass。
+- refactor: `scripts/format.sh` pass。追加の構造変更は行わず、hardware approval env parser の移動に閉じた。
+- refactor verification: `scripts/check-format.sh` pass、`git diff --check` pass、`just build-debug` pass（no work to do）、`just test-debug` pass（32/32）、`just windows-cross` pass。
 
-この時点では、optional runtime env 未設定時の default config、invalid numeric runtime env override、diagnostic trace path optionality、HCI dump path optionality / explicit failure の 4 cycle を完了した。crash dump path、tooling gate の regression test は未完了である。
+この時点では、optional runtime env 未設定時の default config、invalid numeric runtime env override、hardware approval env parser、diagnostic trace path optionality、HCI dump path optionality / explicit failure の 5 cycle を完了した。crash dump path、tooling gate の regression test は未完了である。
 
 ## 11. 実機実行条件
 
