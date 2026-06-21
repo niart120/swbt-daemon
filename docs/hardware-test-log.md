@@ -762,3 +762,25 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: daemon `tmp/hardware/local_037/20260621-213315-8000us-heartbeat-timeout-rerun`
 - cleanup: pass by trace。startup trace は HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done、production runtime stop done まで到達した。PowerShell exit marker は `exit=0`
 - notes: client は `--hold-ms 3000 --skip-release` で owner socket を保持したまま release を送らない。Button A report は `80` 件で終わり、その後 neutral report が `825` 件続いたため、owner socket close ではなく `SWBT_IPC_HEARTBEAT_TIMEOUT_MS=1000` による neutralization と扱う。ただし HCI dump text は timestamp を持たないため、timeout が厳密に 1000 ms で発火したことはこの entry では測定していない
+
+## 2026-06-21: local_037 CSR8510 A10 8000us shutdown while Button A owner is held on Switch2
+
+- OS: Microsoft Windows NT 10.0.26200.0
+- environment: Windows native PowerShell、swbt branch `local-037-hardware-verification`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Service `WinUSB`、Class `USBDevice`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: branch `local-037-hardware-verification` at `29434b2`
+- Switch firmware: Switch2 `22.1.0`
+- approval scope: ユーザ承認済み。CSR8510 A10、`SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`、`SWBT_IPC_HEARTBEAT_TIMEOUT_MS=0`、HCI dump text 付き、`8000 us` report period、`swbt-debug-client` による Button A held owner 中の daemon shutdown neutral fail-safe 確認、手動 `Ctrl+C` cleanup 確認
+- environment variables: daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`, `SWBT_IPC_HEARTBEAT_TIMEOUT_MS=0`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: foreground PowerShell で `build/windows-mingw-debug/swbt-daemon.exe` を直接起動し、別 PowerShell で HCI dump の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` が `2` 件になるまで待ってから、`build/windows-mingw-debug/swbt-debug-client.exe --port 37637 --button a --seq 9204 --hold-ms 60000 --skip-release` を実行した。status JSON 表示後、client の `hold-ms` が尽きる前に daemon を手動 `Ctrl+C` で停止した。client stdout は表示優先のため artifact には保存せず、`shutdown-neutral-client.log` は `client_exit=0` だけを記録した
+- result: shutdown 中の Switch-facing neutral report は未達。HCI dump では `pairing complete, status 00`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件、BTstack `invalid size` `0` 件だった。`non-registered handle` は pairing 前に `1` 件あるが、current connection は継続した。outgoing `a1 30` input report は `1094` 件で、buttons は neutral `000000` が `696` 件、Button A `080000` が `398` 件だった。区間は neutral `696` 件、Button A `398` 件で、Button A の次の行が `hci_power_control: 0` だった。shutdown 前または shutdown 中の trailing neutral `000000` report は観測されなかった
+- daemon log: daemon stdout / stderr log は未作成。`SWBT_DIAGNOSTIC_TRACE_PATH` の startup trace と `SWBT_HCI_DUMP_TRACE_PATH` の HCI dump text を正本にする
+- artifact root: daemon `tmp/hardware/local_037/20260621-215647-8000us-shutdown-neutral-rerun`
+- cleanup: pass by trace。startup trace は HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done、production runtime stop done まで到達した。PowerShell exit marker は `exit=0`
+- notes: `swbt_daemon_runtime_stop` は内部 state を neutral に戻すが、production shutdown request は先に HCI power-off と run loop exit を進める。今回の HCI dump では Button A report の直後に HCI power-off に入っており、Switch-facing neutral report を送れていない。shutdown cleanup は正常だが、非 neutral owner が残る shutdown fail-safe は Switch-facing behavior として未達である
