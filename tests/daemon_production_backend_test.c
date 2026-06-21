@@ -355,7 +355,8 @@ static int hardware_approval_env_requires_both_flags(void) {
     approval = swbt_daemon_hardware_approval_from_env(&non_exact);
     failed += expect_true(!swbt_daemon_hardware_approval_is_granted(&approval), "non exact denied");
     approval = swbt_daemon_hardware_approval_from_env(&approved);
-    failed += expect_true(swbt_daemon_hardware_approval_is_granted(&approval), "both flags granted");
+    failed +=
+        expect_true(swbt_daemon_hardware_approval_is_granted(&approval), "both flags granted");
     return failed;
 }
 

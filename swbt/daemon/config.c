@@ -77,8 +77,7 @@ bool swbt_daemon_config_apply_env(swbt_daemon_config_t *config,
         return false;
     }
     if (env->ipc_heartbeat_timeout_ms != NULL &&
-        !swbt_daemon_parse_u32(env->ipc_heartbeat_timeout_ms,
-                               &next.ipc_heartbeat_timeout_ms)) {
+        !swbt_daemon_parse_u32(env->ipc_heartbeat_timeout_ms, &next.ipc_heartbeat_timeout_ms)) {
         return false;
     }
     if (!swbt_daemon_config_apply_device_info_profile(&next, env->device_info_profile)) {

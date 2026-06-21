@@ -74,8 +74,7 @@ static int expect_config_eq(const swbt_daemon_config_t *actual,
     failed += expect_str_eq(actual->ipc_host, expected->ipc_host);
     failed += expect_eq_u16(actual->ipc_port, expected->ipc_port);
     failed += expect_eq_int(actual->ipc_backlog, expected->ipc_backlog);
-    failed += expect_eq_u32(actual->ipc_heartbeat_timeout_ms,
-                            expected->ipc_heartbeat_timeout_ms);
+    failed += expect_eq_u32(actual->ipc_heartbeat_timeout_ms, expected->ipc_heartbeat_timeout_ms);
     failed += expect_eq_u8(actual->report_options.battery_connection,
                            expected->report_options.battery_connection);
     failed += expect_eq_u8(actual->report_options.vibrator_report,
@@ -84,7 +83,8 @@ static int expect_config_eq(const swbt_daemon_config_t *actual,
                            expected->device_info.firmware_version[0]);
     failed += expect_eq_u8(actual->device_info.firmware_version[1],
                            expected->device_info.firmware_version[1]);
-    failed += expect_eq_u8(actual->device_info.controller_type, expected->device_info.controller_type);
+    failed +=
+        expect_eq_u8(actual->device_info.controller_type, expected->device_info.controller_type);
     failed += expect_eq_u8(actual->device_info.tail_unknown, expected->device_info.tail_unknown);
     failed += expect_eq_u8(actual->device_info.color_source, expected->device_info.color_source);
     return failed;

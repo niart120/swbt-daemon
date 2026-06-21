@@ -326,8 +326,7 @@ swbt_daemon_hardware_approval_from_env(const swbt_daemon_hardware_approval_env_t
 
     return (swbt_daemon_hardware_approval_t){
         .run_hardware = swbt_daemon_hardware_approval_env_is_enabled(env->run_hardware),
-        .hardware_approved =
-            swbt_daemon_hardware_approval_env_is_enabled(env->hardware_approved),
+        .hardware_approved = swbt_daemon_hardware_approval_env_is_enabled(env->hardware_approved),
     };
 }
 
