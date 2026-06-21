@@ -739,4 +739,26 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - daemon log: daemon stdout / stderr log は未作成。`SWBT_DIAGNOSTIC_TRACE_PATH` の startup trace と `SWBT_HCI_DUMP_TRACE_PATH` の HCI dump text を正本にする
 - artifact root: daemon `tmp/hardware/local_037/20260621-211311-8000us-owner-disconnect-rerun`
 - cleanup: pass by trace。startup trace は HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done、production runtime stop done まで到達した。PowerShell exit marker は `exit=0`
-- notes: この entry は owner socket close による neutralization の確認である。Bluetooth L2CAP close は手動停止時に記録されており、owner disconnect と同義ではない。heartbeat timeout の neutral fail-safe は未実行である
+- notes: この entry は owner socket close による neutralization の確認である。Bluetooth L2CAP close は手動停止時に記録されており、owner disconnect と同義ではない
+
+## 2026-06-21: local_037 CSR8510 A10 8000us heartbeat timeout neutral rerun on Switch2
+
+- OS: Microsoft Windows NT 10.0.26200.0
+- environment: Windows native PowerShell、swbt branch `local-037-hardware-verification`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Service `WinUSB`、Class `USBDevice`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: branch `local-037-hardware-verification` at `fe000d5`
+- Switch firmware: Switch2 `22.1.0`
+- approval scope: ユーザ承認済み。CSR8510 A10、`SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`、`SWBT_IPC_HEARTBEAT_TIMEOUT_MS=1000`、HCI dump text 付き、`8000 us` report period、`swbt-debug-client` による Button A heartbeat timeout neutral fail-safe 確認、手動停止 cleanup 確認
+- environment variables: daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`, `SWBT_IPC_HEARTBEAT_TIMEOUT_MS=1000`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: foreground PowerShell で `build/windows-mingw-debug/swbt-daemon.exe` を直接起動し、別 PowerShell で `build/windows-mingw-debug/swbt-debug-client.exe --port 37637 --button a --seq 9101 --hold-ms 3000 --skip-release` を実行した。client stdout / stderr は `heartbeat-timeout-client.log` に保存した。client 終了後に `Start-Sleep -Seconds 3` で timeout 後の report loop を残し、その後 daemon を手動 `Ctrl+C` で停止した
+- result: heartbeat timeout neutral fail-safe pass。client log は `owner.present=true`、`owner_id=00000001`、`last_seq=9101`、`state.buttons=8`、`client_exit=0` を記録した。HCI dump では `pairing complete, status 00`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件、BTstack `invalid size` `0` 件、`non-registered handle` `0` 件だった。outgoing `a1 30` input report は `1354` 件で、buttons は neutral `000000` が `1274` 件、Button A `080000` が `80` 件だった。区間は neutral `449` 件、Button A `80` 件、timeout 後の neutral `825` 件の順に並んだ。`080000` は IPC state `buttons=8` の little-endian 3 byte 表現である
+- daemon log: daemon stdout / stderr log は未作成。`SWBT_DIAGNOSTIC_TRACE_PATH` の startup trace と `SWBT_HCI_DUMP_TRACE_PATH` の HCI dump text を正本にする
+- artifact root: daemon `tmp/hardware/local_037/20260621-213315-8000us-heartbeat-timeout-rerun`
+- cleanup: pass by trace。startup trace は HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done、production runtime stop done まで到達した。PowerShell exit marker は `exit=0`
+- notes: client は `--hold-ms 3000 --skip-release` で owner socket を保持したまま release を送らない。Button A report は `80` 件で終わり、その後 neutral report が `825` 件続いたため、owner socket close ではなく `SWBT_IPC_HEARTBEAT_TIMEOUT_MS=1000` による neutralization と扱う。ただし HCI dump text は timestamp を持たないため、timeout が厳密に 1000 ms で発火したことはこの entry では測定していない
