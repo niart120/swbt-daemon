@@ -26,12 +26,12 @@ recorded。
 | stick packing | 3 bytes per stick; `x = b0 | ((b1 & 0x0f) << 8)`, `y = (b1 >> 4) | (b2 << 4)` | source fact | dekuNukem `bluetooth_hid_notes.md:163-170` | stable for implementation |
 | 6-Axis payload | 3 frames; each frame is accel x/y/z followed by gyro x/y/z as `int16le` | source fact | dekuNukem `bluetooth_hid_notes.md:143-148`; Linux `hid-nintendo.c:455-470` | stable for implementation |
 | joycontrol misc/status bytes | `0x8e` battery/connection, `0x80` vibrator in one software implementation | implementation fact | joycontrol `report.py:37-88` | production default source; swbt builder takes caller-provided values |
-| daemon default report options | `0x8e` battery/connection, `0x80` vibrator | implementation policy based on joycontrol implementation fact | joycontrol `report.py:37-88`; `swbt/daemon/config.c`; `tests/daemon_runtime_test.c` | production daemon default only; report builder remains caller-provided |
+| daemon default report options | `0x8e` battery/connection, `0x80` vibrator | implementation policy based on joycontrol implementation fact; hardware observation in later bring-up | joycontrol `report.py:37-88`; `swbt/daemon/config.c`; `tests/daemon_runtime_test.c`; `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` | production daemon default; observed on CSR8510 A10 / Switch2 22.1.0 |
 
 ## 4. 未解決事項
 
 - HID descriptor bytes はこの work unit では扱わない。
 - Stick calibration と sensor calibration はこの work unit では扱わない。`swbt_state_t` の値を 12-bit stick raw value として pack する。
 - report builder は `battery_connection` と `vibrator_report` の既定値を持たない。builder caller が明示的に渡す。
-- production daemon default は、joycontrol の `set_misc()` / `set_vibrator_input()` と同じ battery/connection `0x8e`、vibrator `0x80` を使う。Switch2 実機がこの値で次の初期化列へ進むことは未検証である。
-- 実機 Switch での acceptability は未検証である。
+- production daemon default は、joycontrol の `set_misc()` / `set_vibrator_input()` と同じ battery/connection `0x8e`、vibrator `0x80` を使う。`local_037` では CSR8510 A10、WinUSB、Switch2 firmware `22.1.0` の条件で、この default を含む `0x30` input report loop と Button A / neutral report の受理を観測した。
+- 別 adapter / firmware での acceptability、report jitter、入力遅延、取りこぼし率は未検証である。

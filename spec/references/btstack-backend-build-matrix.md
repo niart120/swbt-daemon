@@ -26,5 +26,5 @@ recorded。
 
 ## 4. 未解決事項
 
-- Windows native execution、WinUSB driver assignment、Bluetooth dongle recognition、Switch pairing は未検証であり、Phase 5 の対象である。
-- この reference は build success を記録する。実機 report loop や latency は証明しない。
+- この reference 自体は build success を記録する。後続の `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` と `docs/hardware-test-log.md` では、CSR8510 A10、WinUSB、Switch2 firmware `22.1.0` の条件で Windows native execution、WinUSB driver assignment、Bluetooth dongle recognition、Switch pairing、HID L2CAP open、report loop を観測した。
+- build matrix は実機 report loop、latency、jitter、別 adapter / firmware の互換性を証明しない。

@@ -35,4 +35,5 @@ spec は設計、protocol、挙動、方針を書く文書である。
 - `protocols/switch-hid-core.md`: Switch HID protocol core の current contract。
 - `operations/development-tooling.md`: `just` を入口にする開発運用。
 - `operations/windows-native-preflight.md`: Windows native 実機検証前の gate。
+- `operations/windows-hardware-bringup-sequence.md`: Windows native 実機 bring-up の software gate と再実行順序。
 - `operations/work-unit-spec-tdd-flow.md`: source、use case、work unit、spec、TDD Test List の作成順序。
