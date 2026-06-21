@@ -129,7 +129,7 @@ Tidy status:
 | refactor-done | diagnostic trace path is optional and missing path does not create output or affect normal execution | regression | unit | no |
 | refactor-done | HCI dump path is optional, but explicit dump path open failure is reported as startup failure before hardware observation is trusted | edge | unit/integration | no |
 | refactor-done | `SWBT_DEVICE_INFO_PROFILE` missing keeps default device info and unknown profile is rejected | regression | unit | no |
-| todo | direct `just debug` from host does not require users to set `SWBT_DEVCONTAINER` manually | regression | tooling | no |
+| refactor-done | direct `just debug` from host does not require users to set `SWBT_DEVCONTAINER` manually | regression | tooling | no |
 | deferred | decide whether no-op backend should remain the default daemon mode or become an explicit dry-run mode | behavior | design | no |
 | deferred | decide whether heartbeat timeout default should remain disabled or become a nonzero fail-safe default | behavior | design/hardware | yes |
 
@@ -178,8 +178,9 @@ Tidy status:
 - targeted: `CTEST_ARGS='-R daemon_runtime_test --output-on-failure' just test-debug` pass。
 - refactor: `scripts/format.sh` pass。追加の実装変更は行わず、test coverage の補強に閉じた。
 - refactor verification: `scripts/check-format.sh` pass、`git diff --check` pass、`just build-debug` pass（no work to do）、`just test-debug` pass（32/32）、`just windows-cross` pass。
+- tooling verification: `SWBT_DEVCONTAINER` と `SWBT_ALLOW_HOST_BUILD` が未設定であることを確認したうえで、host PowerShell 入口から `just debug` を実行して pass。Dev Container CLI へ委譲され、`cmake --fresh --preset linux-debug`、`cmake --build --preset linux-debug`、`ctest --preset linux-debug --output-on-failure` が通った。CTest は 32/32 pass。
 
-この時点では、optional runtime env 未設定時の default config、invalid numeric runtime env override、hardware approval env parser、diagnostic trace path optionality、HCI dump path optionality / explicit failure、device info profile env characterization の 6 cycle を完了した。crash dump path、tooling gate の regression test は未完了である。
+この時点では、optional runtime env 未設定時の default config、invalid numeric runtime env override、hardware approval env parser、diagnostic trace path optionality、HCI dump path optionality / explicit failure、device info profile env characterization、direct `just debug` host delegation の 7 cycle を完了した。crash dump path の regression test は未完了である。
 
 ## 11. 実機実行条件
 
