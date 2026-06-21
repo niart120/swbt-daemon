@@ -56,7 +56,7 @@ use case:
 - `spec/operations/windows-native-preflight.md`
 - `spec/references/README.md`
 - `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
-- `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
+- `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md`
 - `work-units/complete/local_038/BTSTACK_SEND_READY_INTEGRATION.md`
 - `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`
 
@@ -66,7 +66,7 @@ use case:
 
 この work unit では新しい Switch HID report bytes、subcommand ID、SPI address、rumble packet、report timing、BTstack source selection、WinUSB/libusb facts を追加しない。既存の `spec/references/` に記録済みの根拠監査と完了済み work unit record を current spec から参照する。
 
-実機未検証項目は `spec/protocols/switch-hid-core.md` と `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` に未解決事項として残した。
+local_036 時点の実機未検証項目は `spec/protocols/switch-hid-core.md` と `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` に未解決事項として残した。
 
 ## 7. 設計メモ
 
@@ -77,7 +77,7 @@ use case:
 | daemon runtime、mailbox、BTstack bridge の完了済み record | 複数 work unit から参照される境界であり architecture spec に昇格する | `spec/architecture/daemon-runtime-boundaries.md` |
 | IPC session / JSON / TCP / heartbeat の完了済み record | daemon IPC wire protocol であり通信仕様として protocol spec に昇格する | `spec/protocols/daemon-ipc-v1.md` |
 | Switch report / subcommand / SPI / rumble / player lights / scheduler references | 実装が従う protocol contract であり protocol spec に昇格する | `spec/protocols/switch-hid-core.md` |
-| Phase 5、hardware acceptability、report period comparison | 実機承認が必要な follow-up であり wip work unit にする | `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` |
+| Phase 5、hardware acceptability、report period comparison | local_036 時点では実機承認が必要な follow-up として wip work unit にした。現在は complete | `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` |
 | subcommand reply queue と periodic scheduler の exact integration | software integration と実機確認を分ける follow-up であり local_036 当時は wip work unit にした | `work-units/complete/local_038/BTSTACK_SEND_READY_INTEGRATION.md` |
 | stable IPC metrics / status protocol | `get_status` contract とは別に定義すべき follow-up であり wip work unit にする | `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` |
 | `work-units/complete/local_028` | local_036 当時は wip として有効だが旧構成のため source / use case を追記する対象だった | `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md` |
@@ -95,7 +95,7 @@ use case:
 - `spec/references/README.md`
 - `work-units/complete/local_036/SPEC_WORK_UNIT_INVENTORY.md`
 - `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
-- `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
+- `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md`
 - `work-units/complete/local_038/BTSTACK_SEND_READY_INTEGRATION.md`
 - `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`
 
@@ -130,7 +130,7 @@ use case:
 
 この work unit は棚卸と文書作成だけを扱い、Bluetooth adapter、Switch pairing、HID advertising、report loop を実行しない。
 
-実機作業が必要な follow-up は `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` に分けた。
+実機作業が必要な follow-up は `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` に分けた。
 
 ## 12. 先送り事項
 

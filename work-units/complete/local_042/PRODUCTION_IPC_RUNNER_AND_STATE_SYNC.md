@@ -11,7 +11,7 @@ NyXpy handoff と production daemon entrypoint の前提として、production d
 source:
 
 - ユーザ要求: NyXpy を使う Windows hardware bring-up へ進む前に、手順を spec 化し、必要な work unit record を作る。
-- `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` の停止条件。現行 `swbt-daemon.exe` は no-op backend で実 IPC listener を起動しない。
+- `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` の停止条件。現行 `swbt-daemon.exe` は no-op backend で実 IPC listener を起動しない。
 - `spec/operations/windows-hardware-bringup-sequence.md` の gate 2。
 - `spec/protocols/daemon-ipc-v1.md`。NyXpy と debug IPC client は JSON Lines over loopback IPC に接続する。
 - `work-units/complete/local_024/STATE_MAILBOX_THREAD_BOUNDARY.md`。state mailbox は copy boundary を持つが、現行実装は OS thread 間同期を固定していない。
@@ -55,7 +55,7 @@ use case:
 - `work-units/complete/local_024/STATE_MAILBOX_THREAD_BOUNDARY.md`
 - `work-units/complete/local_025/DAEMON_RUNTIME_INTEGRATION.md`
 - `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
-- `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
+- `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md`
 - `work-units/complete/local_043/PRODUCTION_DAEMON_BTSTACK_ENTRYPOINT.md`
 
 ## 6. 根拠監査
@@ -131,13 +131,13 @@ Test Desiderata review:
 
 対象は loopback IPC と state synchronization の software integration であり、Bluetooth adapter、Switch pairing、HID advertising、report loop を開始していない。
 
-この runner を production BTstack backend と組み合わせて実機 daemon に使う場合は、`work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` と `spec/operations/windows-native-preflight.md` の実機実行条件に従う。
+この runner を production BTstack backend と組み合わせて実機 daemon に使う場合は、`work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` と `spec/operations/windows-native-preflight.md` の実機実行条件に従う。
 
 ## 12. 先送り事項
 
 - 観測: 実 NyXpy macro を production daemon に接続する確認は、この work unit では行わない。
   先送り理由: 実機 daemon run、artifact root、Switch capture、daemon log との対応付けが必要である。
-  次の置き場: `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` と `docs/hardware-test-log.md`。
+  次の置き場: `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` と `docs/hardware-test-log.md`。
 - 観測: stable IPC metrics / status schema は、この runner の最低要件ではない。
   先送り理由: first bring-up では endpoint と state input が主目的であり、公開 diagnostics contract は別 work unit の責務である。
   次の置き場: `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`。

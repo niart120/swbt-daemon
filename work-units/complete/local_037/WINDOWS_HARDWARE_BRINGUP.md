@@ -213,7 +213,7 @@ report period comparison は `8000 / 8333 / 15000 / 16667 us` の全件で contr
 
 - `docs/hardware-test-log.md`
 - `spec/operations/windows-native-preflight.md`
-- `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
+- `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md`
 - `CMakeLists.txt`
 - `swbt/core/diagnostics.h`
 - `swbt/core/diagnostics.c`

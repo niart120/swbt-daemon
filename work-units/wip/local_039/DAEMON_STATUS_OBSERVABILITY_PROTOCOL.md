@@ -50,7 +50,7 @@ use case:
 - `work-units/complete/local_009/IPC_JSON_PROTOCOL_CORE.md`
 - `work-units/complete/local_026/REPORT_METRICS_AND_LOGGING.md`
 - `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
-- `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
+- `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md`
 
 ## 6. 根拠監査
 
@@ -100,13 +100,13 @@ hardware-derived values を公開する場合は、値そのものは `docs/hard
 
 通常の status schema と IPC JSON test では実機検証は不要である。
 
-adapter identity、driver state、actual report rate、jitter、disconnect / reconnect count を measured value として扱う場合は実機作業である。実行する場合は `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` の承認条件に従い、`docs/hardware-test-log.md` に記録する。
+adapter identity、driver state、actual report rate、jitter、disconnect / reconnect count を measured value として扱う場合は実機作業である。実行する場合は `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` の承認条件に従い、`docs/hardware-test-log.md` に記録する。
 
 ## 12. 先送り事項
 
 - 観測: 実機由来 metrics の値はこの protocol-design work unit だけでは得られない。
   先送り理由: hardware observation が必要である。
-  次の置き場: `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` と `docs/hardware-test-log.md`。
+  次の置き場: `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` と `docs/hardware-test-log.md`。
 
 ## 13. チェックリスト
 

@@ -55,7 +55,7 @@ use case:
 - `work-units/complete/local_022/SUBCOMMAND_REPLY_SEND_QUEUE.md`
 - `work-units/complete/local_023/BTSTACK_INPUT_REPORT_TIMER_ADAPTER.md`
 - `work-units/complete/local_025/DAEMON_RUNTIME_INTEGRATION.md`
-- `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
+- `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md`
 - `work-units/complete/local_043/PRODUCTION_DAEMON_BTSTACK_ENTRYPOINT.md`
 
 ## 6. 根拠監査
@@ -79,8 +79,8 @@ use case:
 
 ### 未解決事項
 
-- Switch 実機が prioritized `0x21` reply と 1 tick slipped periodic `0x30` を受け入れるかは、この work unit では未検証である。
-- DATA callback と SET_REPORT callback の実機上の選択結果、callback timing、BTstack send failure の実機観測は `local_037` の実機 bring-up で扱う。
+- Switch 実機が prioritized `0x21` reply と 1 tick slipped periodic `0x30` を受け入れるかは、この work unit では未検証である。後続の `local_037` では Switch2 22.1.0 と CSR8510 A10 の条件で `0x21` reply 受理と Switch UI 入力反映を観測した。
+- DATA callback と SET_REPORT callback の実機上の広範な選択結果、callback timing、BTstack send failure の実機観測は、この work unit では未検証である。
 
 ## 7. 設計メモ
 
@@ -89,7 +89,7 @@ use case:
 - can-send event が来たとき、queue に reply があれば先に送る。
 - periodic `0x30` は reply 送信のために 1 tick ずれることを許容する。drop / delay policy は test で観測できる形にする。
 - fake backend test は ordering と retry を証明する。Switch がそれを受け入れるかは証明しない。
-- `spec/operations/windows-hardware-bringup-sequence.md` では、この work unit を `local_037` の実機 bring-up 前 gate とする。実機 acceptability は引き続き `local_037` で記録する。
+- `spec/operations/windows-hardware-bringup-sequence.md` では、この work unit を `local_037` の実機 bring-up 前 gate とする。実機 acceptability は後続の `local_037` で記録済みである。
 
 ## 8. 対象ファイル
 
@@ -163,13 +163,12 @@ Test desiderata:
 
 この work unit の software integration では実機検証は不要である。
 
-Switch pairing、HID advertising、DATA / SET_REPORT observation、reply acceptability を確認する場合は実機作業である。実行する場合は `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` の承認条件に従い、`docs/hardware-test-log.md` に記録する。
+Switch pairing、HID advertising、DATA / SET_REPORT observation、reply acceptability を確認する場合は実機作業である。実行する場合は `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` の承認条件に従い、`docs/hardware-test-log.md` に記録する。
 
 ## 12. 先送り事項
 
 - 観測: Switch が prioritized `0x21` reply を実機 HID session で受け入れるかは software integration では証明できない。
-  先送り理由: Switch pairing、output report observation、periodic report loop が必要である。
-  次の置き場: `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` と `docs/hardware-test-log.md`。
+  後続結果: `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` と `docs/hardware-test-log.md` で、Switch2 22.1.0 と CSR8510 A10 の条件では `0x21` reply 受理と Switch UI 入力反映を確認した。
 
 ## 13. チェックリスト
 

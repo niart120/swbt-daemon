@@ -11,7 +11,7 @@
 source:
 
 - ユーザ要求: NyXpy を使う実機検証の前に、手順を spec に載せ、必要な work unit record を全て執筆する。
-- `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` の停止条件。現行 `swbt-daemon.exe` は no-op backend で、Bluetooth adapter、IPC listener、HID advertising、periodic report loop を起動しない。
+- `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` の停止条件。現行 `swbt-daemon.exe` は no-op backend で、Bluetooth adapter、IPC listener、HID advertising、periodic report loop を起動しない。
 - `spec/operations/windows-hardware-bringup-sequence.md` の gate 3。
 - `work-units/complete/local_025/DAEMON_RUNTIME_INTEGRATION.md` の先送り事項。production daemon が実 Bluetooth adapter を開く順序と失敗時 cleanup は fake backend test だけでは証明できない。
 - `work-units/complete/local_038/BTSTACK_SEND_READY_INTEGRATION.md`。production send-ready path が実機前の software gate である。
@@ -54,7 +54,7 @@ use case:
 - `spec/protocols/switch-hid-core.md`
 - `spec/protocols/daemon-ipc-v1.md`
 - `docs/hardware-test-log.md`
-- `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md`
+- `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md`
 - `work-units/complete/local_038/BTSTACK_SEND_READY_INTEGRATION.md`
 - `work-units/complete/local_042/PRODUCTION_IPC_RUNNER_AND_STATE_SYNC.md`
 - `work-units/complete/local_018/BTSTACK_PRODUCTION_ADAPTER.md`
@@ -74,7 +74,7 @@ use case:
 | output report callbacks | recorded | `work-units/complete/local_019` と `spec/references/btstack-output-report-callbacks.md` を使う。 |
 | input report timer API | recorded | `work-units/complete/local_023` と `spec/references/btstack-periodic-input-report-core.md` を使う。 |
 | BTstack run loop startup / shutdown | recorded | `spec/references/btstack-daemon-entrypoint.md` に記録した。 |
-| Windows WinUSB adapter open behavior | recorded / hardware pending | `hci_power_control(HCI_POWER_ON)` が transport `open()` に進む source fact を記録した。実行結果は `local_037` で hardware observation として記録する。 |
+| Windows WinUSB adapter open behavior | recorded / hardware observed | `hci_power_control(HCI_POWER_ON)` が transport `open()` に進む source fact を記録した。実行結果は `local_037` で hardware observation として記録済み。 |
 
 ## 7. 設計メモ
 
@@ -138,7 +138,7 @@ Green:
 
 この work unit の software verification では実機を実行しない。
 
-実機 daemon run は `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` で行う。実行時は専用 USB Bluetooth dongle、WinUSB driver assignment、`SWBT_RUN_HARDWARE=1`、`SWBT_HARDWARE_APPROVED=1`、承認範囲、daemon log、cleanup plan を記録する。
+実機 daemon run は `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` で行う。実行時は専用 USB Bluetooth dongle、WinUSB driver assignment、`SWBT_RUN_HARDWARE=1`、`SWBT_HARDWARE_APPROVED=1`、承認範囲、daemon log、cleanup plan を記録する。
 
 この work unit で実装する approval gate は、実機 run を許可するものではない。人間の承認と hardware log 記録を代替しない。
 
@@ -146,7 +146,7 @@ Green:
 
 - 観測: Switch pairing、HID advertising、periodic report loop が実機で成功するかは、この software work unit では証明しない。
   先送り理由: 専用 dongle、WinUSB driver、Switch firmware、daemon log、NyX artifact が必要である。
-  次の置き場: `work-units/wip/local_037/WINDOWS_HARDWARE_BRINGUP.md` と `docs/hardware-test-log.md`。
+  次の置き場: `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` と `docs/hardware-test-log.md`。
 - 観測: actual report rate、jitter、adapter identity を stable status protocol で公開するかは未決定である。
   先送り理由: production entrypoint の最低要件は hardware run に必要な config と cleanup である。
   次の置き場: `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`。
