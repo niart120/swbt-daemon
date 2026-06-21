@@ -128,7 +128,7 @@ Tidy status:
 | refactor-done | production hardware mode rejects before IPC runner, BTstack platform, or HCI power-on when approval environment is absent | regression | integration | no |
 | refactor-done | diagnostic trace path is optional and missing path does not create output or affect normal execution | regression | unit | no |
 | refactor-done | HCI dump path is optional, but explicit dump path open failure is reported as startup failure before hardware observation is trusted | edge | unit/integration | no |
-| todo | `SWBT_DEVICE_INFO_PROFILE` missing keeps default device info and unknown profile is rejected | regression | unit | no |
+| refactor-done | `SWBT_DEVICE_INFO_PROFILE` missing keeps default device info and unknown profile is rejected | regression | unit | no |
 | todo | direct `just debug` from host does not require users to set `SWBT_DEVCONTAINER` manually | regression | tooling | no |
 | deferred | decide whether no-op backend should remain the default daemon mode or become an explicit dry-run mode | behavior | design | no |
 | deferred | decide whether heartbeat timeout default should remain disabled or become a nonzero fail-safe default | behavior | design/hardware | yes |
@@ -173,8 +173,13 @@ Tidy status:
 - targeted: `CTEST_ARGS='-R daemon_production_backend_test --output-on-failure' just test-debug` pass。
 - refactor: `scripts/format.sh` pass。追加の構造変更は行わず、hardware approval env parser の移動に閉じた。
 - refactor verification: `scripts/check-format.sh` pass、`git diff --check` pass、`just build-debug` pass（no work to do）、`just test-debug` pass（32/32）、`just windows-cross` pass。
+- characterization: device info profile env item。`config_env_absent_uses_defaults` と `config_rejects_unknown_device_info_profile` で既に一部固定されていたため、red は発生しない既存挙動として扱った。`swbt_daemon_config_apply_env` 経由の unknown profile が false を返し、既存 config を維持する test を追加した。
+- characterization build: `just build-debug` pass。
+- targeted: `CTEST_ARGS='-R daemon_runtime_test --output-on-failure' just test-debug` pass。
+- refactor: `scripts/format.sh` pass。追加の実装変更は行わず、test coverage の補強に閉じた。
+- refactor verification: `scripts/check-format.sh` pass、`git diff --check` pass、`just build-debug` pass（no work to do）、`just test-debug` pass（32/32）、`just windows-cross` pass。
 
-この時点では、optional runtime env 未設定時の default config、invalid numeric runtime env override、hardware approval env parser、diagnostic trace path optionality、HCI dump path optionality / explicit failure の 5 cycle を完了した。crash dump path、tooling gate の regression test は未完了である。
+この時点では、optional runtime env 未設定時の default config、invalid numeric runtime env override、hardware approval env parser、diagnostic trace path optionality、HCI dump path optionality / explicit failure、device info profile env characterization の 6 cycle を完了した。crash dump path、tooling gate の regression test は未完了である。
 
 ## 11. 実機実行条件
 
