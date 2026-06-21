@@ -626,3 +626,26 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: daemon `tmp/hardware/local_037/20260621-150120-8000us-trigger-elapsed-rerun`、NyXPy `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T150130_23c9`
 - cleanup: pass by trace。daemon exit marker は未作成。startup trace は HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done、production runtime stop done まで到達した。NyXPy artifact は cleanup `release_sent=true` と socket close を記録した
 - notes: `0x04` trigger buttons elapsed reply は Switch2 22.1.0 / CSR8510 A10 の今回条件で初期化列を前進させた。`SET_PLAYER_LIGHTS` (`0x30`) と capture の controller 1 表示から、Switch UI 上の controller 採用は pass と扱う。一方、capture は L+R prompt のままで、held L+R による画面遷移までは確認できていない。次の直接原因候補は、Switch2 が繰り返す `0x21` NFC/IR MCU config subcommand に swbt が未応答である点、または pairing 画面で必要な最終入力が L+R ではなく A へ移った点である
+
+## 2026-06-21: local_037 CSR8510 A10 8000us NFC/IR MCU config reply NyXPy L+R plus Button A rerun on Switch2
+
+- OS: Microsoft Windows NT 10.0.26200.0
+- environment: Windows native PowerShell、swbt branch `local-037-hardware-verification`、Project NyX branch `feat/swbt-hardware-bringup-macro`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Service `WinUSB`、Class `USBDevice`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: branch `local-037-hardware-verification` at `94cc04c`; daemon code for `0x21` reply was introduced by `19c6c75`
+- Switch firmware: Switch2 `22.1.0`
+- approval scope: ユーザ承認済み。CSR8510 A10、`SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`、NFC/IR MCU config reply fix 後、HCI dump text 付き、`8000 us`、Switch2 controller pairing 画面での NyXPy held L+R and Button A 入力反映確認、手動停止 cleanup 確認。NyXPy 操作はユーザが実行した
+- environment variables: daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: foreground PowerShell で `build/windows-mingw-debug/swbt-daemon.exe` を直接起動し、Project NyX 側で `swbt_hardware_bringup` macro の `held_input_probe` を `probe_label=l_plus_r`、`probe_buttons=0x00400040`、`probe_states=["button_a"]`、notes `nfc_mcu_a_followup_rerun` で実行した。daemon artifact は `tmp/hardware/local_037/20260621-201840-8000us-nfc-mcu-a-followup-rerun`。NyXPy artifact は `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T201845_e709`
+- result: Switch2 側の画面変化をユーザが観測し、決定ボタンによる接続設定画面終了まで到達した。daemon startup trace は `btstack: ipc pump start ok`、`hid_registration: ok`、`btstack: hci power on ok`、手動停止後の `production: runtime stop done` まで到達した。HCI dump では `pairing complete, status 00`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件、BTstack `invalid size` `0` 件だった。`non-registered handle` は run 初期に `1` 件あるが、current connection の pairing / HID sequence は継続している。Switch 側からの `a2 01` subcommand は `0x02` が `1` 件、`0x08` が `1` 件、`0x10` が `8` 件、`0x03` が `1` 件、`0x04` が `1` 件、`0x40` が `1` 件、`0x48` が `1` 件、`0x21` が `1` 件、`0x30` が `2` 件だった。swbt は `0x21` に `a1 21 ... a0 21 01 00 ff 00 08 00 1b 01 ... c8` を `1` 件返し、`0x21` 反復は消えた。outgoing `a1 21` replies は `82/02` `1` 件、`80/08` `1` 件、`90/10` `8` 件、`80/03` `1` 件、`83/04` `1` 件、`80/40` `1` 件、`80/48` `1` 件、`a0/21` `1` 件、`80/30` `2` 件だった。outgoing `a1 30` input report は `11410` 件で、buttons は neutral `11260` 件、L+R `0x400040` `64` 件、Button A `0x000008` `86` 件だった
+- NyXPy result: `run_context.json` は scenario `held_input_probe`、step count `7`、notes `nfc_mcu_a_followup_rerun`、probe `l_plus_r` buttons `4194368`、probe states `button_a` を記録した。`ipc_session.json` は `hello_ok`、`acquired`、L+R `state_accepted`、L+R neutral `state_accepted`、Button A `state_accepted`、Button A neutral `state_accepted`、cleanup `release_sent=true`、`socket_closed=true`、`command_release_called=true` を記録した。capture は baseline と L+R が L+R prompt、Button A と Button A neutral が controller settings screen を表示した
+- daemon log: daemon stdout / stderr log は未作成。`SWBT_DIAGNOSTIC_TRACE_PATH` の startup trace と `SWBT_HCI_DUMP_TRACE_PATH` の HCI dump text を正本にする
+- artifact root: daemon `tmp/hardware/local_037/20260621-201840-8000us-nfc-mcu-a-followup-rerun`、NyXPy `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T201845_e709`
+- cleanup: pass by trace。startup trace は HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done、production runtime stop done まで到達した。NyXPy artifact は cleanup `release_sent=true` と socket close を記録した
+- notes: `0x21` NFC/IR MCU config reply は Switch2 22.1.0 / CSR8510 A10 の今回条件で `0x21` 反復を解消した。`0x30` subcommand、Button A の `a1 30` report、capture の画面遷移から、Switch UI 上の IPC input 反映は pass と扱う。NFC/IR semantic state は未実装であり、この結果は pairing / controller setup sequence を進める ACK / payload の確認である。残件は report period comparison、owner disconnect / heartbeat timeout の neutral fail-safe、bonded reconnect persistence である

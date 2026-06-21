@@ -146,7 +146,8 @@ report period の採用判断は実測後に行う。`8000us` は current config
 | trigger elapsed reply rerun | outgoing `0x83/0x04` reply 後、Switch2 は追加 `0x10`、IMU enable `0x40`、player lights `0x30`、vibration enable `0x48` へ進んだ。ユーザは画面変化を観測し、NyX capture は controller 1 枠を表示した | hardware observation / inference | `tmp/hardware/local_037/20260621-150120-8000us-trigger-elapsed-rerun/hci-dump.txt`, Project NyX artifact `20260621T150130_23c9` | `0x04` gate は pass。Switch UI 上の controller 採用は pass と扱う |
 | post-adoption NFC/IR MCU config stopper | trigger elapsed rerun 後、incoming subcommand `0x21` が `209` 件来たが swbt は未応答 | hardware observation / inference | `tmp/hardware/local_037/20260621-150120-8000us-trigger-elapsed-rerun/hci-dump.txt` | 次の高蓋然性 software gate。NFC/IR semantic 実装ではなく pairing sequence を進める ACK / payload の根拠監査が必要 |
 | set NFC/IR MCU config reply shape | `0x21` は ACK `0xA0` と 34 byte data を返す。dekuNukem note は reply subcommand byte を `0x20` と書くが、joycontrol は `0x21` を echo する | reverse-engineering note / community implementation fact | dekuNukem `bluetooth_hid_subcommands_notes.md`; joycontrol `protocol.py` の `_command_set_nfc_ir_mcu_config` | bring-up では joycontrol と reply echo の一貫性を採用。NFC/IR semantic は未実装 |
-| production set MCU config reply | dispatcher builds `0x21` reply for `0x21` with ACK `0xA0`, subcommand `0x21`, and joycontrol-compatible 34 byte payload `01 00 ff 00 08 00 1b 01 ... c8` | implementation fact | `swbt/switch/switch_subcommand_dispatcher.c`, `swbt/switch/switch_subcommand_reply.h`, `tests/switch_subcommand_dispatcher_test.c` | software validated; hardware rerun required |
+| production set MCU config reply | dispatcher builds `0x21` reply for `0x21` with ACK `0xA0`, subcommand `0x21`, and joycontrol-compatible 34 byte payload `01 00 ff 00 08 00 1b 01 ... c8` | implementation fact | `swbt/switch/switch_subcommand_dispatcher.c`, `swbt/switch/switch_subcommand_reply.h`, `tests/switch_subcommand_dispatcher_test.c` | software validated; hardware rerun pass |
+| set MCU config reply plus Button A rerun | incoming `0x21` は `1` 件、outgoing `a0/21` は `1` 件で、`0x21` 反復は消えた。Switch2 は `0x30` を `2` 件送り、NyXPy Button A 後の capture は controller settings screen に戻った | hardware observation / inference | `tmp/hardware/local_037/20260621-201840-8000us-nfc-mcu-a-followup-rerun/hci-dump.txt`, Project NyX artifact `20260621T201845_e709` | `0x21` gate は pass。Switch UI 上の IPC input 反映も pass と扱う |
 | low power mode reply shape | subcommand `0x08` takes `0x00` / `0x01`; Switch sends `0x08 00` after connection; joycontrol replies ACK `0x80` and subcommand `0x08` | source fact | dekuNukem `bluetooth_hid_subcommands_notes.md`; joycontrol `protocol.py` | stable enough for bring-up simple ACK |
 | production low power mode simple ACK | dispatcher builds `0x21` simple ACK for `0x08`; no shipment / low-power state is persisted | implementation fact | `swbt/switch/switch_subcommand_dispatcher.c`, `tests/switch_subcommand_dispatcher_test.c` | covered by unit regression; post-fix hardware rerun required |
 | low power mode ACK rerun | incoming `0x02` `1` 件、incoming `0x08` `78` 件、outgoing `0x82/0x02` `1` 件、outgoing `0x80/0x08` `77` 件、next subcommand なし | hardware observation / inference | `tmp/hardware/local_037/20260621-123338-8000us-device-info-rerun/hci-dump.txt`, Project NyX artifact `20260621T123344_f287` | `0x08` ACK は出たが Switch2 は次へ進まない; first `0x08` was before registered handle |
@@ -205,6 +206,7 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - 同日の shared timer rerun では、`a1 21` timer は `08`, `0b`, `0c`, `0d`, `0e` と進み、Switch2 は `0x08` 反復から `0x10` SPI read 2 件、`0x03` report mode、repeated `0x04` まで進んだ。画面は変化していないが、固定 timer は直接原因から下げる。次の高蓋然性候補は `0x04` trigger buttons elapsed time への未応答である。
 - dekuNukem note は `0x04` reply data を 7 個の little-endian `uint16`、単位 `10 ms` としている。joycontrol は Pro Controller pairing 用に ACK `0x83`、L/R `3000 ms`、その他 `0` を返す。switchnotes の成功 session も `0x04` に `0x83 0x04 ...` を返した後、追加 SPI read と `0x48` / `0x40` / `0x30` へ進んでいる。今回の実装では controller type ごとの elapsed state tracking は入れず、Pro Controller bring-up として L/R `3000 ms` 相当を返す。Switch2 22.1.0 がこれを受理するかは実機 rerun で確認する。
 - 2026-06-21 の trigger elapsed reply rerun では、swbt が `0x04` に `0x83/0x04` と L/R `0x012c` ticks を返した後、Switch2 は `0x40`、`0x30`、`0x48` まで進んだ。ユーザは画面変化を観測し、NyX capture は controller 1 枠を表示したため、Switch UI 上の controller 採用は pass と扱う。held L+R で画面遷移したかは capture からは確認できず、入力反映の次回確認は A など画面遷移が明確な状態で行う。HCI dump 上の次の未応答候補は `0x21` NFC/IR MCU config subcommand である。
+- 2026-06-21 の `0x21` NFC/IR MCU config reply rerun では、swbt が `a0/21` と 34 byte payload を返した後、Switch2 の `0x21` 反復は消え、`0x30` subcommand まで進んだ。NyXPy は L+R 後に Button A を送信し、HCI dump には Button A `0x000008` が `86` 件、capture には controller settings screen への遷移が残った。これにより、controller 採用だけでなく Switch UI 上の IPC input 反映も pass と扱う。NFC/IR semantic は未実装であり、この pass は pairing / setup sequence を進める reply shape の確認に限定する。
 
 ## 8. 対象ファイル
 
@@ -294,9 +296,9 @@ report period の採用判断は実測後に行う。`8000us` は current config
 | refactor-skipped | trigger buttons elapsed time subcommand `0x04` reply uses ACK `0x83` and Pro Controller L/R `3000 ms` elapsed data | regression | unit | no |
 | green | `0x04` reply build emits `0x83/0x04`, Switch2 advances through `0x40` / `0x30` / `0x48`, and the next repeated subcommand is `0x21` | characterization | hardware | yes |
 | refactor-skipped | `0x21` NFC/IR MCU config subcommand reply uses ACK `0xA0`, echo subcommand `0x21`, and joycontrol-compatible 34 byte payload | regression | unit | no |
-| todo | `0x21` NFC/IR MCU config reply build is rerun on hardware and either advances past repeated `0x21` or records the next stopper | characterization | hardware | yes |
+| green | `0x21` NFC/IR MCU config reply build advances past repeated `0x21`; Switch2 reaches `0x30` and NyXPy Button A changes the Switch UI | characterization | hardware | yes |
 | todo | periodic input report loop runs at each selected report period and records result | characterization | hardware | yes |
-| todo | held IPC client or NyX macro state updates are observed as Switch UI button and stick changes | new | hardware | yes |
+| green | held IPC client or NyX macro state updates are observed as Switch UI button changes | new | hardware | yes |
 | todo | owner disconnect and heartbeat timeout leave neutral state | edge | hardware | yes |
 
 ## 10. 検証
@@ -392,11 +394,10 @@ report period の採用判断は実測後に行う。`8000us` は current config
 - 2026-06-21 set NFC/IR MCU config TDD red: `tests/switch_subcommand_dispatcher_test.c` に `SWBT_SWITCH_SUBCOMMAND_SET_MCU_CONFIG` が ACK `0xA0`、subcommand `0x21`、joycontrol-compatible 34 byte payload `01 00 ff 00 08 00 1b 01 ... c8` の `0x21` reply を返す test を追加した。`just build-debug` は `SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_MCU_CONFIG` 未定義で fail したため期待通りの red と判断した。
 - 2026-06-21 set NFC/IR MCU config green: `swbt/switch/switch_subcommand_reply.h` に ACK `0xA0` 定数を追加し、`swbt/switch/switch_subcommand_dispatcher.c` で `0x21` reply を追加した。NFC/IR semantic state は追加せず、pairing sequence の未応答 stopper を解消するための static reply とする。`just build-debug` pass。`CTEST_ARGS='-R switch_subcommand_dispatcher_test --output-on-failure' just test-debug` pass。`scripts/format.sh` pass。`just test-debug` pass（31/31）。`just windows-cross` pass。`scripts/check-format.sh` pass。`git diff --check` exit 0（Windows checkout 由来の LF to CRLF warning のみ）。refactor は、dispatcher 内の reply builder 追加と ACK 定数だけで責務境界が閉じているため skipped とする。実機 rerun は未実行である。
 - 2026-06-21 Project NyX local macro update: Project NyX の `.gitignore` は `macros/*` を ignore しているため、`E:\documents\VSCodeWorkspace\Project_NyX\macros\swbt_hardware_bringup` は local artifact として変更した。`state_plan.py` は `held_input_probe` で `probe_inputs` がある場合も `probe_states` を後続実行するようにした。これにより現行コマンドの `probe_buttons=0x00400040` は L+R、neutral、Button A、neutral の順で capture を残す。custom-only に戻す場合は `probe_states=[]` を使う。`uv run ruff format macros\swbt_hardware_bringup` pass。`uv run pytest macros\swbt_hardware_bringup\test_state_plan.py macros\swbt_hardware_bringup\test_macro.py` pass（14 tests）。`uv run ruff check macros\swbt_hardware_bringup` pass。実機 rerun は未実行である。
+- 2026-06-21 set NFC/IR MCU config post-fix NyXPy L+R plus Button A rerun: ユーザ承認後、`SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro` と `0x21` reply 修正後の daemon を Project NyX `held_input_probe` と組み合わせて実行した。daemon artifact は `tmp/hardware/local_037/20260621-201840-8000us-nfc-mcu-a-followup-rerun`、NyXPy artifact は `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T201845_e709`。HCI dump では `pairing complete, status 00`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件、BTstack `invalid size` `0` 件だった。Switch 側からの subcommand は `0x02` `1` 件、`0x08` `1` 件、`0x10` `8` 件、`0x03` `1` 件、`0x04` `1` 件、`0x40` `1` 件、`0x48` `1` 件、`0x21` `1` 件、`0x30` `2` 件だった。swbt は `0x21` に `a0/21` と 34 byte payload を返し、`0x21` 反復は消えた。outgoing `a1 30` は `11410` 件で、buttons は neutral `11260` 件、L+R `0x400040` `64` 件、Button A `0x000008` `86` 件だった。NyXPy `ipc_session.json` は L+R と Button A の `state_accepted`、cleanup `release_sent=true` を記録した。capture は baseline と L+R が L+R prompt、Button A と Button A neutral が controller settings screen を表示した。ユーザは Switch2 側で決定ボタンによる接続設定画面終了まで到達したと観測した。これにより `0x21` gate と Switch UI 上の IPC input 反映は pass と扱う。
 
 未実行:
 
-- `0x21` NFC/IR MCU config reply build の実機 rerun。理由は、今回の変更後にまだユーザ操作を伴う Switch-facing hardware command を実行していないためである。
-- held-state IPC input の Switch UI 画面遷移。理由は、trigger elapsed rerun で controller 1 枠と `SET_PLAYER_LIGHTS` は確認できたが、NyX capture は L+R prompt のままだったためである。Project NyX local macro は L+R 後に Button A を送るよう更新済みだが、更新後の実機 rerun はまだ行っていない。
 - owner disconnect と heartbeat timeout の実機 neutral 確認。理由は、cleanup 直接再実行では IPC owner を取得していないためである。
 
 ## 11. 実機実行条件
@@ -488,9 +489,9 @@ NyX handoff を使う場合も承認範囲は swbt-daemon 側で記録する。N
 - [x] Switch UI 上の controller 採用または採用されない残理由を記録した。trigger elapsed rerun では controller 1 枠、`SET_PLAYER_LIGHTS`、ユーザ観測の画面変化を根拠に採用 pass と扱う。
 - [x] `0x21` NFC/IR MCU config subcommand reply を根拠監査し、unit test で追加した。
 - [x] Project NyX local macro を L+R 後に Button A を送る計画へ更新し、対象テストで検証した。
-- [ ] `0x21` reply build の HCI dump text 診断付き rerun を記録した。
+- [x] `0x21` reply build の HCI dump text 診断付き rerun を記録した。Switch2 は `0x21` 反復を抜けて `0x30` へ進んだ。
 - [ ] report period comparison を記録した。
-- [ ] Switch UI での IPC input 反映を記録した。
+- [x] Switch UI での IPC input 反映を記録した。NyXPy Button A 後の capture とユーザ観測で controller settings screen への遷移を確認した。
 - [x] NyX handoff を使った場合は artifact root と daemon log path を記録した。
 - [ ] neutral fail-safe を記録した。
 - [x] `docs/hardware-test-log.md` を preflight 結果で更新した。
