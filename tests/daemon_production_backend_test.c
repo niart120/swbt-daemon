@@ -37,10 +37,12 @@ typedef struct {
     int timer_can_send_calls;
     int timer_stop_calls;
     int power_off_calls;
+    int read_controller_address_calls;
     int ssp_confirmation_calls;
     int run_loop_trigger_exit_calls;
     int shutdown_requests_to_fire;
     uint16_t timer_hid_cid;
+    uint8_t controller_address[6];
     uint8_t ssp_confirmation_address[6];
     swbt_btstack_hid_registration_config_t captured_hid_config;
     swbt_daemon_ipc_runner_config_t captured_ipc_config;
@@ -197,6 +199,15 @@ static int fake_ssp_confirm_user_confirmation(void *context, const uint8_t addre
     return 0;
 }
 
+static int fake_read_controller_address(void *context, uint8_t address[6]) {
+    fake_ops_t *fake = context;
+    fake->read_controller_address_calls += 1;
+    for (size_t index = 0; index < 6u; ++index) {
+        address[index] = fake->controller_address[index];
+    }
+    return 0;
+}
+
 static uint32_t fake_time_ms(void *context) {
     (void)context;
     return 123u;
@@ -261,6 +272,7 @@ static swbt_daemon_production_backend_ops_t fake_backend_ops(void) {
         .report_timer_enqueue_subcommand_reply = fake_timer_enqueue_reply,
         .report_timer_stop = fake_timer_stop,
         .ssp_confirm_user_confirmation = fake_ssp_confirm_user_confirmation,
+        .read_controller_address = fake_read_controller_address,
         .time_ms = fake_time_ms,
         .power_on = fake_power_on,
         .power_off = fake_power_off,

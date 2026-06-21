@@ -26,7 +26,8 @@ static bool swbt_daemon_production_ops_are_valid(const swbt_daemon_production_ba
            ops->report_timer_start != NULL && ops->report_timer_on_can_send_now != NULL &&
            ops->report_timer_enqueue_subcommand_reply != NULL && ops->report_timer_stop != NULL &&
            ops->ssp_confirm_user_confirmation != NULL && ops->time_ms != NULL &&
-           ops->power_on != NULL && ops->power_off != NULL && ops->run_loop_execute != NULL &&
+           ops->read_controller_address != NULL && ops->power_on != NULL &&
+           ops->power_off != NULL && ops->run_loop_execute != NULL &&
            ops->run_loop_trigger_exit != NULL;
 }
 
@@ -269,6 +270,18 @@ static int swbt_daemon_production_subcommand_reply_enqueue(void *context, uint16
         backend->ops_context, &backend->report_timer, hid_cid, report, report_size);
 }
 
+static int swbt_daemon_production_read_device_info(void *context,
+                                                   swbt_switch_device_info_t *out_device_info) {
+    swbt_daemon_production_backend_t *backend = context;
+    if (backend == NULL || out_device_info == NULL) {
+        return -1;
+    }
+
+    *out_device_info = backend->config.device_info;
+    return backend->ops->read_controller_address(backend->ops_context,
+                                                 out_device_info->bluetooth_address);
+}
+
 const swbt_daemon_runtime_backend_t *swbt_daemon_production_runtime_backend(void) {
     static const swbt_daemon_runtime_backend_t backend = {
         .ipc_start = swbt_daemon_production_ipc_start,
@@ -280,6 +293,7 @@ const swbt_daemon_runtime_backend_t *swbt_daemon_production_runtime_backend(void
         .report_timer_start = swbt_daemon_production_report_timer_start,
         .report_timer_stop = swbt_daemon_production_report_timer_stop,
         .subcommand_reply_enqueue = swbt_daemon_production_subcommand_reply_enqueue,
+        .read_device_info = swbt_daemon_production_read_device_info,
     };
     return &backend;
 }

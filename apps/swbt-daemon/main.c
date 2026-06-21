@@ -157,6 +157,7 @@ static bool swbt_daemon_apply_env_config(swbt_daemon_config_t *config) {
     const char *ipc_host = getenv("SWBT_IPC_HOST");
     const char *ipc_port = getenv("SWBT_IPC_PORT");
     const char *ipc_backlog = getenv("SWBT_IPC_BACKLOG");
+    const char *device_info_profile = getenv("SWBT_DEVICE_INFO_PROFILE");
 
     if (config == NULL) {
         return false;
@@ -171,6 +172,9 @@ static bool swbt_daemon_apply_env_config(swbt_daemon_config_t *config) {
         return false;
     }
     if (ipc_backlog != NULL && !swbt_daemon_parse_int(ipc_backlog, &config->ipc_backlog)) {
+        return false;
+    }
+    if (!swbt_daemon_config_apply_device_info_profile(config, device_info_profile)) {
         return false;
     }
     return config->report_period_us != 0u && config->ipc_backlog > 0;

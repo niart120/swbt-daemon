@@ -56,6 +56,7 @@ typedef struct {
     bool running;
     bool timer_pending;
     bool can_send_pending;
+    uint64_t periodic_holdoff_until_us;
 } swbt_btstack_input_report_timer_adapter_t;
 
 const swbt_btstack_input_report_timer_backend_t *

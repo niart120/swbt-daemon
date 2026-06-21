@@ -2,6 +2,10 @@
 
 #include "classic/hid_device.h"
 
+#define SWBT_BTSTACK_HIDP_INPUT_REPORT_HEADER 0xA1u
+#define SWBT_BTSTACK_HIDP_MAX_INPUT_MESSAGE_SIZE (1u + SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE)
+#define SWBT_BTSTACK_REPLY_PERIODIC_HOLDOFF_US 300000u
+
 static uint32_t delay_ms_until(uint64_t now_us, uint64_t deadline_us) {
     if (deadline_us <= now_us) {
         return 0u;
@@ -57,11 +61,42 @@ static swbt_btstack_input_report_timer_result_t
 schedule_next_timer(swbt_btstack_input_report_timer_adapter_t *adapter, uint64_t now_us) {
     const uint64_t next_deadline_us =
         swbt_btstack_input_report_scheduler_next_deadline_us(&adapter->scheduler);
-    const uint32_t delay_ms = delay_ms_until(now_us, next_deadline_us);
+    const uint64_t scheduled_deadline_us = adapter->periodic_holdoff_until_us > next_deadline_us
+                                               ? adapter->periodic_holdoff_until_us
+                                               : next_deadline_us;
+    const uint32_t delay_ms = delay_ms_until(now_us, scheduled_deadline_us);
     adapter->backend->set_timer(&adapter->timer, delay_ms);
     adapter->backend->add_timer(&adapter->timer);
     adapter->timer_pending = true;
     return SWBT_BTSTACK_INPUT_REPORT_TIMER_OK;
+}
+
+static swbt_btstack_input_report_timer_result_t
+holdoff_periodic_after_reply(swbt_btstack_input_report_timer_adapter_t *adapter, uint64_t now_us) {
+    adapter->periodic_holdoff_until_us = now_us + SWBT_BTSTACK_REPLY_PERIODIC_HOLDOFF_US;
+    adapter->can_send_pending = false;
+    if (adapter->timer_pending) {
+        (void)adapter->backend->remove_timer(&adapter->timer);
+        adapter->timer_pending = false;
+    }
+
+    return schedule_next_timer(adapter, now_us);
+}
+
+static int send_hidp_input_report(swbt_btstack_input_report_timer_adapter_t *adapter,
+                                  uint16_t hid_cid, const uint8_t *report, size_t report_size) {
+    if (adapter == NULL || report == NULL || report_size == 0u ||
+        report_size > (SWBT_BTSTACK_HIDP_MAX_INPUT_MESSAGE_SIZE - 1u)) {
+        return -1;
+    }
+
+    uint8_t message[SWBT_BTSTACK_HIDP_MAX_INPUT_MESSAGE_SIZE] = {0};
+    message[0] = SWBT_BTSTACK_HIDP_INPUT_REPORT_HEADER;
+    for (size_t index = 0; index < report_size; ++index) {
+        message[index + 1u] = report[index];
+    }
+
+    return adapter->backend->send_interrupt_message(hid_cid, message, (uint16_t)(report_size + 1u));
 }
 
 static int scheduler_send_callback(void *context, uint16_t hid_cid, const uint8_t *report,
@@ -71,7 +106,7 @@ static int scheduler_send_callback(void *context, uint16_t hid_cid, const uint8_
     if (adapter == NULL || report == NULL || report_size > UINT16_MAX) {
         return -1;
     }
-    return adapter->backend->send_interrupt_message(hid_cid, report, (uint16_t)report_size);
+    return send_hidp_input_report(adapter, hid_cid, report, report_size);
 }
 
 static int reply_queue_send_callback(void *context, uint16_t hid_cid, const uint8_t *report,
@@ -81,7 +116,7 @@ static int reply_queue_send_callback(void *context, uint16_t hid_cid, const uint
     if (adapter == NULL || report == NULL || report_size > UINT16_MAX) {
         return -1;
     }
-    return adapter->backend->send_interrupt_message(hid_cid, report, (uint16_t)report_size);
+    return send_hidp_input_report(adapter, hid_cid, report, report_size);
 }
 
 static void adapter_timer_handler(btstack_timer_source_t *timer) {
@@ -181,7 +216,9 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
 
     adapter->hid_cid = options.hid_cid;
     adapter->running = true;
+    adapter->timer_pending = false;
     adapter->can_send_pending = false;
+    adapter->periodic_holdoff_until_us = 0u;
     adapter->backend->set_timer_handler(&adapter->timer, adapter_timer_handler);
     adapter->backend->set_timer_context(&adapter->timer, adapter);
     return schedule_next_timer(adapter, options.now_us);
@@ -194,6 +231,11 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
     }
     if (!adapter->running) {
         return SWBT_BTSTACK_INPUT_REPORT_TIMER_STOPPED;
+    }
+    const uint64_t now_us = (uint64_t)adapter->backend->get_time_ms() * 1000u;
+    if (now_us < adapter->periodic_holdoff_until_us) {
+        adapter->timer_pending = false;
+        return schedule_next_timer(adapter, now_us);
     }
 
     adapter->timer_pending = false;
@@ -217,6 +259,12 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
         if (reply_result != SWBT_BTSTACK_SUBCOMMAND_REPLY_QUEUE_OK) {
             return map_reply_queue_result(reply_result);
         }
+        const uint64_t now_us = (uint64_t)adapter->backend->get_time_ms() * 1000u;
+        const swbt_btstack_input_report_timer_result_t holdoff_result =
+            holdoff_periodic_after_reply(adapter, now_us);
+        if (holdoff_result != SWBT_BTSTACK_INPUT_REPORT_TIMER_OK) {
+            return holdoff_result;
+        }
         if (swbt_btstack_subcommand_reply_queue_size(&adapter->reply_queue) > 0u ||
             adapter->can_send_pending) {
             adapter->backend->request_can_send_now_event(adapter->hid_cid);
@@ -227,8 +275,12 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
     if (!adapter->can_send_pending) {
         return SWBT_BTSTACK_INPUT_REPORT_TIMER_NOT_DUE;
     }
-
     const uint64_t now_us = (uint64_t)adapter->backend->get_time_ms() * 1000u;
+    if (now_us < adapter->periodic_holdoff_until_us) {
+        adapter->can_send_pending = false;
+        return schedule_next_timer(adapter, now_us);
+    }
+
     const swbt_state_t state = adapter->state_provider(adapter->state_context);
     const swbt_btstack_input_report_result_t tick_result =
         swbt_btstack_input_report_scheduler_tick(&adapter->scheduler, now_us, &state);
@@ -237,6 +289,7 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
     if (result != SWBT_BTSTACK_INPUT_REPORT_TIMER_OK) {
         return result;
     }
+    adapter->periodic_holdoff_until_us = 0u;
     return schedule_next_timer(adapter, now_us);
 }
 
@@ -272,6 +325,7 @@ void swbt_btstack_input_report_timer_adapter_stop(
         adapter->timer_pending = false;
     }
     adapter->can_send_pending = false;
+    adapter->periodic_holdoff_until_us = 0u;
     adapter->running = false;
     (void)swbt_btstack_subcommand_reply_queue_init(&adapter->reply_queue);
     swbt_btstack_input_report_scheduler_stop(&adapter->scheduler);

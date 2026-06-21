@@ -55,6 +55,7 @@ static void swbt_btstack_adapter_hid_device_init(void *context, bool boot_protoc
                                                  const uint8_t *hid_descriptor) {
     (void)context;
     hid_device_init(boot_protocol_mode_supported, hid_descriptor_len, hid_descriptor);
+    hid_device_accept_truncated_hid_reports(true);
 }
 
 static void

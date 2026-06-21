@@ -14,6 +14,7 @@
 #include "classic/hid_device.h"
 #include "core/diagnostics.h"
 #include "daemon/ipc_runner.h"
+#include "gap.h"
 #include "hci_dump.h"
 #include "hci.h"
 #include "hci_transport_usb.h"
@@ -284,6 +285,16 @@ static int swbt_btstack_production_ssp_confirm_user_confirmation(void *context,
     return gap_ssp_confirmation_response(address);
 }
 
+static int swbt_btstack_production_read_controller_address(void *context, uint8_t address[6]) {
+    (void)context;
+    if (address == NULL) {
+        return -1;
+    }
+
+    gap_local_bd_addr(address);
+    return 0;
+}
+
 static uint32_t swbt_btstack_production_time_ms(void *context) {
     (void)context;
     return btstack_run_loop_get_time_ms();
@@ -331,6 +342,7 @@ const swbt_daemon_production_backend_ops_t *swbt_btstack_production_backend_ops(
         .report_timer_enqueue_subcommand_reply = swbt_btstack_production_report_timer_enqueue_reply,
         .report_timer_stop = swbt_btstack_production_report_timer_stop,
         .ssp_confirm_user_confirmation = swbt_btstack_production_ssp_confirm_user_confirmation,
+        .read_controller_address = swbt_btstack_production_read_controller_address,
         .time_ms = swbt_btstack_production_time_ms,
         .power_on = swbt_btstack_production_power_on,
         .power_off = swbt_btstack_production_power_off,

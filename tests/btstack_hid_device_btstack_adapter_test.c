@@ -13,6 +13,7 @@ typedef struct {
     bool hid_create_sdp_record_called;
     bool sdp_register_service_called;
     bool hid_device_init_called;
+    bool hid_device_accept_truncated_hid_reports_called;
     bool hid_device_register_packet_handler_called;
     bool hci_add_event_handler_called;
     uint32_t service_record_handle;
@@ -21,6 +22,7 @@ typedef struct {
     const uint8_t *service_pointer;
     hid_sdp_record_t sdp_record;
     bool boot_protocol_mode_supported;
+    bool accept_truncated_hid_reports;
     uint16_t hid_descriptor_len;
     const uint8_t *hid_descriptor;
     btstack_packet_handler_t packet_handler;
@@ -83,6 +85,11 @@ void hid_device_init(bool boot_protocol_mode_supported, uint16_t hid_descriptor_
     g_fake_btstack.boot_protocol_mode_supported = boot_protocol_mode_supported;
     g_fake_btstack.hid_descriptor_len = hid_descriptor_len;
     g_fake_btstack.hid_descriptor = hid_descriptor;
+}
+
+void hid_device_accept_truncated_hid_reports(bool accept_truncated) {
+    g_fake_btstack.hid_device_accept_truncated_hid_reports_called = true;
+    g_fake_btstack.accept_truncated_hid_reports = accept_truncated;
 }
 
 void hid_device_register_packet_handler(btstack_packet_handler_t callback) {
@@ -160,6 +167,7 @@ static int test_backend_forwards_registration_calls_to_btstack(void) {
     failed += expect_true(g_fake_btstack.hid_create_sdp_record_called);
     failed += expect_true(g_fake_btstack.sdp_register_service_called);
     failed += expect_true(g_fake_btstack.hid_device_init_called);
+    failed += expect_true(g_fake_btstack.hid_device_accept_truncated_hid_reports_called);
     failed += expect_true(g_fake_btstack.hid_device_register_packet_handler_called);
     failed += expect_true(g_fake_btstack.hci_add_event_handler_called);
     failed += expect_eq_u32(g_fake_btstack.service_record_handle, 0x01020304u);
@@ -171,6 +179,7 @@ static int test_backend_forwards_registration_calls_to_btstack(void) {
     failed += expect_eq_u16(g_fake_btstack.sdp_record.hid_descriptor_size, 3u);
     failed += expect_true(g_fake_btstack.sdp_record.device_name == config.device_name);
     failed += expect_true(g_fake_btstack.boot_protocol_mode_supported);
+    failed += expect_true(g_fake_btstack.accept_truncated_hid_reports);
     failed += expect_eq_u16(g_fake_btstack.hid_descriptor_len, 3u);
     failed += expect_true(g_fake_btstack.hid_descriptor == descriptor);
     failed += expect_true(g_fake_btstack.packet_handler == fake_packet_handler);

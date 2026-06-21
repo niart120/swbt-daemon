@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 #include "switch/switch_controller_state.h"
+#include "switch/switch_device_info.h"
 #include "switch/switch_player_lights.h"
 #include "switch/switch_report.h"
 #include "switch/switch_spi.h"
@@ -19,6 +20,15 @@ static int expect_eq_u8(uint8_t actual, uint8_t expected) {
 
 static int expect_eq_size(size_t actual, size_t expected) {
     return actual == expected ? 0 : 1;
+}
+
+static int expect_range(const uint8_t *actual, const uint8_t *expected, size_t size) {
+    for (size_t index = 0; index < size; ++index) {
+        if (actual[index] != expected[index]) {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 static int expect_eq_action(swbt_switch_subcommand_dispatch_action_t actual,
@@ -66,6 +76,15 @@ sample_config(const swbt_state_t *state, const swbt_switch_report_options_t *rep
 }
 
 static swbt_switch_subcommand_dispatcher_config_t
+sample_config_with_device_info(const swbt_state_t *state,
+                               const swbt_switch_report_options_t *report_options,
+                               const swbt_switch_device_info_t *device_info) {
+    swbt_switch_subcommand_dispatcher_config_t config = sample_config(state, report_options, NULL);
+    config.device_info = device_info;
+    return config;
+}
+
+static swbt_switch_subcommand_dispatcher_config_t
 sample_config_with_player_lights(const swbt_state_t *state,
                                  const swbt_switch_report_options_t *report_options,
                                  swbt_switch_player_lights_state_t *player_lights) {
@@ -105,6 +124,28 @@ static int test_simple_ack_dispatches_set_report_mode_reply(void) {
     failed += expect_eq_u8(response.report[0], SWBT_SWITCH_INPUT_REPORT_SUBCOMMAND_REPLY);
     failed += expect_eq_u8(response.report[13], SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_SIMPLE);
     failed += expect_eq_u8(response.report[14], SWBT_SWITCH_SUBCOMMAND_SET_REPORT_MODE);
+    failed += expect_zero_range(response.report, SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET,
+                                SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE);
+    return failed;
+}
+
+static int test_low_power_mode_dispatches_simple_ack_reply(void) {
+    const uint8_t data[] = {0x00u};
+    const swbt_state_t state = sample_state();
+    const swbt_switch_report_options_t report_options = sample_report_options();
+    swbt_switch_subcommand_dispatcher_config_t config =
+        sample_config(&state, &report_options, NULL);
+    swbt_switch_output_report_t output =
+        subcommand_report(SWBT_SWITCH_SUBCOMMAND_LOW_POWER_MODE, data, sizeof(data));
+    swbt_switch_subcommand_dispatcher_response_t response;
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_switch_subcommand_dispatch(&config, &output, &response),
+                            SWBT_SWITCH_SUBCOMMAND_DISPATCH_OK);
+    failed += expect_eq_action(response.action, SWBT_SWITCH_SUBCOMMAND_DISPATCH_ACTION_REPLY);
+    failed += expect_eq_size(response.report_size, SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE);
+    failed += expect_eq_u8(response.report[13], SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_SIMPLE);
+    failed += expect_eq_u8(response.report[14], SWBT_SWITCH_SUBCOMMAND_LOW_POWER_MODE);
     failed += expect_zero_range(response.report, SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET,
                                 SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE);
     return failed;
@@ -222,20 +263,59 @@ static int test_malformed_player_lights_request_does_not_update_state(void) {
     return failed;
 }
 
-static int test_unsupported_subcommand_returns_explicit_result(void) {
+static int test_request_device_info_builds_pro_controller_identity_reply(void) {
     const swbt_state_t state = sample_state();
     const swbt_switch_report_options_t report_options = sample_report_options();
+    swbt_switch_device_info_t device_info = swbt_switch_device_info_default();
+    const uint8_t address[] = {0x00u, 0x1Bu, 0xDCu, 0xF9u, 0x9Fu, 0x7Du};
+    const uint8_t expected_data[] = {0x04u, 0x00u, 0x03u, 0x02u, 0x00u, 0x1Bu,
+                                     0xDCu, 0xF9u, 0x9Fu, 0x7Du, 0x01u, 0x01u};
     swbt_switch_subcommand_dispatcher_config_t config =
-        sample_config(&state, &report_options, NULL);
+        sample_config_with_device_info(&state, &report_options, &device_info);
     swbt_switch_output_report_t output =
         subcommand_report(SWBT_SWITCH_SUBCOMMAND_REQUEST_DEVICE_INFO, NULL, 0u);
     swbt_switch_subcommand_dispatcher_response_t response;
+    for (size_t index = 0; index < sizeof(address); ++index) {
+        device_info.bluetooth_address[index] = address[index];
+    }
 
     int failed = 0;
     failed += expect_eq_int(swbt_switch_subcommand_dispatch(&config, &output, &response),
-                            SWBT_SWITCH_SUBCOMMAND_DISPATCH_UNSUPPORTED);
-    failed += expect_eq_action(response.action, SWBT_SWITCH_SUBCOMMAND_DISPATCH_ACTION_NONE);
-    failed += expect_eq_size(response.report_size, 0u);
+                            SWBT_SWITCH_SUBCOMMAND_DISPATCH_OK);
+    failed += expect_eq_action(response.action, SWBT_SWITCH_SUBCOMMAND_DISPATCH_ACTION_REPLY);
+    failed += expect_eq_size(response.report_size, SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE);
+    failed += expect_eq_u8(response.report[13], SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_DEVICE_INFO);
+    failed += expect_eq_u8(response.report[14], SWBT_SWITCH_SUBCOMMAND_REQUEST_DEVICE_INFO);
+    failed += expect_range(&response.report[SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET],
+                           expected_data, sizeof(expected_data));
+    return failed;
+}
+
+static int test_request_device_info_accepts_mizuyoukanao_pro_profile(void) {
+    const swbt_state_t state = sample_state();
+    const swbt_switch_report_options_t report_options = sample_report_options();
+    swbt_switch_device_info_t device_info = swbt_switch_device_info_mizuyoukanao_pro();
+    const uint8_t address[] = {0x00u, 0x1Bu, 0xDCu, 0xF9u, 0x9Fu, 0x7Du};
+    const uint8_t expected_data[] = {0x03u, 0x48u, 0x03u, 0x02u, 0x00u, 0x1Bu,
+                                     0xDCu, 0xF9u, 0x9Fu, 0x7Du, 0x03u, 0x02u};
+    swbt_switch_subcommand_dispatcher_config_t config =
+        sample_config_with_device_info(&state, &report_options, &device_info);
+    swbt_switch_output_report_t output =
+        subcommand_report(SWBT_SWITCH_SUBCOMMAND_REQUEST_DEVICE_INFO, NULL, 0u);
+    swbt_switch_subcommand_dispatcher_response_t response;
+    for (size_t index = 0; index < sizeof(address); ++index) {
+        device_info.bluetooth_address[index] = address[index];
+    }
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_switch_subcommand_dispatch(&config, &output, &response),
+                            SWBT_SWITCH_SUBCOMMAND_DISPATCH_OK);
+    failed += expect_eq_action(response.action, SWBT_SWITCH_SUBCOMMAND_DISPATCH_ACTION_REPLY);
+    failed += expect_eq_size(response.report_size, SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE);
+    failed += expect_eq_u8(response.report[13], SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_DEVICE_INFO);
+    failed += expect_eq_u8(response.report[14], SWBT_SWITCH_SUBCOMMAND_REQUEST_DEVICE_INFO);
+    failed += expect_range(&response.report[SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET],
+                           expected_data, sizeof(expected_data));
     return failed;
 }
 
@@ -285,11 +365,13 @@ static int test_rumble_only_report_has_no_reply_action(void) {
 int main(void) {
     int failed = 0;
     failed += test_simple_ack_dispatches_set_report_mode_reply();
+    failed += test_low_power_mode_dispatches_simple_ack_reply();
     failed += test_spi_flash_read_builds_reply_data_from_virtual_spi();
     failed += test_set_player_lights_updates_state_and_builds_ack();
     failed += test_get_player_lights_builds_current_state_reply();
     failed += test_malformed_player_lights_request_does_not_update_state();
-    failed += test_unsupported_subcommand_returns_explicit_result();
+    failed += test_request_device_info_builds_pro_controller_identity_reply();
+    failed += test_request_device_info_accepts_mizuyoukanao_pro_profile();
     failed += test_malformed_spi_request_does_not_build_reply();
     failed += test_rumble_only_report_has_no_reply_action();
     return failed == 0 ? 0 : 1;

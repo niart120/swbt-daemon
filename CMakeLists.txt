@@ -131,6 +131,7 @@ add_library(swbt_core STATIC
     swbt/ipc/ipc_server.c
     swbt/ipc/ipc_session.c
     swbt/switch/switch_controller_state.c
+    swbt/switch/switch_device_info.c
     swbt/switch/switch_hid_descriptor.c
     swbt/switch/switch_report.c
     swbt/switch/switch_player_lights.c

@@ -6,6 +6,7 @@
 #include "daemon/runtime.h"
 #include "ipc/ipc_session.h"
 #include "switch/switch_controller_state.h"
+#include "switch/switch_device_info.h"
 #include "switch/switch_subcommand.h"
 #include "switch/switch_subcommand_reply.h"
 
@@ -22,6 +23,7 @@ typedef struct {
     int report_timer_start_calls;
     int report_timer_stop_calls;
     int subcommand_reply_enqueue_calls;
+    int read_device_info_calls;
     const swbt_ipc_session_t *ipc_session;
     const swbt_btstack_output_report_handler_t *output_handler;
     swbt_daemon_state_provider_t state_provider;
@@ -29,6 +31,7 @@ typedef struct {
     uint16_t reply_hid_cid;
     uint8_t reply_report[SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE];
     size_t reply_report_size;
+    swbt_switch_device_info_t device_info;
 } fake_backend_t;
 
 static int expect_true(bool value) {
@@ -43,6 +46,10 @@ static int expect_eq_int(int actual, int expected) {
     return actual == expected ? 0 : 1;
 }
 
+static int expect_eq_u8(uint8_t actual, uint8_t expected) {
+    return actual == expected ? 0 : 1;
+}
+
 static int expect_eq_u16(uint16_t actual, uint16_t expected) {
     return actual == expected ? 0 : 1;
 }
@@ -53,6 +60,7 @@ static int expect_eq_u32(uint32_t actual, uint32_t expected) {
 
 static void fake_backend_init(fake_backend_t *fake) {
     *fake = (fake_backend_t){0};
+    fake->device_info = swbt_switch_device_info_default();
 }
 
 static int fake_ipc_start(void *context, swbt_ipc_session_t *session) {
@@ -116,6 +124,13 @@ static int fake_subcommand_reply_enqueue(void *context, uint16_t hid_cid, const 
     return 0;
 }
 
+static int fake_read_device_info(void *context, swbt_switch_device_info_t *out_device_info) {
+    fake_backend_t *fake = context;
+    fake->read_device_info_calls += 1;
+    *out_device_info = fake->device_info;
+    return 0;
+}
+
 static swbt_daemon_runtime_backend_t fake_backend_ops(void) {
     swbt_daemon_runtime_backend_t backend = {
         .ipc_start = fake_ipc_start,
@@ -127,6 +142,7 @@ static swbt_daemon_runtime_backend_t fake_backend_ops(void) {
         .report_timer_start = fake_report_timer_start,
         .report_timer_stop = fake_report_timer_stop,
         .subcommand_reply_enqueue = fake_subcommand_reply_enqueue,
+        .read_device_info = fake_read_device_info,
     };
     return backend;
 }
@@ -243,6 +259,54 @@ static int output_report_dispatcher_response_enqueues_reply(void) {
     return failed;
 }
 
+static int output_report_device_info_uses_backend_identity(void) {
+    const uint8_t request_device_info[] = {
+        SWBT_SWITCH_OUTPUT_REPORT_RUMBLE_AND_SUBCOMMAND,
+        0x0Au,
+        0x00u,
+        0x00u,
+        0x00u,
+        0x00u,
+        0x00u,
+        0x00u,
+        0x00u,
+        0x00u,
+        SWBT_SWITCH_SUBCOMMAND_REQUEST_DEVICE_INFO,
+    };
+    const uint8_t address[] = {0x00u, 0x1Bu, 0xDCu, 0xF9u, 0x9Fu, 0x7Du};
+    swbt_daemon_runtime_t runtime;
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_backend_t fake;
+    const swbt_daemon_runtime_backend_t backend = fake_backend_ops();
+
+    fake_backend_init(&fake);
+    for (size_t index = 0; index < sizeof(address); ++index) {
+        fake.device_info.bluetooth_address[index] = address[index];
+    }
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_runtime_init(&runtime, &config, &backend, &fake),
+                            SWBT_DAEMON_RUNTIME_OK);
+    failed += expect_eq_int(swbt_daemon_runtime_start(&runtime), SWBT_DAEMON_RUNTIME_OK);
+    failed += expect_eq_int(
+        swbt_btstack_output_report_handler_handle(swbt_daemon_runtime_output_handler(&runtime),
+                                                  0x0042u, SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT, 0u,
+                                                  request_device_info, sizeof(request_device_info)),
+        SWBT_BTSTACK_OUTPUT_REPORT_OK);
+    failed += expect_eq_int(fake.read_device_info_calls, 1);
+    failed += expect_eq_int(fake.subcommand_reply_enqueue_calls, 1);
+    failed += expect_eq_int(fake.reply_report[13], SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_DEVICE_INFO);
+    failed += expect_eq_int(fake.reply_report[14], SWBT_SWITCH_SUBCOMMAND_REQUEST_DEVICE_INFO);
+    for (size_t index = 0; index < sizeof(address); ++index) {
+        failed +=
+            expect_eq_int(fake.reply_report[SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET + 4u + index],
+                          address[index]);
+    }
+
+    swbt_daemon_runtime_stop(&runtime);
+    return failed;
+}
+
 static int shutdown_neutralizes_state_and_stops_resources_once(void) {
     swbt_daemon_runtime_t runtime;
     swbt_daemon_config_t config = swbt_daemon_config_default();
@@ -319,11 +383,47 @@ static int main_with_backend_returns_runtime_exit_without_hardware_backend(void)
     return failed;
 }
 
+static int default_config_uses_switch_facing_report_options(void) {
+    const swbt_daemon_config_t config = swbt_daemon_config_default();
+
+    int failed = 0;
+    failed += expect_eq_u8(config.report_options.battery_connection, 0x8Eu);
+    failed += expect_eq_u8(config.report_options.vibrator_report, 0x80u);
+    return failed;
+}
+
+static int config_applies_mizuyoukanao_pro_device_info_profile(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+
+    int failed = 0;
+    failed += expect_true(
+        swbt_daemon_config_apply_device_info_profile(&config, "mizuyoukanao-pro"));
+    failed += expect_eq_u8(config.device_info.firmware_version[0], 0x03u);
+    failed += expect_eq_u8(config.device_info.firmware_version[1], 0x48u);
+    failed += expect_eq_u8(config.device_info.controller_type,
+                           SWBT_SWITCH_DEVICE_INFO_CONTROLLER_TYPE_PRO_CONTROLLER);
+    failed += expect_eq_u8(config.device_info.tail_unknown,
+                           SWBT_SWITCH_DEVICE_INFO_MIZUYOUKANAO_PRO_TAIL_UNKNOWN);
+    failed += expect_eq_u8(config.device_info.color_source,
+                           SWBT_SWITCH_DEVICE_INFO_MIZUYOUKANAO_PRO_COLOR_SOURCE);
+    return failed;
+}
+
+static int config_rejects_unknown_device_info_profile(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+
+    return expect_false(swbt_daemon_config_apply_device_info_profile(&config, "unknown"));
+}
+
 int main(void) {
     int failed = 0;
+    failed += default_config_uses_switch_facing_report_options();
+    failed += config_applies_mizuyoukanao_pro_device_info_profile();
+    failed += config_rejects_unknown_device_info_profile();
     failed += invalid_config_rejects_without_opening_backends();
     failed += start_wires_session_mailbox_hid_output_and_timer();
     failed += output_report_dispatcher_response_enqueues_reply();
+    failed += output_report_device_info_uses_backend_identity();
     failed += shutdown_neutralizes_state_and_stops_resources_once();
     failed += backend_failure_cleans_up_started_resources();
     failed += main_with_backend_returns_runtime_exit_without_hardware_backend();

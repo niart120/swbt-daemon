@@ -34,17 +34,28 @@ static void swbt_daemon_runtime_on_output_report(void *context, uint16_t hid_cid
                                                  const swbt_switch_output_report_t *report) {
     swbt_daemon_runtime_t *runtime = context;
     swbt_switch_subcommand_dispatcher_response_t response;
+    swbt_switch_device_info_t device_info;
 
     if (runtime == NULL || report == NULL) {
         return;
     }
 
     const swbt_state_t state = swbt_daemon_runtime_read_state(runtime);
+    device_info = runtime->config.device_info;
+    if (runtime->backend->read_device_info != NULL) {
+        swbt_switch_device_info_t backend_device_info;
+        if (runtime->backend->read_device_info(runtime->backend_context, &backend_device_info) ==
+            0) {
+            device_info = backend_device_info;
+        }
+    }
+
     const swbt_switch_subcommand_dispatcher_config_t dispatch_config = {
         .state = &state,
         .report_options = &runtime->config.report_options,
         .spi = &runtime->spi,
         .player_lights = &runtime->player_lights,
+        .device_info = &device_info,
     };
 
     const swbt_switch_subcommand_dispatch_result_t dispatch_result =
