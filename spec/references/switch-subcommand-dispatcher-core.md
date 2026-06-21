@@ -20,14 +20,14 @@ recorded。
 | 項目 | 値 | 根拠 | source | status |
 |---|---:|---|---|---|
 | parsed subcommand input | `swbt_switch_output_report_t` with `has_subcommand`, `subcommand_id`, `subcommand_data` | implementation fact | `swbt/switch/switch_subcommand.h`; `spec/references/switch-subcommand-core.md` | existing parser contract |
-| simple ACK reply | ACK `0x80`, reply-to subcommand ID, no reply data | source fact / implementation contract | `spec/references/switch-subcommand-reply-core.md`; `swbt/switch/switch_subcommand_reply.h` | used for simple handled subcommands |
+| simple ACK reply | ACK `0x80`, reply-to subcommand ID, no reply data | source fact / implementation contract / hardware observation | `spec/references/switch-subcommand-reply-core.md`; `swbt/switch/switch_subcommand_reply.h`; `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` | used for simple handled subcommands; observed in limited bring-up |
 | SPI read request shape | little-endian address + size | source fact | `spec/references/switch-subcommand-core.md` | dispatcher parses request only |
 | SPI read reply shape | ACK `0x90`, echoed address/size, read data | source fact | `spec/references/switch-subcommand-reply-core.md` | dispatcher supplies reply data |
 | SPI read boundary validation | address / size validation delegated to virtual SPI | implementation fact | `spec/references/switch-spi-core.md`; `swbt/switch/switch_spi.h` | dispatcher does not duplicate validation |
 | implemented simple subcommands | `LOW_POWER_MODE`, `SET_REPORT_MODE`, `ENABLE_IMU`, `ENABLE_VIBRATION` | source fact for IDs; policy decision for current dispatcher slice | `spec/references/switch-subcommand-core.md`; dekuNukem `bluetooth_hid_subcommands_notes.md`; joycontrol `protocol.py` | no low-power or session state stored yet |
 | implemented player lights subcommands | `SET_PLAYER_LIGHTS`, `GET_PLAYER_LIGHTS` | source fact / implementation contract | `spec/references/switch-player-lights-policy.md`; `swbt/switch/switch_subcommand_dispatcher.c` | connected to player lights state |
-| implemented device info subcommand | `REQUEST_DEVICE_INFO` replies with ACK `0x82`, subcommand `0x02`, and 12 bytes of Pro Controller identity data | source fact / implementation contract | dekuNukem `bluetooth_hid_subcommands_notes.md`; joycontrol `report.py` / `protocol.py`; `swbt/switch/switch_device_info.h`; `swbt/switch/switch_subcommand_dispatcher.c` | controller address is supplied by runtime identity |
-| mizuyoukanao Pro Controller device info profile | firmware `03 48`, controller type `03`, marker `02`, Bluetooth MAC, tail `03 02` | community implementation fact / experimental implementation contract | mizuyoukanao/btstack `example/btkeyLib.c`; `swbt/switch/switch_device_info.h`; `swbt/daemon/config.c` | selectable with `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`; hardware acceptability unverified |
+| implemented device info subcommand | `REQUEST_DEVICE_INFO` replies with ACK `0x82`, subcommand `0x02`, and 12 bytes of Pro Controller identity data | source fact / implementation contract / hardware observation | dekuNukem `bluetooth_hid_subcommands_notes.md`; joycontrol `report.py` / `protocol.py`; `swbt/switch/switch_device_info.h`; `swbt/switch/switch_subcommand_dispatcher.c`; `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` | controller address is supplied by runtime identity; observed in limited bring-up |
+| mizuyoukanao Pro Controller device info profile | firmware `03 48`, controller type `03`, marker `02`, Bluetooth MAC, tail `03 02` | community implementation fact / experimental implementation contract / hardware observation | mizuyoukanao/btstack `example/btkeyLib.c`; `swbt/switch/switch_device_info.h`; `swbt/daemon/config.c`; `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` | selectable with `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`; observed as experimental condition, not source-audited default |
 | unsupported subcommands | explicit unsupported result | design policy | this work unit | no reply bytes |
 
 ## 4. 実装判断
@@ -45,9 +45,8 @@ recorded。
 
 ## 5. 未解決事項
 
-- 実機 Switch が simple ACK だけで対象 subcommand を受け入れるかは未検証である。
-- 実機 Switch が `REQUEST_DEVICE_INFO` reply を受け入れて初期化列を進めるかは未検証である。
-- 実機 Switch2 22.1.0 が `mizuyoukanao-pro` device info profile を受け入れて `0x08` 反復から進むかは未検証である。
-- 実機 Switch が `LOW_POWER_MODE` simple ACK を受け入れて次の初期化 subcommand へ進むかは未検証である。
+- `local_037` では CSR8510 A10、WinUSB、Switch2 firmware `22.1.0`、`SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro` の条件で、`REQUEST_DEVICE_INFO`、`LOW_POWER_MODE`、`SET_REPORT_MODE`、`ENABLE_IMU`、`ENABLE_VIBRATION`、`SET_PLAYER_LIGHTS`、`GET_TRIGGER_BUTTONS_ELAPSED_TIME`、`NFC_IR_MCU_CONFIG` を含む reply sequence と Switch UI での input 反映を観測した。
+- `mizuyoukanao-pro` device info profile は実験条件として有効だったが、source-audited default ではない。
+- 別 adapter / firmware での subcommand acceptability は未検証である。
 - report mode、IMU、vibration の session state 保存は未実装である。
 - regulated voltage の reply data は未実装である。

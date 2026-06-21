@@ -21,7 +21,7 @@ queue は already-built report bytes を保持し、report payload を解釈し�
 | 項目 | 値 | 根拠 | source | status |
 |---|---:|---|---|---|
 | subcommand reply report size | `50` bytes | implementation contract via existing audit | `spec/references/switch-subcommand-reply-core.md` | stable queue max size |
-| subcommand reply priority | `0x21` reply should not be dropped behind periodic `0x30` | design policy | `spec/initial/BTSTACK_SWITCH_DAEMON_IPC_DESIGN.md:688-698` | stable queue policy; hardware not proven |
+| subcommand reply priority | `0x21` reply should not be dropped behind periodic `0x30` | design policy; hardware observation in later bring-up | `spec/initial/BTSTACK_SWITCH_DAEMON_IPC_DESIGN.md:688-698`; `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` | stable queue policy; observed on CSR8510 A10 / Switch2 22.1.0 |
 | periodic report drop tolerance | periodic `0x30` may slip by one tick before dropping a reply | design policy | `spec/initial/BTSTACK_SWITCH_DAEMON_IPC_DESIGN.md:697-708` | adapter policy deferred |
 | send callback signature | `context`, `hid_cid`, `report`, `report_size` | implementation contract | `swbt/btstack_bridge/input_report_scheduler.h` | reused shape; no BTstack header dependency |
 
@@ -39,5 +39,5 @@ production wrapper は BTstack の void API を success として扱う。fake b
 
 ## 5. 未解決事項
 
-- Switch 実機で `0x21` reply を優先したときの acceptability は未検証である。
-- production daemon entrypoint から実 BTstack backend と IPC runner を起動する接続は `local_042` と `local_043` で扱う。
+- `local_037` では CSR8510 A10、WinUSB、Switch2 firmware `22.1.0` の条件で prioritized `0x21` reply と後続 `0x30` report の受理を観測した。別 adapter / firmware の互換性は未検証である。
+- production daemon entrypoint から実 BTstack backend と IPC runner を起動する接続は `local_042` と `local_043` で完了済みである。

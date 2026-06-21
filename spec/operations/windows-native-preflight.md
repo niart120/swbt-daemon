@@ -66,18 +66,19 @@ cleanup では daemon 停止、adapter state、neutral fail-safe の確認結果
 
 `spec/references/btstack-backend-build-matrix.md` は Windows MinGW cross build が `windows-winusb` backend で link できたことを記録している。この記録は Windows native execution、WinUSB driver assignment、Bluetooth dongle recognition、Switch pairing を証明しない。
 
-`spec/initial/REPOSITORY_INITIALIZATION_TODO.md` の Phase 5 は、専用 USB Bluetooth dongle、Zadig / WinUSB、Windows native 起動、Switch pairing、report period `8000 / 8333 / 15000 / 16667 us` comparison、hardware log 記録を未完了項目としている。
+`work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` と `docs/hardware-test-log.md` は、CSR8510 A10、WinUSB、Switch2 firmware `22.1.0` の条件で Windows native 起動、Switch pairing、HID L2CAP open、report period `8000 / 8333 / 15000 / 16667 us` comparison、owner disconnect / heartbeat timeout / shutdown neutral fail-safe を記録している。`work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md` は、環境変数依存監査後の限定 smoke として `8000us` Button A + release を記録している。
 
-この spec は実機手順の gate と記録項目を定める。Switch protocol bytes、BTstack source selection、WinUSB/libusb 実装値、report period default は追加しない。report period 候補は未検証の比較入力として扱う。
+この spec は実機手順の gate と記録項目を定める。Switch protocol bytes、BTstack source selection、WinUSB/libusb 実装値、report period default は追加しない。report period 候補は `local_037` で粗い受理確認済みだが、source-audited default または最適値として扱わない。
 
 ## 6. 関連 work units
 
 - `work-units/complete/local_016/BTSTACK_BACKEND_BUILD_VERIFICATION.md`
 - `work-units/complete/local_027/WINDOWS_NATIVE_PREFLIGHT.md`
 - `work-units/complete/local_032/WINDOWS_NATIVE_JUST_DEVCONTAINER.md`
+- `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md`
+- `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md`
 
 ## 7. 未解決事項
 
-- Windows native execution、WinUSB driver assignment、Bluetooth dongle recognition、Switch pairing は未検証である。
-- report period comparison の実測値は未記録である。
-- neutral fail-safe の実機観測は未記録である。
+- preflight gate としての未解決事項はない。
+- 別 adapter / firmware の互換性、長時間安定性、report jitter / latency / drop-rate の厳密測定は、この preflight spec では扱わない。後続 work unit または `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` の source として扱う。

@@ -59,7 +59,7 @@ BTstack を含む build artifact は MIT-only artifact と表現しない。ラ�
 
 | 項目 | 根拠 | source | status |
 |---|---|---|---|
-| daemon runtime entrypoint | implementation fact | `apps/swbt-daemon/main.c`, `swbt/daemon/runtime.*` | current noop backend |
+| daemon runtime entrypoint | implementation fact | `apps/swbt-daemon/main.c`, `swbt/daemon/runtime.*`, `swbt/daemon/production_backend.*` | default no-op; production opt-in |
 | local IPC owner/session model | implementation fact | `swbt/ipc/*`, `work-units/complete/local_008` から `local_011` | current |
 | latest-state mailbox boundary | implementation fact | `swbt/core/state_mailbox.*`, `work-units/complete/local_024/STATE_MAILBOX_THREAD_BOUNDARY.md` | current |
 | fake backend runtime integration | implementation fact | `work-units/complete/local_025/DAEMON_RUNTIME_INTEGRATION.md` | current |
@@ -89,6 +89,7 @@ BTstack を含む build artifact は MIT-only artifact と表現しない。ラ�
 - `work-units/complete/local_042/PRODUCTION_IPC_RUNNER_AND_STATE_SYNC.md`
 - `work-units/complete/local_043/PRODUCTION_DAEMON_BTSTACK_ENTRYPOINT.md`
 - `work-units/complete/local_044/PRODUCTION_DAEMON_SHUTDOWN_PATH.md`
+- `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md`
 
 ## 7. 未解決事項
 
