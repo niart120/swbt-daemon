@@ -243,7 +243,10 @@ report period comparison は `8000 / 8333 / 15000 / 16667 us` の全件で contr
 - `swbt/daemon/ipc_runner.c`
 - `swbt/ipc/ipc_server.h`
 - `swbt/ipc/ipc_server.c`
+- `apps/swbt-debug-client/debug_client.h`
+- `apps/swbt-debug-client/debug_client.c`
 - `tests/diagnostics_test.c`
+- `tests/debug_ipc_client_test.c`
 - `tests/daemon_production_backend_test.c`
 - `tests/daemon_runtime_test.c`
 - `tests/switch_subcommand_dispatcher_test.c`
@@ -299,6 +302,7 @@ report period comparison は `8000 / 8333 / 15000 / 16667 us` の全件で contr
 | green | `0x21` NFC/IR MCU config reply build advances past repeated `0x21`; Switch2 reaches `0x30` and NyXPy Button A changes the Switch UI | characterization | hardware | yes |
 | green | periodic input report loop runs at each selected report period and reaches Switch UI screen transition; jitter and latency are not strictly measured | characterization | hardware | yes |
 | green | held IPC client or NyX macro state updates are observed as Switch UI button changes | new | hardware | yes |
+| refactor-skipped | debug client can hold a non-neutral state and close the socket without sending `release` for owner disconnect testing | regression | unit | no |
 | todo | owner disconnect and heartbeat timeout leave neutral state | edge | hardware | yes |
 
 ## 10. 検証
@@ -396,6 +400,7 @@ report period comparison は `8000 / 8333 / 15000 / 16667 us` の全件で contr
 - 2026-06-21 Project NyX local macro update: Project NyX の `.gitignore` は `macros/*` を ignore しているため、`E:\documents\VSCodeWorkspace\Project_NyX\macros\swbt_hardware_bringup` は local artifact として変更した。`state_plan.py` は `held_input_probe` で `probe_inputs` がある場合も `probe_states` を後続実行するようにした。これにより現行コマンドの `probe_buttons=0x00400040` は L+R、neutral、Button A、neutral の順で capture を残す。custom-only に戻す場合は `probe_states=[]` を使う。`uv run ruff format macros\swbt_hardware_bringup` pass。`uv run pytest macros\swbt_hardware_bringup\test_state_plan.py macros\swbt_hardware_bringup\test_macro.py` pass（14 tests）。`uv run ruff check macros\swbt_hardware_bringup` pass。実機 rerun は未実行である。
 - 2026-06-21 set NFC/IR MCU config post-fix NyXPy L+R plus Button A rerun: ユーザ承認後、`SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro` と `0x21` reply 修正後の daemon を Project NyX `held_input_probe` と組み合わせて実行した。daemon artifact は `tmp/hardware/local_037/20260621-201840-8000us-nfc-mcu-a-followup-rerun`、NyXPy artifact は `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T201845_e709`。HCI dump では `pairing complete, status 00`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件、BTstack `invalid size` `0` 件だった。Switch 側からの subcommand は `0x02` `1` 件、`0x08` `1` 件、`0x10` `8` 件、`0x03` `1` 件、`0x04` `1` 件、`0x40` `1` 件、`0x48` `1` 件、`0x21` `1` 件、`0x30` `2` 件だった。swbt は `0x21` に `a0/21` と 34 byte payload を返し、`0x21` 反復は消えた。outgoing `a1 30` は `11410` 件で、buttons は neutral `11260` 件、L+R `0x400040` `64` 件、Button A `0x000008` `86` 件だった。NyXPy `ipc_session.json` は L+R と Button A の `state_accepted`、cleanup `release_sent=true` を記録した。capture は baseline と L+R が L+R prompt、Button A と Button A neutral が controller settings screen を表示した。ユーザは Switch2 側で決定ボタンによる接続設定画面終了まで到達したと観測した。これにより `0x21` gate と Switch UI 上の IPC input 反映は pass と扱う。
 - 2026-06-21 report period comparison NyXPy Button A reruns: ユーザ承認後、`SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro` と `0x21` reply 修正後の daemon を `SWBT_REPORT_PERIOD_US=8333 / 15000 / 16667` で個別に実行した。全件でユーザは Switch2 側の画面遷移を観測した。daemon artifacts は `tmp/hardware/local_037/20260621-203339-8333us-report-period-rerun`、`tmp/hardware/local_037/20260621-203531-15000us-report-period-rerun`、`tmp/hardware/local_037/20260621-203753-16667us-report-period-rerun`。NyXPy artifacts は `E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T203401_7b18`、`E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T203538_6d57`、`E:\documents\VSCodeWorkspace\Project_NyX\resources\swbt_hardware_bringup\artifacts\20260621T203807_b671`。3 件とも HCI dump は `pairing complete, status 00` `1` 件、L2CAP open status `0x0` `2` 件、BTstack `invalid size` `0` 件、`non-registered handle` `0` 件、incoming subcommands `0x02` `1`、`0x08` `1`、`0x10` `8`、`0x03` `1`、`0x04` `1`、`0x40` `1`、`0x48` `1`、`0x21` `1`、`0x30` `2` を記録した。outgoing `a1 21` replies は全件 `82/02` `1`、`80/08` `1`、`90/10` `8`、`80/03` `1`、`83/04` `1`、`80/40` `1`、`80/48` `1`、`a0/21` `1`、`80/30` `2` だった。outgoing `a1 30` は `8333us` が `4191` 件、`15000us` が `2181` 件、`16667us` が `1678` 件で、各 run で L+R と Button A の non-neutral report を含んだ。NyXPy `ipc_session.json` は全件で L+R と Button A の `state_accepted`、cleanup `release_sent=true`、`socket_closed=true`、`command_release_called=true` を記録した。この比較は selected period の受理確認であり、report jitter、入力遅延、取りこぼし率は未測定である。
+- 2026-06-21 owner disconnect software gate: `swbt-debug-client` に `--hold-ms` と `--skip-release` を追加した。これにより owner を取得し、非 neutral state を一定時間保持し、`release` を送らず socket close する実機実験を作れる。`debug_ipc_client_test` は `--skip-release` 相当の config で `hello`、`acquire`、`set_state`、`get_status` の 4 request だけを送り、`release` を送らないことを確認した。`CTEST_ARGS='-R debug_ipc_client_test --output-on-failure' just test-debug` pass。`just test-debug` pass（31/31）。`just windows-cross` pass。`scripts/check-format.sh` pass。`git diff --check` exit 0（Windows checkout 由来の LF to CRLF warning のみ）。owner disconnect 実機 rerun は未実行である。
 
 未実行:
 

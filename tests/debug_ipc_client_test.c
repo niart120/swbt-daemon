@@ -340,6 +340,54 @@ static int test_owner_acquired_error_path_sends_release(void) {
     return 0;
 }
 
+static int test_skip_release_closes_without_release_request(void) {
+    swbt_debug_client_config_t config = {
+        .port = 9,
+        .state = {0},
+        .skip_release = true,
+    };
+    fake_io_t fake = {
+        .responses =
+            {
+                "{\"v\":1,\"type\":\"hello_ok\",\"request_id\":\"h1\",\"client_id\":\"00000001\"}"
+                "\n",
+                "{\"v\":1,\"type\":\"acquired\",\"request_id\":\"a1\",\"owner_id\":\"00000001\"}\n",
+                "{\"v\":1,\"type\":\"state_accepted\",\"request_id\":\"s1\",\"seq\":7}\n",
+                "{\"v\":1,\"type\":\"status\",\"request_id\":\"q1\",\"owner\":{\"present\":true,"
+                "\"owner_id\":\"00000001\",\"last_seq\":7},\"state\":{\"buttons\":8}}\n",
+            },
+        .response_count = 4,
+    };
+    swbt_debug_client_io_t io = {
+        .send = fake_send,
+        .receive = fake_receive,
+        .context = &fake,
+    };
+    config.state = swbt_state_neutral();
+    config.state.buttons = SWBT_BUTTON_A;
+    config.state.client_seq = 7u;
+
+    if (expect_zero(swbt_debug_client_run_io(&config, &io, stdout, stderr))) {
+        return 1;
+    }
+    if (fake.sent_count != 4u) {
+        return 2;
+    }
+    if (expect_contains(fake.sent[0], "\"type\":\"hello\"") ||
+        expect_contains(fake.sent[1], "\"type\":\"acquire\"") ||
+        expect_contains(fake.sent[2], "\"type\":\"set_state\"") ||
+        expect_contains(fake.sent[3], "\"type\":\"get_status\"")) {
+        return 3;
+    }
+    if (strstr(fake.sent[0], "\"type\":\"release\"") != NULL ||
+        strstr(fake.sent[1], "\"type\":\"release\"") != NULL ||
+        strstr(fake.sent[2], "\"type\":\"release\"") != NULL ||
+        strstr(fake.sent[3], "\"type\":\"release\"") != NULL) {
+        return 4;
+    }
+    return 0;
+}
+
 int main(void) {
     if (test_invalid_state_value_is_rejected() != 0) {
         return 1;
@@ -358,6 +406,9 @@ int main(void) {
     }
     if (test_owner_acquired_error_path_sends_release() != 0) {
         return 6;
+    }
+    if (test_skip_release_closes_without_release_request() != 0) {
+        return 7;
     }
 
     return 0;
