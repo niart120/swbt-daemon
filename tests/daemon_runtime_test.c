@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "daemon/config.h"
 #include "daemon/runtime.h"
@@ -57,6 +58,36 @@ static int expect_eq_u16(uint16_t actual, uint16_t expected) {
 
 static int expect_eq_u32(uint32_t actual, uint32_t expected) {
     return actual == expected ? 0 : 1;
+}
+
+static int expect_str_eq(const char *actual, const char *expected) {
+    if (actual == NULL || expected == NULL) {
+        return actual == expected ? 0 : 1;
+    }
+    return strcmp(actual, expected) == 0 ? 0 : 1;
+}
+
+static int expect_config_eq(const swbt_daemon_config_t *actual,
+                            const swbt_daemon_config_t *expected) {
+    int failed = 0;
+    failed += expect_eq_u32(actual->report_period_us, expected->report_period_us);
+    failed += expect_str_eq(actual->ipc_host, expected->ipc_host);
+    failed += expect_eq_u16(actual->ipc_port, expected->ipc_port);
+    failed += expect_eq_int(actual->ipc_backlog, expected->ipc_backlog);
+    failed += expect_eq_u32(actual->ipc_heartbeat_timeout_ms, expected->ipc_heartbeat_timeout_ms);
+    failed += expect_eq_u8(actual->report_options.battery_connection,
+                           expected->report_options.battery_connection);
+    failed += expect_eq_u8(actual->report_options.vibrator_report,
+                           expected->report_options.vibrator_report);
+    failed += expect_eq_u8(actual->device_info.firmware_version[0],
+                           expected->device_info.firmware_version[0]);
+    failed += expect_eq_u8(actual->device_info.firmware_version[1],
+                           expected->device_info.firmware_version[1]);
+    failed +=
+        expect_eq_u8(actual->device_info.controller_type, expected->device_info.controller_type);
+    failed += expect_eq_u8(actual->device_info.tail_unknown, expected->device_info.tail_unknown);
+    failed += expect_eq_u8(actual->device_info.color_source, expected->device_info.color_source);
+    return failed;
 }
 
 static void fake_backend_init(fake_backend_t *fake) {
@@ -432,6 +463,43 @@ static int default_config_uses_switch_facing_report_options(void) {
     return failed;
 }
 
+static int config_env_absent_uses_defaults(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    const swbt_daemon_config_t defaults = swbt_daemon_config_default();
+    const swbt_daemon_config_env_t env = {0};
+
+    int failed = 0;
+    failed += expect_true(swbt_daemon_config_apply_env(&config, &env));
+    failed += expect_config_eq(&config, &defaults);
+    return failed;
+}
+
+static int config_env_invalid_numeric_rejects_and_preserves_config(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    const swbt_daemon_config_env_t env = {
+        .report_period_us = "0",
+    };
+    const swbt_daemon_config_t expected = config;
+
+    int failed = 0;
+    failed += expect_false(swbt_daemon_config_apply_env(&config, &env));
+    failed += expect_config_eq(&config, &expected);
+    return failed;
+}
+
+static int config_env_unknown_device_info_profile_rejects_and_preserves_config(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    const swbt_daemon_config_env_t env = {
+        .device_info_profile = "unknown",
+    };
+    const swbt_daemon_config_t expected = config;
+
+    int failed = 0;
+    failed += expect_false(swbt_daemon_config_apply_env(&config, &env));
+    failed += expect_config_eq(&config, &expected);
+    return failed;
+}
+
 static int config_applies_mizuyoukanao_pro_device_info_profile(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
 
@@ -458,6 +526,9 @@ static int config_rejects_unknown_device_info_profile(void) {
 int main(void) {
     int failed = 0;
     failed += default_config_uses_switch_facing_report_options();
+    failed += config_env_absent_uses_defaults();
+    failed += config_env_invalid_numeric_rejects_and_preserves_config();
+    failed += config_env_unknown_device_info_profile_rejects_and_preserves_config();
     failed += config_applies_mizuyoukanao_pro_device_info_profile();
     failed += config_rejects_unknown_device_info_profile();
     failed += invalid_config_rejects_without_opening_backends();

@@ -1,6 +1,7 @@
 #include "daemon/production_backend.h"
 
 #include <stddef.h>
+#include <string.h>
 
 #include "core/diagnostics.h"
 #include "switch/switch_hid_descriptor.h"
@@ -311,6 +312,22 @@ const swbt_daemon_runtime_backend_t *swbt_daemon_production_runtime_backend(void
 
 bool swbt_daemon_hardware_approval_is_granted(const swbt_daemon_hardware_approval_t *approval) {
     return approval != NULL && approval->run_hardware && approval->hardware_approved;
+}
+
+static bool swbt_daemon_hardware_approval_env_is_enabled(const char *value) {
+    return value != NULL && strcmp(value, "1") == 0;
+}
+
+swbt_daemon_hardware_approval_t
+swbt_daemon_hardware_approval_from_env(const swbt_daemon_hardware_approval_env_t *env) {
+    if (env == NULL) {
+        return (swbt_daemon_hardware_approval_t){0};
+    }
+
+    return (swbt_daemon_hardware_approval_t){
+        .run_hardware = swbt_daemon_hardware_approval_env_is_enabled(env->run_hardware),
+        .hardware_approved = swbt_daemon_hardware_approval_env_is_enabled(env->hardware_approved),
+    };
 }
 
 static swbt_daemon_production_result_t

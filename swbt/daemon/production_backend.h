@@ -28,6 +28,11 @@ typedef struct {
     bool hardware_approved;
 } swbt_daemon_hardware_approval_t;
 
+typedef struct {
+    const char *run_hardware;
+    const char *hardware_approved;
+} swbt_daemon_hardware_approval_env_t;
+
 typedef void (*swbt_daemon_shutdown_request_t)(void *context);
 
 typedef struct {
@@ -106,6 +111,9 @@ swbt_daemon_ipc_runner_config_t
 swbt_daemon_production_backend_ipc_config(const swbt_daemon_production_backend_t *backend);
 
 bool swbt_daemon_hardware_approval_is_granted(const swbt_daemon_hardware_approval_t *approval);
+
+swbt_daemon_hardware_approval_t
+swbt_daemon_hardware_approval_from_env(const swbt_daemon_hardware_approval_env_t *env);
 
 swbt_btstack_hid_registration_config_t swbt_daemon_production_hid_registration_config(void);
 

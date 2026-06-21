@@ -324,6 +324,42 @@ static int missing_hardware_approval_rejects_before_backend_start(void) {
     return failed;
 }
 
+static int hardware_approval_env_requires_both_flags(void) {
+    const swbt_daemon_hardware_approval_env_t missing = {0};
+    const swbt_daemon_hardware_approval_env_t run_only = {
+        .run_hardware = "1",
+    };
+    const swbt_daemon_hardware_approval_env_t approved_only = {
+        .hardware_approved = "1",
+    };
+    const swbt_daemon_hardware_approval_env_t non_exact = {
+        .run_hardware = "true",
+        .hardware_approved = "1",
+    };
+    const swbt_daemon_hardware_approval_env_t approved = {
+        .run_hardware = "1",
+        .hardware_approved = "1",
+    };
+    swbt_daemon_hardware_approval_t approval;
+    int failed = 0;
+
+    approval = swbt_daemon_hardware_approval_from_env(NULL);
+    failed += expect_true(!swbt_daemon_hardware_approval_is_granted(&approval), "null env denied");
+    approval = swbt_daemon_hardware_approval_from_env(&missing);
+    failed += expect_true(!swbt_daemon_hardware_approval_is_granted(&approval), "missing denied");
+    approval = swbt_daemon_hardware_approval_from_env(&run_only);
+    failed += expect_true(!swbt_daemon_hardware_approval_is_granted(&approval), "run only denied");
+    approval = swbt_daemon_hardware_approval_from_env(&approved_only);
+    failed +=
+        expect_true(!swbt_daemon_hardware_approval_is_granted(&approval), "approved only denied");
+    approval = swbt_daemon_hardware_approval_from_env(&non_exact);
+    failed += expect_true(!swbt_daemon_hardware_approval_is_granted(&approval), "non exact denied");
+    approval = swbt_daemon_hardware_approval_from_env(&approved);
+    failed +=
+        expect_true(swbt_daemon_hardware_approval_is_granted(&approval), "both flags granted");
+    return failed;
+}
+
 static int approved_backend_starts_hardware_and_cleans_up_in_order(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_ops_t fake = {0};
@@ -595,6 +631,7 @@ static int hid_packet_handler_confirms_ssp_user_confirmation(void) {
 int main(void) {
     int failed = 0;
     failed += missing_hardware_approval_rejects_before_backend_start();
+    failed += hardware_approval_env_requires_both_flags();
     failed += approved_backend_starts_hardware_and_cleans_up_in_order();
     failed += start_failure_cleans_started_resources_only();
     failed += stop_request_sends_neutral_before_power_off_and_run_loop_exit();
