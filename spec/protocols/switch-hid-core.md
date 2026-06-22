@@ -74,7 +74,7 @@ periodic input report scheduler の default period は `8000us` とする。`loc
 | simple ACK | `0x80` | source fact / implementation contract | `spec/references/switch-subcommand-reply-core.md`, `spec/references/switch-subcommand-dispatcher-core.md` | stable for current dispatcher |
 | SPI read ACK | `0x90` | source fact | `spec/references/switch-subcommand-reply-core.md` | stable for current dispatcher |
 | output reports | `0x01`, `0x10` | source fact | `spec/references/switch-subcommand-core.md` | stable for parser |
-| request device info profile | `swbt-pro` | implementation policy backed by existing implementation contract | `spec/references/switch-subcommand-dispatcher-core.md`, `swbt/switch/switch_device_info.c`, `work-units/wip/local_048/SWBT_DEVICE_INFO_PROFILE_DEFINITION.md` | daemon default; `mizuyoukanao-pro` removed |
+| request device info profile | `swbt-pro` | implementation policy backed by existing implementation contract | `spec/references/switch-subcommand-dispatcher-core.md`, `swbt/switch/switch_device_info.c`, `work-units/complete/local_048/SWBT_DEVICE_INFO_PROFILE_DEFINITION.md` | daemon の既定値; `mizuyoukanao-pro` removed |
 | rumble raw payload | `8` bytes | source fact | `spec/references/switch-rumble-core.md` | stable raw storage |
 | player lights `0x30` / `0x31` | subcommand IDs | source fact / implementation contract | `spec/references/switch-player-lights-policy.md` | stable for current policy |
 | default report period | `8000us` | design policy / hardware observation | `spec/references/btstack-periodic-input-report-core.md`, `CMakeLists.txt`, `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` | configurable; coarse acceptance observed, not optimized |
