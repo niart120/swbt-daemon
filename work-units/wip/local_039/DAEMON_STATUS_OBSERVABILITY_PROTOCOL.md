@@ -14,6 +14,7 @@ source:
 - `spec/initial/BTSTACK_SWITCH_DAEMON_IPC_DESIGN.md` の `get_status` 例と metrics 候補。
 - `spec/protocols/daemon-ipc-v1.md` の未解決事項。metrics と Switch connection state を IPC status にどう載せるかは未定義である。
 - `spec/architecture/daemon-runtime-boundaries.md`。metrics と logging は現時点では in-process API と log sink である。
+- 2026-06-22 の一時 roadmap note review。実機 bring-up 後の status には production backend、hardware approval、adapter / Switch / HID channel state、report counters、last error を含める候補がある。ただし一時 note の work unit 番号は現行 repository と衝突するため採用しない。
 
 use case:
 
@@ -29,6 +30,8 @@ use case:
 - `get_status` の既存 stable fields との互換性を確認する。
 - daemon runtime state、metrics、Switch connection state の公開可否を決める。
 - metrics fields の名前、単位、unavailable state を定義する。
+- production backend、hardware approval、adapter state、Switch connection state、HID channel state を stable status に含めるか決める。
+- report period、heartbeat timeout、reports sent、send failures、disconnects、last error の field 名と単位を決める。
 - fake timestamp 由来の metrics と hardware observation 由来の metrics を分ける。
 - IPC JSON tests で status schema を固定する。
 - debug client が status を表示するための最低限の contract を用意する。
@@ -67,6 +70,8 @@ hardware-derived values を公開する場合は、値そのものは `docs/hard
 - unavailable hardware fields は missing value ではなく explicit unavailable state とする。
 - 既存 `rumble` schema は input state と分かれているため、metrics schema 設計で混ぜない。
 - stable schema に入れる前に、debug client と IPC JSON tests の期待値を揃える。
+- field 候補は `protocol_version`、`daemon_version`、`backend`、`lifecycle_state`、`hardware_approval`、`adapter_state`、`switch_connection_state`、`hid_channel_state`、`owner`、`report_period_us`、`heartbeat_timeout_ms`、`reports_sent_total`、`send_failures_total`、`disconnects_total`、`last_error` とする。
+- `adapter_state`、`switch_connection_state`、`hid_channel_state` の値は、実装で観測できる state に合わせて絞る。単に見栄えのための state は追加しない。
 
 ## 8. 対象ファイル
 
@@ -88,6 +93,8 @@ hardware-derived values を公開する場合は、値そのものは `docs/hard
 | todo | metrics fields include explicit units and unavailable hardware state | new | unit | no |
 | todo | fake timestamp metrics are not labeled as hardware observations | regression | unit | no |
 | todo | existing rumble status remains separate from controller input state when metrics fields are added | regression | unit | no |
+| todo | production status exposes backend and hardware approval state without implying measured hardware values | new | unit | no |
+| todo | adapter, Switch connection, and HID channel fields represent unavailable state explicitly on noop backend | new | unit | no |
 | todo | debug client can display status without depending on unstable fields | integration | integration | no |
 
 ## 10. 検証
