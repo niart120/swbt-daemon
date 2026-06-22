@@ -57,7 +57,7 @@ virtual SPI は caller-seeded storage を読む。実機相当の factory data g
 
 rumble は controller input state と分けて raw 8 bytes として保持する。frequency / amplitude semantic decode と actuator-safe conversion は current contract に含めない。
 
-Subcommand reply `0x21` は periodic `0x30` より優先する方針とする。現行実装では reply queue core が already-built report bytes を保持し、send failure では head item を残して retry できる。BTstack can-send event 上では `swbt_btstack_input_report_timer_adapter` が queued reply を periodic scheduler より先に送る。`local_037` では CSR8510 A10、WinUSB、Switch2 firmware `22.1.0` の条件で、prioritized `0x21` reply、後続の `0x30` report、Switch UI 上の Button A 入力反映を観測した。`local_049` では `SWBT_DEVICE_INFO_PROFILE` 未指定の `swbt-pro` default run で、同じ subcommand reply sequence と Switch UI 上の Button A 入力反映を観測した。これらの観測は当該構成の hardware observation であり、別 adapter / firmware での一般互換性ではない。
+Subcommand reply `0x21` は periodic `0x30` より優先する方針とする。現行実装では reply queue core が already-built report bytes を保持し、send failure では head item を残して retry できる。BTstack can-send event 上では `swbt_btstack_input_report_timer_adapter` が queued reply を periodic scheduler より先に送る。`local_037` では CSR8510 A10、WinUSB、Switch2 firmware `22.1.0` の条件で、prioritized `0x21` reply、後続の `0x30` report、Switch UI 上の Button A 入力反映を観測した。`local_049` では同じハードウェアと firmware 条件で、`SWBT_DEVICE_INFO_PROFILE` 未指定の `swbt-pro` default run が同じ subcommand reply sequence と Switch UI 上の Button A 入力反映まで進むことを観測した。これらの観測は当該構成の hardware observation であり、別 adapter / firmware での一般互換性ではない。
 
 periodic input report scheduler の default period は `8000us` とする。`local_037` では `8000 / 8333 / 15000 / 16667 us` の各 run で画面遷移までの粗い受理を観測した。ただし、これは report jitter、入力遅延、取りこぼし率の厳密測定ではない。`8000us` は current configurable default であり、最適値として固定した値ではない。
 
@@ -74,7 +74,7 @@ periodic input report scheduler の default period は `8000us` とする。`loc
 | simple ACK | `0x80` | source fact / implementation contract | `spec/references/switch-subcommand-reply-core.md`, `spec/references/switch-subcommand-dispatcher-core.md` | stable for current dispatcher |
 | SPI read ACK | `0x90` | source fact | `spec/references/switch-subcommand-reply-core.md` | stable for current dispatcher |
 | output reports | `0x01`, `0x10` | source fact | `spec/references/switch-subcommand-core.md` | stable for parser |
-| request device info profile | `swbt-pro` | implementation policy backed by existing implementation contract / hardware observation | `spec/references/switch-subcommand-dispatcher-core.md`, `swbt/switch/switch_device_info.c`, `work-units/complete/local_048/SWBT_DEVICE_INFO_PROFILE_DEFINITION.md`, `work-units/complete/local_049/SWBT_PRO_HARDWARE_VERIFICATION.md` | daemon の既定値; `mizuyoukanao-pro` removed; observed on CSR8510 A10 / Switch2 |
+| request device info profile | `swbt-pro` | implementation policy backed by existing implementation contract / hardware observation | `spec/references/switch-subcommand-dispatcher-core.md`, `swbt/switch/switch_device_info.c`, `work-units/complete/local_048/SWBT_DEVICE_INFO_PROFILE_DEFINITION.md`, `work-units/complete/local_049/SWBT_PRO_HARDWARE_VERIFICATION.md` | daemon の既定値; `mizuyoukanao-pro` removed; observed on CSR8510 A10 / Switch2 22.1.0 |
 | rumble raw payload | `8` bytes | source fact | `spec/references/switch-rumble-core.md` | stable raw storage |
 | player lights `0x30` / `0x31` | subcommand IDs | source fact / implementation contract | `spec/references/switch-player-lights-policy.md` | stable for current policy |
 | default report period | `8000us` | design policy / hardware observation | `spec/references/btstack-periodic-input-report-core.md`, `CMakeLists.txt`, `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` | configurable; coarse acceptance observed, not optimized |
@@ -102,7 +102,7 @@ periodic input report scheduler の default period は `8000us` とする。`loc
 
 ## 7. 未解決事項
 
-- `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` では、CSR8510 A10、WinUSB、Switch2 firmware `22.1.0` の条件で current HID descriptor、observed subcommand reply sequence、prioritized `0x21` reply、periodic input report loop、Button A の Switch UI 反映を観測した。`work-units/complete/local_049/SWBT_PRO_HARDWARE_VERIFICATION.md` では、`SWBT_DEVICE_INFO_PROFILE` 未指定の `swbt-pro` default run で同じ bring-up 経路を観測した。これは hardware observation であり、他 adapter / firmware の一般互換性保証ではない。
+- `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` では、CSR8510 A10、WinUSB、Switch2 firmware `22.1.0` の条件で current HID descriptor、observed subcommand reply sequence、prioritized `0x21` reply、periodic input report loop、Button A の Switch UI 反映を観測した。`work-units/complete/local_049/SWBT_PRO_HARDWARE_VERIFICATION.md` では、同じハードウェアと firmware 条件で、`SWBT_DEVICE_INFO_PROFILE` 未指定の `swbt-pro` default run が同じ bring-up 経路を通ることを観測した。これは hardware observation であり、他 adapter / firmware の一般互換性保証ではない。
 - `local_037` では Switch output report が `a2 01` として来ること、truncated HID report acceptance 後に invalid-size drop が消えることを観測した。BTstack DATA callback と SET_REPORT callback のどちらを実機が使うかの広範な互換性は未監査である。
 - player lights replies、virtual SPI seed 全域、rumble output handling の実機上の完全な受理範囲は未検証である。
 - report mode、IMU、vibration の session state 保存は未実装である。

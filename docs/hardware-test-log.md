@@ -839,7 +839,7 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - backend: `windows-winusb`
 - BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
 - swbt: `728a3ce57ebd3df8cdff3ba0f81aa6972455c32b`
-- Switch firmware: Switch2。firmware version は今回 artifact 内では未再記録
+- Switch firmware: Switch2 `22.1.0`
 - approval scope: ユーザ承認済み。CSR8510 A10、adapter open、HID advertising / connectable、Switch pairing、L2CAP 接続、`8000 us` report loop、`SWBT_DEVICE_INFO_PROFILE` 未指定の `swbt-pro` default、`swbt-debug-client` による L+R 3 秒入力と Button A 3 秒入力、HCI dump / diagnostic trace 保存、cleanup 確認
 - environment variables: daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`。`SWBT_DEVICE_INFO_PROFILE` は未指定
 - IPC endpoint: `127.0.0.1:37637`
@@ -850,4 +850,4 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - daemon log: daemon stdout / stderr log は未作成。`SWBT_DIAGNOSTIC_TRACE_PATH` の startup trace と `SWBT_HCI_DUMP_TRACE_PATH` の HCI dump text を正本にする
 - artifact root: daemon `tmp/hardware/local_049/20260622-202545-8000us-swbt-pro-default`
 - cleanup: pass by trace。startup trace は `production: shutdown neutral send`、`production: shutdown neutral send ok`、HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done、production runtime stop done まで到達した。PowerShell exit marker は `exit=0`、client markers は `client_lr_exit=0` と `client_a_exit=0`
-- notes: この entry は `local_048` で `mizuyoukanao-pro` を削除し、`swbt-pro` を daemon default にした後の実機再実行である。`SWBT_DEVICE_INFO_PROFILE=swbt-pro` の明示指定 run は、未指定 default run で `swbt-pro` reply と Switch UI 入力反映まで確認できたため実施していない。この結果は CSR8510 A10 / WinUSB / Switch2 の当該条件の hardware observation であり、別 adapter / firmware の一般互換性ではない
+- notes: この entry は `local_048` で `mizuyoukanao-pro` を削除し、`swbt-pro` を daemon default にした後の実機再実行である。`SWBT_DEVICE_INFO_PROFILE=swbt-pro` の明示指定 run は、未指定 default run で `swbt-pro` reply と Switch UI 入力反映まで確認できたため実施していない。この結果は CSR8510 A10 / WinUSB / Switch2 firmware `22.1.0` の当該条件の hardware observation であり、別 adapter / firmware の一般互換性ではない

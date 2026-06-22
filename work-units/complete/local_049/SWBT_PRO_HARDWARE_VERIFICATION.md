@@ -2,7 +2,7 @@
 
 ## 1. 概要
 
-`local_048` で `swbt-daemon` の規定 device info profile を `swbt-pro` として定義し、daemon の既定値にした。この work unit では、その変更後の実機経路を Windows native + 専用 USB Bluetooth dongle + WinUSB + Switch2 で再確認する。
+`local_048` で `swbt-daemon` の規定 device info profile を `swbt-pro` として定義し、daemon の既定値にした。この work unit では、その変更後の実機経路を Windows native + 専用 USB Bluetooth dongle + WinUSB + Switch2 firmware `22.1.0` で再確認する。
 
 完了後は、`SWBT_DEVICE_INFO_PROFILE` 未指定の production 実行で `swbt-pro` が使われ、pairing、HID L2CAP、subcommand reply、IPC input、cleanup まで既存 bring-up 経路を通るかを `docs/hardware-test-log.md` に記録する。実機結果は対象構成の観測として扱い、別 adapter、別 firmware、長時間安定性へ一般化しない。
 
@@ -103,6 +103,7 @@ Record 作成時点では実機を実行していなかった。2026-06-22 に `
 - IPC input: `build/windows-mingw-debug/swbt-debug-client.exe --port 37637 --button l --button r --seq 4901 --hold-ms 3000` と `build/windows-mingw-debug/swbt-debug-client.exe --port 37637 --button a --seq 4902 --hold-ms 3000` を実行した。client logs は L+R `state.buttons=4194368`、Button A `state.buttons=8`、`client_lr_exit=0`、`client_a_exit=0` を記録した。
 - user observation: Switch 側でコントローラー登録から Button A による画面遷移まで到達した。
 - HCI dump: `pairing complete, status 00` `1` 件、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件、BTstack `invalid size` `0` 件。`non-registered handle` は pairing 前に `1` 件あるが、current connection は継続した。
+- hardware condition correction: ユーザ補足により、今回も過去の pass run と同じハードウェアおよび firmware 条件、すなわち CSR8510 A10 / WinUSB / Switch2 firmware `22.1.0` で実行したことを記録した。
 - `swbt-pro` default reply: HCI dump line `303` は `a1 21 ... 82 02 04 00 03 02 00 1b dc f9 9f 7d 01 01` を記録した。`SWBT_DEVICE_INFO_PROFILE` 未指定の production run で `swbt-pro` bytes が返った。
 - subcommand sequence: incoming subcommand は `0x02` `1`、`0x08` `1`、`0x10` `8`、`0x03` `1`、`0x04` `1`、`0x40` `1`、`0x48` `1`、`0x21` `1`、`0x30` `2`。outgoing `a1 21` replies は `82/02` `1`、`80/08` `1`、`90/10` `8`、`80/03` `1`、`83/04` `1`、`80/40` `1`、`80/48` `1`、`a0/21` `1`、`80/30` `2`。
 - input reports: outgoing `a1 30` は `2448` 件で、buttons は neutral `000000` `1925` 件、L+R `400040` `194` 件、Button A `080000` `329` 件だった。
@@ -138,7 +139,7 @@ Record 作成時点では実機を実行していなかった。2026-06-22 に `
 
 - `2026-06-22` の `tmp/hardware/local_049/20260622-202545-8000us-swbt-pro-default` run で実行済み。
 - 承認範囲は CSR8510 A10、adapter open、HID advertising / connectable、Switch pairing、L2CAP 接続、`8000 us` report loop、`SWBT_DEVICE_INFO_PROFILE` 未指定の `swbt-pro` default、L+R 3 秒入力、Button A 3 秒入力、HCI dump / diagnostic trace 保存、cleanup 確認。
-- Switch firmware version は今回 artifact 内では未再記録。Switch2 でのユーザ観測として扱う。
+- Switch firmware は過去の pass run と同じ Switch2 `22.1.0`。ユーザ補足により、今回も同一 firmware 条件での観測として扱う。
 
 停止条件:
 

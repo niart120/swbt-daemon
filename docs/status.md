@@ -13,7 +13,7 @@
 | Switch pairing / HID L2CAP | 上記構成で SSP pairing status `0x00` と PSM `0x11` / `0x13` の L2CAP open status `0x0` を観測した。 | `docs/hardware-test-log.md` |
 | Switch output subcommand reply | `0x02`, `0x08`, `0x10`, `0x03`, `0x04`, `0x40`, `0x48`, `0x21`, `0x30` を含む reply sequence を観測した。 | `docs/hardware-test-log.md` |
 | Switch UI 入力反映 | `0x21` reply 後、NyXPy の Button A 入力が Switch2 の画面遷移に反映された。 | `docs/hardware-test-log.md`, `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` |
-| `swbt-pro` default profile | `SWBT_DEVICE_INFO_PROFILE` 未指定の production run で `swbt-pro` の request device info reply と Switch UI 入力反映を観測した。 | `docs/hardware-test-log.md`, `work-units/complete/local_049/SWBT_PRO_HARDWARE_VERIFICATION.md` |
+| `swbt-pro` default profile | 上記構成で、`SWBT_DEVICE_INFO_PROFILE` 未指定の production run が `swbt-pro` の request device info reply と Switch UI 入力反映まで進むことを観測した。 | `docs/hardware-test-log.md`, `work-units/complete/local_049/SWBT_PRO_HARDWARE_VERIFICATION.md` |
 | report period comparison | `8000 / 8333 / 15000 / 16667 us` は画面遷移までの粗い受理確認を通過した。 | `docs/hardware-test-log.md`, `spec/references/btstack-periodic-input-report-core.md` |
 | neutral fail-safe | owner disconnect、heartbeat timeout、shutdown で neutral report へ戻ることを観測した。 | `docs/hardware-test-log.md`, `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` |
 | 環境変数依存の限定 smoke | `local_045` 完了後の `8000us` Button A + release smoke は同じ構成で pass。 | `docs/hardware-test-log.md`, `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md` |
