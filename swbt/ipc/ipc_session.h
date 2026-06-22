@@ -5,6 +5,8 @@
 #include <stdint.h>
 
 #include "application/app.h"
+#include "core/metrics.h"
+#include "ipc/ipc_status.h"
 #include "core/spin_lock.h"
 #include "core/state_mailbox.h"
 #include "switch/switch_controller_state.h"
@@ -24,11 +26,17 @@ typedef struct {
     uint64_t last_seq;
     swbt_state_t state;
     swbt_switch_rumble_state_t rumble;
+    swbt_metrics_snapshot_t metrics;
+    swbt_ipc_daemon_status_t daemon;
+    swbt_ipc_hardware_status_t hardware;
 } swbt_ipc_status_t;
 
 typedef struct {
     swbt_spin_lock_t lock;
     swbt_app_t app;
+    swbt_metrics_t metrics;
+    swbt_ipc_daemon_status_t daemon;
+    swbt_ipc_hardware_status_t hardware;
     swbt_switch_rumble_state_t rumble;
     swbt_state_mailbox_t *mailbox;
 } swbt_ipc_session_t;
@@ -37,6 +45,17 @@ swbt_ipc_result_t swbt_ipc_session_init(swbt_ipc_session_t *session);
 
 swbt_ipc_result_t swbt_ipc_session_bind_mailbox(swbt_ipc_session_t *session,
                                                 swbt_state_mailbox_t *mailbox);
+
+swbt_ipc_result_t swbt_ipc_session_set_daemon_status(swbt_ipc_session_t *session,
+                                                     const swbt_ipc_daemon_status_t *daemon_status);
+
+swbt_ipc_result_t
+swbt_ipc_session_set_daemon_lifecycle(swbt_ipc_session_t *session,
+                                      swbt_ipc_daemon_lifecycle_state_t lifecycle_state);
+
+swbt_ipc_result_t
+swbt_ipc_session_set_hardware_approval(swbt_ipc_session_t *session,
+                                       swbt_ipc_hardware_approval_t hardware_approval);
 
 swbt_ipc_result_t swbt_ipc_acquire(swbt_ipc_session_t *session, uint32_t client_id);
 
@@ -51,6 +70,9 @@ swbt_ipc_result_t swbt_ipc_set_state(swbt_ipc_session_t *session, uint32_t clien
 
 swbt_ipc_result_t swbt_ipc_get_status(const swbt_ipc_session_t *session,
                                       swbt_ipc_status_t *out_status);
+
+swbt_ipc_result_t swbt_ipc_record_report_tick(swbt_ipc_session_t *session, uint64_t now_us,
+                                              swbt_metrics_report_send_result_t send_result);
 
 swbt_ipc_result_t swbt_ipc_record_rumble(swbt_ipc_session_t *session, const uint8_t *payload,
                                          uint64_t updated_at_ms);

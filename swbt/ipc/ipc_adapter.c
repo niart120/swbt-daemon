@@ -2,6 +2,9 @@
 
 static void swbt_ipc_adapter_init_response(swbt_ipc_response_t *response) {
     swbt_switch_rumble_state_t rumble = {0};
+    swbt_metrics_snapshot_t metrics = {0};
+    swbt_ipc_daemon_status_t daemon = {0};
+    swbt_ipc_hardware_status_t hardware = {0};
 
     response->type = SWBT_IPC_RESPONSE_NONE;
     response->has_request_id = false;
@@ -9,12 +12,17 @@ static void swbt_ipc_adapter_init_response(swbt_ipc_response_t *response) {
     response->client_id = 0;
     response->owner_client_id = 0;
     response->sequence = 0;
+    metrics.hardware_status = SWBT_METRICS_HARDWARE_UNAVAILABLE;
+    daemon.hardware_approval = SWBT_IPC_HARDWARE_APPROVAL_UNAVAILABLE;
     response->status = (swbt_ipc_response_status_t){
         .has_owner = false,
         .owner_client_id = 0,
         .last_sequence = 0,
         .state = swbt_state_neutral(),
         .rumble = rumble,
+        .metrics = metrics,
+        .daemon = daemon,
+        .hardware = hardware,
     };
     response->error_code = SWBT_IPC_ERROR_CODE_INVALID_JSON;
     response->error_message[0] = '\0';
@@ -69,6 +77,9 @@ static void swbt_ipc_adapter_copy_status(const swbt_ipc_status_t *status,
     out_status->last_sequence = status->last_seq;
     out_status->state = status->state;
     out_status->rumble = status->rumble;
+    out_status->metrics = status->metrics;
+    out_status->daemon = status->daemon;
+    out_status->hardware = status->hardware;
 }
 
 static void swbt_ipc_adapter_error_from_command(const swbt_ipc_command_t *command,

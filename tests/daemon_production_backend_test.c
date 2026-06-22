@@ -47,6 +47,9 @@ typedef struct {
     uint16_t timer_hid_cid;
     uint8_t controller_address[6];
     uint8_t ssp_confirmation_address[6];
+    const swbt_daemon_ipc_runner_t *ipc_runner;
+    swbt_ipc_status_t status_during_run_loop;
+    int status_during_run_loop_result;
     swbt_btstack_hid_registration_config_t captured_hid_config;
     swbt_daemon_ipc_runner_config_t captured_ipc_config;
     swbt_daemon_shutdown_request_t shutdown_request;
@@ -101,6 +104,7 @@ static int fake_ipc_pump_start(void *context, const swbt_daemon_production_ipc_p
     fake->ipc_start_calls += 1;
     fake->ipc_pump_running_at_start =
         pump != NULL && pump->is_running != NULL && pump->is_running(pump->context);
+    fake->ipc_runner = pump == NULL ? NULL : (const swbt_daemon_ipc_runner_t *)pump->context;
     record_step(fake, STEP_IPC_START);
     return 0;
 }
@@ -236,6 +240,10 @@ static void fake_power_off(void *context) {
 static void fake_run_loop_execute(void *context) {
     fake_ops_t *fake = context;
     record_step(fake, STEP_RUN_LOOP_EXECUTE);
+    fake->status_during_run_loop_result =
+        fake->ipc_runner == NULL || fake->ipc_runner->server.session == NULL
+            ? SWBT_IPC_ERROR_INVALID_ARGUMENT
+            : swbt_ipc_get_status(fake->ipc_runner->server.session, &fake->status_during_run_loop);
     if (fake->shutdown_request != NULL) {
         const int request_count =
             fake->shutdown_requests_to_fire > 0 ? fake->shutdown_requests_to_fire : 1;
@@ -385,6 +393,33 @@ static int approved_backend_starts_hardware_and_cleans_up_in_order(void) {
                     "hid descriptor");
     failed += expect_eq_int((int)fake.captured_hid_config.hid_descriptor_size,
                             (int)swbt_switch_hid_descriptor_size(), "hid descriptor size");
+    return failed;
+}
+
+static int approved_backend_status_exposes_production_without_hardware_metrics(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {0};
+    const swbt_daemon_production_backend_ops_t ops = fake_backend_ops();
+    swbt_daemon_production_backend_t backend;
+    const swbt_daemon_hardware_approval_t approval = {
+        .run_hardware = true,
+        .hardware_approved = true,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &ops, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
+                            SWBT_DAEMON_PRODUCTION_OK, "main result");
+    failed += expect_eq_int(fake.status_during_run_loop_result, SWBT_IPC_OK, "status read");
+    failed += expect_eq_int((int)fake.status_during_run_loop.daemon.backend,
+                            (int)SWBT_IPC_DAEMON_BACKEND_PRODUCTION, "daemon backend");
+    failed += expect_eq_int((int)fake.status_during_run_loop.daemon.lifecycle_state,
+                            (int)SWBT_IPC_DAEMON_LIFECYCLE_RUNNING, "lifecycle state");
+    failed += expect_eq_int((int)fake.status_during_run_loop.daemon.hardware_approval,
+                            (int)SWBT_IPC_HARDWARE_APPROVAL_APPROVED, "hardware approval");
+    failed += expect_eq_int((int)fake.status_during_run_loop.metrics.hardware_status,
+                            (int)SWBT_METRICS_HARDWARE_UNAVAILABLE, "hardware metrics");
     return failed;
 }
 
@@ -631,6 +666,7 @@ int main(void) {
     failed += missing_hardware_approval_rejects_before_backend_start();
     failed += hardware_approval_env_requires_both_flags();
     failed += approved_backend_starts_hardware_and_cleans_up_in_order();
+    failed += approved_backend_status_exposes_production_without_hardware_metrics();
     failed += start_failure_cleans_started_resources_only();
     failed += stop_request_sends_neutral_before_power_off_and_run_loop_exit();
     failed += shutdown_listener_is_not_installed_when_hardware_approval_is_missing();

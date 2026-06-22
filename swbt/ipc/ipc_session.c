@@ -17,6 +17,22 @@ static swbt_ipc_result_t swbt_ipc_map_app_result(swbt_app_result_t result) {
     return SWBT_IPC_ERROR_INVALID_ARGUMENT;
 }
 
+static swbt_ipc_daemon_status_t swbt_ipc_daemon_status_default(void) {
+    return (swbt_ipc_daemon_status_t){
+        .backend = SWBT_IPC_DAEMON_BACKEND_UNKNOWN,
+        .lifecycle_state = SWBT_IPC_DAEMON_LIFECYCLE_STOPPED,
+        .hardware_approval = SWBT_IPC_HARDWARE_APPROVAL_UNAVAILABLE,
+    };
+}
+
+static swbt_ipc_hardware_status_t swbt_ipc_hardware_status_default(void) {
+    return (swbt_ipc_hardware_status_t){
+        .adapter_state = SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE,
+        .switch_connection_state = SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE,
+        .hid_channel_state = SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE,
+    };
+}
+
 static swbt_ipc_result_t swbt_ipc_publish_state_unlocked(swbt_ipc_session_t *session) {
     swbt_app_status_t app_status;
 
@@ -66,10 +82,13 @@ swbt_ipc_result_t swbt_ipc_session_init(swbt_ipc_session_t *session) {
     }
 
     swbt_spin_lock_init(&session->lock);
-    if (swbt_app_init(&session->app) != SWBT_APP_OK) {
+    if (swbt_app_init(&session->app) != SWBT_APP_OK ||
+        swbt_metrics_init(&session->metrics) != SWBT_METRICS_OK) {
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
     session->mailbox = NULL;
+    session->daemon = swbt_ipc_daemon_status_default();
+    session->hardware = swbt_ipc_hardware_status_default();
     if (swbt_switch_rumble_init(&session->rumble) != SWBT_SWITCH_RUMBLE_OK) {
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
@@ -87,6 +106,45 @@ swbt_ipc_result_t swbt_ipc_session_bind_mailbox(swbt_ipc_session_t *session,
     const swbt_ipc_result_t result = swbt_ipc_publish_state_unlocked(session);
     swbt_spin_lock_release(&session->lock);
     return result;
+}
+
+swbt_ipc_result_t
+swbt_ipc_session_set_daemon_status(swbt_ipc_session_t *session,
+                                   const swbt_ipc_daemon_status_t *daemon_status) {
+    if (session == NULL || daemon_status == NULL) {
+        return SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    }
+
+    swbt_spin_lock_acquire(&session->lock);
+    session->daemon = *daemon_status;
+    swbt_spin_lock_release(&session->lock);
+    return SWBT_IPC_OK;
+}
+
+swbt_ipc_result_t
+swbt_ipc_session_set_daemon_lifecycle(swbt_ipc_session_t *session,
+                                      swbt_ipc_daemon_lifecycle_state_t lifecycle_state) {
+    if (session == NULL) {
+        return SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    }
+
+    swbt_spin_lock_acquire(&session->lock);
+    session->daemon.lifecycle_state = lifecycle_state;
+    swbt_spin_lock_release(&session->lock);
+    return SWBT_IPC_OK;
+}
+
+swbt_ipc_result_t
+swbt_ipc_session_set_hardware_approval(swbt_ipc_session_t *session,
+                                       swbt_ipc_hardware_approval_t hardware_approval) {
+    if (session == NULL) {
+        return SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    }
+
+    swbt_spin_lock_acquire(&session->lock);
+    session->daemon.hardware_approval = hardware_approval;
+    swbt_spin_lock_release(&session->lock);
+    return SWBT_IPC_OK;
 }
 
 swbt_ipc_result_t swbt_ipc_acquire(swbt_ipc_session_t *session, uint32_t client_id) {
@@ -169,8 +227,27 @@ swbt_ipc_result_t swbt_ipc_get_status(const swbt_ipc_session_t *session,
     out_status->last_seq = app_status.last_sequence;
     out_status->state = app_status.state;
     out_status->rumble = session->rumble;
+    if (swbt_metrics_snapshot(&session->metrics, &out_status->metrics) != SWBT_METRICS_OK) {
+        swbt_spin_lock_release(&mutable_session->lock);
+        return SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    }
+    out_status->daemon = session->daemon;
+    out_status->hardware = session->hardware;
     swbt_spin_lock_release(&mutable_session->lock);
     return SWBT_IPC_OK;
+}
+
+swbt_ipc_result_t swbt_ipc_record_report_tick(swbt_ipc_session_t *session, uint64_t now_us,
+                                              swbt_metrics_report_send_result_t send_result) {
+    if (session == NULL) {
+        return SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    }
+
+    swbt_spin_lock_acquire(&session->lock);
+    const swbt_metrics_result_t result =
+        swbt_metrics_record_report_tick(&session->metrics, now_us, send_result);
+    swbt_spin_lock_release(&session->lock);
+    return result == SWBT_METRICS_OK ? SWBT_IPC_OK : SWBT_IPC_ERROR_INVALID_ARGUMENT;
 }
 
 swbt_ipc_result_t swbt_ipc_record_rumble(swbt_ipc_session_t *session, const uint8_t *payload,

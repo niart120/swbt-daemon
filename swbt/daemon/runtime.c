@@ -90,10 +90,16 @@ swbt_daemon_runtime_result_t swbt_daemon_runtime_init(swbt_daemon_runtime_t *run
     runtime->config = *config;
     runtime->backend = backend;
     runtime->backend_context = backend_context;
+    const swbt_ipc_daemon_status_t daemon_status = {
+        .backend = backend->daemon_backend,
+        .lifecycle_state = SWBT_IPC_DAEMON_LIFECYCLE_STOPPED,
+        .hardware_approval = SWBT_IPC_HARDWARE_APPROVAL_UNAVAILABLE,
+    };
 
     const swbt_switch_spi_seed_profile_t spi_profile = swbt_switch_spi_seed_dev_profile();
     if (swbt_state_mailbox_init(&runtime->mailbox) != SWBT_STATE_MAILBOX_OK ||
         swbt_ipc_session_init(&runtime->ipc_session) != SWBT_IPC_OK ||
+        swbt_ipc_session_set_daemon_status(&runtime->ipc_session, &daemon_status) != SWBT_IPC_OK ||
         swbt_ipc_session_bind_mailbox(&runtime->ipc_session, &runtime->mailbox) != SWBT_IPC_OK ||
         swbt_switch_spi_init(&runtime->spi) != SWBT_SWITCH_SPI_OK ||
         swbt_switch_spi_seed_apply(&runtime->spi, &spi_profile) != SWBT_SWITCH_SPI_OK ||
@@ -145,6 +151,8 @@ swbt_daemon_runtime_result_t swbt_daemon_runtime_start(swbt_daemon_runtime_t *ru
     }
     swbt_diagnostic_trace("runtime: report timer start ok");
     runtime->report_timer_started = true;
+    (void)swbt_ipc_session_set_daemon_lifecycle(&runtime->ipc_session,
+                                                SWBT_IPC_DAEMON_LIFECYCLE_RUNNING);
     runtime->running = true;
     return SWBT_DAEMON_RUNTIME_OK;
 }
@@ -193,6 +201,8 @@ void swbt_daemon_runtime_stop(swbt_daemon_runtime_t *runtime) {
         runtime->ipc_started = false;
     }
 
+    (void)swbt_ipc_session_set_daemon_lifecycle(&runtime->ipc_session,
+                                                SWBT_IPC_DAEMON_LIFECYCLE_STOPPED);
     runtime->running = false;
     swbt_diagnostic_trace("runtime: stop done");
 }
@@ -265,6 +275,7 @@ static uint32_t swbt_daemon_noop_time_ms(void *context) {
 
 const swbt_daemon_runtime_backend_t *swbt_daemon_runtime_noop_backend(void) {
     static const swbt_daemon_runtime_backend_t backend = {
+        .daemon_backend = SWBT_IPC_DAEMON_BACKEND_NOOP,
         .ipc_start = swbt_daemon_noop_ipc_start,
         .ipc_stop = swbt_daemon_noop_stop,
         .hid_register = swbt_daemon_noop_start,
