@@ -320,10 +320,10 @@ static int test_malformed_player_lights_request_does_not_update_state(void) {
     return failed;
 }
 
-static int test_request_device_info_builds_pro_controller_identity_reply(void) {
+static int test_request_device_info_builds_swbt_pro_identity_reply(void) {
     const swbt_state_t state = sample_state();
     const swbt_switch_report_options_t report_options = sample_report_options();
-    swbt_switch_device_info_t device_info = swbt_switch_device_info_default();
+    swbt_switch_device_info_t device_info = swbt_switch_device_info_swbt_pro();
     const uint8_t address[] = {0x00u, 0x1Bu, 0xDCu, 0xF9u, 0x9Fu, 0x7Du};
     const uint8_t expected_data[] = {0x04u, 0x00u, 0x03u, 0x02u, 0x00u, 0x1Bu,
                                      0xDCu, 0xF9u, 0x9Fu, 0x7Du, 0x01u, 0x01u};
@@ -401,7 +401,7 @@ int main(void) {
     failed += test_set_player_lights_updates_state_and_builds_ack();
     failed += test_get_player_lights_builds_current_state_reply();
     failed += test_malformed_player_lights_request_does_not_update_state();
-    failed += test_request_device_info_builds_pro_controller_identity_reply();
+    failed += test_request_device_info_builds_swbt_pro_identity_reply();
     failed += test_malformed_spi_request_does_not_build_reply();
     failed += test_rumble_only_report_has_no_reply_action();
     return failed == 0 ? 0 : 1;
