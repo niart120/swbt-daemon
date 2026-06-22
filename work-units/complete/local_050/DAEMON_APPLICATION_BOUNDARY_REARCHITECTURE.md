@@ -60,7 +60,7 @@ source から use case への変換:
 - `work-units/complete/local_024/STATE_MAILBOX_THREAD_BOUNDARY.md`
 - `work-units/complete/local_042/PRODUCTION_IPC_RUNNER_AND_STATE_SYNC.md`
 - `work-units/complete/local_044/PRODUCTION_DAEMON_SHUTDOWN_PATH.md`
-- `work-units/wip/local_051/DAEMON_APPLICATION_COMMAND_API.md`
+- `work-units/complete/local_051/DAEMON_APPLICATION_COMMAND_API.md`
 - `work-units/wip/local_055/REARCHITECTURE_CUTOVER_ACCEPTANCE_AND_CLEANUP.md`
 
 ## 6. 根拠監査

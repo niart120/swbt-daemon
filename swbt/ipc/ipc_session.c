@@ -2,40 +2,62 @@
 
 #include <stddef.h>
 
-static void swbt_ipc_apply_neutral_unlocked(swbt_ipc_session_t *session) {
-    session->state = swbt_state_neutral();
-}
-
-static swbt_ipc_result_t swbt_ipc_map_lease_result(swbt_control_lease_result_t result) {
+static swbt_ipc_result_t swbt_ipc_map_app_result(swbt_app_result_t result) {
     switch (result) {
-    case SWBT_CONTROL_LEASE_OK:
+    case SWBT_APP_OK:
+    case SWBT_APP_ERROR_STALE_SEQUENCE:
         return SWBT_IPC_OK;
-    case SWBT_CONTROL_LEASE_ERROR_OWNER_BUSY:
+    case SWBT_APP_ERROR_OWNER_BUSY:
         return SWBT_IPC_ERROR_OWNER_BUSY;
-    case SWBT_CONTROL_LEASE_ERROR_NOT_OWNER:
+    case SWBT_APP_ERROR_NOT_OWNER:
         return SWBT_IPC_ERROR_NOT_OWNER;
+    case SWBT_APP_ERROR_INVALID_ARGUMENT:
+        return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
     return SWBT_IPC_ERROR_INVALID_ARGUMENT;
 }
 
 static swbt_ipc_result_t swbt_ipc_publish_state_unlocked(swbt_ipc_session_t *session) {
+    swbt_app_status_t app_status;
+
     if (session->mailbox == NULL) {
         return SWBT_IPC_OK;
     }
-    return swbt_state_mailbox_store(session->mailbox, &session->state) == SWBT_STATE_MAILBOX_OK
+    if (swbt_app_get_status(&session->app, &app_status) != SWBT_APP_OK) {
+        return SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    }
+    return swbt_state_mailbox_store(session->mailbox, &app_status.state) == SWBT_STATE_MAILBOX_OK
                ? SWBT_IPC_OK
                : SWBT_IPC_ERROR_INVALID_ARGUMENT;
 }
 
-static swbt_ipc_result_t
-swbt_ipc_publish_neutral_after_revoke_unlocked(swbt_ipc_session_t *session) {
-    swbt_ipc_apply_neutral_unlocked(session);
+static swbt_ipc_result_t swbt_ipc_publish_app_state_unlocked(swbt_ipc_session_t *session) {
     return swbt_ipc_publish_state_unlocked(session);
 }
 
+static swbt_ipc_result_t swbt_ipc_revoke_owner_event_unlocked(swbt_ipc_session_t *session,
+                                                              swbt_app_revoke_reason_t reason,
+                                                              uint32_t client_id) {
+    swbt_app_status_t before_revoke;
+    if (swbt_app_get_status(&session->app, &before_revoke) != SWBT_APP_OK) {
+        return SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    }
+
+    const bool was_owner = before_revoke.has_owner && before_revoke.owner_client_id == client_id;
+    const swbt_ipc_result_t result =
+        swbt_ipc_map_app_result(swbt_app_revoke(&session->app, reason, client_id));
+    if (result != SWBT_IPC_OK || !was_owner) {
+        return result;
+    }
+
+    return swbt_ipc_publish_app_state_unlocked(session);
+}
+
 static swbt_ipc_result_t swbt_ipc_clear_owner_unlocked(swbt_ipc_session_t *session) {
-    swbt_control_lease_revoke(&session->lease);
-    return swbt_ipc_publish_neutral_after_revoke_unlocked(session);
+    if (swbt_app_revoke(&session->app, SWBT_APP_REVOKE_SHUTDOWN, 0u) != SWBT_APP_OK) {
+        return SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    }
+    return swbt_ipc_publish_app_state_unlocked(session);
 }
 
 swbt_ipc_result_t swbt_ipc_session_init(swbt_ipc_session_t *session) {
@@ -44,9 +66,10 @@ swbt_ipc_result_t swbt_ipc_session_init(swbt_ipc_session_t *session) {
     }
 
     swbt_spin_lock_init(&session->lock);
-    swbt_control_lease_init(&session->lease);
+    if (swbt_app_init(&session->app) != SWBT_APP_OK) {
+        return SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    }
     session->mailbox = NULL;
-    swbt_ipc_apply_neutral_unlocked(session);
     if (swbt_switch_rumble_init(&session->rumble) != SWBT_SWITCH_RUMBLE_OK) {
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
@@ -72,7 +95,7 @@ swbt_ipc_result_t swbt_ipc_acquire(swbt_ipc_session_t *session, uint32_t client_
     }
     swbt_spin_lock_acquire(&session->lock);
     const swbt_ipc_result_t result =
-        swbt_ipc_map_lease_result(swbt_control_lease_acquire(&session->lease, client_id));
+        swbt_ipc_map_app_result(swbt_app_acquire(&session->app, client_id));
     swbt_spin_lock_release(&session->lock);
     return result;
 }
@@ -82,12 +105,12 @@ swbt_ipc_result_t swbt_ipc_release(swbt_ipc_session_t *session, uint32_t client_
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
     swbt_spin_lock_acquire(&session->lock);
-    if (swbt_control_lease_release(&session->lease, client_id) != SWBT_CONTROL_LEASE_OK) {
+    if (swbt_app_revoke(&session->app, SWBT_APP_REVOKE_RELEASE, client_id) != SWBT_APP_OK) {
         swbt_spin_lock_release(&session->lock);
         return SWBT_IPC_ERROR_NOT_OWNER;
     }
 
-    const swbt_ipc_result_t result = swbt_ipc_publish_neutral_after_revoke_unlocked(session);
+    const swbt_ipc_result_t result = swbt_ipc_publish_app_state_unlocked(session);
     swbt_spin_lock_release(&session->lock);
     return result;
 }
@@ -110,17 +133,21 @@ swbt_ipc_result_t swbt_ipc_set_state(swbt_ipc_session_t *session, uint32_t clien
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
     swbt_spin_lock_acquire(&session->lock);
-    const swbt_ipc_result_t owner_result = swbt_ipc_map_lease_result(
-        swbt_control_lease_accept_sequence(&session->lease, client_id, sequence));
-    if (owner_result != SWBT_IPC_OK) {
+    const swbt_app_result_t app_result =
+        swbt_app_set_state(&session->app, client_id, state, sequence);
+    const swbt_ipc_result_t result = swbt_ipc_map_app_result(app_result);
+    if (result != SWBT_IPC_OK) {
         swbt_spin_lock_release(&session->lock);
-        return owner_result;
+        return result;
+    }
+    if (app_result == SWBT_APP_ERROR_STALE_SEQUENCE) {
+        swbt_spin_lock_release(&session->lock);
+        return SWBT_IPC_OK;
     }
 
-    session->state = *state;
-    const swbt_ipc_result_t result = swbt_ipc_publish_state_unlocked(session);
+    const swbt_ipc_result_t publish_result = swbt_ipc_publish_state_unlocked(session);
     swbt_spin_lock_release(&session->lock);
-    return result;
+    return publish_result;
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
@@ -132,11 +159,15 @@ swbt_ipc_result_t swbt_ipc_get_status(const swbt_ipc_session_t *session,
 
     swbt_ipc_session_t *mutable_session = (swbt_ipc_session_t *)session;
     swbt_spin_lock_acquire(&mutable_session->lock);
-    const swbt_control_lease_snapshot_t lease = swbt_control_lease_snapshot(&session->lease);
-    out_status->has_owner = lease.has_owner;
-    out_status->owner_client_id = lease.owner_client_id;
-    out_status->last_seq = lease.last_sequence;
-    out_status->state = session->state;
+    swbt_app_status_t app_status;
+    if (swbt_app_get_status(&session->app, &app_status) != SWBT_APP_OK) {
+        swbt_spin_lock_release(&mutable_session->lock);
+        return SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    }
+    out_status->has_owner = app_status.has_owner;
+    out_status->owner_client_id = app_status.owner_client_id;
+    out_status->last_seq = app_status.last_sequence;
+    out_status->state = app_status.state;
     out_status->rumble = session->rumble;
     swbt_spin_lock_release(&mutable_session->lock);
     return SWBT_IPC_OK;
@@ -173,13 +204,10 @@ swbt_ipc_result_t swbt_ipc_disconnect(swbt_ipc_session_t *session, uint32_t clie
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
     swbt_spin_lock_acquire(&session->lock);
-    if (swbt_control_lease_revoke_if_owner(&session->lease, client_id)) {
-        const swbt_ipc_result_t result = swbt_ipc_publish_neutral_after_revoke_unlocked(session);
-        swbt_spin_lock_release(&session->lock);
-        return result;
-    }
+    const swbt_ipc_result_t result =
+        swbt_ipc_revoke_owner_event_unlocked(session, SWBT_APP_REVOKE_DISCONNECT, client_id);
     swbt_spin_lock_release(&session->lock);
-    return SWBT_IPC_OK;
+    return result;
 }
 
 swbt_ipc_result_t swbt_ipc_heartbeat_timeout(swbt_ipc_session_t *session, uint32_t client_id) {
@@ -187,11 +215,8 @@ swbt_ipc_result_t swbt_ipc_heartbeat_timeout(swbt_ipc_session_t *session, uint32
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
     swbt_spin_lock_acquire(&session->lock);
-    if (swbt_control_lease_revoke_if_owner(&session->lease, client_id)) {
-        const swbt_ipc_result_t result = swbt_ipc_publish_neutral_after_revoke_unlocked(session);
-        swbt_spin_lock_release(&session->lock);
-        return result;
-    }
+    const swbt_ipc_result_t result =
+        swbt_ipc_revoke_owner_event_unlocked(session, SWBT_APP_REVOKE_HEARTBEAT_TIMEOUT, client_id);
     swbt_spin_lock_release(&session->lock);
-    return SWBT_IPC_OK;
+    return result;
 }

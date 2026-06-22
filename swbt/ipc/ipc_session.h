@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "application/control_lease.h"
+#include "application/app.h"
 #include "core/spin_lock.h"
 #include "core/state_mailbox.h"
 #include "switch/switch_controller_state.h"
@@ -28,8 +28,7 @@ typedef struct {
 
 typedef struct {
     swbt_spin_lock_t lock;
-    swbt_control_lease_t lease;
-    swbt_state_t state;
+    swbt_app_t app;
     swbt_switch_rumble_state_t rumble;
     swbt_state_mailbox_t *mailbox;
 } swbt_ipc_session_t;

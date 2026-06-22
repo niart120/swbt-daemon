@@ -167,6 +167,27 @@ int main(void) {
     }
 
     if (handle(&session, 1001,
+               "{\"v\":1,\"type\":\"set_state\",\"owner_id\":\"000003e9\",\"seq\":76,"
+               "\"request_id\":\"stale\",\"state\":{\"buttons\":2,\"lx\":3456,\"ly\":2048,"
+               "\"rx\":2048,\"ry\":2048,\"accel_x\":0,\"accel_y\":0,\"accel_z\":0,"
+               "\"gyro_x\":0,\"gyro_y\":0,\"gyro_z\":0}}\n",
+               response, sizeof(response)) != SWBT_IPC_JSON_OK) {
+        return 33;
+    }
+    if (expect_contains(response, "\"type\":\"state_accepted\"") ||
+        expect_contains(response, "\"request_id\":\"stale\"") ||
+        expect_contains(response, "\"seq\":76")) {
+        return 34;
+    }
+    if (swbt_ipc_get_status(&session, &status) != SWBT_IPC_OK) {
+        return 35;
+    }
+    if (expect_eq_u32(status.state.buttons, SWBT_BUTTON_A) ||
+        expect_eq_u16(status.state.lx, 1234) || status.last_seq != 77) {
+        return 36;
+    }
+
+    if (handle(&session, 1001,
                "{\"v\":1,\"type\":\"release\",\"owner_id\":\"000003e9\",\"request_id\":\"r1\"}\n",
                response, sizeof(response)) != SWBT_IPC_JSON_OK) {
         return 24;
