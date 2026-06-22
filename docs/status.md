@@ -26,7 +26,7 @@
 | Linux実機経路 | Linux + libusb backend での adapter open、pairing、HID report loop。 | Linux host、libusb device、udev / permission、HCI dump を含む実機ログ。 |
 | daemon再起動後の bonded reconnect | 初回 pairing 後、daemon 再起動をまたいで Switch が bonded reconnect できるか。 | link key persistence、BTstack bond database、再起動手順を含む実機ログ。 |
 | 厳密な遅延・jitter・取りこぼし率 | input report の実送信周期、Switch 側入力遅延、取りこぼし率。 | timestamp 付き計測、サンプル数、解析方法、測定誤差の記録。 |
-| `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro` の正規化 | Switch 2 bring-up では使ったが、正規 Pro Controller identity として固定できるかは未確定。 | source audit と別構成の実機確認。 |
+| `swbt-pro` profile の実機確認 | `mizuyoukanao-pro` 削除後、未指定または `SWBT_DEVICE_INFO_PROFILE=swbt-pro` で同じ bring-up 経路を通るか。 | source audit 済みの profile 名と bytes を使った実機ログ。 |
 
 ## 未実装
 
@@ -51,7 +51,7 @@
 | 実機実行で推奨 | `SWBT_IPC_HOST` | `127.0.0.1` | 既定値と同じ。 |
 | 実機実行で推奨 | `SWBT_IPC_PORT` | `37637` | 実機ログで使った固定 port。未指定時の既定は `0`。 |
 | 実機実行で推奨 | `SWBT_REPORT_PERIOD_US` | `8000` | 既定値と同じ。比較実行では `8333 / 15000 / 16667` も使用。 |
-| 実機実行で使用 | `SWBT_DEVICE_INFO_PROFILE` | `mizuyoukanao-pro` | Switch 2 bring-up 実行の実験条件。正規 identity として固定した値ではない。 |
+| 任意 profile selector | `SWBT_DEVICE_INFO_PROFILE` | `swbt-pro` | 未指定時も `swbt-pro`。`mizuyoukanao-pro` は削除済み。 |
 | 任意診断 | `SWBT_DIAGNOSTIC_TRACE_PATH` | trace 出力先 | startup / cleanup trace を残す。 |
 | 任意診断 | `SWBT_HCI_DUMP_TRACE_PATH` | HCI dump text 出力先 | pairing、L2CAP、HID report の証跡を残す。 |
 | 任意診断 | `SWBT_CRASH_DUMP_PATH` | dump 出力先 | Windows crash dump 出力先。 |
