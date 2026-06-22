@@ -97,7 +97,7 @@ TDD red / green:
 
 実行経路の誤り:
 
-- `ctest --preset linux-debug -R switch_hid_descriptor_test --output-on-failure` は Windows host から直接実行したため、CTest 内の `/workspaces/swbt-daemon/...` executable path と合わず Not Run になった。この失敗は実装の red として扱わない。
+- `ctest --preset linux-debug -R switch_hid_descriptor_test --output-on-failure` は Windows host から直接実行したため、CTest 内の Dev Container 側 executable path と合わず Not Run になった。この失敗は実装の red として扱わない。
 
 整形:
 

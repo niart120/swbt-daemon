@@ -83,13 +83,13 @@ TDD status:
 - item: target out-of-scope items can become later sources while deferred items remain follow-up records。
 - state: refactor-done。
 - commands:
-  - `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/work-unit-record`
+  - `skill-creator` validator for `.agents/skills/work-unit-record`
   - `git diff --check`
 - notes: 既存 work unit record の一括移行は対象外にした。
 
 ## 10. 検証
 
-- `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/work-unit-record`: pass。
+- `skill-creator` validator for `.agents/skills/work-unit-record`: pass。
 - `git diff --check`: pass。
 
 ## 11. 実機実行条件

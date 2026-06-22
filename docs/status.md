@@ -1,0 +1,76 @@
+# Current State And Support Matrix
+
+この文書は、README の状態要約、`apps/swbt-daemon/main.c` の起動条件、`docs/hardware-test-log.md` の実機証跡を矛盾なく読むための状態表である。実機ログ全文はここへ転記せず、証跡としてリンクする。
+
+## 確認済み
+
+| 項目 | 確認済みの範囲 | 根拠 |
+|---|---|---|
+| 既定起動 | `SWBT_DAEMON_BACKEND` 未指定では noop backend を選び、Bluetooth アダプターを開かない。 | `apps/swbt-daemon/main.c` |
+| production backend opt-in | `SWBT_DAEMON_BACKEND=production` のときだけ production backend を選ぶ。 | `apps/swbt-daemon/main.c` |
+| 実機承認条件 | production backend は `SWBT_RUN_HARDWARE=1` と `SWBT_HARDWARE_APPROVED=1` がない場合、adapter open 前に失敗する。 | `swbt/daemon/production_backend.c`, `tests/daemon_production_backend_test.c` |
+| 既知の対応構成 | Windows native、CSR8510 A10、WinUSB、Switch 2 firmware `22.1.0`（実機ログ表記は Switch2）、production backend。 | `docs/hardware-test-log.md`, `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` |
+| Switch pairing / HID L2CAP | 上記構成で SSP pairing status `0x00` と PSM `0x11` / `0x13` の L2CAP open status `0x0` を観測した。 | `docs/hardware-test-log.md` |
+| Switch output subcommand reply | `0x02`, `0x08`, `0x10`, `0x03`, `0x04`, `0x40`, `0x48`, `0x21`, `0x30` を含む reply sequence を観測した。 | `docs/hardware-test-log.md` |
+| Switch UI 入力反映 | `0x21` reply 後、NyXPy の Button A 入力が Switch2 の画面遷移に反映された。 | `docs/hardware-test-log.md`, `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` |
+| report period comparison | `8000 / 8333 / 15000 / 16667 us` は画面遷移までの粗い受理確認を通過した。 | `docs/hardware-test-log.md`, `spec/references/btstack-periodic-input-report-core.md` |
+| neutral fail-safe | owner disconnect、heartbeat timeout、shutdown で neutral report へ戻ることを観測した。 | `docs/hardware-test-log.md`, `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` |
+| 環境変数依存の限定 smoke | `local_045` 完了後の `8000us` Button A + release smoke は同じ構成で pass。 | `docs/hardware-test-log.md`, `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md` |
+
+## 未確認
+
+| 項目 | 未確認の内容 | 次に必要な根拠 |
+|---|---|---|
+| 初代Switch各モデル | 初代Switch、Switch Lite、Switch OLED での pairing、subcommand sequence、input 反映。 | firmware、adapter、driver、report period を記録した実機ログ。 |
+| 他のUSBドングル | CSR8510 A10 以外の Bluetooth ドングルでの WinUSB / libusb 挙動。 | VID/PID、driver、BTstack backend、HCI dump を含む実機ログ。 |
+| Linux実機経路 | Linux + libusb backend での adapter open、pairing、HID report loop。 | Linux host、libusb device、udev / permission、HCI dump を含む実機ログ。 |
+| daemon再起動後の bonded reconnect | 初回 pairing 後、daemon 再起動をまたいで Switch が bonded reconnect できるか。 | link key persistence、BTstack bond database、再起動手順を含む実機ログ。 |
+| 厳密な遅延・jitter・取りこぼし率 | input report の実送信周期、Switch 側入力遅延、取りこぼし率。 | timestamp 付き計測、サンプル数、解析方法、測定誤差の記録。 |
+| `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro` の正規化 | Switch 2 bring-up では使ったが、正規 Pro Controller identity として固定できるかは未確定。 | source audit と別構成の実機確認。 |
+
+## 未実装
+
+| 項目 | 現在の扱い | 根拠 |
+|---|---|---|
+| daemon protocol の時間指定 macro | `tap`、`duration_ms`、`sequence`、`at_ms` は daemon protocol に実装しない。client-side helper の責務。 | `README.md`, project policy |
+| 複数 controller 同時接続 | 初期範囲外。daemon は single active owner の state snapshot を扱う。 | project policy |
+| NFC/IR MCU / amiibo の意味処理 | bring-up sequence を進める `0x21` reply はあるが、NFC/IR の意味状態は持たない。 | `docs/hardware-test-log.md`, `spec/protocols/switch-hid-core.md` |
+| rumble 周波数 / 振幅の意味変換 | raw payload の保持と露出に留まり、actuator-safe conversion は未実装。 | `spec/references/switch-rumble-core.md`, `spec/references/switch-rumble-status-exposure.md` |
+| report mode / IMU / vibration の session state persistence | reply と初期化列の一部は扱うが、session state の保存は未実装。 | `spec/protocols/switch-hid-core.md` |
+| manual pairing / regulated voltage reply data | stable implementation としては未実装。 | `spec/protocols/switch-hid-core.md` |
+
+## production 起動条件
+
+`apps/swbt-daemon/main.c` は `SWBT_DAEMON_BACKEND=production` のときだけ production backend を選ぶ。production backend は `SWBT_RUN_HARDWARE=1` と `SWBT_HARDWARE_APPROVED=1` がそろわない場合、実機経路を開始しない。
+
+| 区分 | 環境変数 | 値 | 備考 |
+|---|---|---|---|
+| 必須 | `SWBT_DAEMON_BACKEND` | `production` | 未指定時は noop backend。 |
+| 必須 | `SWBT_RUN_HARDWARE` | `1` | 実機実行の意図を明示する。 |
+| 必須 | `SWBT_HARDWARE_APPROVED` | `1` | 人間が対象 adapter と実行範囲を承認済みであることを明示する。 |
+| 実機実行で推奨 | `SWBT_IPC_HOST` | `127.0.0.1` | 既定値と同じ。 |
+| 実機実行で推奨 | `SWBT_IPC_PORT` | `37637` | 実機ログで使った固定 port。未指定時の既定は `0`。 |
+| 実機実行で推奨 | `SWBT_REPORT_PERIOD_US` | `8000` | 既定値と同じ。比較実行では `8333 / 15000 / 16667` も使用。 |
+| 実機実行で使用 | `SWBT_DEVICE_INFO_PROFILE` | `mizuyoukanao-pro` | Switch 2 bring-up 実行の実験条件。正規 identity として固定した値ではない。 |
+| 任意診断 | `SWBT_DIAGNOSTIC_TRACE_PATH` | trace 出力先 | startup / cleanup trace を残す。 |
+| 任意診断 | `SWBT_HCI_DUMP_TRACE_PATH` | HCI dump text 出力先 | pairing、L2CAP、HID report の証跡を残す。 |
+| 任意診断 | `SWBT_CRASH_DUMP_PATH` | dump 出力先 | Windows crash dump 出力先。 |
+| 任意 fail-safe | `SWBT_IPC_HEARTBEAT_TIMEOUT_MS` | 例: `1000` | 既定値は `0`。heartbeat timeout neutral 実行で使用。 |
+
+実機前の安全確認:
+
+- 専用 USB Bluetooth ドングルを使う。
+- 内蔵 Bluetooth と普段使いのドングルを対象にしない。
+- Windows native では対象ドングルの driver が WinUSB に割り当たっていることを記録する。
+- Switch firmware、dongle VID/PID、driver、BTstack commit、swbt commit、report period、artifact path を `docs/hardware-test-log.md` に記録する。
+
+## 証跡
+
+| 証跡 | 使う場面 |
+|---|---|
+| `docs/hardware-test-log.md` | 実機実行の一次ログ。巨大なため、状態表では要約だけを扱う。 |
+| `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` | Windows native hardware bring-up の完了記録。 |
+| `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md` | 環境変数依存監査と完了後 smoke の記録。 |
+| `work-units/complete/local_046/DOC_IMPLEMENTATION_STATE_ALIGNMENT.md` | README / spec の直近整合更新記録。 |
+| `apps/swbt-daemon/main.c` | backend selection と runtime env config の実装根拠。 |
+| `swbt/daemon/production_backend.c` | 実機承認条件と production lifecycle の実装根拠。 |
