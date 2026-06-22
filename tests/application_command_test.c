@@ -1,0 +1,157 @@
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#include "application/app.h"
+#include "switch/switch_controller_state.h"
+
+typedef struct {
+    uint32_t owner_id;
+    uint64_t sequence;
+} expected_active_state_t;
+
+static int expect_true(bool value) {
+    return value ? 0 : 1;
+}
+
+static int expect_false(bool value) {
+    return value ? 1 : 0;
+}
+
+static int expect_eq_int(int actual, int expected) {
+    return actual == expected ? 0 : 1;
+}
+
+static int expect_eq_u32(uint32_t actual, uint32_t expected) {
+    return actual == expected ? 0 : 1;
+}
+
+static int expect_eq_u64(uint64_t actual, uint64_t expected) {
+    return actual == expected ? 0 : 1;
+}
+
+static int expect_eq_u16(uint16_t actual, uint16_t expected) {
+    return actual == expected ? 0 : 1;
+}
+
+static int application_acquires_and_rejects_owners(void) {
+    swbt_app_t app;
+    swbt_app_status_t status;
+    int failed = 0;
+
+    failed += expect_eq_int(swbt_app_init(&app), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_get_status(&app, &status), SWBT_APP_OK);
+    failed += expect_false(status.has_owner);
+    failed += expect_eq_u32(status.owner_client_id, 0u);
+    failed += expect_eq_u64(status.last_sequence, 0u);
+
+    failed += expect_eq_int(swbt_app_acquire(&app, 1001u), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_acquire(&app, 1001u), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_acquire(&app, 2002u), SWBT_APP_ERROR_OWNER_BUSY);
+
+    failed += expect_eq_int(swbt_app_get_status(&app, &status), SWBT_APP_OK);
+    failed += expect_true(status.has_owner);
+    failed += expect_eq_u32(status.owner_client_id, 1001u);
+    failed += expect_eq_u64(status.last_sequence, 0u);
+
+    return failed;
+}
+
+static int stale_sequence_does_not_update_state(void) {
+    swbt_app_t app;
+    swbt_app_status_t status;
+    swbt_state_t state = swbt_state_neutral();
+    int failed = 0;
+
+    state.buttons = SWBT_BUTTON_A;
+    state.lx = 1234u;
+
+    failed += expect_eq_int(swbt_app_init(&app), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_acquire(&app, 1001u), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_set_state(&app, 1001u, &state, 77u), SWBT_APP_OK);
+
+    state.buttons = SWBT_BUTTON_B;
+    state.lx = 3456u;
+    failed +=
+        expect_eq_int(swbt_app_set_state(&app, 1001u, &state, 76u), SWBT_APP_ERROR_STALE_SEQUENCE);
+
+    failed += expect_eq_int(swbt_app_get_status(&app, &status), SWBT_APP_OK);
+    failed += expect_eq_u32(status.state.buttons, SWBT_BUTTON_A);
+    failed += expect_eq_u16(status.state.lx, 1234u);
+    failed += expect_eq_u64(status.last_sequence, 77u);
+
+    return failed;
+}
+
+static int expect_active_state(const swbt_app_t *app, expected_active_state_t expected) {
+    swbt_app_status_t status;
+    int failed = 0;
+
+    failed += expect_eq_int(swbt_app_get_status(app, &status), SWBT_APP_OK);
+    failed += expect_true(status.has_owner);
+    failed += expect_eq_u32(status.owner_client_id, expected.owner_id);
+    failed += expect_eq_u64(status.last_sequence, expected.sequence);
+    failed += expect_eq_u32(status.state.buttons, SWBT_BUTTON_A);
+    failed += expect_eq_u16(status.state.lx, 1234u);
+    return failed;
+}
+
+static int expect_neutral_state(const swbt_app_t *app) {
+    swbt_app_status_t status;
+    int failed = 0;
+
+    failed += expect_eq_int(swbt_app_get_status(app, &status), SWBT_APP_OK);
+    failed += expect_false(status.has_owner);
+    failed += expect_eq_u32(status.owner_client_id, 0u);
+    failed += expect_eq_u64(status.last_sequence, 0u);
+    failed += expect_eq_u32(status.state.buttons, 0u);
+    failed += expect_eq_u16(status.state.lx, 2048u);
+    return failed;
+}
+
+static int set_active_state(swbt_app_t *app) {
+    swbt_state_t state = swbt_state_neutral();
+    int failed = 0;
+
+    state.buttons = SWBT_BUTTON_A;
+    state.lx = 1234u;
+    failed += expect_eq_int(swbt_app_init(app), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_acquire(app, 1001u), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_set_state(app, 1001u, &state, 11u), SWBT_APP_OK);
+    return failed;
+}
+
+static int revoke_reasons_share_neutral_policy(void) {
+    static const swbt_app_revoke_reason_t reasons[] = {
+        SWBT_APP_REVOKE_RELEASE,
+        SWBT_APP_REVOKE_DISCONNECT,
+        SWBT_APP_REVOKE_HEARTBEAT_TIMEOUT,
+        SWBT_APP_REVOKE_SHUTDOWN,
+    };
+    swbt_app_t app;
+    int failed = 0;
+
+    failed += set_active_state(&app);
+    failed += expect_eq_int(swbt_app_revoke(&app, SWBT_APP_REVOKE_RELEASE, 2002u),
+                            SWBT_APP_ERROR_NOT_OWNER);
+    failed += expect_active_state(&app, (expected_active_state_t){
+                                            .owner_id = 1001u,
+                                            .sequence = 11u,
+                                        });
+
+    for (size_t index = 0; index < sizeof(reasons) / sizeof(reasons[0]); ++index) {
+        failed += set_active_state(&app);
+        failed += expect_eq_int(swbt_app_revoke(&app, reasons[index], 1001u), SWBT_APP_OK);
+        failed += expect_neutral_state(&app);
+    }
+
+    return failed;
+}
+
+int main(void) {
+    int failed = 0;
+    failed += application_acquires_and_rejects_owners();
+    failed += stale_sequence_does_not_update_state();
+    failed += revoke_reasons_share_neutral_policy();
+    return failed == 0 ? 0 : 1;
+}

@@ -11,7 +11,7 @@ IPC JSON codec と socket adapter を application command API へ接続し、JSO
 source:
 
 - `spec/architecture/daemon-application-boundary-rearchitecture.md` の IPC adapter 方針。
-- `work-units/wip/local_051/DAEMON_APPLICATION_COMMAND_API.md` の後続 work unit。
+- `work-units/complete/local_051/DAEMON_APPLICATION_COMMAND_API.md` の後続 work unit。
 - `spec/protocols/daemon-ipc-v1.md` の existing wire contract。
 
 use case:
@@ -49,7 +49,7 @@ roadmap の IPC hardening 全体ではなく、まず codec / adapter の責務�
 - `spec/architecture/daemon-application-boundary-rearchitecture.md`
 - `spec/protocols/daemon-ipc-v1.md`
 - `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`
-- `work-units/wip/local_051/DAEMON_APPLICATION_COMMAND_API.md`
+- `work-units/complete/local_051/DAEMON_APPLICATION_COMMAND_API.md`
 - `work-units/complete/local_009/IPC_JSON_PROTOCOL_CORE.md`
 - `work-units/complete/local_010/IPC_TCP_SERVER_CORE.md`
 - `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`

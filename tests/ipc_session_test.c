@@ -118,6 +118,20 @@ int main(void) {
     if (expect_report_eq(report_a, report_b)) {
         return 43;
     }
+    state.buttons = SWBT_BUTTON_B;
+    state.lx = 3456u;
+    if (swbt_ipc_set_state(&session, 1001, &state, 7u) != SWBT_IPC_OK) {
+        return 44;
+    }
+    if (swbt_ipc_get_status(&session, &status) != SWBT_IPC_OK) {
+        return 45;
+    }
+    if (expect_eq_u64(status.last_seq, 8u) || expect_eq_u32(status.state.buttons, SWBT_BUTTON_A) ||
+        expect_eq_u16(status.state.lx, 1234u)) {
+        return 46;
+    }
+    state.buttons = SWBT_BUTTON_A;
+    state.lx = 1234u;
     if (swbt_ipc_record_rumble(&session, active_rumble, 4242u) != SWBT_IPC_OK) {
         return 31;
     }

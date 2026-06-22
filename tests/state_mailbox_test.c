@@ -113,6 +113,19 @@ static int test_ipc_disconnect_and_timeout_store_neutral(void) {
     failed += expect_eq_int(swbt_state_mailbox_load(&mailbox, &snapshot), SWBT_STATE_MAILBOX_OK);
     failed += expect_eq_u32(snapshot.state.buttons, SWBT_BUTTON_A);
 
+    const uint64_t active_generation = snapshot.generation;
+    failed += expect_eq_int(swbt_ipc_disconnect(&session, 9999u), SWBT_IPC_OK);
+    failed += expect_eq_int(swbt_state_mailbox_load(&mailbox, &snapshot), SWBT_STATE_MAILBOX_OK);
+    failed += expect_eq_u64(snapshot.generation, active_generation);
+    failed += expect_false(snapshot.has_update);
+    failed += expect_eq_u32(snapshot.state.buttons, SWBT_BUTTON_A);
+
+    failed += expect_eq_int(swbt_ipc_heartbeat_timeout(&session, 9999u), SWBT_IPC_OK);
+    failed += expect_eq_int(swbt_state_mailbox_load(&mailbox, &snapshot), SWBT_STATE_MAILBOX_OK);
+    failed += expect_eq_u64(snapshot.generation, active_generation);
+    failed += expect_false(snapshot.has_update);
+    failed += expect_eq_u32(snapshot.state.buttons, SWBT_BUTTON_A);
+
     failed += expect_eq_int(swbt_ipc_disconnect(&session, 1001u), SWBT_IPC_OK);
     failed += expect_eq_int(swbt_state_mailbox_load(&mailbox, &snapshot), SWBT_STATE_MAILBOX_OK);
     failed += expect_eq_u32(snapshot.state.buttons, 0u);
