@@ -487,6 +487,21 @@ static int config_env_invalid_numeric_rejects_and_preserves_config(void) {
     return failed;
 }
 
+static int config_default_uses_swbt_pro_device_info_profile(void) {
+    const swbt_daemon_config_t config = swbt_daemon_config_default();
+    const swbt_switch_device_info_t expected = swbt_switch_device_info_swbt_pro();
+
+    int failed = 0;
+    failed += expect_eq_u8(config.device_info.firmware_version[0],
+                           expected.firmware_version[0]);
+    failed += expect_eq_u8(config.device_info.firmware_version[1],
+                           expected.firmware_version[1]);
+    failed += expect_eq_u8(config.device_info.controller_type, expected.controller_type);
+    failed += expect_eq_u8(config.device_info.tail_unknown, expected.tail_unknown);
+    failed += expect_eq_u8(config.device_info.color_source, expected.color_source);
+    return failed;
+}
+
 static int config_env_unknown_device_info_profile_rejects_and_preserves_config(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     const swbt_daemon_config_env_t env = {
@@ -528,6 +543,7 @@ int main(void) {
     failed += default_config_uses_switch_facing_report_options();
     failed += config_env_absent_uses_defaults();
     failed += config_env_invalid_numeric_rejects_and_preserves_config();
+    failed += config_default_uses_swbt_pro_device_info_profile();
     failed += config_env_unknown_device_info_profile_rejects_and_preserves_config();
     failed += config_applies_mizuyoukanao_pro_device_info_profile();
     failed += config_rejects_unknown_device_info_profile();

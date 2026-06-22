@@ -2,7 +2,7 @@
 
 #include <stddef.h>
 
-swbt_switch_device_info_t swbt_switch_device_info_default(void) {
+swbt_switch_device_info_t swbt_switch_device_info_swbt_pro(void) {
     return (swbt_switch_device_info_t){
         .firmware_version = {0x04u, 0x00u},
         .controller_type = SWBT_SWITCH_DEVICE_INFO_CONTROLLER_TYPE_PRO_CONTROLLER,
@@ -10,6 +10,10 @@ swbt_switch_device_info_t swbt_switch_device_info_default(void) {
         .tail_unknown = SWBT_SWITCH_DEVICE_INFO_UNKNOWN_ALWAYS_01,
         .color_source = SWBT_SWITCH_DEVICE_INFO_COLORS_FROM_SPI,
     };
+}
+
+swbt_switch_device_info_t swbt_switch_device_info_default(void) {
+    return swbt_switch_device_info_swbt_pro();
 }
 
 swbt_switch_device_info_t swbt_switch_device_info_mizuyoukanao_pro(void) {

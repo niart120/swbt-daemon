@@ -19,6 +19,8 @@ typedef struct {
     uint8_t color_source;
 } swbt_switch_device_info_t;
 
+swbt_switch_device_info_t swbt_switch_device_info_swbt_pro(void);
+
 swbt_switch_device_info_t swbt_switch_device_info_default(void);
 
 swbt_switch_device_info_t swbt_switch_device_info_mizuyoukanao_pro(void);
