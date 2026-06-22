@@ -11,7 +11,7 @@ BTstack callback、HID send、timer、run loop integration を application port 
 source:
 
 - `spec/architecture/daemon-application-boundary-rearchitecture.md` の BTstack adapter 方針。
-- `work-units/wip/local_052/IPC_ADAPTER_COMMAND_CODEC_BOUNDARY.md` の後続 work unit。
+- `work-units/complete/local_052/IPC_ADAPTER_COMMAND_CODEC_BOUNDARY.md` の後続 work unit。
 - `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` と `docs/hardware-test-log.md` の実機観測。
 
 use case:

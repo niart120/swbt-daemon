@@ -24,6 +24,8 @@ typedef SOCKET swbt_native_socket_t;
 typedef int swbt_native_socket_t;
 #endif
 
+#include "ipc/ipc_adapter.h"
+
 static swbt_native_socket_t swbt_ipc_native_socket(const swbt_ipc_socket_t *socket) {
     return (swbt_native_socket_t)socket->handle;
 }
@@ -419,7 +421,7 @@ swbt_ipc_server_serve_connection_once_internal(swbt_ipc_server_t *server,
     read_result = swbt_ipc_read_line(&connection->socket, line, sizeof(line), &line_length);
     if (read_result == SWBT_IPC_SERVER_ERROR_DISCONNECTED ||
         read_result == SWBT_IPC_SERVER_ERROR_SOCKET) {
-        (void)swbt_ipc_disconnect(server->session, connection->client_id);
+        (void)swbt_ipc_adapter_handle_disconnect(server->session, connection->client_id);
         return SWBT_IPC_SERVER_ERROR_DISCONNECTED;
     }
     if (read_result != SWBT_IPC_SERVER_OK) {
@@ -430,8 +432,8 @@ swbt_ipc_server_serve_connection_once_internal(swbt_ipc_server_t *server,
     if (update_heartbeat) {
         swbt_ipc_connection_record_heartbeat(connection, now_ms);
     }
-    json_result = swbt_ipc_json_handle_line(server->session, connection->client_id, line, response,
-                                            sizeof(response));
+    json_result = swbt_ipc_adapter_handle_line(server->session, connection->client_id, line,
+                                               response, sizeof(response));
     if (json_result != SWBT_IPC_JSON_OK) {
         return SWBT_IPC_SERVER_ERROR_SOCKET;
     }
@@ -473,7 +475,7 @@ swbt_ipc_server_result_t swbt_ipc_server_check_heartbeat(swbt_ipc_server_t *serv
         return SWBT_IPC_SERVER_OK;
     }
 
-    (void)swbt_ipc_heartbeat_timeout(server->session, connection->client_id);
+    (void)swbt_ipc_adapter_handle_heartbeat_timeout(server->session, connection->client_id);
     return SWBT_IPC_SERVER_ERROR_HEARTBEAT_TIMEOUT;
 }
 

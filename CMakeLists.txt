@@ -129,6 +129,7 @@ add_library(swbt_core STATIC
     swbt/btstack_bridge/input_report_timer_adapter.c
     swbt/btstack_bridge/output_report_handler.c
     swbt/btstack_bridge/subcommand_reply_queue.c
+    swbt/ipc/ipc_adapter.c
     swbt/ipc/ipc_json.c
     swbt/ipc/ipc_server.c
     swbt/ipc/ipc_session.c
