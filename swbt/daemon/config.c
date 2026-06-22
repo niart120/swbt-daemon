@@ -98,12 +98,8 @@ bool swbt_daemon_config_apply_device_info_profile(swbt_daemon_config_t *config,
     if (profile == NULL || profile[0] == '\0') {
         return true;
     }
-    if (strcmp(profile, "default") == 0) {
-        config->device_info = swbt_switch_device_info_default();
-        return true;
-    }
-    if (strcmp(profile, "mizuyoukanao-pro") == 0) {
-        config->device_info = swbt_switch_device_info_mizuyoukanao_pro();
+    if (strcmp(profile, "swbt-pro") == 0 || strcmp(profile, "default") == 0) {
+        config->device_info = swbt_switch_device_info_swbt_pro();
         return true;
     }
     return false;

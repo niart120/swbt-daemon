@@ -320,41 +320,13 @@ static int test_malformed_player_lights_request_does_not_update_state(void) {
     return failed;
 }
 
-static int test_request_device_info_builds_pro_controller_identity_reply(void) {
+static int test_request_device_info_builds_swbt_pro_identity_reply(void) {
     const swbt_state_t state = sample_state();
     const swbt_switch_report_options_t report_options = sample_report_options();
-    swbt_switch_device_info_t device_info = swbt_switch_device_info_default();
+    swbt_switch_device_info_t device_info = swbt_switch_device_info_swbt_pro();
     const uint8_t address[] = {0x00u, 0x1Bu, 0xDCu, 0xF9u, 0x9Fu, 0x7Du};
     const uint8_t expected_data[] = {0x04u, 0x00u, 0x03u, 0x02u, 0x00u, 0x1Bu,
                                      0xDCu, 0xF9u, 0x9Fu, 0x7Du, 0x01u, 0x01u};
-    swbt_switch_subcommand_dispatcher_config_t config =
-        sample_config_with_device_info(&state, &report_options, &device_info);
-    swbt_switch_output_report_t output =
-        subcommand_report(SWBT_SWITCH_SUBCOMMAND_REQUEST_DEVICE_INFO, NULL, 0u);
-    swbt_switch_subcommand_dispatcher_response_t response;
-    for (size_t index = 0; index < sizeof(address); ++index) {
-        device_info.bluetooth_address[index] = address[index];
-    }
-
-    int failed = 0;
-    failed += expect_eq_int(swbt_switch_subcommand_dispatch(&config, &output, &response),
-                            SWBT_SWITCH_SUBCOMMAND_DISPATCH_OK);
-    failed += expect_eq_action(response.action, SWBT_SWITCH_SUBCOMMAND_DISPATCH_ACTION_REPLY);
-    failed += expect_eq_size(response.report_size, SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE);
-    failed += expect_eq_u8(response.report[13], SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_DEVICE_INFO);
-    failed += expect_eq_u8(response.report[14], SWBT_SWITCH_SUBCOMMAND_REQUEST_DEVICE_INFO);
-    failed += expect_range(&response.report[SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET],
-                           expected_data, sizeof(expected_data));
-    return failed;
-}
-
-static int test_request_device_info_accepts_mizuyoukanao_pro_profile(void) {
-    const swbt_state_t state = sample_state();
-    const swbt_switch_report_options_t report_options = sample_report_options();
-    swbt_switch_device_info_t device_info = swbt_switch_device_info_mizuyoukanao_pro();
-    const uint8_t address[] = {0x00u, 0x1Bu, 0xDCu, 0xF9u, 0x9Fu, 0x7Du};
-    const uint8_t expected_data[] = {0x03u, 0x48u, 0x03u, 0x02u, 0x00u, 0x1Bu,
-                                     0xDCu, 0xF9u, 0x9Fu, 0x7Du, 0x03u, 0x02u};
     swbt_switch_subcommand_dispatcher_config_t config =
         sample_config_with_device_info(&state, &report_options, &device_info);
     swbt_switch_output_report_t output =
@@ -429,8 +401,7 @@ int main(void) {
     failed += test_set_player_lights_updates_state_and_builds_ack();
     failed += test_get_player_lights_builds_current_state_reply();
     failed += test_malformed_player_lights_request_does_not_update_state();
-    failed += test_request_device_info_builds_pro_controller_identity_reply();
-    failed += test_request_device_info_accepts_mizuyoukanao_pro_profile();
+    failed += test_request_device_info_builds_swbt_pro_identity_reply();
     failed += test_malformed_spi_request_does_not_build_reply();
     failed += test_rumble_only_report_has_no_reply_action();
     return failed == 0 ? 0 : 1;

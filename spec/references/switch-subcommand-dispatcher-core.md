@@ -27,7 +27,7 @@ recorded。
 | implemented simple subcommands | `LOW_POWER_MODE`, `SET_REPORT_MODE`, `ENABLE_IMU`, `ENABLE_VIBRATION` | source fact for IDs; policy decision for current dispatcher slice | `spec/references/switch-subcommand-core.md`; dekuNukem `bluetooth_hid_subcommands_notes.md`; joycontrol `protocol.py` | no low-power or session state stored yet |
 | implemented player lights subcommands | `SET_PLAYER_LIGHTS`, `GET_PLAYER_LIGHTS` | source fact / implementation contract | `spec/references/switch-player-lights-policy.md`; `swbt/switch/switch_subcommand_dispatcher.c` | connected to player lights state |
 | implemented device info subcommand | `REQUEST_DEVICE_INFO` replies with ACK `0x82`, subcommand `0x02`, and 12 bytes of Pro Controller identity data | source fact / implementation contract / hardware observation | dekuNukem `bluetooth_hid_subcommands_notes.md`; joycontrol `report.py` / `protocol.py`; `swbt/switch/switch_device_info.h`; `swbt/switch/switch_subcommand_dispatcher.c`; `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` | controller address is supplied by runtime identity; observed in limited bring-up |
-| mizuyoukanao Pro Controller device info profile | firmware `03 48`, controller type `03`, marker `02`, Bluetooth MAC, tail `03 02` | community implementation fact / experimental implementation contract / hardware observation | mizuyoukanao/btstack `example/btkeyLib.c`; `swbt/switch/switch_device_info.h`; `swbt/daemon/config.c`; `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` | selectable with `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro`; observed as experimental condition, not source-audited default |
+| `swbt-pro` device info profile | firmware `04 00`, controller type `03`, marker `02`, Bluetooth MAC, tail `01 01` | implementation policy backed by existing implementation contract / hardware observation | `swbt/switch/switch_device_info.h`; `swbt/switch/switch_device_info.c`; `swbt/daemon/config.c`; `work-units/complete/local_048/SWBT_DEVICE_INFO_PROFILE_DEFINITION.md`; `work-units/complete/local_049/SWBT_PRO_HARDWARE_VERIFICATION.md` | daemon の既定値; selectable with `SWBT_DEVICE_INFO_PROFILE=swbt-pro`; observed in default run on CSR8510 A10 / Switch2 22.1.0 |
 | unsupported subcommands | explicit unsupported result | design policy | this work unit | no reply bytes |
 
 ## 4. 実装判断
@@ -40,13 +40,15 @@ recorded。
 - `SET_PLAYER_LIGHTS` は player lights state を更新して simple ACK を返す。
 - `GET_PLAYER_LIGHTS` は player lights state の current raw byte を reply data として返す。
 - `REQUEST_DEVICE_INFO` は Pro Controller identity の reply data を返す。Bluetooth address は dispatcher 内で固定せず、runtime から渡された device info を使う。
-- 実験用に `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro` を選べる。これは firmware / tail bytes を mizuyoukanao 氏の `btkeyLib.c` に合わせる切り分け条件であり、default profile の置き換えではない。
+- `swbt-pro` は daemon の規定 device info profile であり、未指定時の既定値でもある。
+- `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro` は削除済みであり、互換 selector として残さない。
+- `local_049` では CSR8510 A10、WinUSB、Switch2 firmware `22.1.0` の条件で、`SWBT_DEVICE_INFO_PROFILE` 未指定の production run が `swbt-pro` reply data `04 00 03 02 <local BD_ADDR> 01 01`、後続の known subcommand reply sequence、Switch UI 上の Button A 入力反映まで進むことを観測した。
 - manual pairing、regulated voltage などは explicit unsupported として後続に残す。
 
 ## 5. 未解決事項
 
-- `local_037` では CSR8510 A10、WinUSB、Switch2 firmware `22.1.0`、`SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro` の条件で、`REQUEST_DEVICE_INFO`、`LOW_POWER_MODE`、`SET_REPORT_MODE`、`ENABLE_IMU`、`ENABLE_VIBRATION`、`SET_PLAYER_LIGHTS`、`GET_TRIGGER_BUTTONS_ELAPSED_TIME`、`NFC_IR_MCU_CONFIG` を含む reply sequence と Switch UI での input 反映を観測した。
-- `mizuyoukanao-pro` device info profile は実験条件として有効だったが、source-audited default ではない。
+- `local_037` では CSR8510 A10、WinUSB、Switch2 firmware `22.1.0`、当時の実験 profile `mizuyoukanao-pro` の条件で、`REQUEST_DEVICE_INFO`、`LOW_POWER_MODE`、`SET_REPORT_MODE`、`ENABLE_IMU`、`ENABLE_VIBRATION`、`SET_PLAYER_LIGHTS`、`GET_TRIGGER_BUTTONS_ELAPSED_TIME`、`NFC_IR_MCU_CONFIG` を含む reply sequence と Switch UI での input 反映を観測した。
+- `local_049` では `mizuyoukanao-pro` 削除後の `swbt-pro` default profile で、同じ実機経路を CSR8510 A10 / WinUSB / Switch2 firmware `22.1.0` 条件で観測した。
 - 別 adapter / firmware での subcommand acceptability は未検証である。
 - report mode、IMU、vibration の session state 保存は未実装である。
 - regulated voltage の reply data は未実装である。

@@ -13,6 +13,7 @@
 | Switch pairing / HID L2CAP | 上記構成で SSP pairing status `0x00` と PSM `0x11` / `0x13` の L2CAP open status `0x0` を観測した。 | `docs/hardware-test-log.md` |
 | Switch output subcommand reply | `0x02`, `0x08`, `0x10`, `0x03`, `0x04`, `0x40`, `0x48`, `0x21`, `0x30` を含む reply sequence を観測した。 | `docs/hardware-test-log.md` |
 | Switch UI 入力反映 | `0x21` reply 後、NyXPy の Button A 入力が Switch2 の画面遷移に反映された。 | `docs/hardware-test-log.md`, `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` |
+| `swbt-pro` default profile | 上記構成で、`SWBT_DEVICE_INFO_PROFILE` 未指定の production run が `swbt-pro` の request device info reply と Switch UI 入力反映まで進むことを観測した。 | `docs/hardware-test-log.md`, `work-units/complete/local_049/SWBT_PRO_HARDWARE_VERIFICATION.md` |
 | report period comparison | `8000 / 8333 / 15000 / 16667 us` は画面遷移までの粗い受理確認を通過した。 | `docs/hardware-test-log.md`, `spec/references/btstack-periodic-input-report-core.md` |
 | neutral fail-safe | owner disconnect、heartbeat timeout、shutdown で neutral report へ戻ることを観測した。 | `docs/hardware-test-log.md`, `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` |
 | 環境変数依存の限定 smoke | `local_045` 完了後の `8000us` Button A + release smoke は同じ構成で pass。 | `docs/hardware-test-log.md`, `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md` |
@@ -26,7 +27,6 @@
 | Linux実機経路 | Linux + libusb backend での adapter open、pairing、HID report loop。 | Linux host、libusb device、udev / permission、HCI dump を含む実機ログ。 |
 | daemon再起動後の bonded reconnect | 初回 pairing 後、daemon 再起動をまたいで Switch が bonded reconnect できるか。 | link key persistence、BTstack bond database、再起動手順を含む実機ログ。 |
 | 厳密な遅延・jitter・取りこぼし率 | input report の実送信周期、Switch 側入力遅延、取りこぼし率。 | timestamp 付き計測、サンプル数、解析方法、測定誤差の記録。 |
-| `SWBT_DEVICE_INFO_PROFILE=mizuyoukanao-pro` の正規化 | Switch 2 bring-up では使ったが、正規 Pro Controller identity として固定できるかは未確定。 | source audit と別構成の実機確認。 |
 
 ## 未実装
 
@@ -51,7 +51,7 @@
 | 実機実行で推奨 | `SWBT_IPC_HOST` | `127.0.0.1` | 既定値と同じ。 |
 | 実機実行で推奨 | `SWBT_IPC_PORT` | `37637` | 実機ログで使った固定 port。未指定時の既定は `0`。 |
 | 実機実行で推奨 | `SWBT_REPORT_PERIOD_US` | `8000` | 既定値と同じ。比較実行では `8333 / 15000 / 16667` も使用。 |
-| 実機実行で使用 | `SWBT_DEVICE_INFO_PROFILE` | `mizuyoukanao-pro` | Switch 2 bring-up 実行の実験条件。正規 identity として固定した値ではない。 |
+| 任意 profile selector | `SWBT_DEVICE_INFO_PROFILE` | `swbt-pro` | 未指定時も `swbt-pro`。`mizuyoukanao-pro` は削除済み。 |
 | 任意診断 | `SWBT_DIAGNOSTIC_TRACE_PATH` | trace 出力先 | startup / cleanup trace を残す。 |
 | 任意診断 | `SWBT_HCI_DUMP_TRACE_PATH` | HCI dump text 出力先 | pairing、L2CAP、HID report の証跡を残す。 |
 | 任意診断 | `SWBT_CRASH_DUMP_PATH` | dump 出力先 | Windows crash dump 出力先。 |

@@ -828,3 +828,26 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: daemon `tmp/hardware/local_037/20260622-003424-8000us-env-audit-smoke`
 - cleanup: pass by trace。startup trace は `production: shutdown neutral send`、`production: shutdown neutral send ok`、HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done、production runtime stop done まで到達した。PowerShell exit marker は `exit=0`、`cleanup_forced=False`、client marker は `client_exit=0`。crash dump は作成されなかった
 - notes: この entry は `local_045` の環境変数依存監査後に、診断系 environment variable と実機 gate を明示した production run が現行 branch で実機接続と Button A / release まで進むことを確認した smoke である。Switch UI capture は今回取得していないため、画面遷移の根拠としては扱わない
+
+## 2026-06-22: local_049 swbt-pro default 8000us run on Switch2
+
+- OS: Microsoft Windows [Version 10.0.26200.8655]
+- environment: Windows native PowerShell、swbt branch `work/swbt-device-info-profile`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Service `WinUSB`、Class `USBDevice`、Provider `libwdi`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: `728a3ce57ebd3df8cdff3ba0f81aa6972455c32b`
+- Switch firmware: Switch2 `22.1.0`
+- approval scope: ユーザ承認済み。CSR8510 A10、adapter open、HID advertising / connectable、Switch pairing、L2CAP 接続、`8000 us` report loop、`SWBT_DEVICE_INFO_PROFILE` 未指定の `swbt-pro` default、`swbt-debug-client` による L+R 3 秒入力と Button A 3 秒入力、HCI dump / diagnostic trace 保存、cleanup 確認
+- environment variables: daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`。`SWBT_DEVICE_INFO_PROFILE` は未指定
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: preflight として `just windows-cross` pass。PowerShell で `SWBT_DEVICE_INFO_PROFILE` を未設定にして `build/windows-mingw-debug/swbt-daemon.exe` を foreground 起動した。別 PowerShell で `build/windows-mingw-debug/swbt-debug-client.exe --port 37637 --button l --button r --seq 4901 --hold-ms 3000` と `build/windows-mingw-debug/swbt-debug-client.exe --port 37637 --button a --seq 4902 --hold-ms 3000` を実行した。ユーザは Switch 側でコントローラー登録から Button A による画面遷移まで到達したことを観測した。入力確認後、daemon を手動停止した
+- result: `swbt-pro` default run pass。HCI dump では `pairing complete, status 00` `1` 件、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件、BTstack `invalid size` `0` 件だった。`non-registered handle` は pairing 前に `1` 件あるが、current connection は継続した。request device info reply は `a1 21 ... 82 02 04 00 03 02 00 1b dc f9 9f 7d 01 01` を `1` 件記録し、`SWBT_DEVICE_INFO_PROFILE` 未指定で `swbt-pro` bytes が返った。incoming subcommand は `0x02` `1`、`0x08` `1`、`0x10` `8`、`0x03` `1`、`0x04` `1`、`0x40` `1`、`0x48` `1`、`0x21` `1`、`0x30` `2`。outgoing `a1 21` replies は `82/02` `1`、`80/08` `1`、`90/10` `8`、`80/03` `1`、`83/04` `1`、`80/40` `1`、`80/48` `1`、`a0/21` `1`、`80/30` `2`。outgoing `a1 30` input report は `2448` 件で、buttons は neutral `000000` `1925` 件、L+R `400040` `194` 件、Button A `080000` `329` 件だった
+- debug client result: L+R client は `state.buttons=4194368`、`client_lr_exit=0`。Button A client は `state.buttons=8`、`client_a_exit=0`
+- daemon log: daemon stdout / stderr log は未作成。`SWBT_DIAGNOSTIC_TRACE_PATH` の startup trace と `SWBT_HCI_DUMP_TRACE_PATH` の HCI dump text を正本にする
+- artifact root: daemon `tmp/hardware/local_049/20260622-202545-8000us-swbt-pro-default`
+- cleanup: pass by trace。startup trace は `production: shutdown neutral send`、`production: shutdown neutral send ok`、HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done、production runtime stop done まで到達した。PowerShell exit marker は `exit=0`、client markers は `client_lr_exit=0` と `client_a_exit=0`
+- notes: この entry は `local_048` で `mizuyoukanao-pro` を削除し、`swbt-pro` を daemon default にした後の実機再実行である。`SWBT_DEVICE_INFO_PROFILE=swbt-pro` の明示指定 run は、未指定 default run で `swbt-pro` reply と Switch UI 入力反映まで確認できたため実施していない。この結果は CSR8510 A10 / WinUSB / Switch2 firmware `22.1.0` の当該条件の hardware observation であり、別 adapter / firmware の一般互換性ではない
