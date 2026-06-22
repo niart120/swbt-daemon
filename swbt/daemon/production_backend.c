@@ -4,20 +4,10 @@
 #include <string.h>
 
 #include "core/diagnostics.h"
+#include "btstack_bridge/hid_event.h"
 #include "switch/switch_hid_descriptor.h"
 
-#define SWBT_BTSTACK_HCI_EVENT_PACKET 0x04u
-#define SWBT_BTSTACK_HCI_EVENT_USER_CONFIRMATION_REQUEST 0x33u
-#define SWBT_BTSTACK_HCI_EVENT_HID_META 0xefu
-#define SWBT_BTSTACK_HID_SUBEVENT_CONNECTION_OPENED 0x02u
-#define SWBT_BTSTACK_HID_SUBEVENT_CONNECTION_CLOSED 0x03u
-#define SWBT_BTSTACK_HID_SUBEVENT_CAN_SEND_NOW 0x04u
-
 static swbt_daemon_production_backend_t *g_active_backend;
-
-static uint16_t swbt_daemon_production_read_u16_le(const uint8_t *data) {
-    return (uint16_t)((uint16_t)data[0] | ((uint16_t)data[1] << 8u));
-}
 
 static bool swbt_daemon_production_ops_are_valid(const swbt_daemon_production_backend_ops_t *ops) {
     return ops != NULL && ops->ipc_start != NULL && ops->ipc_stop != NULL &&
@@ -110,43 +100,43 @@ static void swbt_daemon_production_ipc_stop(void *context) {
 static void swbt_daemon_production_hid_packet_handler(uint8_t packet_type, uint16_t channel,
                                                       uint8_t *packet, uint16_t size) {
     swbt_daemon_production_backend_t *backend = g_active_backend;
+    swbt_btstack_hid_event_t event;
     (void)channel;
 
-    if (backend == NULL || packet_type != SWBT_BTSTACK_HCI_EVENT_PACKET || packet == NULL) {
+    if (backend == NULL || swbt_btstack_hid_event_decode(packet_type, packet, size, &event) !=
+                               SWBT_BTSTACK_HID_EVENT_OK) {
         return;
     }
 
-    if (size >= 12u && packet[0] == SWBT_BTSTACK_HCI_EVENT_USER_CONFIRMATION_REQUEST) {
-        const uint8_t address[6] = {packet[7], packet[6], packet[5],
-                                    packet[4], packet[3], packet[2]};
-        (void)backend->ops->ssp_confirm_user_confirmation(backend->ops_context, address);
-        return;
-    }
-
-    if (size < 5u || packet[0] != SWBT_BTSTACK_HCI_EVENT_HID_META ||
-        !backend->report_timer_initialized) {
-        return;
-    }
-
-    switch (packet[2]) {
-    case SWBT_BTSTACK_HID_SUBEVENT_CONNECTION_OPENED:
-        if (size < 15u || packet[5] != 0u) {
+    switch (event.type) {
+    case SWBT_BTSTACK_HID_EVENT_USER_CONFIRMATION_REQUEST:
+        (void)backend->ops->ssp_confirm_user_confirmation(backend->ops_context, event.address);
+        break;
+    case SWBT_BTSTACK_HID_EVENT_CONNECTION_OPENED:
+        if (!backend->report_timer_initialized || event.status != 0u) {
             return;
         }
         (void)backend->ops->report_timer_start(
             backend->ops_context, &backend->report_timer,
             (swbt_btstack_input_report_timer_start_options_t){
-                .hid_cid = swbt_daemon_production_read_u16_le(&packet[3]),
+                .hid_cid = event.hid_cid,
                 .now_us = (uint64_t)backend->ops->time_ms(backend->ops_context) * 1000u,
             });
         break;
-    case SWBT_BTSTACK_HID_SUBEVENT_CAN_SEND_NOW:
+    case SWBT_BTSTACK_HID_EVENT_CAN_SEND_NOW:
+        if (!backend->report_timer_initialized) {
+            return;
+        }
         (void)backend->ops->report_timer_on_can_send_now(backend->ops_context,
                                                          &backend->report_timer);
         break;
-    case SWBT_BTSTACK_HID_SUBEVENT_CONNECTION_CLOSED:
+    case SWBT_BTSTACK_HID_EVENT_CONNECTION_CLOSED:
+        if (!backend->report_timer_initialized) {
+            return;
+        }
         backend->ops->report_timer_stop(backend->ops_context, &backend->report_timer);
         break;
+    case SWBT_BTSTACK_HID_EVENT_NONE:
     default:
         break;
     }
@@ -293,6 +283,15 @@ static int swbt_daemon_production_read_device_info(void *context,
                                                  out_device_info->bluetooth_address);
 }
 
+static uint32_t swbt_daemon_production_runtime_time_ms(void *context) {
+    swbt_daemon_production_backend_t *backend = context;
+    if (backend == NULL) {
+        return 0u;
+    }
+
+    return backend->ops->time_ms(backend->ops_context);
+}
+
 const swbt_daemon_runtime_backend_t *swbt_daemon_production_runtime_backend(void) {
     static const swbt_daemon_runtime_backend_t backend = {
         .ipc_start = swbt_daemon_production_ipc_start,
@@ -306,6 +305,7 @@ const swbt_daemon_runtime_backend_t *swbt_daemon_production_runtime_backend(void
         .report_timer_send_neutral_now = swbt_daemon_production_report_timer_send_neutral_now,
         .subcommand_reply_enqueue = swbt_daemon_production_subcommand_reply_enqueue,
         .read_device_info = swbt_daemon_production_read_device_info,
+        .time_ms = swbt_daemon_production_runtime_time_ms,
     };
     return &backend;
 }

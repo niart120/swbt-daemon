@@ -8,6 +8,7 @@
 #include "ipc/ipc_session.h"
 #include "switch/switch_controller_state.h"
 #include "switch/switch_device_info.h"
+#include "switch/switch_rumble.h"
 #include "switch/switch_subcommand.h"
 #include "switch/switch_subcommand_reply.h"
 
@@ -31,6 +32,7 @@ typedef struct {
     swbt_daemon_state_provider_t state_provider;
     void *state_context;
     uint16_t reply_hid_cid;
+    uint32_t now_ms;
     uint8_t reply_report[SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE];
     size_t reply_report_size;
     swbt_switch_device_info_t device_info;
@@ -67,6 +69,15 @@ static int expect_str_eq(const char *actual, const char *expected) {
     return strcmp(actual, expected) == 0 ? 0 : 1;
 }
 
+static int expect_payload_eq(const uint8_t *actual, const uint8_t *expected) {
+    for (size_t index = 0; index < SWBT_SWITCH_RUMBLE_DATA_SIZE; ++index) {
+        if (actual[index] != expected[index]) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static int expect_config_eq(const swbt_daemon_config_t *actual,
                             const swbt_daemon_config_t *expected) {
     int failed = 0;
@@ -93,6 +104,7 @@ static int expect_config_eq(const swbt_daemon_config_t *actual,
 static void fake_backend_init(fake_backend_t *fake) {
     *fake = (fake_backend_t){0};
     fake->device_info = swbt_switch_device_info_default();
+    fake->now_ms = 4321u;
 }
 
 static int fake_ipc_start(void *context, swbt_ipc_session_t *session) {
@@ -169,6 +181,10 @@ static int fake_read_device_info(void *context, swbt_switch_device_info_t *out_d
     return 0;
 }
 
+static uint32_t fake_time_ms(void *context) {
+    return ((fake_backend_t *)context)->now_ms;
+}
+
 static swbt_daemon_runtime_backend_t fake_backend_ops(void) {
     swbt_daemon_runtime_backend_t backend = {
         .ipc_start = fake_ipc_start,
@@ -182,6 +198,7 @@ static swbt_daemon_runtime_backend_t fake_backend_ops(void) {
         .report_timer_send_neutral_now = fake_report_timer_send_neutral_now,
         .subcommand_reply_enqueue = fake_subcommand_reply_enqueue,
         .read_device_info = fake_read_device_info,
+        .time_ms = fake_time_ms,
     };
     return backend;
 }
@@ -341,6 +358,51 @@ static int output_report_device_info_uses_backend_identity(void) {
             expect_eq_int(fake.reply_report[SWBT_SWITCH_SUBCOMMAND_REPLY_DATA_OFFSET + 4u + index],
                           address[index]);
     }
+
+    swbt_daemon_runtime_stop(&runtime);
+    return failed;
+}
+
+static int output_report_rumble_updates_runtime_status(void) {
+    const uint8_t active_rumble[SWBT_SWITCH_RUMBLE_DATA_SIZE] = {
+        0x04u, 0x01u, 0x80u, 0x41u, 0x08u, 0x01u, 0x80u, 0x42u,
+    };
+    const uint8_t rumble_only_report[] = {
+        SWBT_SWITCH_OUTPUT_REPORT_RUMBLE_ONLY,
+        0x0Bu,
+        0x04u,
+        0x01u,
+        0x80u,
+        0x41u,
+        0x08u,
+        0x01u,
+        0x80u,
+        0x42u,
+    };
+    swbt_daemon_runtime_t runtime;
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_backend_t fake;
+    const swbt_daemon_runtime_backend_t backend = fake_backend_ops();
+    swbt_ipc_status_t status;
+
+    fake_backend_init(&fake);
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_runtime_init(&runtime, &config, &backend, &fake),
+                            SWBT_DAEMON_RUNTIME_OK);
+    failed += expect_eq_int(swbt_daemon_runtime_start(&runtime), SWBT_DAEMON_RUNTIME_OK);
+    failed += expect_eq_int(
+        swbt_btstack_output_report_handler_handle(swbt_daemon_runtime_output_handler(&runtime),
+                                                  0x0042u, SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT, 0u,
+                                                  rumble_only_report, sizeof(rumble_only_report)),
+        SWBT_BTSTACK_OUTPUT_REPORT_OK);
+
+    failed += expect_eq_int(swbt_ipc_get_status(swbt_daemon_runtime_ipc_session(&runtime), &status),
+                            SWBT_IPC_OK);
+    failed += expect_true(status.rumble.updated);
+    failed += expect_eq_int((int)status.rumble.updated_at_ms, 4321);
+    failed += expect_payload_eq(status.rumble.raw, active_rumble);
+    failed += expect_eq_int(fake.subcommand_reply_enqueue_calls, 0);
 
     swbt_daemon_runtime_stop(&runtime);
     return failed;
@@ -560,6 +622,7 @@ int main(void) {
     failed += start_wires_session_mailbox_hid_output_and_timer();
     failed += output_report_dispatcher_response_enqueues_reply();
     failed += output_report_device_info_uses_backend_identity();
+    failed += output_report_rumble_updates_runtime_status();
     failed += send_neutral_now_clears_owner_and_flushes_report_timer();
     failed += shutdown_neutralizes_state_and_stops_resources_once();
     failed += backend_failure_cleans_up_started_resources();

@@ -36,6 +36,7 @@ typedef struct {
     int (*subcommand_reply_enqueue)(void *context, uint16_t hid_cid, const uint8_t *report,
                                     size_t report_size);
     int (*read_device_info)(void *context, swbt_switch_device_info_t *out_device_info);
+    uint32_t (*time_ms)(void *context);
 } swbt_daemon_runtime_backend_t;
 
 typedef struct {
