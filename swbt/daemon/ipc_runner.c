@@ -2,6 +2,8 @@
 
 #include <stddef.h>
 
+#include "ipc/ipc_adapter.h"
+
 static swbt_daemon_ipc_runner_result_t
 swbt_daemon_ipc_runner_map_server_result(swbt_ipc_server_result_t result) {
     switch (result) {
@@ -239,11 +241,12 @@ void swbt_daemon_ipc_runner_stop(swbt_daemon_ipc_runner_t *runner) {
     }
 
     if (runner->has_connection) {
-        (void)swbt_ipc_disconnect(runner->server.session, runner->connection.client_id);
+        (void)swbt_ipc_adapter_handle_disconnect(runner->server.session,
+                                                 runner->connection.client_id);
         swbt_ipc_connection_close(&runner->connection);
         runner->has_connection = false;
     } else if (runner->server.session != NULL) {
-        (void)swbt_ipc_clear_owner(runner->server.session);
+        (void)swbt_ipc_adapter_handle_shutdown(runner->server.session);
     }
 
     swbt_ipc_server_close(&runner->server);

@@ -361,7 +361,7 @@ heartbeat timeout は input timing 機能ではない。connection health 用の
 |---|---|---|---|
 | JSON line size and response size | implementation fact | `swbt/ipc/ipc_json.h` | current |
 | JSON envelope and command dispatch | implementation fact | `swbt/ipc/ipc_json.c`, `tests/ipc_json_test.c` | current |
-| state object field scope | protocol contract / implementation gap | `swbt/ipc/ipc_json.c`, `tests/ipc_json_test.c` | parser scope not fully enforced |
+| state object field scope | protocol contract / implementation fact | `swbt/ipc/ipc_json.c`, `tests/ipc_json_test.c`, `work-units/complete/local_052/IPC_ADAPTER_COMMAND_CODEC_BOUNDARY.md` | current after `local_052` |
 | owner/session model | implementation fact | `swbt/ipc/ipc_session.*`, `tests/ipc_session_test.c` | current |
 | loopback TCP transport | implementation fact | `swbt/ipc/ipc_server.*`, `tests/ipc_server_test.c` | current |
 | heartbeat timeout neutral | implementation fact | `swbt/ipc/ipc_server.*`, `work-units/complete/local_011/IPC_HEARTBEAT_CORE.md` | current |
@@ -378,11 +378,11 @@ heartbeat timeout は input timing 機能ではない。connection health 用の
 - `work-units/complete/local_042/PRODUCTION_IPC_RUNNER_AND_STATE_SYNC.md`
 - `work-units/complete/local_036/SPEC_WORK_UNIT_INVENTORY.md`
 - `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
+- `work-units/complete/local_052/IPC_ADAPTER_COMMAND_CODEC_BOUNDARY.md`
 - `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`
 
 ## 7. 未解決事項
 
 - authentication token は未実装であり、この spec では stable contract にしない。
 - subscribe / event delivery は未実装であり、この spec では stable contract にしない。
-- current parser は `state` が object で始まることを確認するが、controller state の必須 field を `state` object 内に限定して探索しない。wire contract はこの spec の通り `state` object 内 field であり、parser の scope 検証と regression test は後続で揃える。
 - metrics と Switch connection state を IPC status にどう載せるかは未定義である。`work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` で扱う。

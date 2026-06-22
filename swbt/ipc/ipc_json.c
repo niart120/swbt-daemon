@@ -11,7 +11,6 @@
 
 enum {
     SWBT_IPC_JSON_KEY_MAX = 32,
-    SWBT_IPC_JSON_STRING_MAX = 96,
     SWBT_IPC_OWNER_ID_HEX_SIZE = 8,
     SWBT_IPC_OWNER_ID_BUFFER_SIZE = SWBT_IPC_OWNER_ID_HEX_SIZE + 1,
     SWBT_IPC_RUMBLE_HEX_SIZE = SWBT_SWITCH_RUMBLE_DATA_SIZE * 2,
@@ -95,6 +94,8 @@ static bool swbt_json_key_matches(const char *start, size_t length, const char *
 static const char *swbt_json_find_key_value(const char *json, const char *key) {
     bool in_string = false;
     bool escaped = false;
+    bool saw_root_object = false;
+    int depth = 0;
 
     for (const char *cursor = json; *cursor != '\0'; ++cursor) {
         if (in_string) {
@@ -108,7 +109,25 @@ static const char *swbt_json_find_key_value(const char *json, const char *key) {
             continue;
         }
 
+        if (*cursor == '{') {
+            saw_root_object = true;
+            ++depth;
+            continue;
+        }
+        if (*cursor == '}') {
+            if (depth > 0) {
+                --depth;
+            }
+            if (saw_root_object && depth == 0) {
+                break;
+            }
+            continue;
+        }
         if (*cursor != '"') {
+            continue;
+        }
+        if (depth != 1) {
+            in_string = true;
             continue;
         }
 
@@ -316,12 +335,13 @@ static bool swbt_ipc_parse_state(const char *line, swbt_state_t *out_state,
     int64_t buttons = 0;
     int64_t seq = 0;
     const char *state_value = swbt_json_find_key_value(line, "state");
+    const char *state_json = state_value;
     swbt_state_t state = swbt_state_neutral();
 
     if (state_value == NULL || *state_value != '{') {
         return false;
     }
-    if (!swbt_ipc_parse_required_i64(line, "buttons", &buttons)) {
+    if (!swbt_ipc_parse_required_i64(state_json, "buttons", &buttons)) {
         return false;
     }
     if (buttons < 0 || buttons > UINT32_MAX ||
@@ -330,16 +350,16 @@ static bool swbt_ipc_parse_state(const char *line, swbt_state_t *out_state,
     }
     state.buttons = (uint32_t)buttons;
 
-    if (!swbt_ipc_parse_stick_field(line, "lx", &state.lx) ||
-        !swbt_ipc_parse_stick_field(line, "ly", &state.ly) ||
-        !swbt_ipc_parse_stick_field(line, "rx", &state.rx) ||
-        !swbt_ipc_parse_stick_field(line, "ry", &state.ry) ||
-        !swbt_ipc_parse_i16_field(line, "accel_x", &state.accel_x) ||
-        !swbt_ipc_parse_i16_field(line, "accel_y", &state.accel_y) ||
-        !swbt_ipc_parse_i16_field(line, "accel_z", &state.accel_z) ||
-        !swbt_ipc_parse_i16_field(line, "gyro_x", &state.gyro_x) ||
-        !swbt_ipc_parse_i16_field(line, "gyro_y", &state.gyro_y) ||
-        !swbt_ipc_parse_i16_field(line, "gyro_z", &state.gyro_z)) {
+    if (!swbt_ipc_parse_stick_field(state_json, "lx", &state.lx) ||
+        !swbt_ipc_parse_stick_field(state_json, "ly", &state.ly) ||
+        !swbt_ipc_parse_stick_field(state_json, "rx", &state.rx) ||
+        !swbt_ipc_parse_stick_field(state_json, "ry", &state.ry) ||
+        !swbt_ipc_parse_i16_field(state_json, "accel_x", &state.accel_x) ||
+        !swbt_ipc_parse_i16_field(state_json, "accel_y", &state.accel_y) ||
+        !swbt_ipc_parse_i16_field(state_json, "accel_z", &state.accel_z) ||
+        !swbt_ipc_parse_i16_field(state_json, "gyro_x", &state.gyro_x) ||
+        !swbt_ipc_parse_i16_field(state_json, "gyro_y", &state.gyro_y) ||
+        !swbt_ipc_parse_i16_field(state_json, "gyro_z", &state.gyro_z)) {
         return false;
     }
 
@@ -352,248 +372,284 @@ static bool swbt_ipc_parse_state(const char *line, swbt_state_t *out_state,
     return true;
 }
 
-static swbt_ipc_json_result_t swbt_ipc_handle_hello(uint32_t client_id, char *response,
-                                                    size_t response_size, bool has_request_id,
-                                                    const char *request_id) {
-    char client_id_text[SWBT_IPC_OWNER_ID_BUFFER_SIZE];
-    swbt_ipc_format_owner_id(client_id, client_id_text);
+static void swbt_ipc_json_init_command(swbt_ipc_command_t *command) {
+    command->type = SWBT_IPC_COMMAND_NONE;
+    command->has_request_id = false;
+    command->request_id[0] = '\0';
+    command->has_owner_id = false;
+    command->owner_client_id = 0;
+    command->sequence = 0;
+    command->state = swbt_state_neutral();
+}
 
+static void swbt_ipc_json_init_response(swbt_ipc_response_t *response) {
+    swbt_switch_rumble_state_t rumble = {0};
+
+    response->type = SWBT_IPC_RESPONSE_NONE;
+    response->has_request_id = false;
+    response->request_id[0] = '\0';
+    response->client_id = 0;
+    response->owner_client_id = 0;
+    response->sequence = 0;
+    response->status = (swbt_ipc_response_status_t){
+        .has_owner = false,
+        .owner_client_id = 0,
+        .last_sequence = 0,
+        .state = swbt_state_neutral(),
+        .rumble = rumble,
+    };
+    response->error_code = SWBT_IPC_ERROR_CODE_INVALID_JSON;
+    response->error_message[0] = '\0';
+}
+
+static void swbt_ipc_json_copy_text(char *out, size_t out_size, const char *text) {
+    size_t index = 0;
+
+    if (out_size == 0) {
+        return;
+    }
+    for (; index + 1u < out_size && text[index] != '\0'; ++index) {
+        out[index] = text[index];
+    }
+    out[index] = '\0';
+}
+
+static void swbt_ipc_json_set_error(swbt_ipc_response_t *response, bool has_request_id,
+                                    const char *request_id, swbt_ipc_error_code_t error_code,
+                                    const char *message) {
+    response->type = SWBT_IPC_RESPONSE_ERROR;
+    response->has_request_id = has_request_id;
     if (has_request_id) {
-        return swbt_json_write(response, response_size,
-                               "{\"v\":1,\"type\":\"hello_ok\",\"request_id\":\"%s\","
-                               "\"client_id\":\"%s\"}\n",
-                               request_id, client_id_text);
+        swbt_ipc_json_copy_text(response->request_id, sizeof(response->request_id), request_id);
+    } else {
+        response->request_id[0] = '\0';
     }
-
-    return swbt_json_write(response, response_size,
-                           "{\"v\":1,\"type\":\"hello_ok\",\"client_id\":\"%s\"}\n",
-                           client_id_text);
+    response->error_code = error_code;
+    swbt_ipc_json_copy_text(response->error_message, sizeof(response->error_message), message);
 }
 
-static swbt_ipc_json_result_t swbt_ipc_handle_acquire(swbt_ipc_session_t *session,
-                                                      uint32_t client_id, char *response,
-                                                      size_t response_size, bool has_request_id,
-                                                      const char *request_id) {
-    swbt_ipc_result_t result = swbt_ipc_acquire(session, client_id);
-    char owner_id[SWBT_IPC_OWNER_ID_BUFFER_SIZE];
-
-    if (result == SWBT_IPC_ERROR_OWNER_BUSY) {
-        return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
-                                    "owner_busy", "another client owns the controller");
-    }
-    if (result != SWBT_IPC_OK) {
-        return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
-                                    "internal_error", "failed to acquire owner");
-    }
-
-    swbt_ipc_format_owner_id(client_id, owner_id);
+static void swbt_ipc_json_copy_request_id(swbt_ipc_command_t *command, bool has_request_id,
+                                          const char *request_id) {
+    command->has_request_id = has_request_id;
     if (has_request_id) {
-        return swbt_json_write(response, response_size,
-                               "{\"v\":1,\"type\":\"acquired\",\"request_id\":\"%s\","
-                               "\"owner_id\":\"%s\"}\n",
-                               request_id, owner_id);
+        swbt_ipc_json_copy_text(command->request_id, sizeof(command->request_id), request_id);
+    } else {
+        command->request_id[0] = '\0';
     }
-
-    return swbt_json_write(response, response_size,
-                           "{\"v\":1,\"type\":\"acquired\",\"owner_id\":\"%s\"}\n", owner_id);
 }
 
-static bool swbt_ipc_json_owner_matches_client(const char *line, uint32_t client_id) {
-    char owner_id[SWBT_IPC_JSON_STRING_MAX];
-    uint32_t parsed_client_id = 0;
-
-    if (swbt_json_get_string(line, "owner_id", owner_id, sizeof(owner_id)) != 1) {
-        return false;
-    }
-    if (!swbt_ipc_parse_owner_id(owner_id, &parsed_client_id)) {
-        return false;
-    }
-
-    return parsed_client_id == client_id;
-}
-
-static swbt_ipc_json_result_t swbt_ipc_handle_release(swbt_ipc_session_t *session,
-                                                      uint32_t client_id, const char *line,
-                                                      char *response, size_t response_size,
-                                                      bool has_request_id, const char *request_id) {
-    swbt_ipc_result_t result = SWBT_IPC_OK;
-
-    if (!swbt_ipc_json_owner_matches_client(line, client_id)) {
-        return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
-                                    "not_owner", "client does not own the controller");
-    }
-
-    result = swbt_ipc_release(session, client_id);
-    if (result == SWBT_IPC_ERROR_NOT_OWNER) {
-        return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
-                                    "not_owner", "client does not own the controller");
-    }
-    if (result != SWBT_IPC_OK) {
-        return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
-                                    "internal_error", "failed to release owner");
-    }
-
-    if (has_request_id) {
-        return swbt_json_write(response, response_size,
-                               "{\"v\":1,\"type\":\"released\",\"request_id\":\"%s\"}\n",
-                               request_id);
-    }
-
-    return swbt_json_write(response, response_size, "{\"v\":1,\"type\":\"released\"}\n");
-}
-
-static swbt_ipc_json_result_t swbt_ipc_handle_set_state(swbt_ipc_session_t *session,
-                                                        uint32_t client_id, const char *line,
-                                                        char *response, size_t response_size,
-                                                        bool has_request_id,
-                                                        const char *request_id) {
-    swbt_state_t state;
-    uint64_t sequence = 0;
-    swbt_ipc_result_t result = SWBT_IPC_OK;
-
-    if (!swbt_ipc_json_owner_matches_client(line, client_id)) {
-        return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
-                                    "not_owner", "client does not own the controller");
-    }
-    if (!swbt_ipc_parse_state(line, &state, &sequence)) {
-        return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
-                                    "invalid_state", "state field is invalid");
-    }
-
-    result = swbt_ipc_set_state(session, client_id, &state, sequence);
-    if (result == SWBT_IPC_ERROR_NOT_OWNER) {
-        return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
-                                    "not_owner", "client does not own the controller");
-    }
-    if (result != SWBT_IPC_OK) {
-        return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
-                                    "internal_error", "failed to set state");
-    }
-
-    if (!has_request_id) {
-        response[0] = '\0';
-        return SWBT_IPC_JSON_OK;
-    }
-
-    return swbt_json_write(response, response_size,
-                           "{\"v\":1,\"type\":\"state_accepted\",\"request_id\":\"%s\","
-                           "\"seq\":%llu}\n",
-                           request_id, (unsigned long long)sequence);
-}
-
-static swbt_ipc_json_result_t swbt_ipc_handle_get_status(swbt_ipc_session_t *session,
-                                                         char *response, size_t response_size,
-                                                         bool has_request_id,
-                                                         const char *request_id) {
-    swbt_ipc_status_t status;
-    char owner_id[SWBT_IPC_OWNER_ID_BUFFER_SIZE] = "00000000";
-    char rumble_raw[SWBT_IPC_RUMBLE_HEX_BUFFER_SIZE];
-
-    if (swbt_ipc_get_status(session, &status) != SWBT_IPC_OK) {
-        return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
-                                    "internal_error", "failed to get status");
-    }
-
-    if (status.has_owner) {
-        swbt_ipc_format_owner_id(status.owner_client_id, owner_id);
-    }
-    swbt_ipc_format_rumble_raw(status.rumble.raw, rumble_raw);
-
-    if (has_request_id) {
-        return swbt_json_write(
-            response, response_size,
-            "{\"v\":1,\"type\":\"status\",\"request_id\":\"%s\","
-            "\"owner\":{\"present\":%s,\"owner_id\":\"%s\",\"last_seq\":%llu},"
-            "\"state\":{\"buttons\":%u,\"lx\":%u,\"ly\":%u,\"rx\":%u,\"ry\":%u,"
-            "\"accel_x\":%d,\"accel_y\":%d,\"accel_z\":%d,"
-            "\"gyro_x\":%d,\"gyro_y\":%d,\"gyro_z\":%d},"
-            "\"rumble\":{\"updated\":%s,\"last_update_ms\":%llu,\"raw\":\"%s\"}}\n",
-            request_id, status.has_owner ? "true" : "false", owner_id,
-            (unsigned long long)status.last_seq, (unsigned int)status.state.buttons,
-            (unsigned int)status.state.lx, (unsigned int)status.state.ly,
-            (unsigned int)status.state.rx, (unsigned int)status.state.ry, (int)status.state.accel_x,
-            (int)status.state.accel_y, (int)status.state.accel_z, (int)status.state.gyro_x,
-            (int)status.state.gyro_y, (int)status.state.gyro_z,
-            status.rumble.updated ? "true" : "false",
-            (unsigned long long)status.rumble.updated_at_ms, rumble_raw);
-    }
-
-    return swbt_json_write(
-        response, response_size,
-        "{\"v\":1,\"type\":\"status\","
-        "\"owner\":{\"present\":%s,\"owner_id\":\"%s\",\"last_seq\":%llu},"
-        "\"state\":{\"buttons\":%u,\"lx\":%u,\"ly\":%u,\"rx\":%u,\"ry\":%u,"
-        "\"accel_x\":%d,\"accel_y\":%d,\"accel_z\":%d,"
-        "\"gyro_x\":%d,\"gyro_y\":%d,\"gyro_z\":%d},"
-        "\"rumble\":{\"updated\":%s,\"last_update_ms\":%llu,\"raw\":\"%s\"}}\n",
-        status.has_owner ? "true" : "false", owner_id, (unsigned long long)status.last_seq,
-        (unsigned int)status.state.buttons, (unsigned int)status.state.lx,
-        (unsigned int)status.state.ly, (unsigned int)status.state.rx, (unsigned int)status.state.ry,
-        (int)status.state.accel_x, (int)status.state.accel_y, (int)status.state.accel_z,
-        (int)status.state.gyro_x, (int)status.state.gyro_y, (int)status.state.gyro_z,
-        status.rumble.updated ? "true" : "false", (unsigned long long)status.rumble.updated_at_ms,
-        rumble_raw);
-}
-
-swbt_ipc_json_result_t swbt_ipc_json_handle_line(swbt_ipc_session_t *session, uint32_t client_id,
-                                                 const char *line, char *response,
-                                                 size_t response_size) {
+swbt_ipc_json_result_t swbt_ipc_json_decode_command(const char *line,
+                                                    swbt_ipc_command_t *out_command,
+                                                    swbt_ipc_response_t *out_error_response) {
     char request_id[SWBT_IPC_JSON_STRING_MAX];
     char type[SWBT_IPC_JSON_STRING_MAX];
+    char owner_id[SWBT_IPC_JSON_STRING_MAX];
     int64_t version = 0;
     bool has_request_id = false;
     int type_result = 0;
 
-    if (session == NULL || line == NULL || response == NULL || response_size == 0) {
+    if (line == NULL || out_command == NULL || out_error_response == NULL) {
+        return SWBT_IPC_JSON_ERROR_INVALID_ARGUMENT;
+    }
+
+    swbt_ipc_json_init_command(out_command);
+    swbt_ipc_json_init_response(out_error_response);
+
+    if (!swbt_json_is_complete_object(line)) {
+        swbt_ipc_json_set_error(out_error_response, false, "", SWBT_IPC_ERROR_CODE_INVALID_JSON,
+                                "message is not a complete JSON object");
+        return SWBT_IPC_JSON_OK;
+    }
+    if (!swbt_ipc_parse_request_id(line, request_id, &has_request_id)) {
+        swbt_ipc_json_set_error(out_error_response, false, "", SWBT_IPC_ERROR_CODE_INVALID_JSON,
+                                "request_id is invalid");
+        return SWBT_IPC_JSON_OK;
+    }
+    if (swbt_json_get_i64(line, "v", &version) != 1 || version != 1) {
+        swbt_ipc_json_set_error(out_error_response, has_request_id, request_id,
+                                SWBT_IPC_ERROR_CODE_INVALID_VERSION,
+                                "unsupported protocol version");
+        return SWBT_IPC_JSON_OK;
+    }
+
+    type_result = swbt_json_get_string(line, "type", type, sizeof(type));
+    if (type_result < 0) {
+        swbt_ipc_json_set_error(out_error_response, has_request_id, request_id,
+                                SWBT_IPC_ERROR_CODE_INVALID_JSON, "type is invalid");
+        return SWBT_IPC_JSON_OK;
+    }
+    if (type_result == 0) {
+        swbt_ipc_json_set_error(out_error_response, has_request_id, request_id,
+                                SWBT_IPC_ERROR_CODE_UNSUPPORTED_COMMAND, "missing command type");
+        return SWBT_IPC_JSON_OK;
+    }
+
+    swbt_ipc_json_copy_request_id(out_command, has_request_id, request_id);
+
+    if (strcmp(type, "hello") == 0) {
+        out_command->type = SWBT_IPC_COMMAND_HELLO;
+        return SWBT_IPC_JSON_OK;
+    }
+    if (strcmp(type, "acquire") == 0) {
+        out_command->type = SWBT_IPC_COMMAND_ACQUIRE;
+        return SWBT_IPC_JSON_OK;
+    }
+    if (strcmp(type, "release") == 0) {
+        out_command->type = SWBT_IPC_COMMAND_RELEASE;
+        if (swbt_json_get_string(line, "owner_id", owner_id, sizeof(owner_id)) == 1) {
+            out_command->has_owner_id =
+                swbt_ipc_parse_owner_id(owner_id, &out_command->owner_client_id);
+        }
+        return SWBT_IPC_JSON_OK;
+    }
+    if (strcmp(type, "set_state") == 0) {
+        out_command->type = SWBT_IPC_COMMAND_SET_STATE;
+        if (swbt_json_get_string(line, "owner_id", owner_id, sizeof(owner_id)) == 1) {
+            out_command->has_owner_id =
+                swbt_ipc_parse_owner_id(owner_id, &out_command->owner_client_id);
+        }
+        if (!swbt_ipc_parse_state(line, &out_command->state, &out_command->sequence)) {
+            swbt_ipc_json_init_command(out_command);
+            swbt_ipc_json_set_error(out_error_response, has_request_id, request_id,
+                                    SWBT_IPC_ERROR_CODE_INVALID_STATE, "state field is invalid");
+        }
+        return SWBT_IPC_JSON_OK;
+    }
+    if (strcmp(type, "get_status") == 0) {
+        out_command->type = SWBT_IPC_COMMAND_GET_STATUS;
+        return SWBT_IPC_JSON_OK;
+    }
+
+    swbt_ipc_json_set_error(out_error_response, has_request_id, request_id,
+                            SWBT_IPC_ERROR_CODE_UNSUPPORTED_COMMAND, "unsupported command type");
+    return SWBT_IPC_JSON_OK;
+}
+
+static const char *swbt_ipc_json_error_code_text(swbt_ipc_error_code_t error_code) {
+    switch (error_code) {
+    case SWBT_IPC_ERROR_CODE_INVALID_JSON:
+        return "invalid_json";
+    case SWBT_IPC_ERROR_CODE_INVALID_VERSION:
+        return "invalid_version";
+    case SWBT_IPC_ERROR_CODE_UNSUPPORTED_COMMAND:
+        return "unsupported_command";
+    case SWBT_IPC_ERROR_CODE_OWNER_BUSY:
+        return "owner_busy";
+    case SWBT_IPC_ERROR_CODE_NOT_OWNER:
+        return "not_owner";
+    case SWBT_IPC_ERROR_CODE_INVALID_STATE:
+        return "invalid_state";
+    case SWBT_IPC_ERROR_CODE_INTERNAL_ERROR:
+        return "internal_error";
+    }
+    return "internal_error";
+}
+
+swbt_ipc_json_result_t swbt_ipc_json_encode_response(const swbt_ipc_response_t *typed_response,
+                                                     char *response, size_t response_size) {
+    char client_id[SWBT_IPC_OWNER_ID_BUFFER_SIZE];
+    char owner_id[SWBT_IPC_OWNER_ID_BUFFER_SIZE];
+    char rumble_raw[SWBT_IPC_RUMBLE_HEX_BUFFER_SIZE];
+
+    if (typed_response == NULL || response == NULL || response_size == 0) {
         return SWBT_IPC_JSON_ERROR_INVALID_ARGUMENT;
     }
 
     response[0] = '\0';
 
-    if (!swbt_json_is_complete_object(line)) {
-        return swbt_ipc_write_error(response, response_size, false, "", "invalid_json",
-                                    "message is not a complete JSON object");
-    }
-    if (!swbt_ipc_parse_request_id(line, request_id, &has_request_id)) {
-        return swbt_ipc_write_error(response, response_size, false, "", "invalid_json",
-                                    "request_id is invalid");
-    }
-    if (swbt_json_get_i64(line, "v", &version) != 1 || version != 1) {
-        return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
-                                    "invalid_version", "unsupported protocol version");
+    switch (typed_response->type) {
+    case SWBT_IPC_RESPONSE_NONE:
+        return SWBT_IPC_JSON_OK;
+    case SWBT_IPC_RESPONSE_HELLO_OK:
+        swbt_ipc_format_owner_id(typed_response->client_id, client_id);
+        if (typed_response->has_request_id) {
+            return swbt_json_write(response, response_size,
+                                   "{\"v\":1,\"type\":\"hello_ok\",\"request_id\":\"%s\","
+                                   "\"client_id\":\"%s\"}\n",
+                                   typed_response->request_id, client_id);
+        }
+        return swbt_json_write(response, response_size,
+                               "{\"v\":1,\"type\":\"hello_ok\",\"client_id\":\"%s\"}\n", client_id);
+    case SWBT_IPC_RESPONSE_ACQUIRED:
+        swbt_ipc_format_owner_id(typed_response->owner_client_id, owner_id);
+        if (typed_response->has_request_id) {
+            return swbt_json_write(response, response_size,
+                                   "{\"v\":1,\"type\":\"acquired\",\"request_id\":\"%s\","
+                                   "\"owner_id\":\"%s\"}\n",
+                                   typed_response->request_id, owner_id);
+        }
+        return swbt_json_write(response, response_size,
+                               "{\"v\":1,\"type\":\"acquired\",\"owner_id\":\"%s\"}\n", owner_id);
+    case SWBT_IPC_RESPONSE_RELEASED:
+        if (typed_response->has_request_id) {
+            return swbt_json_write(response, response_size,
+                                   "{\"v\":1,\"type\":\"released\",\"request_id\":\"%s\"}\n",
+                                   typed_response->request_id);
+        }
+        return swbt_json_write(response, response_size, "{\"v\":1,\"type\":\"released\"}\n");
+    case SWBT_IPC_RESPONSE_STATE_ACCEPTED:
+        if (typed_response->has_request_id) {
+            return swbt_json_write(response, response_size,
+                                   "{\"v\":1,\"type\":\"state_accepted\","
+                                   "\"request_id\":\"%s\",\"seq\":%llu}\n",
+                                   typed_response->request_id,
+                                   (unsigned long long)typed_response->sequence);
+        }
+        return SWBT_IPC_JSON_OK;
+    case SWBT_IPC_RESPONSE_STATUS:
+        swbt_ipc_format_owner_id(
+            typed_response->status.has_owner ? typed_response->status.owner_client_id : 0u,
+            owner_id);
+        swbt_ipc_format_rumble_raw(typed_response->status.rumble.raw, rumble_raw);
+        if (typed_response->has_request_id) {
+            return swbt_json_write(
+                response, response_size,
+                "{\"v\":1,\"type\":\"status\",\"request_id\":\"%s\","
+                "\"owner\":{\"present\":%s,\"owner_id\":\"%s\",\"last_seq\":%llu},"
+                "\"state\":{\"buttons\":%u,\"lx\":%u,\"ly\":%u,\"rx\":%u,\"ry\":%u,"
+                "\"accel_x\":%d,\"accel_y\":%d,\"accel_z\":%d,"
+                "\"gyro_x\":%d,\"gyro_y\":%d,\"gyro_z\":%d},"
+                "\"rumble\":{\"updated\":%s,\"last_update_ms\":%llu,\"raw\":\"%s\"}}\n",
+                typed_response->request_id, typed_response->status.has_owner ? "true" : "false",
+                owner_id, (unsigned long long)typed_response->status.last_sequence,
+                (unsigned int)typed_response->status.state.buttons,
+                (unsigned int)typed_response->status.state.lx,
+                (unsigned int)typed_response->status.state.ly,
+                (unsigned int)typed_response->status.state.rx,
+                (unsigned int)typed_response->status.state.ry,
+                (int)typed_response->status.state.accel_x,
+                (int)typed_response->status.state.accel_y,
+                (int)typed_response->status.state.accel_z, (int)typed_response->status.state.gyro_x,
+                (int)typed_response->status.state.gyro_y, (int)typed_response->status.state.gyro_z,
+                typed_response->status.rumble.updated ? "true" : "false",
+                (unsigned long long)typed_response->status.rumble.updated_at_ms, rumble_raw);
+        }
+        return swbt_json_write(
+            response, response_size,
+            "{\"v\":1,\"type\":\"status\","
+            "\"owner\":{\"present\":%s,\"owner_id\":\"%s\",\"last_seq\":%llu},"
+            "\"state\":{\"buttons\":%u,\"lx\":%u,\"ly\":%u,\"rx\":%u,\"ry\":%u,"
+            "\"accel_x\":%d,\"accel_y\":%d,\"accel_z\":%d,"
+            "\"gyro_x\":%d,\"gyro_y\":%d,\"gyro_z\":%d},"
+            "\"rumble\":{\"updated\":%s,\"last_update_ms\":%llu,\"raw\":\"%s\"}}\n",
+            typed_response->status.has_owner ? "true" : "false", owner_id,
+            (unsigned long long)typed_response->status.last_sequence,
+            (unsigned int)typed_response->status.state.buttons,
+            (unsigned int)typed_response->status.state.lx,
+            (unsigned int)typed_response->status.state.ly,
+            (unsigned int)typed_response->status.state.rx,
+            (unsigned int)typed_response->status.state.ry,
+            (int)typed_response->status.state.accel_x, (int)typed_response->status.state.accel_y,
+            (int)typed_response->status.state.accel_z, (int)typed_response->status.state.gyro_x,
+            (int)typed_response->status.state.gyro_y, (int)typed_response->status.state.gyro_z,
+            typed_response->status.rumble.updated ? "true" : "false",
+            (unsigned long long)typed_response->status.rumble.updated_at_ms, rumble_raw);
+    case SWBT_IPC_RESPONSE_ERROR:
+        return swbt_ipc_write_error(response, response_size, typed_response->has_request_id,
+                                    typed_response->request_id,
+                                    swbt_ipc_json_error_code_text(typed_response->error_code),
+                                    typed_response->error_message);
     }
 
-    type_result = swbt_json_get_string(line, "type", type, sizeof(type));
-    if (type_result < 0) {
-        return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
-                                    "invalid_json", "type is invalid");
-    }
-    if (type_result == 0) {
-        return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
-                                    "unsupported_command", "missing command type");
-    }
-
-    if (strcmp(type, "hello") == 0) {
-        return swbt_ipc_handle_hello(client_id, response, response_size, has_request_id,
-                                     request_id);
-    }
-    if (strcmp(type, "acquire") == 0) {
-        return swbt_ipc_handle_acquire(session, client_id, response, response_size, has_request_id,
-                                       request_id);
-    }
-    if (strcmp(type, "release") == 0) {
-        return swbt_ipc_handle_release(session, client_id, line, response, response_size,
-                                       has_request_id, request_id);
-    }
-    if (strcmp(type, "set_state") == 0) {
-        return swbt_ipc_handle_set_state(session, client_id, line, response, response_size,
-                                         has_request_id, request_id);
-    }
-    if (strcmp(type, "get_status") == 0) {
-        return swbt_ipc_handle_get_status(session, response, response_size, has_request_id,
-                                          request_id);
-    }
-
-    return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
-                                "unsupported_command", "unsupported command type");
+    return SWBT_IPC_JSON_ERROR_INVALID_ARGUMENT;
 }

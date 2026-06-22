@@ -111,11 +111,11 @@ not applicable。
 
 - 観測: IPC JSON codec はまだ session と結び付いている。
   先送り理由: application command API を先に固定しないと、pure codec の入出力型が安定しない。
-  次の置き場: `work-units/wip/local_052/IPC_ADAPTER_COMMAND_CODEC_BOUNDARY.md`。
+  次の置き場: `work-units/complete/local_052/IPC_ADAPTER_COMMAND_CODEC_BOUNDARY.md`。
 
 - 観測: `ipc_session` は forwarding wrapper として残る。
   先送り理由: JSON codec と IPC server がまだ `swbt_ipc_session_t *` を入口にしているため、この work unit で削除すると codec boundary の変更まで混ざる。
-  次の置き場: `work-units/wip/local_052/IPC_ADAPTER_COMMAND_CODEC_BOUNDARY.md` と `work-units/wip/local_055/REARCHITECTURE_CUTOVER_ACCEPTANCE_AND_CLEANUP.md`。
+  次の置き場: `work-units/complete/local_052/IPC_ADAPTER_COMMAND_CODEC_BOUNDARY.md` と `work-units/wip/local_055/REARCHITECTURE_CUTOVER_ACCEPTANCE_AND_CLEANUP.md`。
 
 ## 13. チェックリスト
 

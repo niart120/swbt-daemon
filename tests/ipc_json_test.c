@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "ipc/ipc_adapter.h"
 #include "ipc/ipc_json.h"
 #include "ipc/ipc_session.h"
 #include "switch/switch_controller_state.h"
@@ -24,12 +25,15 @@ static int handle(swbt_ipc_session_t *session, uint32_t client_id, const char *l
     for (size_t index = 0; index < response_size; ++index) {
         response[index] = '\0';
     }
-    return swbt_ipc_json_handle_line(session, client_id, line, response, response_size);
+    return swbt_ipc_adapter_handle_line(session, client_id, line, response, response_size);
 }
 
 int main(void) {
+    swbt_ipc_command_t command;
+    swbt_ipc_response_t codec_error;
     swbt_ipc_session_t session;
     swbt_ipc_status_t status;
+    swbt_ipc_status_t status_after_decode;
     char response[SWBT_IPC_JSON_RESPONSE_MAX];
     const uint8_t active_rumble[SWBT_SWITCH_RUMBLE_DATA_SIZE] = {
         0x04, 0x01, 0x80, 0x41, 0x08, 0x01, 0x80, 0x42,
@@ -37,6 +41,75 @@ int main(void) {
 
     if (swbt_ipc_session_init(&session) != SWBT_IPC_OK) {
         return 1;
+    }
+
+    if (swbt_ipc_json_decode_command(
+            "{\"v\":1,\"type\":\"set_state\",\"owner_id\":\"000003e9\",\"seq\":77,"
+            "\"request_id\":\"decode-only\",\"state\":{\"buttons\":8,\"lx\":1234,\"ly\":2345,"
+            "\"rx\":2048,\"ry\":2048,\"accel_x\":1,\"accel_y\":2,\"accel_z\":3,"
+            "\"gyro_x\":4,\"gyro_y\":5,\"gyro_z\":6}}\n",
+            &command, &codec_error) != SWBT_IPC_JSON_OK) {
+        return 37;
+    }
+    if (codec_error.type != SWBT_IPC_RESPONSE_NONE || command.type != SWBT_IPC_COMMAND_SET_STATE ||
+        !command.has_request_id || strcmp(command.request_id, "decode-only") != 0 ||
+        !command.has_owner_id || command.owner_client_id != 1001u || command.sequence != 77u ||
+        expect_eq_u32(command.state.buttons, SWBT_BUTTON_A) ||
+        expect_eq_u16(command.state.lx, 1234) || expect_eq_u16(command.state.ly, 2345)) {
+        return 38;
+    }
+    if (swbt_ipc_get_status(&session, &status_after_decode) != SWBT_IPC_OK) {
+        return 39;
+    }
+    if (status_after_decode.has_owner || expect_eq_u32(status_after_decode.state.buttons, 0) ||
+        expect_eq_u16(status_after_decode.state.lx, 2048) || status_after_decode.last_seq != 0u) {
+        return 40;
+    }
+
+    if (swbt_ipc_json_decode_command("{\"v\":1,\"type\":\"set_state\"", &command, &codec_error) !=
+        SWBT_IPC_JSON_OK) {
+        return 41;
+    }
+    if (command.type != SWBT_IPC_COMMAND_NONE || codec_error.type != SWBT_IPC_RESPONSE_ERROR ||
+        codec_error.has_request_id || codec_error.error_code != SWBT_IPC_ERROR_CODE_INVALID_JSON) {
+        return 42;
+    }
+    if (swbt_ipc_json_encode_response(&codec_error, response, sizeof(response)) !=
+        SWBT_IPC_JSON_OK) {
+        return 43;
+    }
+    if (expect_contains(response, "\"type\":\"error\"") ||
+        expect_contains(response, "\"code\":\"invalid_json\"") ||
+        expect_contains(response, "\"message\":\"message is not a complete JSON object\"")) {
+        return 44;
+    }
+    if (swbt_ipc_get_status(&session, &status_after_decode) != SWBT_IPC_OK) {
+        return 45;
+    }
+    if (status_after_decode.has_owner || expect_eq_u32(status_after_decode.state.buttons, 0) ||
+        expect_eq_u16(status_after_decode.state.lx, 2048) || status_after_decode.last_seq != 0u) {
+        return 46;
+    }
+
+    if (swbt_ipc_json_decode_command(
+            "{\"v\":1,\"type\":\"set_state\",\"owner_id\":\"000003e9\",\"seq\":80,"
+            "\"request_id\":\"top-level-state\",\"state\":{},\"buttons\":8,\"lx\":1234,"
+            "\"ly\":2345,\"rx\":2048,\"ry\":2048,\"accel_x\":1,\"accel_y\":2,"
+            "\"accel_z\":3,\"gyro_x\":4,\"gyro_y\":5,\"gyro_z\":6}\n",
+            &command, &codec_error) != SWBT_IPC_JSON_OK) {
+        return 47;
+    }
+    if (command.type != SWBT_IPC_COMMAND_NONE || codec_error.type != SWBT_IPC_RESPONSE_ERROR ||
+        !codec_error.has_request_id || strcmp(codec_error.request_id, "top-level-state") != 0 ||
+        codec_error.error_code != SWBT_IPC_ERROR_CODE_INVALID_STATE) {
+        return 48;
+    }
+    if (swbt_ipc_get_status(&session, &status_after_decode) != SWBT_IPC_OK) {
+        return 49;
+    }
+    if (status_after_decode.has_owner || expect_eq_u32(status_after_decode.state.buttons, 0) ||
+        expect_eq_u16(status_after_decode.state.lx, 2048) || status_after_decode.last_seq != 0u) {
+        return 50;
     }
 
     if (handle(&session, 1001,
