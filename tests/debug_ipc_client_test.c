@@ -113,8 +113,7 @@ static int test_loopback_hello_send_receive(void) {
     state.buttons = SWBT_BUTTON_A;
     state.lx = 1234;
     state.ly = 2345;
-    state.client_seq = 42;
-    if (expect_zero(swbt_debug_client_send_set_state(&client, owner_id, &state))) {
+    if (expect_zero(swbt_debug_client_send_set_state(&client, owner_id, &state, 42u))) {
         swbt_ipc_connection_close(&connection);
         swbt_ipc_socket_close(&client);
         swbt_ipc_server_close(&server);
@@ -365,7 +364,7 @@ static int test_skip_release_closes_without_release_request(void) {
     };
     config.state = swbt_state_neutral();
     config.state.buttons = SWBT_BUTTON_A;
-    config.state.client_seq = 7u;
+    config.sequence = 7u;
 
     if (expect_zero(swbt_debug_client_run_io(&config, &io, stdout, stderr))) {
         return 1;

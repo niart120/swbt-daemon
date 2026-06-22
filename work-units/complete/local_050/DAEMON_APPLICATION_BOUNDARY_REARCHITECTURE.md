@@ -4,7 +4,7 @@
 
 daemon の状態所有権を IPC session から application boundary へ寄せるための最初の work unit。
 
-この work unit では、リアーキテクチャ全体を一度に実装しない。最初の対象は、controller state と command metadata の分離、IPC 非依存の control lease 抽出、release / disconnect / heartbeat timeout の neutral 化規則を一つの境界へ寄せる準備である。
+この work unit では、リアーキテクチャ全体を一度に実装しない。対象は、controller state と command metadata の分離、IPC 非依存の control lease 抽出、release / disconnect / heartbeat timeout の neutral 化規則を一つの session-side helper へ寄せる準備である。
 
 ## 2. 起点 / ユースケース
 
@@ -12,7 +12,8 @@ source:
 
 - 2026-06-22 のユーザ要求。一時的な rearchitecture proposal と roadmap note を読み、妥当な内容を spec と work unit record へ取り込む。
 - `spec/architecture/daemon-application-boundary-rearchitecture.md`。
-- 現行 code fact。`swbt_state_t` は `client_seq` を持ち、`ipc_session` は owner、state、rumble、mailbox、neutral 化を持つ。
+- 作業開始時の code fact。`swbt_state_t` は `client_seq` を持ち、`ipc_session` は owner、state、rumble、mailbox、neutral 化を持っていた。
+- 完了後の code fact。`swbt_state_t` は command sequence metadata を持たず、`swbt_ipc_status_t.last_seq` と `swbt_control_lease_t` が latest accepted sequence を持つ。
 - `spec/architecture/daemon-runtime-boundaries.md`。現行 runtime boundary は current spec であり、実機到達済み経路を壊さない。
 
 use case:
@@ -30,7 +31,7 @@ source から use case への変換:
 ## 3. 対象範囲
 
 - 最新 `main` の include graph と、関係する call path を確認する。
-- report builder が `client_seq` に依存しないことを test で固定する。
+- report builder が command sequence metadata に依存しないことを test で固定する。
 - controller state と set-state command metadata の分離方針を実装する。
 - owner ID、active/inactive、last accepted sequence、authorization を IPC 非依存の `control_lease` 相当へ抽出する。
 - `ipc_session` は互換 wrapper として残し、existing IPC JSON tests を維持する。
@@ -81,32 +82,50 @@ not applicable。
 
 - `swbt/switch/switch_controller_state.*`
 - `swbt/switch/switch_report.*`
+- `swbt/application/control_lease.*`
 - `swbt/ipc/ipc_session.*`
 - `swbt/ipc/ipc_json.*`
 - `swbt/daemon/runtime.*`
 - `tests/switch_report_test.c`
+- `tests/application_control_lease_test.c`
 - `tests/ipc_session_test.c`
 - `tests/ipc_json_test.c`
 - `tests/daemon_runtime_test.c`
 - `spec/architecture/daemon-application-boundary-rearchitecture.md`
-- `work-units/wip/local_050/DAEMON_APPLICATION_BOUNDARY_REARCHITECTURE.md`
+- `work-units/complete/local_050/DAEMON_APPLICATION_BOUNDARY_REARCHITECTURE.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | report builder produces identical input report bytes when only command sequence metadata changes | regression | unit | no |
-| todo | set-state command keeps last sequence for status without making sequence part of controller state | new | unit | no |
-| todo | control lease acquire / release / not-owner checks do not include IPC session or JSON headers | new | unit | no |
-| todo | release, owner disconnect, and heartbeat timeout clear owner and publish neutral state through the same policy path | regression | unit | no |
-| todo | existing IPC JSON acquire / set_state / get_status / release responses remain wire-compatible | regression | unit | no |
-| todo | daemon runtime shutdown neutral behavior remains covered without changing production BTstack composition | regression | unit | no |
+| green | report builder produces identical input report bytes when only command sequence metadata changes | regression | unit | no |
+| green | set-state command keeps last sequence for status without making sequence part of controller state | new | unit | no |
+| green | control lease acquire / release / not-owner checks do not include IPC session or JSON headers | new | unit | no |
+| refactor-done | release, owner disconnect, and heartbeat timeout clear owner and publish neutral state through the same policy path | regression | unit | no |
+| green | existing IPC JSON acquire / set_state / get_status / release responses remain wire-compatible | regression | unit | no |
+| green | daemon runtime shutdown neutral behavior remains covered without changing production BTstack composition | regression | unit | no |
 
 ## 10. 検証
 
-未実行。
+TDD status:
 
-この record は source と最初の TDD Test List を作成した段階であり、code、CTest、実機コマンドは実行していない。
+- source: 2026-06-22 のユーザ要求と `spec/architecture/daemon-application-boundary-rearchitecture.md`。
+- use case: IPC `seq` を command metadata として扱い、controller state と Switch report bytes から切り離す。
+- item: set-state command keeps last sequence for status without making sequence part of controller state。
+- state: refactor-done。
+- commands:
+  - `just build-debug`: red。`swbt_ipc_status_t.last_seq` と `swbt_ipc_set_state(..., sequence)` が未実装で、`ipc_session_test.c` の build が期待どおり失敗した。
+  - `just build-debug`: green。`swbt_state_t` から `client_seq` を削除し、`swbt_ipc_status_t.last_seq` と `swbt_control_lease_t` へ移した後に通過した。
+  - `just test-debug`: green。33/33 tests passed。
+  - `just test-debug`: refactor-done。neutral publish helper へ寄せた後も 33/33 tests passed。
+  - `just format`: pass。
+  - `just verify`: pass。format-check、clang-tidy、debug CTest、asan CTest、Windows MinGW cross build が通過した。
+- notes: `application_control_lease_test` は `application/control_lease.h` だけを include し、IPC session、JSON、mailbox、rumble を要求しない。`ipc_session_test` は sequence だけを変えた同一 controller state から同一 report bytes が出ることを確認する。
+
+検索確認:
+
+- `rg -n "client_seq" swbt apps tests api`: no matches。
+- `rg -n "#include .*\\b(ipc|json|mailbox|rumble|socket)\\b|ipc_|json_|mailbox|rumble|socket" swbt/application/control_lease.h swbt/application/control_lease.c`: no matches。
 
 ## 11. 実機実行条件
 
@@ -133,12 +152,12 @@ not applicable。
 
 ## 13. チェックリスト
 
-- [ ] include graph と call path を確認した。
-- [ ] red test を追加した。
-- [ ] controller state と command metadata を分離した。
-- [ ] control lease を IPC 非依存に抽出した。
-- [ ] IPC JSON 互換性を維持した。
-- [ ] release / disconnect / heartbeat timeout の neutral policy を整理した。
-- [ ] targeted CTest を実行した。
-- [ ] 実機未実行理由を確認した。
-- [ ] 残した compatibility wrapper の削除先を `local_051` または `local_055` に紐付けた。
+- [x] include graph と call path を確認した。
+- [x] red test を追加した。
+- [x] controller state と command metadata を分離した。
+- [x] control lease を IPC 非依存に抽出した。
+- [x] IPC JSON 互換性を維持した。
+- [x] release / disconnect / heartbeat timeout の neutral policy を整理した。
+- [x] targeted CTest を実行した。
+- [x] 実機未実行理由を確認した。
+- [x] 残した compatibility wrapper の削除先を `local_051` または `local_055` に紐付けた。

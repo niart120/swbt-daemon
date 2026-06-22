@@ -104,7 +104,7 @@ int main(void) {
     }
     if (expect_eq_u32(status.state.buttons, SWBT_BUTTON_A) ||
         expect_eq_u16(status.state.lx, 1234) || expect_eq_u16(status.state.ly, 2345) ||
-        status.state.client_seq != 77) {
+        status.last_seq != 77) {
         return 13;
     }
     if (swbt_ipc_record_rumble(&session, active_rumble, 4242u) != SWBT_IPC_OK) {
@@ -142,7 +142,7 @@ int main(void) {
     if (swbt_ipc_get_status(&session, &status) != SWBT_IPC_OK) {
         return 18;
     }
-    if (expect_eq_u16(status.state.lx, 1234) || status.state.client_seq != 77) {
+    if (expect_eq_u16(status.state.lx, 1234) || status.last_seq != 77) {
         return 19;
     }
 
@@ -162,7 +162,7 @@ int main(void) {
     if (swbt_ipc_get_status(&session, &status) != SWBT_IPC_OK) {
         return 22;
     }
-    if (expect_eq_u16(status.state.lx, 1234) || status.state.client_seq != 77) {
+    if (expect_eq_u16(status.state.lx, 1234) || status.last_seq != 77) {
         return 23;
     }
 

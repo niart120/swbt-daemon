@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "application/control_lease.h"
 #include "core/spin_lock.h"
 #include "core/state_mailbox.h"
 #include "switch/switch_controller_state.h"
@@ -20,14 +21,14 @@ typedef enum {
 typedef struct {
     bool has_owner;
     uint32_t owner_client_id;
+    uint64_t last_seq;
     swbt_state_t state;
     swbt_switch_rumble_state_t rumble;
 } swbt_ipc_status_t;
 
 typedef struct {
     swbt_spin_lock_t lock;
-    bool has_owner;
-    uint32_t owner_client_id;
+    swbt_control_lease_t lease;
     swbt_state_t state;
     swbt_switch_rumble_state_t rumble;
     swbt_state_mailbox_t *mailbox;
@@ -44,8 +45,10 @@ swbt_ipc_result_t swbt_ipc_release(swbt_ipc_session_t *session, uint32_t client_
 
 swbt_ipc_result_t swbt_ipc_clear_owner(swbt_ipc_session_t *session);
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 swbt_ipc_result_t swbt_ipc_set_state(swbt_ipc_session_t *session, uint32_t client_id,
-                                     const swbt_state_t *state);
+                                     const swbt_state_t *state, uint64_t sequence);
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
 swbt_ipc_result_t swbt_ipc_get_status(const swbt_ipc_session_t *session,
                                       swbt_ipc_status_t *out_status);

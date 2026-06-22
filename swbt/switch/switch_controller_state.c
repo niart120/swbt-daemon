@@ -13,7 +13,6 @@ swbt_state_t swbt_state_neutral(void) {
         .gyro_x = 0,
         .gyro_y = 0,
         .gyro_z = 0,
-        .client_seq = 0,
     };
     return state;
 }

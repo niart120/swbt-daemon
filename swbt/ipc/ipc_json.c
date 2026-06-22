@@ -311,7 +311,8 @@ static bool swbt_ipc_parse_stick_field(const char *line, const char *key, uint16
     return true;
 }
 
-static bool swbt_ipc_parse_state(const char *line, swbt_state_t *out_state) {
+static bool swbt_ipc_parse_state(const char *line, swbt_state_t *out_state,
+                                 uint64_t *out_sequence) {
     int64_t buttons = 0;
     int64_t seq = 0;
     const char *state_value = swbt_json_find_key_value(line, "state");
@@ -345,9 +346,9 @@ static bool swbt_ipc_parse_state(const char *line, swbt_state_t *out_state) {
     if (swbt_json_get_i64(line, "seq", &seq) < 0 || seq < 0) {
         return false;
     }
-    state.client_seq = (uint64_t)seq;
 
     *out_state = state;
+    *out_sequence = (uint64_t)seq;
     return true;
 }
 
@@ -447,18 +448,19 @@ static swbt_ipc_json_result_t swbt_ipc_handle_set_state(swbt_ipc_session_t *sess
                                                         bool has_request_id,
                                                         const char *request_id) {
     swbt_state_t state;
+    uint64_t sequence = 0;
     swbt_ipc_result_t result = SWBT_IPC_OK;
 
     if (!swbt_ipc_json_owner_matches_client(line, client_id)) {
         return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
                                     "not_owner", "client does not own the controller");
     }
-    if (!swbt_ipc_parse_state(line, &state)) {
+    if (!swbt_ipc_parse_state(line, &state, &sequence)) {
         return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
                                     "invalid_state", "state field is invalid");
     }
 
-    result = swbt_ipc_set_state(session, client_id, &state);
+    result = swbt_ipc_set_state(session, client_id, &state, sequence);
     if (result == SWBT_IPC_ERROR_NOT_OWNER) {
         return swbt_ipc_write_error(response, response_size, has_request_id, request_id,
                                     "not_owner", "client does not own the controller");
@@ -476,7 +478,7 @@ static swbt_ipc_json_result_t swbt_ipc_handle_set_state(swbt_ipc_session_t *sess
     return swbt_json_write(response, response_size,
                            "{\"v\":1,\"type\":\"state_accepted\",\"request_id\":\"%s\","
                            "\"seq\":%llu}\n",
-                           request_id, (unsigned long long)state.client_seq);
+                           request_id, (unsigned long long)sequence);
 }
 
 static swbt_ipc_json_result_t swbt_ipc_handle_get_status(swbt_ipc_session_t *session,
@@ -507,7 +509,7 @@ static swbt_ipc_json_result_t swbt_ipc_handle_get_status(swbt_ipc_session_t *ses
             "\"gyro_x\":%d,\"gyro_y\":%d,\"gyro_z\":%d},"
             "\"rumble\":{\"updated\":%s,\"last_update_ms\":%llu,\"raw\":\"%s\"}}\n",
             request_id, status.has_owner ? "true" : "false", owner_id,
-            (unsigned long long)status.state.client_seq, (unsigned int)status.state.buttons,
+            (unsigned long long)status.last_seq, (unsigned int)status.state.buttons,
             (unsigned int)status.state.lx, (unsigned int)status.state.ly,
             (unsigned int)status.state.rx, (unsigned int)status.state.ry, (int)status.state.accel_x,
             (int)status.state.accel_y, (int)status.state.accel_z, (int)status.state.gyro_x,
@@ -524,7 +526,7 @@ static swbt_ipc_json_result_t swbt_ipc_handle_get_status(swbt_ipc_session_t *ses
         "\"accel_x\":%d,\"accel_y\":%d,\"accel_z\":%d,"
         "\"gyro_x\":%d,\"gyro_y\":%d,\"gyro_z\":%d},"
         "\"rumble\":{\"updated\":%s,\"last_update_ms\":%llu,\"raw\":\"%s\"}}\n",
-        status.has_owner ? "true" : "false", owner_id, (unsigned long long)status.state.client_seq,
+        status.has_owner ? "true" : "false", owner_id, (unsigned long long)status.last_seq,
         (unsigned int)status.state.buttons, (unsigned int)status.state.lx,
         (unsigned int)status.state.ly, (unsigned int)status.state.rx, (unsigned int)status.state.ry,
         (int)status.state.accel_x, (int)status.state.accel_y, (int)status.state.accel_z,

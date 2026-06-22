@@ -108,6 +108,7 @@ target_link_libraries(swbt_btstack
 )
 
 add_library(swbt_core STATIC
+    swbt/application/control_lease.c
     swbt/core/swbt_version.c
     swbt/core/diagnostics.c
     swbt/core/state_mailbox.c
@@ -301,6 +302,15 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(ipc_session_test)
 
     add_test(NAME ipc_session_test COMMAND ipc_session_test)
+
+    add_executable(application_control_lease_test
+        tests/application_control_lease_test.c
+    )
+    target_link_libraries(application_control_lease_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(application_control_lease_test)
+    swbt_apply_sanitizers(application_control_lease_test)
+
+    add_test(NAME application_control_lease_test COMMAND application_control_lease_test)
 
     add_executable(state_mailbox_test
         tests/state_mailbox_test.c

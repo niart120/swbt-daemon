@@ -139,7 +139,7 @@ static int test_poll_once_accepts_and_serves_when_ready(void) {
     return failed;
 }
 
-static int test_debug_client_sequence_updates_mailbox(void) {
+static int test_debug_client_status_sequence_updates_mailbox_state(void) {
     swbt_daemon_ipc_runner_t runner;
     swbt_ipc_session_t session;
     swbt_state_mailbox_t mailbox;
@@ -180,8 +180,7 @@ static int test_debug_client_sequence_updates_mailbox(void) {
     state.buttons = SWBT_BUTTON_A | SWBT_BUTTON_X;
     state.lx = 1234u;
     state.ly = 2345u;
-    state.client_seq = 42u;
-    failed += expect_eq_int(swbt_debug_client_send_set_state(&client, owner_id, &state), 0);
+    failed += expect_eq_int(swbt_debug_client_send_set_state(&client, owner_id, &state, 42u), 0);
     failed += expect_eq_int(swbt_daemon_ipc_runner_serve_connection_once(&runner),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed +=
@@ -237,8 +236,7 @@ static int test_stop_closes_connection_and_stores_neutral(void) {
         swbt_debug_client_response_string(response, "owner_id", owner_id, sizeof(owner_id)), 0);
 
     state.buttons = SWBT_BUTTON_A;
-    state.client_seq = 7u;
-    failed += expect_eq_int(swbt_debug_client_send_set_state(&client, owner_id, &state), 0);
+    failed += expect_eq_int(swbt_debug_client_send_set_state(&client, owner_id, &state, 7u), 0);
     failed += expect_eq_int(swbt_daemon_ipc_runner_serve_connection_once(&runner),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed +=
@@ -299,8 +297,7 @@ static int test_poll_once_at_heartbeat_timeout_stores_neutral(void) {
         swbt_debug_client_response_string(response, "owner_id", owner_id, sizeof(owner_id)), 0);
 
     state.buttons = SWBT_BUTTON_A;
-    state.client_seq = 9u;
-    failed += expect_eq_int(swbt_debug_client_send_set_state(&client, owner_id, &state), 0);
+    failed += expect_eq_int(swbt_debug_client_send_set_state(&client, owner_id, &state, 9u), 0);
     failed += expect_eq_int(swbt_daemon_ipc_runner_poll_once_at(&runner, 1050u),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed +=
@@ -331,7 +328,7 @@ int main(void) {
     failed += test_rejects_non_loopback_bind();
     failed += test_exposes_loopback_endpoint_before_accept();
     failed += test_poll_once_accepts_and_serves_when_ready();
-    failed += test_debug_client_sequence_updates_mailbox();
+    failed += test_debug_client_status_sequence_updates_mailbox_state();
     failed += test_stop_closes_connection_and_stores_neutral();
     failed += test_poll_once_at_heartbeat_timeout_stores_neutral();
     return failed == 0 ? 0 : 1;
