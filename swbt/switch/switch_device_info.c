@@ -16,16 +16,6 @@ swbt_switch_device_info_t swbt_switch_device_info_default(void) {
     return swbt_switch_device_info_swbt_pro();
 }
 
-swbt_switch_device_info_t swbt_switch_device_info_mizuyoukanao_pro(void) {
-    swbt_switch_device_info_t device_info = swbt_switch_device_info_default();
-    device_info.firmware_version[0] = 0x03u;
-    device_info.firmware_version[1] = 0x48u;
-    device_info.controller_type = SWBT_SWITCH_DEVICE_INFO_CONTROLLER_TYPE_PRO_CONTROLLER;
-    device_info.tail_unknown = SWBT_SWITCH_DEVICE_INFO_MIZUYOUKANAO_PRO_TAIL_UNKNOWN;
-    device_info.color_source = SWBT_SWITCH_DEVICE_INFO_MIZUYOUKANAO_PRO_COLOR_SOURCE;
-    return device_info;
-}
-
 void swbt_switch_device_info_write_reply_data(
     const swbt_switch_device_info_t *device_info,
     uint8_t out_data[SWBT_SWITCH_DEVICE_INFO_REPLY_DATA_SIZE]) {
