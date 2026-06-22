@@ -155,7 +155,7 @@ just verify
   次の置き場: bonded reconnect persistence work unit。
 - 観測: `production_btstack.c` は IPC pump と production backend ops table 接続をまだ持つ。
   先送り理由: ここを切るには daemon host / composition root と build include boundary の整理が必要であり、今回の HID event / port 境界導入と混ぜると検証単位が大きくなる。
-  次の置き場: `work-units/wip/local_054/DAEMON_HOST_AND_BUILD_BOUNDARIES.md` と `work-units/wip/local_055/REARCHITECTURE_CUTOVER_ACCEPTANCE_AND_CLEANUP.md`。
+  次の置き場: `work-units/complete/local_054/DAEMON_HOST_AND_BUILD_BOUNDARIES.md` と `work-units/wip/local_055/REARCHITECTURE_CUTOVER_ACCEPTANCE_AND_CLEANUP.md`。
 
 ## 13. チェックリスト
 

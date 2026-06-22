@@ -13,7 +13,6 @@
 #include "btstack_run_loop.h"
 #include "classic/hid_device.h"
 #include "core/diagnostics.h"
-#include "daemon/ipc_runner.h"
 #include "gap.h"
 #include "hci_dump.h"
 #include "hci.h"
@@ -31,24 +30,26 @@
 #define SWBT_BTSTACK_IPC_PUMP_PERIOD_MS 1u
 
 static bool g_swbt_btstack_production_hci_dump_open;
-static swbt_daemon_ipc_runner_t *g_swbt_btstack_production_ipc_runner;
+static swbt_daemon_production_ipc_pump_t g_swbt_btstack_production_ipc_pump;
+static bool g_swbt_btstack_production_ipc_pump_started;
 static btstack_timer_source_t g_swbt_btstack_production_ipc_pump_timer;
 static bool g_swbt_btstack_production_ipc_pump_timer_pending;
 
 static void swbt_btstack_production_ipc_pump_schedule(void);
 
 static void swbt_btstack_production_ipc_pump_timer_handler(btstack_timer_source_t *timer) {
-    swbt_daemon_ipc_runner_t *runner = (swbt_daemon_ipc_runner_t *)timer->context;
+    swbt_daemon_production_ipc_pump_t *pump = (swbt_daemon_production_ipc_pump_t *)timer->context;
 
     g_swbt_btstack_production_ipc_pump_timer_pending = false;
-    if (runner != NULL && swbt_daemon_ipc_runner_is_running(runner)) {
-        (void)swbt_daemon_ipc_runner_poll_once_at(runner, btstack_run_loop_get_time_ms());
+    if (pump != NULL && pump->is_running != NULL && pump->poll_once_at != NULL &&
+        pump->is_running(pump->context)) {
+        pump->poll_once_at(pump->context, btstack_run_loop_get_time_ms());
     }
     swbt_btstack_production_ipc_pump_schedule();
 }
 
 static void swbt_btstack_production_ipc_pump_schedule(void) {
-    if (g_swbt_btstack_production_ipc_runner == NULL ||
+    if (!g_swbt_btstack_production_ipc_pump_started ||
         g_swbt_btstack_production_ipc_pump_timer_pending) {
         return;
     }
@@ -59,44 +60,32 @@ static void swbt_btstack_production_ipc_pump_schedule(void) {
     g_swbt_btstack_production_ipc_pump_timer_pending = true;
 }
 
-static void swbt_btstack_production_ipc_pump_start(swbt_daemon_ipc_runner_t *runner) {
-    if (runner == NULL) {
-        return;
+static int swbt_btstack_production_ipc_pump_start(void *context,
+                                                  const swbt_daemon_production_ipc_pump_t *pump) {
+    (void)context;
+    if (pump == NULL || pump->is_running == NULL || pump->poll_once_at == NULL) {
+        return -1;
     }
-
     swbt_diagnostic_trace("btstack: ipc pump start");
-    g_swbt_btstack_production_ipc_runner = runner;
+    g_swbt_btstack_production_ipc_pump = *pump;
+    g_swbt_btstack_production_ipc_pump_started = true;
     g_swbt_btstack_production_ipc_pump_timer_pending = false;
     btstack_run_loop_set_timer_handler(&g_swbt_btstack_production_ipc_pump_timer,
                                        swbt_btstack_production_ipc_pump_timer_handler);
-    btstack_run_loop_set_timer_context(&g_swbt_btstack_production_ipc_pump_timer, runner);
-    swbt_btstack_production_ipc_pump_schedule();
+    btstack_run_loop_set_timer_context(&g_swbt_btstack_production_ipc_pump_timer,
+                                       &g_swbt_btstack_production_ipc_pump);
     swbt_diagnostic_trace("btstack: ipc pump start ok");
+    return 0;
 }
 
-static void swbt_btstack_production_ipc_pump_stop(void) {
+static void swbt_btstack_production_ipc_pump_stop(void *context) {
+    (void)context;
     if (g_swbt_btstack_production_ipc_pump_timer_pending) {
         (void)btstack_run_loop_remove_timer(&g_swbt_btstack_production_ipc_pump_timer);
         g_swbt_btstack_production_ipc_pump_timer_pending = false;
     }
-    g_swbt_btstack_production_ipc_runner = NULL;
-}
-
-static int swbt_btstack_production_ipc_start(void *context, swbt_daemon_ipc_runner_t *runner,
-                                             swbt_ipc_session_t *session,
-                                             const swbt_daemon_ipc_runner_config_t *config) {
-    (void)context;
-    if (swbt_daemon_ipc_runner_start(runner, session, config) != SWBT_DAEMON_IPC_RUNNER_OK) {
-        return -1;
-    }
-    g_swbt_btstack_production_ipc_runner = runner;
-    return 0;
-}
-
-static void swbt_btstack_production_ipc_stop(void *context, swbt_daemon_ipc_runner_t *runner) {
-    (void)context;
-    swbt_btstack_production_ipc_pump_stop();
-    swbt_daemon_ipc_runner_stop(runner);
+    g_swbt_btstack_production_ipc_pump_started = false;
+    g_swbt_btstack_production_ipc_pump = (swbt_daemon_production_ipc_pump_t){0};
 }
 
 static swbt_btstack_classic_discovery_config_t swbt_btstack_production_discovery_config(void) {
@@ -177,14 +166,14 @@ static int swbt_btstack_production_platform_start(void *context) {
     swbt_diagnostic_trace("btstack: classic discovery configure ok");
     swbt_diagnostic_trace("btstack: l2cap init");
     l2cap_init();
-    swbt_btstack_production_ipc_pump_start(g_swbt_btstack_production_ipc_runner);
+    swbt_btstack_production_ipc_pump_schedule();
     return 0;
 }
 
 static void swbt_btstack_production_platform_stop(void *context) {
     (void)context;
     swbt_diagnostic_trace("btstack: ipc pump stop");
-    swbt_btstack_production_ipc_pump_stop();
+    swbt_btstack_production_ipc_pump_stop(NULL);
     swbt_diagnostic_trace("btstack: ipc pump stop done");
     swbt_diagnostic_trace("btstack: hci close");
     hci_close();
@@ -340,8 +329,8 @@ static void swbt_btstack_production_run_loop_trigger_exit(void *context) {
 
 const swbt_daemon_production_backend_ops_t *swbt_btstack_production_backend_ops(void) {
     static const swbt_daemon_production_backend_ops_t ops = {
-        .ipc_start = swbt_btstack_production_ipc_start,
-        .ipc_stop = swbt_btstack_production_ipc_stop,
+        .ipc_pump_start = swbt_btstack_production_ipc_pump_start,
+        .ipc_pump_stop = swbt_btstack_production_ipc_pump_stop,
         .platform_start = swbt_btstack_production_platform_start,
         .platform_stop = swbt_btstack_production_platform_stop,
         .hid_register = swbt_btstack_production_hid_register,

@@ -10,7 +10,7 @@
 static swbt_daemon_production_backend_t *g_active_backend;
 
 static bool swbt_daemon_production_ops_are_valid(const swbt_daemon_production_backend_ops_t *ops) {
-    return ops != NULL && ops->ipc_start != NULL && ops->ipc_stop != NULL &&
+    return ops != NULL && ops->ipc_pump_start != NULL && ops->ipc_pump_stop != NULL &&
            ops->platform_start != NULL && ops->platform_stop != NULL && ops->hid_register != NULL &&
            ops->hid_stop != NULL && ops->output_handler_start != NULL &&
            ops->output_handler_stop != NULL && ops->report_timer_init != NULL &&
@@ -79,13 +79,36 @@ swbt_daemon_production_result_t swbt_daemon_production_backend_init(
     return SWBT_DAEMON_PRODUCTION_OK;
 }
 
+static bool swbt_daemon_production_ipc_runner_is_running(void *context) {
+    return swbt_daemon_ipc_runner_is_running((const swbt_daemon_ipc_runner_t *)context);
+}
+
+static void swbt_daemon_production_ipc_runner_poll_once_at(void *context, uint32_t now_ms) {
+    (void)swbt_daemon_ipc_runner_poll_once_at((swbt_daemon_ipc_runner_t *)context, now_ms);
+}
+
 static int swbt_daemon_production_ipc_start(void *context, swbt_ipc_session_t *session) {
     swbt_daemon_production_backend_t *backend = context;
+    swbt_daemon_production_ipc_pump_t pump;
+
     if (backend == NULL || !backend->initialized) {
         return -1;
     }
-    return backend->ops->ipc_start(backend->ops_context, &backend->ipc_runner, session,
-                                   &backend->ipc_runner.config);
+    if (swbt_daemon_ipc_runner_start(&backend->ipc_runner, session, &backend->ipc_runner.config) !=
+        SWBT_DAEMON_IPC_RUNNER_OK) {
+        return -1;
+    }
+
+    pump = (swbt_daemon_production_ipc_pump_t){
+        .is_running = swbt_daemon_production_ipc_runner_is_running,
+        .poll_once_at = swbt_daemon_production_ipc_runner_poll_once_at,
+        .context = &backend->ipc_runner,
+    };
+    if (backend->ops->ipc_pump_start(backend->ops_context, &pump) != 0) {
+        swbt_daemon_ipc_runner_stop(&backend->ipc_runner);
+        return -1;
+    }
+    return 0;
 }
 
 static void swbt_daemon_production_ipc_stop(void *context) {
@@ -93,7 +116,8 @@ static void swbt_daemon_production_ipc_stop(void *context) {
     if (backend == NULL || !backend->initialized) {
         return;
     }
-    backend->ops->ipc_stop(backend->ops_context, &backend->ipc_runner);
+    backend->ops->ipc_pump_stop(backend->ops_context);
+    swbt_daemon_ipc_runner_stop(&backend->ipc_runner);
 }
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)

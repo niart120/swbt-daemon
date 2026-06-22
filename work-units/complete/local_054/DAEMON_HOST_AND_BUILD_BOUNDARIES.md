@@ -81,33 +81,59 @@ not applicable。ただし production composition、BTstack initialization、shu
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | application target does not expose BTstack include directories | regression | build | no |
-| todo | BTstack adapter target cannot include IPC session internal header | new | build | no |
-| todo | `production_btstack.c` no longer includes `daemon/ipc_runner.h` after host composition owns IPC pump | new | build | no |
-| todo | protocol tests link without daemon or BTstack adapter target | regression | build | no |
-| todo | startup failure cleanup order is covered by host test | regression | unit | no |
+| done | application target does not expose BTstack include directories | regression | build | no |
+| done | BTstack adapter target cannot include IPC session internal header | new | build | no |
+| done | `production_btstack.c` no longer includes `daemon/ipc_runner.h` after host composition owns IPC pump | new | build | no |
+| done | protocol tests link without daemon or BTstack adapter target | regression | build | no |
+| done | startup failure cleanup order is covered by host test | regression | unit | no |
 | deferred | production composition cutover passes integrated hardware smoke when composition changes | characterization | hardware | yes |
 
 ## 10. 検証
 
-未実行。
+- red:
+  - `just test-debug` は sandbox 内の Docker 検出で CTest 前に停止したため、TDD red には数えない。
+  - `just debug` を Dev Container 経由で実行し、`include_boundaries_cmake_test` が `swbt/btstack_bridge/production_btstack.c` の `#include "daemon/ipc_runner.h"` を検出して失敗した。
+- green:
+  - `swbt_switch_protocol` と `swbt_application` target を追加した。
+  - protocol / application tests は `swbt_core` ではなく対象 module target に link する。
+  - `production_backend` が IPC runner の start / stop と poll callback 作成を持ち、`production_btstack` は `swbt_daemon_production_ipc_pump_t` を BTstack run loop timer に登録する。
+  - `tests/cmake/include_boundaries_test.cmake` は application target の BTstack include / link 禁止、BTstack bridge の IPC 内部 header 禁止、`production_btstack` の `daemon/production_backend.h` 禁止、protocol test link target を確認する。
+  - `just debug`: 38/38 passed。
+  - 境界チェックを `daemon/` 全体禁止へ広げた試行では `production_backend_ops.h` まで禁止して失敗した。これは今回導入した最小 port contract まで禁止する過剰な check だったため、禁止対象を `ipc/`、`daemon/ipc_runner.h`、`daemon/runtime.h` に絞り直した。
+  - `just test-debug`: 38/38 passed。
+- full verification:
+  - `just verify`: passed。format check、clang-tidy build、debug build / CTest、ASan build / CTest、Windows MinGW cross build を実行した。
 
 ## 11. 実機実行条件
 
-CMake target 分割と include check だけなら実機不要である。production executable の composition、BTstack initialization、shutdown order を変更する場合は `local_053` と統合した hardware gate を実行する。
+今回の変更では実機を実行していない。
+
+理由:
+
+- Switch-facing report bytes、HID descriptor、subcommand、SPI、rumble packet を変更していない。
+- BTstack HID registration、HID send / can-send、report timer adapter の scheduling は変更していない。
+- IPC pump の runner 所有を `production_backend` へ寄せたが、production start / cleanup ordering は既存の fake backend unit test で固定している。
+
+production executable の composition、BTstack initialization、shutdown order をさらに変更する場合は、`local_055` または後続 work unit で `local_053` と統合した hardware gate を実行する。
 
 ## 12. 先送り事項
 
 - 観測: Windows native CI は target 分割後の有用な gate である。
   先送り理由: CI 拡張は build boundary が固まってから行う。
   次の置き場: IPC / platform hardening work unit。
+- 観測: `swbt_core` は互換用 aggregate target として残る。
+  先送り理由: daemon / IPC / BTstack bridge の target 分割を同時に進めると production composition の変更と混ざる。
+  次の置き場: `work-units/wip/local_055/REARCHITECTURE_CUTOVER_ACCEPTANCE_AND_CLEANUP.md`。
+- 観測: `production_btstack` は `swbt_daemon_production_backend_ops_t` を返す。
+  先送り理由: IPC runner 直接参照は外したが、ops table 接続の削除は composition root の最終整理と同時に行う必要がある。
+  次の置き場: `work-units/wip/local_055/REARCHITECTURE_CUTOVER_ACCEPTANCE_AND_CLEANUP.md`。
 
 ## 13. チェックリスト
 
-- [ ] target 分割方針を確認した。
-- [ ] forbidden include check を追加した。
-- [ ] tests の link target を見直した。
-- [ ] host lifecycle test を追加または更新した。
-- [ ] build / CTest を実行した。
-- [ ] 実機 gate の要否を判定した。
-- [ ] aggregate target の残置理由と削除条件を記録した。
+- [x] target 分割方針を確認した。
+- [x] forbidden include check を追加した。
+- [x] tests の link target を見直した。
+- [x] host lifecycle test を追加または更新した。
+- [x] build / CTest を実行した。
+- [x] 実機 gate の要否を判定した。
+- [x] aggregate target の残置理由と削除条件を記録した。

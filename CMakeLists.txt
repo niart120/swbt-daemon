@@ -107,9 +107,39 @@ target_link_libraries(swbt_btstack
         ${swbt_btstack_link_libraries}
 )
 
-add_library(swbt_core STATIC
+add_library(swbt_switch_protocol STATIC
+    swbt/switch/switch_controller_state.c
+    swbt/switch/switch_device_info.c
+    swbt/switch/switch_hid_descriptor.c
+    swbt/switch/switch_report.c
+    swbt/switch/switch_player_lights.c
+    swbt/switch/switch_rumble.c
+    swbt/switch/switch_spi.c
+    swbt/switch/switch_spi_seed.c
+    swbt/switch/switch_subcommand.c
+    swbt/switch/switch_subcommand_dispatcher.c
+    swbt/switch/switch_subcommand_reply.c
+)
+target_include_directories(swbt_switch_protocol
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/swbt"
+)
+swbt_apply_common_warnings(swbt_switch_protocol)
+swbt_apply_sanitizers(swbt_switch_protocol)
+
+add_library(swbt_application STATIC
     swbt/application/app.c
     swbt/application/control_lease.c
+)
+target_include_directories(swbt_application
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/swbt"
+)
+target_link_libraries(swbt_application PUBLIC swbt_switch_protocol)
+swbt_apply_common_warnings(swbt_application)
+swbt_apply_sanitizers(swbt_application)
+
+add_library(swbt_core STATIC
     swbt/core/swbt_version.c
     swbt/core/diagnostics.c
     swbt/core/state_mailbox.c
@@ -136,17 +166,6 @@ add_library(swbt_core STATIC
     swbt/ipc/ipc_json.c
     swbt/ipc/ipc_server.c
     swbt/ipc/ipc_session.c
-    swbt/switch/switch_controller_state.c
-    swbt/switch/switch_device_info.c
-    swbt/switch/switch_hid_descriptor.c
-    swbt/switch/switch_report.c
-    swbt/switch/switch_player_lights.c
-    swbt/switch/switch_rumble.c
-    swbt/switch/switch_spi.c
-    swbt/switch/switch_spi_seed.c
-    swbt/switch/switch_subcommand.c
-    swbt/switch/switch_subcommand_dispatcher.c
-    swbt/switch/switch_subcommand_reply.c
 )
 
 target_include_directories(swbt_core
@@ -157,6 +176,8 @@ target_include_directories(swbt_core
 if(WIN32)
     target_link_libraries(swbt_core PUBLIC ws2_32)
 endif()
+
+target_link_libraries(swbt_core PUBLIC swbt_application swbt_switch_protocol)
 
 target_include_directories(swbt_core PRIVATE ${swbt_btstack_selected_include_dirs})
 
@@ -217,11 +238,18 @@ if(SWBT_BUILD_TESTS)
             "-DSWBT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/btstack_sources_test.cmake"
     )
+    add_test(
+        NAME include_boundaries_cmake_test
+        COMMAND
+            "${CMAKE_COMMAND}"
+            "-DSWBT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/include_boundaries_test.cmake"
+    )
 
     add_executable(switch_report_test
         tests/switch_report_test.c
     )
-    target_link_libraries(switch_report_test PRIVATE swbt_core)
+    target_link_libraries(switch_report_test PRIVATE swbt_switch_protocol)
     swbt_apply_common_warnings(switch_report_test)
     swbt_apply_sanitizers(switch_report_test)
 
@@ -230,7 +258,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(switch_hid_descriptor_test
         tests/switch_hid_descriptor_test.c
     )
-    target_link_libraries(switch_hid_descriptor_test PRIVATE swbt_core)
+    target_link_libraries(switch_hid_descriptor_test PRIVATE swbt_switch_protocol)
     swbt_apply_common_warnings(switch_hid_descriptor_test)
     swbt_apply_sanitizers(switch_hid_descriptor_test)
 
@@ -239,7 +267,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(switch_subcommand_test
         tests/switch_subcommand_test.c
     )
-    target_link_libraries(switch_subcommand_test PRIVATE swbt_core)
+    target_link_libraries(switch_subcommand_test PRIVATE swbt_switch_protocol)
     swbt_apply_common_warnings(switch_subcommand_test)
     swbt_apply_sanitizers(switch_subcommand_test)
 
@@ -248,7 +276,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(switch_subcommand_reply_test
         tests/switch_subcommand_reply_test.c
     )
-    target_link_libraries(switch_subcommand_reply_test PRIVATE swbt_core)
+    target_link_libraries(switch_subcommand_reply_test PRIVATE swbt_switch_protocol)
     swbt_apply_common_warnings(switch_subcommand_reply_test)
     swbt_apply_sanitizers(switch_subcommand_reply_test)
 
@@ -257,7 +285,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(switch_subcommand_dispatcher_test
         tests/switch_subcommand_dispatcher_test.c
     )
-    target_link_libraries(switch_subcommand_dispatcher_test PRIVATE swbt_core)
+    target_link_libraries(switch_subcommand_dispatcher_test PRIVATE swbt_switch_protocol)
     swbt_apply_common_warnings(switch_subcommand_dispatcher_test)
     swbt_apply_sanitizers(switch_subcommand_dispatcher_test)
 
@@ -266,7 +294,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(switch_spi_test
         tests/switch_spi_test.c
     )
-    target_link_libraries(switch_spi_test PRIVATE swbt_core)
+    target_link_libraries(switch_spi_test PRIVATE swbt_switch_protocol)
     swbt_apply_common_warnings(switch_spi_test)
     swbt_apply_sanitizers(switch_spi_test)
 
@@ -275,7 +303,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(switch_spi_seed_test
         tests/switch_spi_seed_test.c
     )
-    target_link_libraries(switch_spi_seed_test PRIVATE swbt_core)
+    target_link_libraries(switch_spi_seed_test PRIVATE swbt_switch_protocol)
     swbt_apply_common_warnings(switch_spi_seed_test)
     swbt_apply_sanitizers(switch_spi_seed_test)
 
@@ -284,7 +312,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(switch_rumble_test
         tests/switch_rumble_test.c
     )
-    target_link_libraries(switch_rumble_test PRIVATE swbt_core)
+    target_link_libraries(switch_rumble_test PRIVATE swbt_switch_protocol)
     swbt_apply_common_warnings(switch_rumble_test)
     swbt_apply_sanitizers(switch_rumble_test)
 
@@ -293,7 +321,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(switch_player_lights_test
         tests/switch_player_lights_test.c
     )
-    target_link_libraries(switch_player_lights_test PRIVATE swbt_core)
+    target_link_libraries(switch_player_lights_test PRIVATE swbt_switch_protocol)
     swbt_apply_common_warnings(switch_player_lights_test)
     swbt_apply_sanitizers(switch_player_lights_test)
 
@@ -311,7 +339,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(application_control_lease_test
         tests/application_control_lease_test.c
     )
-    target_link_libraries(application_control_lease_test PRIVATE swbt_core)
+    target_link_libraries(application_control_lease_test PRIVATE swbt_application)
     swbt_apply_common_warnings(application_control_lease_test)
     swbt_apply_sanitizers(application_control_lease_test)
 
@@ -320,7 +348,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(application_command_test
         tests/application_command_test.c
     )
-    target_link_libraries(application_command_test PRIVATE swbt_core)
+    target_link_libraries(application_command_test PRIVATE swbt_application)
     swbt_apply_common_warnings(application_command_test)
     swbt_apply_sanitizers(application_command_test)
 
