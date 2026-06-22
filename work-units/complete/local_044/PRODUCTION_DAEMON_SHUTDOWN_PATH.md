@@ -107,7 +107,7 @@ Green:
 
 検証:
 
-- targeted: 2026-06-20 `docker exec 0d255ddc1b4f8193df4d1a915f21ebb8a04a936a56fde45b2e761ded55256178 sh -lc "cd /workspaces/swbt-daemon && ctest --preset linux-debug -R daemon_production_backend_test --output-on-failure"` は 1/1 passed。
+- targeted: 2026-06-20 Dev Container の repository root で `ctest --preset linux-debug -R daemon_production_backend_test --output-on-failure` を実行し、1/1 passed。
 - `just debug`: pass。27/27 tests passed。
 - `just verify`: pass。format-check、clang-tidy、linux-debug、linux-asan、windows-mingw-debug を実行した。Windows cross build は `swbt-daemon.exe` link まで成功した。
 

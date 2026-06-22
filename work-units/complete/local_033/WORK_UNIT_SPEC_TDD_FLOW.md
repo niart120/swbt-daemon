@@ -98,19 +98,19 @@ TDD status:
 - item: operations spec defines the order source -> use case -> work unit -> TDD Test List -> TDD cycle -> spec update。
 - state: refactor-done。
 - commands:
-  - `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/spec-page`
-  - `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/work-unit-record`
-  - `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/tdd-workflow`
-  - `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/dev-journal`
+  - `skill-creator` validator for `.agents/skills/spec-page`
+  - `skill-creator` validator for `.agents/skills/work-unit-record`
+  - `skill-creator` validator for `.agents/skills/tdd-workflow`
+  - `skill-creator` validator for `.agents/skills/dev-journal`
   - `git diff --check`
 - notes: `tdd-workflow` の skill 分割は未実装であり、未解決事項として spec に残した。
 
 ## 10. 検証
 
-- `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/spec-page`: pass。
-- `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/work-unit-record`: pass。
-- `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/tdd-workflow`: pass。
-- `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/dev-journal`: pass。
+- `skill-creator` validator for `.agents/skills/spec-page`: pass。
+- `skill-creator` validator for `.agents/skills/work-unit-record`: pass。
+- `skill-creator` validator for `.agents/skills/tdd-workflow`: pass。
+- `skill-creator` validator for `.agents/skills/dev-journal`: pass。
 - `git diff --check`: pass。
 
 ## 11. 実機実行条件

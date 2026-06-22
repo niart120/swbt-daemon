@@ -89,18 +89,18 @@ TDD status:
 - use case: green 後の構造変更判断を formatter / linter 実行だけにしない。
 - item: `refactor-after-green` skill validates as a project-local skill。
 - state: green。
-- commands: `uv run --with pyyaml python -X utf8 C:\Users\train\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\refactor-after-green`。
+- commands: `skill-creator` validator for `.agents\skills\refactor-after-green` via `uv run --with pyyaml python -X utf8`。
 - notes: read `skill-creator`, `spec-page`, `work-unit-record`。`tdd-one-cycle` から `refactor-after-green` へ導線を張り、`refactor-skipped` を状態値として追加した。follow-up で `tdd-test-list` と `work-unit-spec-tdd-flow` の反映漏れを修正した。
 
 ## 10. 検証
 
 commands:
 
-- `uv run --with pyyaml python -X utf8 C:\Users\train\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\refactor-after-green`: pass, `Skill is valid!`。
-- `uv run --with pyyaml python -X utf8 C:\Users\train\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\tdd-one-cycle`: pass, `Skill is valid!`。
-- `uv run --with pyyaml python -X utf8 C:\Users\train\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\tdd-test-list`: pass, `Skill is valid!`。
-- `uv run --with pyyaml python -X utf8 C:\Users\train\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\tdd-workflow`: pass, `Skill is valid!`。
-- `uv run --with pyyaml python -X utf8 C:\Users\train\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\work-unit-record`: pass, `Skill is valid!`。
+- `skill-creator` validator for `.agents\skills\refactor-after-green`: pass, `Skill is valid!`。
+- `skill-creator` validator for `.agents\skills\tdd-one-cycle`: pass, `Skill is valid!`。
+- `skill-creator` validator for `.agents\skills\tdd-test-list`: pass, `Skill is valid!`。
+- `skill-creator` validator for `.agents\skills\tdd-workflow`: pass, `Skill is valid!`。
+- `skill-creator` validator for `.agents\skills\work-unit-record`: pass, `Skill is valid!`。
 - `rg -n "refactor-skipped|refactor-after-green" .agents\skills AGENTS.md work-units\complete\local_040`: pass, expected references were present。
 - `rg -n "state: red \| green \| refactor-done \| deferred|todo`、`red`、`green`、`refactor-done`、`deferred" .agents AGENTS.md`: pass after follow-up, no old status-only list remained in active skill docs。
 - `rg -n "tdd-test-list.*tdd-one-cycle.*tidy-first|one cycle -> tidy|分割 skill|refactor-after-green" spec\operations\work-unit-spec-tdd-flow.md .agents\skills`: pass, operations spec and skill docs refer to `refactor-after-green` consistently。

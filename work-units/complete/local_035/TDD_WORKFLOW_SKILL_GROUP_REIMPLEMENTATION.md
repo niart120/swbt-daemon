@@ -126,11 +126,11 @@ TDD status:
   - `rg -n "../tdd-test-list/SKILL.md|../tdd-one-cycle/SKILL.md|../tidy-first/SKILL.md|../test-desiderata-review/SKILL.md" .agents/skills/tdd-workflow/SKILL.md`
   - `rg -n "name: (tdd-test-list|tdd-one-cycle|tidy-first|test-desiderata-review)" .agents/skills/tdd-test-list/SKILL.md .agents/skills/tdd-one-cycle/SKILL.md .agents/skills/tidy-first/SKILL.md .agents/skills/test-desiderata-review/SKILL.md`
   - `rg -n "分割するかどうかは未決定|分割する場合の候補" spec/operations/work-unit-spec-tdd-flow.md`
-  - `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/tdd-workflow`
-  - `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/tdd-test-list`
-  - `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/tdd-one-cycle`
-  - `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/tidy-first`
-  - `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/test-desiderata-review`
+  - `skill-creator` validator for `.agents/skills/tdd-workflow`
+  - `skill-creator` validator for `.agents/skills/tdd-test-list`
+  - `skill-creator` validator for `.agents/skills/tdd-one-cycle`
+  - `skill-creator` validator for `.agents/skills/tidy-first`
+  - `skill-creator` validator for `.agents/skills/test-desiderata-review`
 - notes: red では現行 `tdd-workflow` が分割 skill や `test-desiderata-review` を実質的に参照していないことを確認した。green / refactor では 4 つの分割 skill を追加し、`tdd-workflow` を入口に戻し、`ponkan-python` 固有語を swbt 固有の CMake / CTest / `just` / work unit record / 根拠監査 / 実機境界へ置き換えた。
 
 ## 10. 検証
@@ -141,11 +141,11 @@ TDD status:
 - `rg -n "../tdd-test-list/SKILL.md|../tdd-one-cycle/SKILL.md|../tidy-first/SKILL.md|../test-desiderata-review/SKILL.md" .agents/skills/tdd-workflow/SKILL.md`: pass。
 - `rg -n "name: (tdd-test-list|tdd-one-cycle|tidy-first|test-desiderata-review)" .agents/skills/tdd-test-list/SKILL.md .agents/skills/tdd-one-cycle/SKILL.md .agents/skills/tidy-first/SKILL.md .agents/skills/test-desiderata-review/SKILL.md`: pass。
 - `rg -n "分割するかどうかは未決定|分割する場合の候補" spec/operations/work-unit-spec-tdd-flow.md`: pass。該当なし。
-- `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/tdd-workflow`: pass。
-- `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/tdd-test-list`: pass。
-- `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/tdd-one-cycle`: pass。
-- `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/tidy-first`: pass。
-- `python3 /home/train/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/test-desiderata-review`: pass。
+- `skill-creator` validator for `.agents/skills/tdd-workflow`: pass。
+- `skill-creator` validator for `.agents/skills/tdd-test-list`: pass。
+- `skill-creator` validator for `.agents/skills/tdd-one-cycle`: pass。
+- `skill-creator` validator for `.agents/skills/tidy-first`: pass。
+- `skill-creator` validator for `.agents/skills/test-desiderata-review`: pass。
 - `wc -l .agents/skills/tdd-workflow/SKILL.md .agents/skills/tdd-test-list/SKILL.md .agents/skills/tdd-one-cycle/SKILL.md .agents/skills/tidy-first/SKILL.md .agents/skills/test-desiderata-review/SKILL.md`: 73、73、86、64、72 行。ponkan-python の短く焦点を絞った記述密度に合わせつつ、swbt 固有の判断例と output / quality gate を追加した。
 
 ## 11. 実機実行条件
