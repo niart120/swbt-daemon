@@ -45,5 +45,5 @@ recorded。
 
 ## 5. 未解決事項
 
-- `swbt/btstack_bridge/production_btstack.c` はまだ BTstack run loop 上の IPC pump と `swbt_daemon_ipc_runner_t` を直接扱う。これは `local_054` の host / build boundary と `local_055` の cutover cleanup で棚卸しする。
+- `local_053` 完了時点では、`swbt/btstack_bridge/production_btstack.c` が BTstack run loop 上の IPC pump と `swbt_daemon_ipc_runner_t` を直接扱っていた。この直接参照は `local_054` で解消し、残る production backend ops table 接続と aggregate target は `local_055` の cutover cleanup で棚卸しする。
 - production 実機経路の callback registration、report scheduling、shutdown order は今回の software gate では再実行していない。production composition を切り替える PR で hardware gate を判定する。

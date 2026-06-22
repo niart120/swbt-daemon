@@ -55,7 +55,7 @@ source から use case への変換:
 - `work-units/complete/local_051/DAEMON_APPLICATION_COMMAND_API.md`
 - `work-units/complete/local_052/IPC_ADAPTER_COMMAND_CODEC_BOUNDARY.md`
 - `work-units/complete/local_053/BTSTACK_PORT_EVENT_BOUNDARY.md`
-- `work-units/wip/local_054/DAEMON_HOST_AND_BUILD_BOUNDARIES.md`
+- `work-units/complete/local_054/DAEMON_HOST_AND_BUILD_BOUNDARIES.md`
 
 ## 6. 根拠監査
 

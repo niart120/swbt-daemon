@@ -32,6 +32,7 @@ typedef struct {
     int timer_init_result;
     int power_on_result;
     int ipc_start_calls;
+    int ipc_pump_running_at_start;
     int platform_start_calls;
     int hid_register_calls;
     int timer_start_calls;
@@ -95,20 +96,16 @@ static int expect_eq_u8(uint8_t actual, uint8_t expected, const char *label) {
     return 0;
 }
 
-static int fake_ipc_start(void *context, swbt_daemon_ipc_runner_t *runner,
-                          swbt_ipc_session_t *session,
-                          const swbt_daemon_ipc_runner_config_t *config) {
+static int fake_ipc_pump_start(void *context, const swbt_daemon_production_ipc_pump_t *pump) {
     fake_ops_t *fake = context;
-    (void)runner;
-    (void)session;
     fake->ipc_start_calls += 1;
-    fake->captured_ipc_config = *config;
+    fake->ipc_pump_running_at_start =
+        pump != NULL && pump->is_running != NULL && pump->is_running(pump->context);
     record_step(fake, STEP_IPC_START);
     return 0;
 }
 
-static void fake_ipc_stop(void *context, swbt_daemon_ipc_runner_t *runner) {
-    (void)runner;
+static void fake_ipc_pump_stop(void *context) {
     record_step((fake_ops_t *)context, STEP_IPC_STOP);
 }
 
@@ -269,8 +266,8 @@ static void fake_shutdown_uninstall(void *context) {
 
 static swbt_daemon_production_backend_ops_t fake_backend_ops(void) {
     return (swbt_daemon_production_backend_ops_t){
-        .ipc_start = fake_ipc_start,
-        .ipc_stop = fake_ipc_stop,
+        .ipc_pump_start = fake_ipc_pump_start,
+        .ipc_pump_stop = fake_ipc_pump_stop,
         .platform_start = fake_platform_start,
         .platform_stop = fake_platform_stop,
         .hid_register = fake_hid_register,
@@ -382,6 +379,7 @@ static int approved_backend_starts_hardware_and_cleans_up_in_order(void) {
     failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
+    failed += expect_eq_int(fake.ipc_pump_running_at_start, 1, "ipc pump running at start");
     failed +=
         expect_true(fake.captured_hid_config.hid_descriptor == swbt_switch_hid_descriptor_data(),
                     "hid descriptor");
