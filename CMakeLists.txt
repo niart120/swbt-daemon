@@ -245,6 +245,13 @@ if(SWBT_BUILD_TESTS)
             "-DSWBT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/include_boundaries_test.cmake"
     )
+    add_test(
+        NAME cutover_acceptance_cmake_test
+        COMMAND
+            "${CMAKE_COMMAND}"
+            "-DSWBT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/cutover_acceptance_test.cmake"
+    )
 
     add_executable(switch_report_test
         tests/switch_report_test.c
@@ -549,6 +556,15 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(daemon_runtime_test)
 
     add_test(NAME daemon_runtime_test COMMAND daemon_runtime_test)
+
+    add_executable(daemon_cutover_journey_test
+        tests/daemon_cutover_journey_test.c
+    )
+    target_link_libraries(daemon_cutover_journey_test PRIVATE swbt_core)
+    swbt_apply_common_warnings(daemon_cutover_journey_test)
+    swbt_apply_sanitizers(daemon_cutover_journey_test)
+
+    add_test(NAME daemon_cutover_journey_test COMMAND daemon_cutover_journey_test)
 
     add_executable(daemon_ipc_runner_test
         apps/swbt-debug-client/debug_client.c
