@@ -1,6 +1,7 @@
 #include "btstack_bridge/input_report_timer_adapter.h"
 
-#include "classic/hid_device.h"
+#include "btstack_bridge/hid_port.h"
+#include "btstack_bridge/timer_port.h"
 
 #define SWBT_BTSTACK_HIDP_INPUT_REPORT_HEADER 0xA1u
 #define SWBT_BTSTACK_HIDP_MAX_INPUT_MESSAGE_SIZE (1u + SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE)
@@ -138,37 +139,42 @@ static void adapter_timer_handler(btstack_timer_source_t *timer) {
 
 static void backend_set_timer_handler(btstack_timer_source_t *timer,
                                       void (*process)(btstack_timer_source_t *timer)) {
-    btstack_run_loop_set_timer_handler(timer, process);
+    (void)swbt_btstack_timer_port_set_handler(swbt_btstack_timer_port_btstack(), timer, process);
 }
 
 static void backend_set_timer_context(btstack_timer_source_t *timer, void *context) {
-    btstack_run_loop_set_timer_context(timer, context);
+    (void)swbt_btstack_timer_port_set_context(swbt_btstack_timer_port_btstack(), timer, context);
 }
 
 static void backend_set_timer(btstack_timer_source_t *timer, uint32_t timeout_ms) {
-    btstack_run_loop_set_timer(timer, timeout_ms);
+    (void)swbt_btstack_timer_port_set_timer(swbt_btstack_timer_port_btstack(), timer, timeout_ms);
 }
 
 static void backend_add_timer(btstack_timer_source_t *timer) {
-    btstack_run_loop_add_timer(timer);
+    (void)swbt_btstack_timer_port_add_timer(swbt_btstack_timer_port_btstack(), timer);
 }
 
 static int backend_remove_timer(btstack_timer_source_t *timer) {
-    return btstack_run_loop_remove_timer(timer);
+    return swbt_btstack_timer_port_remove_timer(swbt_btstack_timer_port_btstack(), timer) ==
+                   SWBT_BTSTACK_TIMER_PORT_OK
+               ? 1
+               : 0;
 }
 
 static uint32_t backend_get_time_ms(void) {
-    return btstack_run_loop_get_time_ms();
+    return swbt_btstack_timer_port_get_time_ms(swbt_btstack_timer_port_btstack());
 }
 
 static void backend_request_can_send_now_event(uint16_t hid_cid) {
-    hid_device_request_can_send_now_event(hid_cid);
+    (void)swbt_btstack_hid_port_request_can_send_now(swbt_btstack_hid_port_btstack(), hid_cid);
 }
 
 static int backend_send_interrupt_message(uint16_t hid_cid, const uint8_t *message,
                                           uint16_t message_len) {
-    hid_device_send_interrupt_message(hid_cid, message, message_len);
-    return 0;
+    return swbt_btstack_hid_port_send_report(swbt_btstack_hid_port_btstack(), hid_cid, message,
+                                             message_len) == SWBT_BTSTACK_HID_PORT_OK
+               ? 0
+               : -1;
 }
 
 const swbt_btstack_input_report_timer_backend_t *

@@ -12,7 +12,7 @@ static bool swbt_daemon_backend_is_valid(const swbt_daemon_runtime_backend_t *ba
            backend->output_handler_start != NULL && backend->output_handler_stop != NULL &&
            backend->report_timer_start != NULL && backend->report_timer_stop != NULL &&
            backend->report_timer_send_neutral_now != NULL &&
-           backend->subcommand_reply_enqueue != NULL;
+           backend->subcommand_reply_enqueue != NULL && backend->time_ms != NULL;
 }
 
 static bool swbt_daemon_config_is_valid(const swbt_daemon_config_t *config) {
@@ -40,6 +40,9 @@ static void swbt_daemon_runtime_on_output_report(void *context, uint16_t hid_cid
     if (runtime == NULL || report == NULL) {
         return;
     }
+
+    (void)swbt_ipc_record_output_report_rumble(&runtime->ipc_session, report,
+                                               runtime->backend->time_ms(runtime->backend_context));
 
     const swbt_state_t state = swbt_daemon_runtime_read_state(runtime);
     device_info = runtime->config.device_info;
@@ -255,6 +258,11 @@ static int swbt_daemon_noop_subcommand_reply_enqueue(void *context, uint16_t hid
     return 0;
 }
 
+static uint32_t swbt_daemon_noop_time_ms(void *context) {
+    (void)context;
+    return 0u;
+}
+
 const swbt_daemon_runtime_backend_t *swbt_daemon_runtime_noop_backend(void) {
     static const swbt_daemon_runtime_backend_t backend = {
         .ipc_start = swbt_daemon_noop_ipc_start,
@@ -267,6 +275,7 @@ const swbt_daemon_runtime_backend_t *swbt_daemon_runtime_noop_backend(void) {
         .report_timer_stop = swbt_daemon_noop_stop,
         .report_timer_send_neutral_now = swbt_daemon_noop_report_timer_send_neutral_now,
         .subcommand_reply_enqueue = swbt_daemon_noop_subcommand_reply_enqueue,
+        .time_ms = swbt_daemon_noop_time_ms,
     };
     return &backend;
 }
