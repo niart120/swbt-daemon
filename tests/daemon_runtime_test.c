@@ -191,7 +191,6 @@ static swbt_state_t sample_state(void) {
     state.buttons = SWBT_BUTTON_A | SWBT_BUTTON_X;
     state.lx = 1234u;
     state.ly = 2345u;
-    state.client_seq = 7u;
     return state;
 }
 
@@ -239,7 +238,8 @@ static int start_wires_session_mailbox_hid_output_and_timer(void) {
     failed += expect_eq_int(swbt_ipc_acquire(swbt_daemon_runtime_ipc_session(&runtime), 1001u),
                             SWBT_IPC_OK);
     failed += expect_eq_int(
-        swbt_ipc_set_state(swbt_daemon_runtime_ipc_session(&runtime), 1001u, &state), SWBT_IPC_OK);
+        swbt_ipc_set_state(swbt_daemon_runtime_ipc_session(&runtime), 1001u, &state, 7u),
+        SWBT_IPC_OK);
     failed +=
         expect_eq_int(swbt_state_mailbox_load(swbt_daemon_runtime_mailbox(&runtime), &snapshot),
                       SWBT_STATE_MAILBOX_OK);
@@ -363,7 +363,8 @@ static int send_neutral_now_clears_owner_and_flushes_report_timer(void) {
     failed += expect_eq_int(swbt_ipc_acquire(swbt_daemon_runtime_ipc_session(&runtime), 1001u),
                             SWBT_IPC_OK);
     failed += expect_eq_int(
-        swbt_ipc_set_state(swbt_daemon_runtime_ipc_session(&runtime), 1001u, &state), SWBT_IPC_OK);
+        swbt_ipc_set_state(swbt_daemon_runtime_ipc_session(&runtime), 1001u, &state, 7u),
+        SWBT_IPC_OK);
 
     failed += expect_eq_int(swbt_daemon_runtime_send_neutral_now(&runtime), SWBT_DAEMON_RUNTIME_OK);
 
@@ -395,7 +396,8 @@ static int shutdown_neutralizes_state_and_stops_resources_once(void) {
     failed += expect_eq_int(swbt_ipc_acquire(swbt_daemon_runtime_ipc_session(&runtime), 1001u),
                             SWBT_IPC_OK);
     failed += expect_eq_int(
-        swbt_ipc_set_state(swbt_daemon_runtime_ipc_session(&runtime), 1001u, &state), SWBT_IPC_OK);
+        swbt_ipc_set_state(swbt_daemon_runtime_ipc_session(&runtime), 1001u, &state, 7u),
+        SWBT_IPC_OK);
 
     swbt_daemon_runtime_stop(&runtime);
     swbt_daemon_runtime_stop(&runtime);

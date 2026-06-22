@@ -4,14 +4,14 @@
 
 daemon の owner、sequence、controller state、neutral 化の authoritative owner を application command API へ移す work unit。
 
-`local_050` では controller state と command metadata を分け、`control_lease` を IPC 非依存に抽出する。この work unit では、その内側に `swbt_app_t` 相当の application boundary を置き、IPC session が直接 owner policy と neutral 化を所有しない状態へ進める。
+`local_050` では controller state と command metadata を分け、owner policy と latest sequence を IPC 非依存の `control_lease` へ抽出した。この work unit では、その内側に `swbt_app_t` 相当の application boundary を置き、set-state command handling と neutral 化の authoritative owner を application 側へ進める。
 
 ## 2. 起点 / ユースケース
 
 source:
 
 - `spec/architecture/daemon-application-boundary-rearchitecture.md` の roadmap。
-- `work-units/wip/local_050/DAEMON_APPLICATION_BOUNDARY_REARCHITECTURE.md` の後続 work unit。
+- `work-units/complete/local_050/DAEMON_APPLICATION_BOUNDARY_REARCHITECTURE.md` の後続 work unit。
 - 現行 `ipc_session` が owner、state、rumble、mailbox、neutral 化を持つ implementation fact。
 
 use case:
@@ -48,7 +48,7 @@ source から use case への変換:
 - `spec/architecture/daemon-application-boundary-rearchitecture.md`
 - `spec/architecture/daemon-runtime-boundaries.md`
 - `spec/protocols/daemon-ipc-v1.md`
-- `work-units/wip/local_050/DAEMON_APPLICATION_BOUNDARY_REARCHITECTURE.md`
+- `work-units/complete/local_050/DAEMON_APPLICATION_BOUNDARY_REARCHITECTURE.md`
 - `work-units/complete/local_008/IPC_SESSION_CORE.md`
 - `work-units/complete/local_044/PRODUCTION_DAEMON_SHUTDOWN_PATH.md`
 

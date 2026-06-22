@@ -43,8 +43,6 @@ typedef struct {
     int16_t gyro_x;
     int16_t gyro_y;
     int16_t gyro_z;
-
-    uint64_t client_seq;
 } swbt_state_t;
 
 swbt_state_t swbt_state_neutral(void);
