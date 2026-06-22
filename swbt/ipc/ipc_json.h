@@ -5,12 +5,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "core/metrics.h"
+#include "ipc/ipc_status.h"
 #include "switch/switch_controller_state.h"
 #include "switch/switch_rumble.h"
 
 enum {
     SWBT_IPC_JSON_LINE_MAX = 8192,
-    SWBT_IPC_JSON_RESPONSE_MAX = 1024,
+    SWBT_IPC_JSON_RESPONSE_MAX = 2048,
     SWBT_IPC_JSON_STRING_MAX = 96,
 };
 
@@ -65,6 +67,9 @@ typedef struct {
     uint64_t last_sequence;
     swbt_state_t state;
     swbt_switch_rumble_state_t rumble;
+    swbt_metrics_snapshot_t metrics;
+    swbt_ipc_daemon_status_t daemon;
+    swbt_ipc_hardware_status_t hardware;
 } swbt_ipc_response_status_t;
 
 typedef struct {

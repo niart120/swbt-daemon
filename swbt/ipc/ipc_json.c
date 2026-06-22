@@ -9,8 +9,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "core/swbt_version.h"
+
 enum {
     SWBT_IPC_JSON_KEY_MAX = 32,
+    SWBT_IPC_PROTOCOL_VERSION = 1,
     SWBT_IPC_OWNER_ID_HEX_SIZE = 8,
     SWBT_IPC_OWNER_ID_BUFFER_SIZE = SWBT_IPC_OWNER_ID_HEX_SIZE + 1,
     SWBT_IPC_RUMBLE_HEX_SIZE = SWBT_SWITCH_RUMBLE_DATA_SIZE * 2,
@@ -384,6 +387,9 @@ static void swbt_ipc_json_init_command(swbt_ipc_command_t *command) {
 
 static void swbt_ipc_json_init_response(swbt_ipc_response_t *response) {
     swbt_switch_rumble_state_t rumble = {0};
+    swbt_metrics_snapshot_t metrics = {0};
+    swbt_ipc_daemon_status_t daemon = {0};
+    swbt_ipc_hardware_status_t hardware = {0};
 
     response->type = SWBT_IPC_RESPONSE_NONE;
     response->has_request_id = false;
@@ -391,12 +397,18 @@ static void swbt_ipc_json_init_response(swbt_ipc_response_t *response) {
     response->client_id = 0;
     response->owner_client_id = 0;
     response->sequence = 0;
+    metrics.hardware_status = SWBT_METRICS_HARDWARE_UNAVAILABLE;
+    daemon.lifecycle_state = SWBT_IPC_DAEMON_LIFECYCLE_UNAVAILABLE;
+    daemon.hardware_approval = SWBT_IPC_HARDWARE_APPROVAL_UNAVAILABLE;
     response->status = (swbt_ipc_response_status_t){
         .has_owner = false,
         .owner_client_id = 0,
         .last_sequence = 0,
         .state = swbt_state_neutral(),
         .rumble = rumble,
+        .metrics = metrics,
+        .daemon = daemon,
+        .hardware = hardware,
     };
     response->error_code = SWBT_IPC_ERROR_CODE_INVALID_JSON;
     response->error_message[0] = '\0';
@@ -545,6 +557,62 @@ static const char *swbt_ipc_json_error_code_text(swbt_ipc_error_code_t error_cod
     return "internal_error";
 }
 
+static const char *
+swbt_ipc_json_hardware_status_text(swbt_metrics_hardware_status_t hardware_status) {
+    switch (hardware_status) {
+    case SWBT_METRICS_HARDWARE_UNAVAILABLE:
+        return "unavailable";
+    case SWBT_METRICS_HARDWARE_OBSERVED:
+        return "observed";
+    }
+    return "unavailable";
+}
+
+static const char *swbt_ipc_json_daemon_backend_text(swbt_ipc_daemon_backend_t daemon_backend) {
+    switch (daemon_backend) {
+    case SWBT_IPC_DAEMON_BACKEND_UNKNOWN:
+        return "unknown";
+    case SWBT_IPC_DAEMON_BACKEND_NOOP:
+        return "noop";
+    case SWBT_IPC_DAEMON_BACKEND_PRODUCTION:
+        return "production";
+    }
+    return "unknown";
+}
+
+static const char *
+swbt_ipc_json_daemon_lifecycle_text(swbt_ipc_daemon_lifecycle_state_t lifecycle_state) {
+    switch (lifecycle_state) {
+    case SWBT_IPC_DAEMON_LIFECYCLE_UNAVAILABLE:
+        return "unavailable";
+    case SWBT_IPC_DAEMON_LIFECYCLE_STOPPED:
+        return "stopped";
+    case SWBT_IPC_DAEMON_LIFECYCLE_RUNNING:
+        return "running";
+    }
+    return "unavailable";
+}
+
+static const char *
+swbt_ipc_json_hardware_approval_text(swbt_ipc_hardware_approval_t hardware_approval) {
+    switch (hardware_approval) {
+    case SWBT_IPC_HARDWARE_APPROVAL_UNAVAILABLE:
+        return "unavailable";
+    case SWBT_IPC_HARDWARE_APPROVAL_APPROVED:
+        return "approved";
+    }
+    return "unavailable";
+}
+
+static const char *
+swbt_ipc_json_hardware_channel_text(swbt_ipc_hardware_channel_state_t hardware_channel_state) {
+    switch (hardware_channel_state) {
+    case SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE:
+        return "unavailable";
+    }
+    return "unavailable";
+}
+
 swbt_ipc_json_result_t swbt_ipc_json_encode_response(const swbt_ipc_response_t *typed_response,
                                                      char *response, size_t response_size) {
     char client_id[SWBT_IPC_OWNER_ID_BUFFER_SIZE];
@@ -605,13 +673,46 @@ swbt_ipc_json_result_t swbt_ipc_json_encode_response(const swbt_ipc_response_t *
             return swbt_json_write(
                 response, response_size,
                 "{\"v\":1,\"type\":\"status\",\"request_id\":\"%s\","
+                "\"daemon\":{\"protocol_version\":%u,\"daemon_version\":\"%s\","
+                "\"backend\":\"%s\",\"lifecycle_state\":\"%s\","
+                "\"hardware_approval\":\"%s\"},"
+                "\"metrics\":{\"hardware_status\":\"%s\","
+                "\"report_ticks_total\":%llu,\"reports_sent_total\":%llu,"
+                "\"send_failures_total\":%llu,\"report_interval_average_us\":%llu,"
+                "\"report_interval_max_us\":%llu,\"ipc_state_accepted_total\":%llu,"
+                "\"ipc_state_rejected_total\":%llu,\"ipc_state_coalesced_total\":%llu,"
+                "\"actual_report_rate_hz\":%u,\"jitter_max_us\":%llu},"
+                "\"hardware\":{\"adapter_state\":\"%s\","
+                "\"switch_connection_state\":\"%s\",\"hid_channel_state\":\"%s\"},"
                 "\"owner\":{\"present\":%s,\"owner_id\":\"%s\",\"last_seq\":%llu},"
                 "\"state\":{\"buttons\":%u,\"lx\":%u,\"ly\":%u,\"rx\":%u,\"ry\":%u,"
                 "\"accel_x\":%d,\"accel_y\":%d,\"accel_z\":%d,"
                 "\"gyro_x\":%d,\"gyro_y\":%d,\"gyro_z\":%d},"
                 "\"rumble\":{\"updated\":%s,\"last_update_ms\":%llu,\"raw\":\"%s\"}}\n",
-                typed_response->request_id, typed_response->status.has_owner ? "true" : "false",
-                owner_id, (unsigned long long)typed_response->status.last_sequence,
+                typed_response->request_id, (unsigned int)SWBT_IPC_PROTOCOL_VERSION,
+                swbt_get_version_string(),
+                swbt_ipc_json_daemon_backend_text(typed_response->status.daemon.backend),
+                swbt_ipc_json_daemon_lifecycle_text(typed_response->status.daemon.lifecycle_state),
+                swbt_ipc_json_hardware_approval_text(
+                    typed_response->status.daemon.hardware_approval),
+                swbt_ipc_json_hardware_status_text(typed_response->status.metrics.hardware_status),
+                (unsigned long long)typed_response->status.metrics.report_ticks,
+                (unsigned long long)typed_response->status.metrics.report_send_ok,
+                (unsigned long long)typed_response->status.metrics.report_send_failed,
+                (unsigned long long)typed_response->status.metrics.report_interval_average_us,
+                (unsigned long long)typed_response->status.metrics.report_interval_max_us,
+                (unsigned long long)typed_response->status.metrics.ipc_state_accepted,
+                (unsigned long long)typed_response->status.metrics.ipc_state_rejected,
+                (unsigned long long)typed_response->status.metrics.ipc_state_coalesced,
+                (unsigned int)typed_response->status.metrics.actual_report_rate_hz,
+                (unsigned long long)typed_response->status.metrics.jitter_max_us,
+                swbt_ipc_json_hardware_channel_text(typed_response->status.hardware.adapter_state),
+                swbt_ipc_json_hardware_channel_text(
+                    typed_response->status.hardware.switch_connection_state),
+                swbt_ipc_json_hardware_channel_text(
+                    typed_response->status.hardware.hid_channel_state),
+                typed_response->status.has_owner ? "true" : "false", owner_id,
+                (unsigned long long)typed_response->status.last_sequence,
                 (unsigned int)typed_response->status.state.buttons,
                 (unsigned int)typed_response->status.state.lx,
                 (unsigned int)typed_response->status.state.ly,
@@ -627,11 +728,41 @@ swbt_ipc_json_result_t swbt_ipc_json_encode_response(const swbt_ipc_response_t *
         return swbt_json_write(
             response, response_size,
             "{\"v\":1,\"type\":\"status\","
+            "\"daemon\":{\"protocol_version\":%u,\"daemon_version\":\"%s\","
+            "\"backend\":\"%s\",\"lifecycle_state\":\"%s\","
+            "\"hardware_approval\":\"%s\"},"
+            "\"metrics\":{\"hardware_status\":\"%s\","
+            "\"report_ticks_total\":%llu,\"reports_sent_total\":%llu,"
+            "\"send_failures_total\":%llu,\"report_interval_average_us\":%llu,"
+            "\"report_interval_max_us\":%llu,\"ipc_state_accepted_total\":%llu,"
+            "\"ipc_state_rejected_total\":%llu,\"ipc_state_coalesced_total\":%llu,"
+            "\"actual_report_rate_hz\":%u,\"jitter_max_us\":%llu},"
+            "\"hardware\":{\"adapter_state\":\"%s\","
+            "\"switch_connection_state\":\"%s\",\"hid_channel_state\":\"%s\"},"
             "\"owner\":{\"present\":%s,\"owner_id\":\"%s\",\"last_seq\":%llu},"
             "\"state\":{\"buttons\":%u,\"lx\":%u,\"ly\":%u,\"rx\":%u,\"ry\":%u,"
             "\"accel_x\":%d,\"accel_y\":%d,\"accel_z\":%d,"
             "\"gyro_x\":%d,\"gyro_y\":%d,\"gyro_z\":%d},"
             "\"rumble\":{\"updated\":%s,\"last_update_ms\":%llu,\"raw\":\"%s\"}}\n",
+            (unsigned int)SWBT_IPC_PROTOCOL_VERSION, swbt_get_version_string(),
+            swbt_ipc_json_daemon_backend_text(typed_response->status.daemon.backend),
+            swbt_ipc_json_daemon_lifecycle_text(typed_response->status.daemon.lifecycle_state),
+            swbt_ipc_json_hardware_approval_text(typed_response->status.daemon.hardware_approval),
+            swbt_ipc_json_hardware_status_text(typed_response->status.metrics.hardware_status),
+            (unsigned long long)typed_response->status.metrics.report_ticks,
+            (unsigned long long)typed_response->status.metrics.report_send_ok,
+            (unsigned long long)typed_response->status.metrics.report_send_failed,
+            (unsigned long long)typed_response->status.metrics.report_interval_average_us,
+            (unsigned long long)typed_response->status.metrics.report_interval_max_us,
+            (unsigned long long)typed_response->status.metrics.ipc_state_accepted,
+            (unsigned long long)typed_response->status.metrics.ipc_state_rejected,
+            (unsigned long long)typed_response->status.metrics.ipc_state_coalesced,
+            (unsigned int)typed_response->status.metrics.actual_report_rate_hz,
+            (unsigned long long)typed_response->status.metrics.jitter_max_us,
+            swbt_ipc_json_hardware_channel_text(typed_response->status.hardware.adapter_state),
+            swbt_ipc_json_hardware_channel_text(
+                typed_response->status.hardware.switch_connection_state),
+            swbt_ipc_json_hardware_channel_text(typed_response->status.hardware.hid_channel_state),
             typed_response->status.has_owner ? "true" : "false", owner_id,
             (unsigned long long)typed_response->status.last_sequence,
             (unsigned int)typed_response->status.state.buttons,

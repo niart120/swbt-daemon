@@ -289,6 +289,31 @@ response:
   "v": 1,
   "type": "status",
   "request_id": "g1",
+  "daemon": {
+    "protocol_version": 1,
+    "daemon_version": "0.1.0-dev",
+    "backend": "production",
+    "lifecycle_state": "running",
+    "hardware_approval": "approved"
+  },
+  "metrics": {
+    "hardware_status": "unavailable",
+    "report_ticks_total": 0,
+    "reports_sent_total": 0,
+    "send_failures_total": 0,
+    "report_interval_average_us": 0,
+    "report_interval_max_us": 0,
+    "ipc_state_accepted_total": 0,
+    "ipc_state_rejected_total": 0,
+    "ipc_state_coalesced_total": 0,
+    "actual_report_rate_hz": 0,
+    "jitter_max_us": 0
+  },
+  "hardware": {
+    "adapter_state": "unavailable",
+    "switch_connection_state": "unavailable",
+    "hid_channel_state": "unavailable"
+  },
   "owner": {
     "present": true,
     "owner_id": "00000001",
@@ -314,6 +339,14 @@ response:
   }
 }
 ```
+
+`daemon.protocol_version` は JSON envelope の `v` と同じ daemon IPC protocol version である。`daemon.daemon_version` は running daemon の version string であり、現行実装では `swbt_get_version_string()` を返す。
+
+`daemon.backend` は `"unknown"`、`"noop"`、`"production"` のいずれかである。`daemon.lifecycle_state` は `"unavailable"`、`"stopped"`、`"running"` のいずれかである。`daemon.hardware_approval` は現行 schema では `"unavailable"` または `"approved"` である。`"approved"` は production backend が hardware gate を通過していることだけを示し、report rate や jitter の実機測定値が存在することは意味しない。
+
+`metrics` は low-frequency diagnostic counters であり、input report ごとの event stream ではない。`*_us` は microseconds、`*_hz` は hertz、`*_total` は daemon process 内の累積 counter である。report tick counters と interval fields は scheduler または test timestamp から増える場合があるが、それだけでは hardware observation を意味しない。`hardware_status` が `"unavailable"` の場合、`actual_report_rate_hz` と `jitter_max_us` は実機観測値ではない。現行 status schema は未観測値を measured value として返さない。
+
+`hardware.adapter_state`、`hardware.switch_connection_state`、`hardware.hid_channel_state` は adapter、Switch connection、HID channel の低頻度診断 state である。現行実装では noop backend と未観測状態を `"unavailable"` として返す。実機で観測した state 名は、この schema に追加する前に実機ログと対応する work unit で根拠を残す。
 
 `owner.present` が `false` の場合、`owner.owner_id` は `"00000000"` である。
 
@@ -362,6 +395,10 @@ heartbeat timeout は input timing 機能ではない。connection health 用の
 | JSON line size and response size | implementation fact | `swbt/ipc/ipc_json.h` | current |
 | JSON envelope and command dispatch | implementation fact | `swbt/ipc/ipc_json.c`, `tests/ipc_json_test.c` | current |
 | state object field scope | protocol contract / implementation fact | `swbt/ipc/ipc_json.c`, `tests/ipc_json_test.c`, `work-units/complete/local_052/IPC_ADAPTER_COMMAND_CODEC_BOUNDARY.md` | current after `local_052` |
+| status daemon fields | protocol contract / implementation fact | `swbt/ipc/ipc_json.c`, `tests/ipc_json_test.c`, `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` | current after `local_039` |
+| status backend and hardware approval fields | protocol contract / implementation fact | `swbt/daemon/runtime.c`, `swbt/daemon/production_backend.c`, `swbt/ipc/ipc_session.*`, `tests/daemon_production_backend_test.c`, `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` | current after `local_039` |
+| status metrics field names and units | protocol contract / implementation fact | `swbt/core/metrics.h`, `swbt/ipc/ipc_json.c`, `tests/ipc_json_test.c`, `tests/report_metrics_test.c`, `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` | current after `local_039` |
+| status hardware channel unavailable fields | protocol contract / implementation fact | `swbt/ipc/ipc_status.h`, `swbt/ipc/ipc_json.c`, `swbt/daemon/runtime.c`, `tests/daemon_runtime_test.c`, `tests/ipc_json_test.c`, `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` | current after `local_039` |
 | owner/session model | implementation fact | `swbt/ipc/ipc_session.*`, `tests/ipc_session_test.c` | current |
 | loopback TCP transport | implementation fact | `swbt/ipc/ipc_server.*`, `tests/ipc_server_test.c` | current |
 | heartbeat timeout neutral | implementation fact | `swbt/ipc/ipc_server.*`, `work-units/complete/local_011/IPC_HEARTBEAT_CORE.md` | current |
@@ -379,10 +416,10 @@ heartbeat timeout は input timing 機能ではない。connection health 用の
 - `work-units/complete/local_036/SPEC_WORK_UNIT_INVENTORY.md`
 - `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
 - `work-units/complete/local_052/IPC_ADAPTER_COMMAND_CODEC_BOUNDARY.md`
-- `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`
+- `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`
 
 ## 7. 未解決事項
 
 - authentication token は未実装であり、この spec では stable contract にしない。
 - subscribe / event delivery は未実装であり、この spec では stable contract にしない。
-- metrics と Switch connection state を IPC status にどう載せるかは未定義である。`work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` で扱う。
+- 実機で観測した adapter / driver / report rate / jitter を measured value として追加公開する contract は未定義である。後続 work unit では `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` の explicit unavailable contract を前提にする。

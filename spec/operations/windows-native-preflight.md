@@ -81,4 +81,4 @@ cleanup では daemon 停止、adapter state、neutral fail-safe の確認結果
 ## 7. 未解決事項
 
 - preflight gate としての未解決事項はない。
-- 別 adapter / firmware の互換性、長時間安定性、report jitter / latency / drop-rate の厳密測定は、この preflight spec では扱わない。後続 work unit または `work-units/wip/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` の source として扱う。
+- 別 adapter / firmware の互換性、長時間安定性、report jitter / latency / drop-rate の厳密測定は、この preflight spec では扱わない。後続 work unit では `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` の explicit unavailable contract を前提に measured value の扱いを決める。

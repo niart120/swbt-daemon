@@ -24,6 +24,11 @@ static int expect_eq_u64(uint64_t actual, uint64_t expected) {
     return actual == expected ? 0 : 1;
 }
 
+static int expect_eq_hardware_status(swbt_metrics_hardware_status_t actual,
+                                     swbt_metrics_hardware_status_t expected) {
+    return actual == expected ? 0 : 1;
+}
+
 static int expect_eq_u16(uint16_t actual, uint16_t expected) {
     return actual == expected ? 0 : 1;
 }
@@ -129,6 +134,24 @@ int main(void) {
     if (expect_eq_u64(status.last_seq, 8u) || expect_eq_u32(status.state.buttons, SWBT_BUTTON_A) ||
         expect_eq_u16(status.state.lx, 1234u)) {
         return 46;
+    }
+    if (swbt_ipc_record_report_tick(&session, 1000u, SWBT_METRICS_REPORT_SEND_OK) != SWBT_IPC_OK ||
+        swbt_ipc_record_report_tick(&session, 9000u, SWBT_METRICS_REPORT_SEND_FAILED) !=
+            SWBT_IPC_OK) {
+        return 47;
+    }
+    if (swbt_ipc_get_status(&session, &status) != SWBT_IPC_OK) {
+        return 48;
+    }
+    if (expect_eq_u64(status.metrics.report_ticks, 2u) ||
+        expect_eq_u64(status.metrics.report_send_ok, 1u) ||
+        expect_eq_u64(status.metrics.report_send_failed, 1u) ||
+        expect_eq_u64(status.metrics.report_interval_average_us, 8000u) ||
+        expect_eq_hardware_status(status.metrics.hardware_status,
+                                  SWBT_METRICS_HARDWARE_UNAVAILABLE) ||
+        expect_eq_u32(status.metrics.actual_report_rate_hz, 0u) ||
+        expect_eq_u64(status.metrics.jitter_max_us, 0u)) {
+        return 49;
     }
     state.buttons = SWBT_BUTTON_A;
     state.lx = 1234u;

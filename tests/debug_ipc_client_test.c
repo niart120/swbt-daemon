@@ -352,7 +352,20 @@ static int test_skip_release_closes_without_release_request(void) {
                 "\n",
                 "{\"v\":1,\"type\":\"acquired\",\"request_id\":\"a1\",\"owner_id\":\"00000001\"}\n",
                 "{\"v\":1,\"type\":\"state_accepted\",\"request_id\":\"s1\",\"seq\":7}\n",
-                "{\"v\":1,\"type\":\"status\",\"request_id\":\"q1\",\"owner\":{\"present\":true,"
+                "{\"v\":1,\"type\":\"status\",\"request_id\":\"q1\","
+                "\"daemon\":{\"protocol_version\":1,\"daemon_version\":\"0.1.0-dev\","
+                "\"backend\":\"noop\",\"lifecycle_state\":\"running\","
+                "\"hardware_approval\":\"unavailable\"},"
+                "\"metrics\":{\"hardware_status\":\"unavailable\",\"report_ticks_total\":0,"
+                "\"reports_sent_total\":0,\"send_failures_total\":0,"
+                "\"report_interval_average_us\":0,\"report_interval_max_us\":0,"
+                "\"ipc_state_accepted_total\":0,\"ipc_state_rejected_total\":0,"
+                "\"ipc_state_coalesced_total\":0,\"actual_report_rate_hz\":0,"
+                "\"jitter_max_us\":0},"
+                "\"hardware\":{\"adapter_state\":\"unavailable\","
+                "\"switch_connection_state\":\"unavailable\","
+                "\"hid_channel_state\":\"unavailable\"},"
+                "\"owner\":{\"present\":true,"
                 "\"owner_id\":\"00000001\",\"last_seq\":7},\"state\":{\"buttons\":8}}\n",
             },
         .response_count = 4,

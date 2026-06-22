@@ -28,6 +28,77 @@ static int handle(swbt_ipc_session_t *session, uint32_t client_id, const char *l
     return swbt_ipc_adapter_handle_line(session, client_id, line, response, response_size);
 }
 
+static int large_status_response_fits_response_buffer(void) {
+    swbt_ipc_response_t typed_response = {
+        .type = SWBT_IPC_RESPONSE_STATUS,
+        .has_request_id = true,
+        .status =
+            {
+                .has_owner = true,
+                .owner_client_id = UINT32_MAX,
+                .last_sequence = UINT64_MAX,
+                .state =
+                    {
+                        .buttons = UINT32_MAX,
+                        .lx = 4095u,
+                        .ly = 4095u,
+                        .rx = 4095u,
+                        .ry = 4095u,
+                        .accel_x = INT16_MIN,
+                        .accel_y = INT16_MIN,
+                        .accel_z = INT16_MIN,
+                        .gyro_x = INT16_MIN,
+                        .gyro_y = INT16_MIN,
+                        .gyro_z = INT16_MIN,
+                    },
+                .rumble =
+                    {
+                        .raw = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+                        .updated_at_ms = UINT64_MAX,
+                        .updated = true,
+                    },
+                .metrics =
+                    {
+                        .report_ticks = UINT64_MAX,
+                        .report_send_ok = UINT64_MAX,
+                        .report_send_failed = UINT64_MAX,
+                        .report_interval_average_us = UINT64_MAX,
+                        .report_interval_max_us = UINT64_MAX,
+                        .ipc_state_accepted = UINT64_MAX,
+                        .ipc_state_rejected = UINT64_MAX,
+                        .ipc_state_coalesced = UINT64_MAX,
+                        .hardware_status = SWBT_METRICS_HARDWARE_UNAVAILABLE,
+                        .actual_report_rate_hz = UINT32_MAX,
+                        .jitter_max_us = UINT64_MAX,
+                    },
+                .daemon =
+                    {
+                        .backend = SWBT_IPC_DAEMON_BACKEND_PRODUCTION,
+                        .lifecycle_state = SWBT_IPC_DAEMON_LIFECYCLE_RUNNING,
+                        .hardware_approval = SWBT_IPC_HARDWARE_APPROVAL_APPROVED,
+                    },
+                .hardware =
+                    {
+                        .adapter_state = SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE,
+                        .switch_connection_state = SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE,
+                        .hid_channel_state = SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE,
+                    },
+            },
+    };
+    char response[SWBT_IPC_JSON_RESPONSE_MAX];
+
+    for (size_t index = 0; index < SWBT_IPC_JSON_STRING_MAX - 1u; ++index) {
+        typed_response.request_id[index] = 'r';
+    }
+    typed_response.request_id[SWBT_IPC_JSON_STRING_MAX - 1u] = '\0';
+    return swbt_ipc_json_encode_response(&typed_response, response, sizeof(response)) ==
+                       SWBT_IPC_JSON_OK &&
+                   expect_contains(response, "\"type\":\"status\"") == 0 &&
+                   strlen(response) < sizeof(response)
+               ? 0
+               : 1;
+}
+
 int main(void) {
     swbt_ipc_command_t command;
     swbt_ipc_response_t codec_error;
@@ -190,6 +261,19 @@ int main(void) {
     }
     if (expect_contains(response, "\"type\":\"status\"") ||
         expect_contains(response, "\"request_id\":\"g1\"") ||
+        expect_contains(response,
+                        "\"daemon\":{\"protocol_version\":1,\"daemon_version\":\"0.1.0-dev\","
+                        "\"backend\":\"unknown\",\"lifecycle_state\":\"stopped\","
+                        "\"hardware_approval\":\"unavailable\"}") ||
+        expect_contains(response, "\"metrics\":{\"hardware_status\":\"unavailable\","
+                                  "\"report_ticks_total\":0,\"reports_sent_total\":0,"
+                                  "\"send_failures_total\":0,\"report_interval_average_us\":0,"
+                                  "\"report_interval_max_us\":0,\"ipc_state_accepted_total\":0,"
+                                  "\"ipc_state_rejected_total\":0,\"ipc_state_coalesced_total\":0,"
+                                  "\"actual_report_rate_hz\":0,\"jitter_max_us\":0}") ||
+        expect_contains(response, "\"hardware\":{\"adapter_state\":\"unavailable\","
+                                  "\"switch_connection_state\":\"unavailable\","
+                                  "\"hid_channel_state\":\"unavailable\"}") ||
         expect_contains(response, "\"present\":true") ||
         expect_contains(response, "\"owner_id\":\"000003e9\"") ||
         expect_contains(response, "\"last_seq\":77") ||
@@ -294,6 +378,10 @@ int main(void) {
     if (expect_contains(response, "\"type\":\"error\"") ||
         expect_contains(response, "\"code\":\"invalid_json\"")) {
         return 31;
+    }
+
+    if (large_status_response_fits_response_buffer() != 0) {
+        return 51;
     }
 
     return 0;

@@ -318,6 +318,7 @@ static uint32_t swbt_daemon_production_runtime_time_ms(void *context) {
 
 const swbt_daemon_runtime_backend_t *swbt_daemon_production_runtime_backend(void) {
     static const swbt_daemon_runtime_backend_t backend = {
+        .daemon_backend = SWBT_IPC_DAEMON_BACKEND_PRODUCTION,
         .ipc_start = swbt_daemon_production_ipc_start,
         .ipc_stop = swbt_daemon_production_ipc_stop,
         .hid_register = swbt_daemon_production_hid_register,
@@ -415,6 +416,11 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_backend_and_shu
                                               swbt_daemon_production_runtime_backend(), backend);
     if (runtime_result != SWBT_DAEMON_RUNTIME_OK) {
         swbt_diagnostic_trace("production: runtime init failed");
+        return SWBT_DAEMON_PRODUCTION_ERROR_RUNTIME;
+    }
+    if (swbt_ipc_session_set_hardware_approval(swbt_daemon_runtime_ipc_session(&runtime),
+                                               SWBT_IPC_HARDWARE_APPROVAL_APPROVED) !=
+        SWBT_IPC_OK) {
         return SWBT_DAEMON_PRODUCTION_ERROR_RUNTIME;
     }
     swbt_diagnostic_trace("production: runtime start");

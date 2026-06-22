@@ -408,6 +408,32 @@ static int output_report_rumble_updates_runtime_status(void) {
     return failed;
 }
 
+static int noop_backend_status_marks_hardware_channels_unavailable(void) {
+    swbt_daemon_runtime_t runtime;
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    swbt_ipc_status_t status;
+
+    int failed = 0;
+    failed += expect_eq_int(
+        swbt_daemon_runtime_init(&runtime, &config, swbt_daemon_runtime_noop_backend(), NULL),
+        SWBT_DAEMON_RUNTIME_OK);
+    failed += expect_eq_int(swbt_daemon_runtime_start(&runtime), SWBT_DAEMON_RUNTIME_OK);
+    failed += expect_eq_int(swbt_ipc_get_status(swbt_daemon_runtime_ipc_session(&runtime), &status),
+                            SWBT_IPC_OK);
+    failed += expect_eq_int((int)status.daemon.backend, (int)SWBT_IPC_DAEMON_BACKEND_NOOP);
+    failed +=
+        expect_eq_int((int)status.daemon.lifecycle_state, (int)SWBT_IPC_DAEMON_LIFECYCLE_RUNNING);
+    failed += expect_eq_int((int)status.hardware.adapter_state,
+                            (int)SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE);
+    failed += expect_eq_int((int)status.hardware.switch_connection_state,
+                            (int)SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE);
+    failed += expect_eq_int((int)status.hardware.hid_channel_state,
+                            (int)SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE);
+
+    swbt_daemon_runtime_stop(&runtime);
+    return failed;
+}
+
 static int send_neutral_now_clears_owner_and_flushes_report_timer(void) {
     swbt_daemon_runtime_t runtime;
     swbt_daemon_config_t config = swbt_daemon_config_default();
@@ -623,6 +649,7 @@ int main(void) {
     failed += output_report_dispatcher_response_enqueues_reply();
     failed += output_report_device_info_uses_backend_identity();
     failed += output_report_rumble_updates_runtime_status();
+    failed += noop_backend_status_marks_hardware_channels_unavailable();
     failed += send_neutral_now_clears_owner_and_flushes_report_timer();
     failed += shutdown_neutralizes_state_and_stops_resources_once();
     failed += backend_failure_cleans_up_started_resources();

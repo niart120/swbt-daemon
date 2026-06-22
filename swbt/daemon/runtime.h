@@ -23,6 +23,7 @@ typedef enum {
 typedef swbt_state_t (*swbt_daemon_state_provider_t)(void *context);
 
 typedef struct {
+    swbt_ipc_daemon_backend_t daemon_backend;
     int (*ipc_start)(void *context, swbt_ipc_session_t *session);
     void (*ipc_stop)(void *context);
     int (*hid_register)(void *context);
