@@ -149,10 +149,7 @@ add_library(swbt_ipc STATIC
     swbt/ipc/ipc_json.c
     swbt/ipc/ipc_server.c
 )
-target_include_directories(swbt_ipc
-    PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/swbt"
-)
+swbt_configure_module_public_includes(swbt_ipc MODULES ipc)
 if(WIN32)
     target_link_libraries(swbt_ipc PUBLIC ws2_32)
 endif()
@@ -188,10 +185,7 @@ add_library(swbt_daemon_host STATIC
     swbt/daemon/production_backend.c
     swbt/daemon/host.c
 )
-target_include_directories(swbt_daemon_host
-    PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/swbt"
-)
+swbt_configure_module_public_includes(swbt_daemon_host MODULES daemon)
 target_link_libraries(swbt_daemon_host PUBLIC swbt_ipc swbt_btstack_adapter swbt_application swbt_support)
 swbt_apply_common_warnings(swbt_daemon_host)
 swbt_apply_sanitizers(swbt_daemon_host)

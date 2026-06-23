@@ -89,7 +89,7 @@ not applicable。
 |---|---|---|---|---|
 | refactor-done | application target cannot include BTstack adapter internals through public include paths | regression | build | no |
 | refactor-skipped | BTstack adapter target cannot include IPC transport internals through public include paths | regression | build | no |
-| todo | daemon host remains the composition owner for cross-module wiring | regression | build | no |
+| refactor-skipped | daemon host remains the composition owner for cross-module wiring | regression | build | no |
 | todo | protocol tests link without IPC, daemon host, or BTstack adapter targets | regression | build | no |
 | todo | old text-only boundary checks are either removed or justified as absence checks | characterization | build | no |
 | todo | added boundary probes / targets are paired with removed or narrowed checks, or their retention condition is recorded | verification | docs/build | no |
@@ -123,6 +123,20 @@ TDD status:
   - boundary checks: `CTEST_ARGS="-R include_boundaries_cmake_test --output-on-failure" just test-debug` pass。`compile_include_boundaries_cmake_test` も同じ実行で pass。
 - notes: `swbt_btstack_adapter` の公開 include root は `btstack_bridge` に限定した。`btstack_run_loop.h` など BTstack upstream header は public header から参照されるため、`swbt_btstack_selected_include_dirs` は public include path として残した。IPC module は公開 root に含めない。
 - refactor: green 後に追加の構造変更は行わなかった。今回の変更は `swbt_configure_module_public_includes(swbt_btstack_adapter MODULES btstack_bridge)` の適用に閉じる。
+
+TDD status:
+
+- source: `local_054` の host / composition root 方針と `local_058` の先送り事項。
+- use case: daemon host が application、IPC、BTstack adapter を構成する owner として公開 header を compile できる。BTstack adapter 側から daemon host header は include できない。
+- item: daemon host remains the composition owner for cross-module wiring。
+- state: refactor-skipped。
+- commands:
+  - red: `just build-debug` pass。`CTEST_ARGS="-R compile_include_boundaries_cmake_test --output-on-failure" just test-debug` は `swbt_daemon_host public include root is missing` で fail。
+  - green: `just build-debug` pass。`CTEST_ARGS="-R compile_include_boundaries_cmake_test --output-on-failure" just test-debug` pass。
+  - affected checks: `CTEST_ARGS="-R \"(daemon_host_test|daemon_ipc_runner_test|daemon_production_backend_test|ipc_json_test|ipc_server_test|debug_ipc_client_test)\" --output-on-failure" just test-debug` pass。
+  - boundary checks: `CTEST_ARGS="-R include_boundaries_cmake_test --output-on-failure" just test-debug` pass。`compile_include_boundaries_cmake_test` も同じ実行で pass。
+- notes: daemon host の公開 header は `daemon/host.h` と `daemon/ipc_runner.h` を probe した。`daemon/ipc_runner.h` は `ipc/ipc_server.h` を必要とするため、`swbt_ipc` も `ipc` root へ狭めた。`swbt_daemon_host` は `daemon` root を公開し、`swbt_ipc`、`swbt_btstack_adapter`、`swbt_application`、`swbt_support` を link して cross-module wiring を担う。
+- refactor: green 後に追加の構造変更は行わなかった。behavior、Switch-facing bytes、BTstack source selection は変更していない。
 
 ## 11. 実機実行条件
 
