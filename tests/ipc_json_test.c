@@ -19,6 +19,10 @@ static int expect_eq_u16(uint16_t actual, uint16_t expected) {
     return actual == expected ? 0 : 1;
 }
 
+static int expect_eq_u64(uint64_t actual, uint64_t expected) {
+    return actual == expected ? 0 : 1;
+}
+
 static int handle(swbt_app_t *app, uint32_t client_id, const char *line, char *response,
                   size_t response_size) {
     for (size_t index = 0; index < response_size; ++index) {
@@ -229,6 +233,14 @@ int main(void) {
         expect_contains(response, "\"request_id\":\"s2\"")) {
         return 9;
     }
+    if (swbt_ipc_adapter_get_status(app, &status) != SWBT_IPC_OK) {
+        return 52;
+    }
+    if (expect_eq_u64(status.metrics.ipc_state_rejected, 1u) ||
+        expect_eq_u32(status.state.buttons, 0u) || expect_eq_u16(status.state.lx, 2048u) ||
+        status.last_seq != 0u) {
+        return 53;
+    }
 
     if (handle(app, 1001,
                "{\"v\":1,\"type\":\"set_state\",\"owner_id\":\"000003e9\",\"seq\":77,"
@@ -269,7 +281,7 @@ int main(void) {
                                   "\"report_ticks_total\":0,\"reports_sent_total\":0,"
                                   "\"send_failures_total\":0,\"report_interval_average_us\":0,"
                                   "\"report_interval_max_us\":0,\"ipc_state_accepted_total\":1,"
-                                  "\"ipc_state_rejected_total\":0,\"ipc_state_coalesced_total\":0,"
+                                  "\"ipc_state_rejected_total\":1,\"ipc_state_coalesced_total\":0,"
                                   "\"actual_report_rate_hz\":0,\"jitter_max_us\":0}") ||
         expect_contains(response, "\"hardware\":{\"adapter_state\":\"unavailable\","
                                   "\"switch_connection_state\":\"unavailable\","
@@ -342,6 +354,9 @@ int main(void) {
     if (expect_eq_u32(status.state.buttons, SWBT_BUTTON_A) ||
         expect_eq_u16(status.state.lx, 1234) || status.last_seq != 77) {
         return 36;
+    }
+    if (expect_eq_u64(status.metrics.ipc_state_rejected, 2u)) {
+        return 54;
     }
 
     if (handle(app, 1001,

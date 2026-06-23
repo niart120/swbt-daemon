@@ -58,6 +58,26 @@ static bool backend_is_valid(const swbt_btstack_input_report_timer_backend_t *ba
            backend->send_interrupt_message != NULL;
 }
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+static void notify_report_tick(swbt_btstack_input_report_timer_adapter_t *adapter, uint64_t now_us,
+                               swbt_btstack_input_report_result_t tick_result) {
+    swbt_btstack_input_report_timer_report_send_result_t send_result;
+
+    if (adapter == NULL || adapter->report_tick_observer == NULL) {
+        return;
+    }
+    if (tick_result == SWBT_BTSTACK_INPUT_REPORT_OK) {
+        send_result = SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_OK;
+    } else if (tick_result == SWBT_BTSTACK_INPUT_REPORT_ERROR_SEND_FAILED) {
+        send_result = SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_FAILED;
+    } else {
+        return;
+    }
+
+    adapter->report_tick_observer(adapter->report_tick_context, now_us, send_result);
+}
+// NOLINTEND(bugprone-easily-swappable-parameters)
+
 static swbt_btstack_input_report_timer_result_t
 schedule_next_timer(swbt_btstack_input_report_timer_adapter_t *adapter, uint64_t now_us) {
     const uint64_t next_deadline_us =
@@ -232,6 +252,8 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
     adapter->backend = config->backend;
     adapter->state_provider = config->state_provider;
     adapter->state_context = config->state_context;
+    adapter->report_tick_observer = config->report_tick_observer;
+    adapter->report_tick_context = config->report_tick_context;
 
     if (swbt_btstack_subcommand_reply_queue_init(&adapter->reply_queue) !=
             SWBT_BTSTACK_SUBCOMMAND_REPLY_QUEUE_OK ||
@@ -345,6 +367,7 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
     const swbt_state_t state = adapter->state_provider(adapter->state_context);
     const swbt_btstack_input_report_result_t tick_result =
         swbt_btstack_input_report_scheduler_tick(&adapter->scheduler, now_us, &state);
+    notify_report_tick(adapter, now_us, tick_result);
     const swbt_btstack_input_report_timer_result_t result = map_scheduler_result(tick_result);
     adapter->can_send_pending = false;
     if (result != SWBT_BTSTACK_INPUT_REPORT_TIMER_OK) {

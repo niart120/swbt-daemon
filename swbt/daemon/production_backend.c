@@ -9,6 +9,9 @@
 static swbt_daemon_production_backend_t *g_active_backend;
 
 static void swbt_daemon_production_finish_shutdown(swbt_daemon_production_backend_t *backend);
+static void swbt_daemon_production_record_report_tick(
+    void *context, uint64_t now_us,
+    swbt_btstack_input_report_timer_report_send_result_t send_result);
 static void swbt_daemon_production_shutdown_on_main_thread(void *context);
 
 static bool
@@ -86,12 +89,38 @@ swbt_daemon_production_timer_config(swbt_daemon_production_backend_t *backend,
         .backend = NULL,
         .state_provider = state_provider,
         .state_context = state_context,
+        .report_tick_observer = swbt_daemon_production_record_report_tick,
+        .report_tick_context = state_context,
         .scheduler_config =
             {
                 .report_period_us = backend->config.report_period_us,
                 .report_options = backend->config.report_options,
             },
     };
+}
+
+static swbt_metrics_report_send_result_t swbt_daemon_production_report_send_result(
+    swbt_btstack_input_report_timer_report_send_result_t send_result) {
+    switch (send_result) {
+    case SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_OK:
+        return SWBT_METRICS_REPORT_SEND_OK;
+    case SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_FAILED:
+        return SWBT_METRICS_REPORT_SEND_FAILED;
+    }
+    return SWBT_METRICS_REPORT_SEND_FAILED;
+}
+
+static void swbt_daemon_production_record_report_tick(
+    void *context, uint64_t now_us,
+    swbt_btstack_input_report_timer_report_send_result_t send_result) {
+    swbt_daemon_host_t *host = context;
+    swbt_app_t *app = swbt_daemon_host_app(host);
+
+    if (app == NULL) {
+        return;
+    }
+    (void)swbt_app_record_report_tick(app, now_us,
+                                      swbt_daemon_production_report_send_result(send_result));
 }
 
 swbt_daemon_production_result_t swbt_daemon_production_backend_init(

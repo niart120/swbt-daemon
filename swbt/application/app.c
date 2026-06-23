@@ -57,6 +57,10 @@ static void swbt_app_revoke_all(swbt_app_t *app) {
     swbt_app_apply_neutral(app);
 }
 
+static void swbt_app_record_state_update_rejected_locked(swbt_app_t *app) {
+    (void)swbt_metrics_record_state_update_rejected(&app->metrics);
+}
+
 static swbt_app_result_t swbt_app_init(swbt_app_t *app) {
     const swbt_switch_spi_seed_profile_t spi_profile = swbt_switch_spi_seed_dev_profile();
 
@@ -119,10 +123,12 @@ swbt_app_result_t swbt_app_set_state(swbt_app_t *app, uint32_t client_id, const 
     swbt_spin_lock_acquire(&app->lock);
     const swbt_control_lease_snapshot_t lease = swbt_control_lease_snapshot(&app->lease);
     if (!lease.has_owner || lease.owner_client_id != client_id) {
+        swbt_app_record_state_update_rejected_locked(app);
         swbt_spin_lock_release(&app->lock);
         return SWBT_APP_ERROR_NOT_OWNER;
     }
     if (sequence < lease.last_sequence) {
+        swbt_app_record_state_update_rejected_locked(app);
         swbt_spin_lock_release(&app->lock);
         return SWBT_APP_ERROR_STALE_SEQUENCE;
     }
@@ -130,6 +136,7 @@ swbt_app_result_t swbt_app_set_state(swbt_app_t *app, uint32_t client_id, const 
     const swbt_app_result_t sequence_result = swbt_app_map_lease_result(
         swbt_control_lease_accept_sequence(&app->lease, client_id, sequence));
     if (sequence_result != SWBT_APP_OK) {
+        swbt_app_record_state_update_rejected_locked(app);
         swbt_spin_lock_release(&app->lock);
         return sequence_result;
     }
@@ -246,6 +253,17 @@ swbt_app_result_t swbt_app_record_report_tick(swbt_app_t *app, uint64_t now_us,
         swbt_metrics_record_report_tick(&app->metrics, now_us, send_result);
     swbt_spin_lock_release(&app->lock);
     return result == SWBT_METRICS_OK ? SWBT_APP_OK : SWBT_APP_ERROR_INVALID_ARGUMENT;
+}
+
+swbt_app_result_t swbt_app_record_state_update_rejected(swbt_app_t *app) {
+    if (app == NULL) {
+        return SWBT_APP_ERROR_INVALID_ARGUMENT;
+    }
+
+    swbt_spin_lock_acquire(&app->lock);
+    swbt_app_record_state_update_rejected_locked(app);
+    swbt_spin_lock_release(&app->lock);
+    return SWBT_APP_OK;
 }
 
 swbt_app_result_t swbt_app_record_rumble(swbt_app_t *app, const uint8_t *payload,

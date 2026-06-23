@@ -49,6 +49,7 @@ typedef struct {
     int timer_stop_calls;
     int inject_json_state_during_run_loop;
     int inject_disconnect_reacquire_during_run_loop;
+    int notify_report_tick_failure;
     int injected_json_result;
     int hid_send_calls;
     int power_off_calls;
@@ -72,6 +73,8 @@ typedef struct {
     swbt_btstack_input_report_timer_adapter_config_t captured_timer_config;
     swbt_daemon_shutdown_request_t shutdown_request;
     void *shutdown_request_context;
+    swbt_ipc_status_t status_after_report;
+    int status_after_report_result;
 } fake_ops_t;
 
 static void record_step(fake_ops_t *fake, int step) {
@@ -224,7 +227,17 @@ static int fake_timer_can_send_now(void *context,
         if (swbt_switch_build_standard_full_report(&state, &options, report, sizeof(report),
                                                    &written) == SWBT_SWITCH_REPORT_OK) {
             fake_record_hid_input_report(fake, 0x0042u, report, written);
+            if (fake->captured_timer_config.report_tick_observer != NULL) {
+                fake->captured_timer_config.report_tick_observer(
+                    fake->captured_timer_config.report_tick_context, 123000u,
+                    SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_OK);
+            }
         }
+    } else if (fake->notify_report_tick_failure &&
+               fake->captured_timer_config.report_tick_observer != NULL) {
+        fake->captured_timer_config.report_tick_observer(
+            fake->captured_timer_config.report_tick_context, 123000u,
+            SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_FAILED);
     }
     return fake->timer_can_send_result;
 }
@@ -373,6 +386,8 @@ static void fake_run_loop_execute(void *context) {
         fake_handle_button_a_state(fake, 1001u, "000003e9", "journey-state");
         fake_emit_hid_opened(fake);
         fake_emit_can_send(fake);
+        fake->status_after_report_result =
+            swbt_ipc_adapter_get_status(fake->ipc_runner->server.app, &fake->status_after_report);
     }
     if (fake->inject_disconnect_reacquire_during_run_loop && fake->ipc_runner != NULL &&
         fake->ipc_runner->server.app != NULL) {
@@ -672,6 +687,71 @@ static int run_loop_json_state_reaches_fake_hid_send(void) {
     failed += expect_eq_u16(fake.last_hid_cid, 0x0042u, "hid cid");
     failed += expect_eq_u8(fake.last_hid_message[0], 0xa1u, "hidp report header");
     failed += expect_eq_u8(fake.last_hid_message[4], 0x08u, "button byte");
+    return failed;
+}
+
+static int production_report_success_updates_status_metrics_without_hardware_measurement(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {
+        .inject_json_state_during_run_loop = 1,
+    };
+    const swbt_btstack_production_adapter_t adapter = fake_backend_adapter();
+    swbt_daemon_production_backend_t backend;
+    const swbt_daemon_hardware_approval_t approval = {
+        .run_hardware = true,
+        .hardware_approved = true,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
+                            SWBT_DAEMON_PRODUCTION_OK, "main result");
+    failed += expect_eq_int(fake.injected_json_result, 0, "json commands");
+    failed += expect_eq_int(fake.status_after_report_result, SWBT_IPC_OK, "status after report");
+    failed += expect_eq_int((int)fake.status_after_report.metrics.report_ticks, 1, "report ticks");
+    failed +=
+        expect_eq_int((int)fake.status_after_report.metrics.report_send_ok, 1, "report send ok");
+    failed += expect_eq_int((int)fake.status_after_report.metrics.report_send_failed, 0,
+                            "report send failed");
+    failed += expect_eq_int((int)fake.status_after_report.metrics.hardware_status,
+                            (int)SWBT_METRICS_HARDWARE_UNAVAILABLE, "hardware metrics");
+    failed += expect_eq_int((int)fake.status_after_report.metrics.actual_report_rate_hz, 0,
+                            "actual report rate");
+    failed += expect_eq_int((int)fake.status_after_report.metrics.jitter_max_us, 0, "jitter");
+    return failed;
+}
+
+static int production_report_failure_updates_send_failure_metrics_and_cleans_up(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {
+        .inject_json_state_during_run_loop = 1,
+        .notify_report_tick_failure = 1,
+        .timer_can_send_result = -7,
+    };
+    const swbt_btstack_production_adapter_t adapter = fake_backend_adapter();
+    swbt_daemon_production_backend_t backend;
+    const swbt_daemon_hardware_approval_t approval = {
+        .run_hardware = true,
+        .hardware_approved = true,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
+                            SWBT_DAEMON_PRODUCTION_OK, "main result");
+    failed += expect_eq_int(fake.injected_json_result, 0, "json commands");
+    failed += expect_eq_int(fake.timer_can_send_calls, 1, "timer can send calls");
+    failed += expect_eq_int(fake.hid_send_calls, 0, "hid send calls");
+    failed += expect_eq_int(fake.status_after_report_result, SWBT_IPC_OK, "status after report");
+    failed += expect_eq_int((int)fake.status_after_report.metrics.report_ticks, 1, "report ticks");
+    failed +=
+        expect_eq_int((int)fake.status_after_report.metrics.report_send_ok, 0, "report send ok");
+    failed += expect_eq_int((int)fake.status_after_report.metrics.report_send_failed, 1,
+                            "report send failed");
+    failed += expect_eq_int(fake.power_off_calls, 1, "power off cleanup");
+    failed += expect_eq_int(fake.timer_stop_calls, 1, "timer stop cleanup");
     return failed;
 }
 
@@ -1126,6 +1206,8 @@ int main(void) {
     failed += hardware_approval_env_requires_both_flags();
     failed += approved_backend_starts_hardware_and_cleans_up_in_order();
     failed += run_loop_json_state_reaches_fake_hid_send();
+    failed += production_report_success_updates_status_metrics_without_hardware_measurement();
+    failed += production_report_failure_updates_send_failure_metrics_and_cleans_up();
     failed += run_loop_disconnect_emits_neutral_before_reacquire();
     failed += approved_backend_status_exposes_production_without_hardware_metrics();
     failed += start_failure_cleans_started_resources_only();

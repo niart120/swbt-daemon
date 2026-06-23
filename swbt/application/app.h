@@ -64,6 +64,7 @@ swbt_app_result_t swbt_app_set_hardware_approval(swbt_app_t *app,
                                                  swbt_app_hardware_approval_t hardware_approval);
 swbt_app_result_t swbt_app_record_report_tick(swbt_app_t *app, uint64_t now_us,
                                               swbt_metrics_report_send_result_t send_result);
+swbt_app_result_t swbt_app_record_state_update_rejected(swbt_app_t *app);
 swbt_app_result_t swbt_app_record_rumble(swbt_app_t *app, const uint8_t *payload,
                                          uint64_t updated_at_ms);
 swbt_app_result_t

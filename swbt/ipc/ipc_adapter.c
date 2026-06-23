@@ -172,6 +172,7 @@ static swbt_ipc_json_result_t swbt_ipc_adapter_execute_command(swbt_app_t *app, 
         return SWBT_IPC_JSON_OK;
     case SWBT_IPC_COMMAND_SET_STATE:
         if (!swbt_ipc_adapter_command_owner_matches_client(command, client_id)) {
+            (void)swbt_app_record_state_update_rejected(app);
             swbt_ipc_adapter_error_from_command(command, out_response,
                                                 SWBT_IPC_ERROR_CODE_NOT_OWNER,
                                                 "client does not own the controller");

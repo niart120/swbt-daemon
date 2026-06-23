@@ -21,6 +21,15 @@ typedef enum {
 
 typedef swbt_state_t (*swbt_btstack_input_report_timer_state_provider_t)(void *context);
 
+typedef enum {
+    SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_OK = 0,
+    SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_FAILED = 1,
+} swbt_btstack_input_report_timer_report_send_result_t;
+
+typedef void (*swbt_btstack_input_report_timer_report_tick_observer_t)(
+    void *context, uint64_t now_us,
+    swbt_btstack_input_report_timer_report_send_result_t send_result);
+
 typedef struct {
     void (*set_timer_handler)(btstack_timer_source_t *timer,
                               void (*process)(btstack_timer_source_t *timer));
@@ -37,6 +46,8 @@ typedef struct {
     const swbt_btstack_input_report_timer_backend_t *backend;
     swbt_btstack_input_report_timer_state_provider_t state_provider;
     void *state_context;
+    swbt_btstack_input_report_timer_report_tick_observer_t report_tick_observer;
+    void *report_tick_context;
     swbt_btstack_input_report_scheduler_config_t scheduler_config;
 } swbt_btstack_input_report_timer_adapter_config_t;
 
@@ -49,6 +60,8 @@ typedef struct {
     const swbt_btstack_input_report_timer_backend_t *backend;
     swbt_btstack_input_report_timer_state_provider_t state_provider;
     void *state_context;
+    swbt_btstack_input_report_timer_report_tick_observer_t report_tick_observer;
+    void *report_tick_context;
     swbt_btstack_input_report_scheduler_t scheduler;
     swbt_btstack_subcommand_reply_queue_t reply_queue;
     btstack_timer_source_t timer;
