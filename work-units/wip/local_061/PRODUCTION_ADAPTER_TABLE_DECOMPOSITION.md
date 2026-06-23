@@ -16,12 +16,13 @@ source:
 - `work-units/complete/local_056/ARCHITECTURE_CUTOVER.md` の production backend ops table 削除。
 - `work-units/complete/local_055/REARCHITECTURE_CUTOVER_ACCEPTANCE_AND_CLEANUP.md` の kept inventory。履歴として参照し、現行判断は `local_056` を優先する。
 - `spec/architecture/daemon-architecture-cutover.md` の production composition 方針。
+- user follow-up, 2026-06-23: adapter table 分割でコードベースが増えるだけの再抽象化にならないよう、削除条件と差分の上限感を先に持つ。
 
 use case:
 
 - actor: maintainer、reviewer、future platform adapter。
 - 入力または状態: production daemon startup、IPC pump、BTstack run loop、HID send、shutdown neutral、power-off。
-- 期待する観測結果: production composition が能力ごとの port を受け取り、test double が必要な能力だけを実装できる。shutdown neutral failure cleanup は維持される。
+- 期待する観測結果: production composition が能力ごとの port を受け取り、test double が必要な能力だけを実装できる。広い table を別名の広い table へ置き換えない。shutdown neutral failure cleanup は維持される。
 - 制約: 旧 runtime / session / ops table を復活させない。実機-facing scheduling を変える場合は hardware gate を判定する。
 - 対象外: bonded reconnect、release packaging、Windows native CI。
 
@@ -36,6 +37,9 @@ source から use case への変換:
 - fake production test が必要な能力だけを差し替えられる設計にする。
 - 旧 production backend ops table と同じ広い rollback point を作らない。
 - composition 変更が H1 再実行条件に該当するか判断する。
+- 分割前後で、adapter struct の field 数、fake が実装する callback 数、test helper の行数を比較する。
+- 新しい port を追加する場合は、削除する field、削除する fake callback、または縮小する call surface と対応付ける。
+- 既存 table を薄く包むだけの wrapper は完了条件に含めない。残す場合は current responsibility と削除条件を record に書く。
 
 ## 4. 対象外
 
@@ -44,6 +48,7 @@ source から use case への変換:
 - bonded reconnect と bond store。
 - parser fuzz、slow client hardening。
 - release artifact 作成。
+- 1 callback 1 file のような、責務分離より file 数増加が主目的になる分割。
 
 ## 5. 関連 spec / docs
 
@@ -66,6 +71,8 @@ adapter table の構造だけを変える場合は not applicable。BTstack call
 - production host は lifecycle ordering を所有し続ける。
 - BTstack run loop を system reactor として使う判断を変える場合は、architecture spec の更新対象にする。
 - 分割後も shutdown neutral pending failure は power-off / run-loop exit へ進む必要がある。
+- 「広い struct を小さい struct の束へ分けたが、全 call site が常に全 struct を受け取る」状態は改善と扱わない。
+- 完了時は、追加した type / file / test helper と、削除または縮小した field / helper / dependency を並べて記録する。
 
 ## 8. 対象ファイル
 
@@ -87,6 +94,7 @@ adapter table の構造だけを変える場合は not applicable。BTstack call
 | todo | production host lifecycle uses explicit port groups instead of one wide table | new | integration | no |
 | todo | old production backend ops table symbols remain absent | regression | build | no |
 | todo | hardware gate need is recorded if composition or scheduling changes | characterization | docs | yes |
+| todo | decomposition reduces or justifies the production adapter call surface instead of wrapping it with another broad layer | verification | docs/integration | no |
 
 ## 10. 検証
 
@@ -111,3 +119,5 @@ none。起票時点の先送り事項は、この record の source として取
 - [ ] green 実装を行った。
 - [ ] hardware gate の要否を判定した。
 - [ ] `just debug` または targeted CTest を実行した。
+- [ ] 分割前後の field 数、fake callback 数、test helper 量を比較した。
+- [ ] 追加した port と削除または縮小した call surface を対応付けた。

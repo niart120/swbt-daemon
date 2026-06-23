@@ -15,12 +15,13 @@ source:
 - `work-units/complete/local_058/SHUTDOWN_NEUTRAL_RETRY_FAILURE.md` の先送り事項: include boundary の compile-time 強制。
 - `work-units/complete/local_054/DAEMON_HOST_AND_BUILD_BOUNDARIES.md` の target 分割と forbidden include check。
 - `spec/architecture/daemon-architecture-cutover.md` の module target 方針。
+- user follow-up, 2026-06-23: リアーキテクチャ直後の follow-up でコードベースが増大し続けるリスクを避ける。
 
 use case:
 
 - actor: maintainer、reviewer、CI。
 - 入力または状態: `swbt_application`、`swbt_ipc`、`swbt_btstack_adapter`、`swbt_daemon_host` の include directory と link target。
-- 期待する観測結果: 禁止依存を追加すると compile error または CMake configure error で失敗する。単なる source text search に依存しない。
+- 期待する観測結果: 禁止依存を追加すると compile error または CMake configure error で失敗する。単なる source text search に依存しない。追加した probe / target / helper は、置き換えた check または削除した依存と対応している。
 - 制約: runtime behavior、Switch-facing bytes、production composition は変えない。
 - 対象外: source tree の大規模移動、public C ABI 再設計、release packaging。
 
@@ -35,6 +36,8 @@ source から use case への変換:
 - 禁止 include を compile probe または CMake target property で検出する。
 - 既存 `include_boundaries_cmake_test` を残すか、compile-time check へ置き換えるか判断する。
 - protocol / application / IPC / BTstack adapter tests が余計な target を link しないことを維持する。
+- 追加する probe、target、helper script、CMake logic と、削除または縮小する text-only check を対応付ける。
+- 完了時に、追加行だけでなく削除した glue / check / include path と、残した理由を記録する。
 
 ## 4. 対象外
 
@@ -43,6 +46,7 @@ source から use case への変換:
 - production adapter function table の分割。
 - Windows native CI の追加。
 - directory layout の全面再編。
+- compile-time check のためだけに、実装 module と同じ広さの mirror target 群を作ること。
 
 ## 5. 関連 spec / docs
 
@@ -64,6 +68,8 @@ not applicable。
 - `swbt/` 全体を include path に残す場合は、残す理由と削除条件を record に書く。
 - header の移動が必要な場合は、公開 contract と内部 implementation の分離を先に定義する。
 - CMake script の文字列検査は、compile-time check で拾えない absence gate だけに縮小する。
+- 新しい build helper を増やす場合は、何を置き換えるための helper かを record に書く。置き換え対象がない helper はこの work unit の完了条件に含めない。
+- 完了時の diff は `build / test / docs` に分けて記録し、build scaffolding が主目的から外れて増えていないか確認する。
 
 ## 8. 対象ファイル
 
@@ -86,6 +92,7 @@ not applicable。
 | todo | daemon host remains the composition owner for cross-module wiring | regression | build | no |
 | todo | protocol tests link without IPC, daemon host, or BTstack adapter targets | regression | build | no |
 | todo | old text-only boundary checks are either removed or justified as absence checks | characterization | build | no |
+| todo | added boundary probes / targets are paired with removed or narrowed checks, or their retention condition is recorded | verification | docs/build | no |
 
 ## 10. 検証
 
@@ -108,3 +115,5 @@ none。起票時点の先送り事項は、この record の source として取
 - [ ] green 実装を行った。
 - [ ] `just debug` または targeted configure/build を実行した。
 - [ ] full verification の要否を判定した。
+- [ ] 追加した build scaffolding と削除または縮小した check を対応付けた。
+- [ ] diff の増加分が boundary enforcement に必要な範囲へ閉じているか確認した。
