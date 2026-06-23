@@ -48,6 +48,7 @@ typedef struct {
     int timer_send_neutral_now_result;
     int timer_stop_calls;
     int inject_json_state_during_run_loop;
+    int inject_disconnect_reacquire_during_run_loop;
     int injected_json_result;
     int hid_send_calls;
     int power_off_calls;
@@ -60,6 +61,7 @@ typedef struct {
     uint16_t last_hid_cid;
     uint16_t last_hid_message_len;
     uint8_t last_hid_message[1u + SWBT_SWITCH_STANDARD_FULL_REPORT_SIZE];
+    uint8_t hid_send_button_bytes[8];
     uint8_t controller_address[6];
     uint8_t ssp_confirmation_address[6];
     const swbt_daemon_ipc_runner_t *ipc_runner;
@@ -203,10 +205,15 @@ static int fake_timer_can_send_now(void *context,
         if (swbt_switch_build_standard_full_report(&state, &options, report, sizeof(report),
                                                    &written) == SWBT_SWITCH_REPORT_OK &&
             written + 1u <= sizeof(fake->last_hid_message)) {
+            const int send_index = fake->hid_send_calls;
             fake->last_hid_cid = 0x0042u;
             fake->last_hid_message[0] = 0xa1u;
             memcpy(&fake->last_hid_message[1], report, written);
             fake->last_hid_message_len = (uint16_t)(written + 1u);
+            if (send_index >= 0 && send_index < (int)(sizeof(fake->hid_send_button_bytes) /
+                                                      sizeof(fake->hid_send_button_bytes[0]))) {
+                fake->hid_send_button_bytes[send_index] = report[3];
+            }
             fake->hid_send_calls += 1;
         }
     }
@@ -277,6 +284,59 @@ static void fake_power_off(void *context) {
     record_step(fake, STEP_POWER_OFF);
 }
 
+static void fake_handle_json_line(fake_ops_t *fake, uint32_t client_id, const char *line) {
+    char response[SWBT_IPC_JSON_RESPONSE_MAX];
+
+    if (fake == NULL || fake->ipc_runner == NULL || fake->ipc_runner->server.app == NULL ||
+        swbt_ipc_adapter_handle_line(fake->ipc_runner->server.app, client_id, line, response,
+                                     sizeof(response)) != SWBT_IPC_JSON_OK) {
+        if (fake != NULL) {
+            fake->injected_json_result = 1;
+        }
+    }
+}
+
+static void fake_handle_acquire(fake_ops_t *fake, uint32_t client_id, const char *request_id) {
+    char line[128];
+
+    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+    if (snprintf(line, sizeof(line), "{\"v\":1,\"type\":\"acquire\",\"request_id\":\"%s\"}\n",
+                 request_id) < 0) {
+        fake->injected_json_result = 1;
+        return;
+    }
+    fake_handle_json_line(fake, client_id, line);
+}
+
+static void fake_handle_button_a_state(fake_ops_t *fake, uint32_t client_id, const char *owner_id,
+                                       const char *request_id) {
+    char line[256];
+
+    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+    if (snprintf(line, sizeof(line),
+                 "{\"v\":1,\"type\":\"set_state\",\"owner_id\":\"%s\",\"seq\":1,"
+                 "\"request_id\":\"%s\",\"state\":{\"buttons\":8,\"lx\":2048,"
+                 "\"ly\":2048,\"rx\":2048,\"ry\":2048,\"accel_x\":0,\"accel_y\":0,"
+                 "\"accel_z\":0,\"gyro_x\":0,\"gyro_y\":0,\"gyro_z\":0}}\n",
+                 owner_id, request_id) < 0) {
+        fake->injected_json_result = 1;
+        return;
+    }
+    fake_handle_json_line(fake, client_id, line);
+}
+
+static void fake_emit_hid_opened(fake_ops_t *fake) {
+    uint8_t opened_event[] = {0xefu, 13u, 0x02u, 0x42u, 0x00u, 0x00u, 0u, 0u,
+                              0u,    0u,  0u,    0u,    0u,    0u,    1u};
+    fake->captured_hid_config.packet_handler(0x04u, 0x0042u, opened_event, sizeof(opened_event));
+}
+
+static void fake_emit_can_send(fake_ops_t *fake) {
+    uint8_t can_send_event[] = {0xefu, 3u, 0x04u, 0x42u, 0x00u};
+    fake->captured_hid_config.packet_handler(0x04u, 0x0042u, can_send_event,
+                                             sizeof(can_send_event));
+}
+
 static void fake_run_loop_execute(void *context) {
     fake_ops_t *fake = context;
     record_step(fake, STEP_RUN_LOOP_EXECUTE);
@@ -287,31 +347,29 @@ static void fake_run_loop_execute(void *context) {
                                           &fake->status_during_run_loop);
     if (fake->inject_json_state_during_run_loop && fake->ipc_runner != NULL &&
         fake->ipc_runner->server.app != NULL) {
-        char response[SWBT_IPC_JSON_RESPONSE_MAX];
         fake->injected_json_result = 0;
-        if (swbt_ipc_adapter_handle_line(fake->ipc_runner->server.app, 1001u,
-                                         "{\"v\":1,\"type\":\"acquire\","
-                                         "\"request_id\":\"journey-acquire\"}\n",
-                                         response, sizeof(response)) != SWBT_IPC_JSON_OK) {
-            fake->injected_json_result = 1;
-        }
-        if (swbt_ipc_adapter_handle_line(
-                fake->ipc_runner->server.app, 1001u,
-                "{\"v\":1,\"type\":\"set_state\",\"owner_id\":\"000003e9\",\"seq\":1,"
-                "\"request_id\":\"journey-state\",\"state\":{\"buttons\":8,\"lx\":2048,"
-                "\"ly\":2048,\"rx\":2048,\"ry\":2048,\"accel_x\":0,\"accel_y\":0,"
-                "\"accel_z\":0,\"gyro_x\":0,\"gyro_y\":0,\"gyro_z\":0}}\n",
-                response, sizeof(response)) != SWBT_IPC_JSON_OK) {
-            fake->injected_json_result = 1;
-        }
+        fake_handle_acquire(fake, 1001u, "journey-acquire");
+        fake_handle_button_a_state(fake, 1001u, "000003e9", "journey-state");
+        fake_emit_hid_opened(fake);
+        fake_emit_can_send(fake);
+    }
+    if (fake->inject_disconnect_reacquire_during_run_loop && fake->ipc_runner != NULL &&
+        fake->ipc_runner->server.app != NULL) {
+        fake->injected_json_result = 0;
+        fake_handle_acquire(fake, 1001u, "journey-acquire");
+        fake_handle_button_a_state(fake, 1001u, "000003e9", "journey-state");
+        fake_emit_hid_opened(fake);
+        fake_emit_can_send(fake);
 
-        uint8_t opened_event[] = {0xefu, 13u, 0x02u, 0x42u, 0x00u, 0x00u, 0u, 0u,
-                                  0u,    0u,  0u,    0u,    0u,    0u,    1u};
-        fake->captured_hid_config.packet_handler(0x04u, 0x0042u, opened_event,
-                                                 sizeof(opened_event));
-        uint8_t can_send_event[] = {0xefu, 3u, 0x04u, 0x42u, 0x00u};
-        fake->captured_hid_config.packet_handler(0x04u, 0x0042u, can_send_event,
-                                                 sizeof(can_send_event));
+        if (swbt_ipc_adapter_handle_disconnect(fake->ipc_runner->server.app, 1001u) !=
+            SWBT_IPC_OK) {
+            fake->injected_json_result = 1;
+        }
+        fake_emit_can_send(fake);
+
+        fake_handle_acquire(fake, 2002u, "journey-reacquire");
+        fake_handle_button_a_state(fake, 2002u, "000007d2", "journey-reacquired-state");
+        fake_emit_can_send(fake);
     }
     if (fake->shutdown_request != NULL) {
         uint8_t opened_event[] = {0xefu, 13u, 0x02u, 0x42u, 0x00u, 0x00u, 0u, 0u,
@@ -508,6 +566,31 @@ static int run_loop_json_state_reaches_fake_hid_send(void) {
     failed += expect_eq_u16(fake.last_hid_cid, 0x0042u, "hid cid");
     failed += expect_eq_u8(fake.last_hid_message[0], 0xa1u, "hidp report header");
     failed += expect_eq_u8(fake.last_hid_message[4], 0x08u, "button byte");
+    return failed;
+}
+
+static int run_loop_disconnect_emits_neutral_before_reacquire(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {
+        .inject_disconnect_reacquire_during_run_loop = 1,
+    };
+    const swbt_btstack_production_adapter_t adapter = fake_backend_adapter();
+    swbt_daemon_production_backend_t backend;
+    const swbt_daemon_hardware_approval_t approval = {
+        .run_hardware = true,
+        .hardware_approved = true,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
+                            SWBT_DAEMON_PRODUCTION_OK, "main result");
+    failed += expect_eq_int(fake.injected_json_result, 0, "json commands");
+    failed += expect_eq_int(fake.hid_send_calls, 3, "hid send calls");
+    failed += expect_eq_u8(fake.hid_send_button_bytes[0], 0x08u, "initial button byte");
+    failed += expect_eq_u8(fake.hid_send_button_bytes[1], 0x00u, "disconnect neutral byte");
+    failed += expect_eq_u8(fake.hid_send_button_bytes[2], 0x08u, "reacquired button byte");
     return failed;
 }
 
@@ -885,6 +968,7 @@ int main(void) {
     failed += hardware_approval_env_requires_both_flags();
     failed += approved_backend_starts_hardware_and_cleans_up_in_order();
     failed += run_loop_json_state_reaches_fake_hid_send();
+    failed += run_loop_disconnect_emits_neutral_before_reacquire();
     failed += approved_backend_status_exposes_production_without_hardware_metrics();
     failed += start_failure_cleans_started_resources_only();
     failed += stop_request_sends_neutral_before_power_off_and_run_loop_exit();

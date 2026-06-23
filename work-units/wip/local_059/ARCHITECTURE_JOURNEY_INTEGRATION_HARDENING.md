@@ -81,7 +81,7 @@ not applicable。
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | refactor-skipped | JSON IPC set_state reaches fake HID report send through daemon host without old runtime symbols | regression | integration | no |
-| todo | owner disconnect in the journey emits neutral before reacquire | regression | integration | no |
+| refactor-done | owner disconnect in the journey emits neutral before reacquire | regression | integration | no |
 | todo | daemon shutdown in the journey emits trailing neutral before fake power-off / run-loop exit | regression | integration | no |
 | todo | architecture journey target links only cutover-era module targets | regression | build | no |
 | todo | failure-cleanup regression remains separate from normal journey naming | regression | unit | no |
@@ -99,6 +99,18 @@ TDD status:
   - green: `just build-debug` pass。`CTEST_ARGS="-R daemon_production_backend_test --output-on-failure" just test-debug` pass。
   - format: `just format` pass。
 - notes: `tdd-one-cycle` と `refactor-after-green` に従った。green 後の見直しでは、今回の item で必要な構造変更は fake timer の観測点追加だけだったため `refactor-skipped` とした。Switch-facing byte、BTstack source selection、report period は変更していない。
+
+TDD status:
+
+- source: `local_058` の先送り事項。
+- use case: production backend の run loop 中に owner disconnect を処理し、reacquire 前に neutral report が fake HID send として観測される。
+- item: owner disconnect in the journey emits neutral before reacquire。
+- state: refactor-done。
+- commands:
+  - red: `just build-debug` pass。`CTEST_ARGS="-R daemon_production_backend_test --output-on-failure" just test-debug` は `hid send calls: expected 3, got 0` で fail。
+  - green: `just build-debug` pass。`CTEST_ARGS="-R daemon_production_backend_test --output-on-failure" just test-debug` pass。
+  - refactor: `just format` pass。`just build-debug` pass。`CTEST_ARGS="-R daemon_production_backend_test --output-on-failure" just test-debug` pass。
+- notes: green 後に fake run loop の JSON command 注入と HID event 注入を helper へ分離した。観測対象の順序は A report、disconnect neutral、reacquire 後 A report のまま。実機は不要。
 
 開始時の確認:
 
