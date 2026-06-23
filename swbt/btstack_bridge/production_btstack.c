@@ -340,8 +340,11 @@ static void swbt_btstack_production_run_loop_trigger_exit(void *context) {
 
 const swbt_btstack_production_adapter_t *swbt_btstack_production_adapter(void) {
     static const swbt_btstack_production_adapter_t adapter = {
-        .ipc_pump_start = swbt_btstack_production_ipc_pump_start,
-        .ipc_pump_stop = swbt_btstack_production_ipc_pump_stop,
+        .ipc_pump =
+            {
+                .start = swbt_btstack_production_ipc_pump_start,
+                .stop = swbt_btstack_production_ipc_pump_stop,
+            },
         .platform_start = swbt_btstack_production_platform_start,
         .platform_stop = swbt_btstack_production_platform_stop,
         .hid_register = swbt_btstack_production_hid_register,

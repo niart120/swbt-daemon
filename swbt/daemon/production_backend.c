@@ -11,9 +11,19 @@ static swbt_daemon_production_backend_t *g_active_backend;
 static void swbt_daemon_production_finish_shutdown(swbt_daemon_production_backend_t *backend);
 static void swbt_daemon_production_shutdown_on_main_thread(void *context);
 
+static bool swbt_daemon_production_ipc_pump_port_is_valid(
+    const swbt_btstack_production_ipc_pump_port_t *port) {
+    return port != NULL && port->start != NULL && port->stop != NULL;
+}
+
+static bool
+swbt_daemon_production_adapter_has_ipc_pump(const swbt_btstack_production_adapter_t *adapter) {
+    return adapter != NULL && swbt_daemon_production_ipc_pump_port_is_valid(&adapter->ipc_pump);
+}
+
 static bool
 swbt_daemon_production_adapter_is_valid(const swbt_btstack_production_adapter_t *adapter) {
-    return adapter != NULL && adapter->ipc_pump_start != NULL && adapter->ipc_pump_stop != NULL &&
+    return swbt_daemon_production_adapter_has_ipc_pump(adapter) &&
            adapter->platform_start != NULL && adapter->platform_stop != NULL &&
            adapter->hid_register != NULL && adapter->hid_stop != NULL &&
            adapter->output_handler_start != NULL && adapter->output_handler_stop != NULL &&
@@ -48,7 +58,7 @@ swbt_daemon_production_result_t swbt_daemon_production_backend_init(
     swbt_daemon_production_backend_t *backend, const swbt_daemon_config_t *config,
     const swbt_btstack_production_adapter_t *adapter, void *adapter_context) {
     if (backend == NULL || config == NULL || config->report_period_us == 0u ||
-        !swbt_daemon_production_adapter_is_valid(adapter)) {
+        !swbt_daemon_production_adapter_has_ipc_pump(adapter)) {
         return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
     }
 
@@ -90,7 +100,7 @@ static int swbt_daemon_production_ipc_start(void *context, swbt_app_t *app) {
         .poll_once_at = swbt_daemon_production_ipc_runner_poll_once_at,
         .context = &backend->ipc_runner,
     };
-    if (backend->adapter->ipc_pump_start(backend->adapter_context, &pump) != 0) {
+    if (backend->adapter->ipc_pump.start(backend->adapter_context, &pump) != 0) {
         swbt_daemon_ipc_runner_stop(&backend->ipc_runner);
         return -1;
     }
@@ -102,7 +112,7 @@ static void swbt_daemon_production_ipc_stop(void *context) {
     if (backend == NULL || !backend->initialized) {
         return;
     }
-    backend->adapter->ipc_pump_stop(backend->adapter_context);
+    backend->adapter->ipc_pump.stop(backend->adapter_context);
     swbt_daemon_ipc_runner_stop(&backend->ipc_runner);
 }
 
@@ -459,6 +469,9 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_backend_and_shu
     }
     if (!swbt_daemon_hardware_approval_is_granted(approval)) {
         return SWBT_DAEMON_PRODUCTION_ERROR_HARDWARE_APPROVAL_REQUIRED;
+    }
+    if (!swbt_daemon_production_adapter_is_valid(backend->adapter)) {
+        return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
     }
 
     swbt_diagnostic_trace("production: host init");

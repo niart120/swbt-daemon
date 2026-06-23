@@ -89,7 +89,7 @@ adapter table の構造だけを変える場合は not applicable。BTstack call
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | fake production test can provide IPC pump ability without implementing unrelated BTstack abilities | new | unit | no |
+| refactor-skipped | fake production test can provide IPC pump ability without implementing unrelated BTstack abilities | new | unit | no |
 | todo | shutdown neutral failure cleanup still reaches power-off after adapter decomposition | regression | integration | no |
 | todo | production host lifecycle uses explicit port groups instead of one wide table | new | integration | no |
 | todo | old production backend ops table symbols remain absent | regression | build | no |
@@ -98,7 +98,19 @@ adapter table の構造だけを変える場合は not applicable。BTstack call
 
 ## 10. 検証
 
-未実行。起票のみで、実装と test はまだ追加していない。
+TDD status:
+
+- source: `local_058` の先送り事項。
+- use case: fake production test が IPC pump start / stop だけを実装し、platform、HID、timer、power、run loop の callback を持たなくても IPC pump port を直接起動できる。
+- item: fake production test can provide IPC pump ability without implementing unrelated BTstack abilities。
+- state: refactor-skipped。
+- commands:
+  - red: `just build-debug` は `unknown type name 'swbt_btstack_production_ipc_pump_port_t'` と `swbt_btstack_production_adapter_t has no member named 'ipc_pump'` で fail。
+  - green: `just build-debug` pass。
+  - affected checks: `just test-debug` pass。`daemon_production_backend_test` はこの実行に含まれる。
+  - format: `scripts/format.sh` pass。
+- notes: `swbt_btstack_production_ipc_pump_port_t` を追加し、adapter の IPC pump callback 2 個を `.ipc_pump.start` / `.ipc_pump.stop` へ移した。`swbt_daemon_production_backend_init` は IPC pump port だけを要求し、実機承認後の production main は従来どおり full adapter callback を要求する。Switch-facing bytes、BTstack source selection、timer scheduling、shutdown power-off order は変更していない。
+- refactor: green 後の追加構造変更は行わなかった。この item の構造変更は IPC pump port の導入に閉じる。
 
 ## 11. 実機実行条件
 
@@ -115,9 +127,9 @@ none。起票時点の先送り事項は、この record の source として取
 - [x] source を `local_056` と `local_058` から特定した。
 - [x] use case を production adapter table decomposition として定義した。
 - [ ] adapter table field を棚卸しした。
-- [ ] red test を追加した。
-- [ ] green 実装を行った。
+- [x] red test を追加した。
+- [x] green 実装を行った。
 - [ ] hardware gate の要否を判定した。
-- [ ] `just debug` または targeted CTest を実行した。
+- [x] `just debug` または targeted CTest を実行した。
 - [ ] 分割前後の field 数、fake callback 数、test helper 量を比較した。
 - [ ] 追加した port と削除または縮小した call surface を対応付けた。

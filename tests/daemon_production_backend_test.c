@@ -439,10 +439,22 @@ static void fake_shutdown_uninstall(void *context) {
     record_step((fake_ops_t *)context, STEP_SHUTDOWN_UNINSTALL);
 }
 
+static swbt_btstack_production_ipc_pump_port_t fake_ipc_pump_port(void) {
+    return (swbt_btstack_production_ipc_pump_port_t){
+        .start = fake_ipc_pump_start,
+        .stop = fake_ipc_pump_stop,
+    };
+}
+
+static swbt_btstack_production_adapter_t fake_ipc_pump_only_adapter(void) {
+    return (swbt_btstack_production_adapter_t){
+        .ipc_pump = fake_ipc_pump_port(),
+    };
+}
+
 static swbt_btstack_production_adapter_t fake_backend_adapter(void) {
     return (swbt_btstack_production_adapter_t){
-        .ipc_pump_start = fake_ipc_pump_start,
-        .ipc_pump_stop = fake_ipc_pump_stop,
+        .ipc_pump = fake_ipc_pump_port(),
         .platform_start = fake_platform_start,
         .platform_stop = fake_platform_stop,
         .hid_register = fake_hid_register,
@@ -494,6 +506,31 @@ static int missing_hardware_approval_rejects_before_backend_start(void) {
     failed += expect_eq_int(fake.ipc_start_calls, 0, "ipc not started");
     failed += expect_eq_int(fake.platform_start_calls, 0, "platform not started");
     failed += expect_eq_int(fake.hid_register_calls, 0, "hid not registered");
+    return failed;
+}
+
+static int ipc_pump_port_starts_without_unrelated_btstack_abilities(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {0};
+    const swbt_btstack_production_adapter_t adapter = fake_ipc_pump_only_adapter();
+    swbt_daemon_production_backend_t backend;
+    swbt_app_t *app = swbt_app_create();
+    const swbt_daemon_host_backend_t *host_backend = swbt_daemon_production_host_backend();
+    const swbt_daemon_production_result_t init_result =
+        swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake);
+
+    int failed = 0;
+    failed += expect_eq_int(init_result, SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += expect_true(app != NULL, "app created");
+    failed += expect_true(host_backend != NULL, "host backend");
+    if (init_result == SWBT_DAEMON_PRODUCTION_OK && app != NULL && host_backend != NULL) {
+        failed += expect_eq_int(host_backend->ipc_start(&backend, app), 0, "ipc start");
+        failed += expect_eq_int(fake.ipc_start_calls, 1, "ipc start calls");
+        failed += expect_eq_int(fake.platform_start_calls, 0, "platform not started");
+        failed += expect_eq_int(fake.hid_register_calls, 0, "hid not registered");
+        host_backend->ipc_stop(&backend);
+    }
+    swbt_app_destroy(app);
     return failed;
 }
 
@@ -1037,6 +1074,7 @@ static int hid_packet_handler_confirms_ssp_user_confirmation(void) {
 int main(void) {
     int failed = 0;
     failed += missing_hardware_approval_rejects_before_backend_start();
+    failed += ipc_pump_port_starts_without_unrelated_btstack_abilities();
     failed += hardware_approval_env_requires_both_flags();
     failed += approved_backend_starts_hardware_and_cleans_up_in_order();
     failed += run_loop_json_state_reaches_fake_hid_send();

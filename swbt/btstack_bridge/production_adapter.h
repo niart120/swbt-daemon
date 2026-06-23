@@ -19,8 +19,12 @@ typedef struct {
 } swbt_btstack_production_ipc_pump_t;
 
 typedef struct {
-    int (*ipc_pump_start)(void *context, const swbt_btstack_production_ipc_pump_t *pump);
-    void (*ipc_pump_stop)(void *context);
+    int (*start)(void *context, const swbt_btstack_production_ipc_pump_t *pump);
+    void (*stop)(void *context);
+} swbt_btstack_production_ipc_pump_port_t;
+
+typedef struct {
+    swbt_btstack_production_ipc_pump_port_t ipc_pump;
     int (*platform_start)(void *context);
     void (*platform_stop)(void *context);
     int (*hid_register)(void *context, uint8_t *service_buffer, size_t service_buffer_size,
