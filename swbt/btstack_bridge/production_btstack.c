@@ -340,28 +340,56 @@ static void swbt_btstack_production_run_loop_trigger_exit(void *context) {
 
 const swbt_btstack_production_adapter_t *swbt_btstack_production_adapter(void) {
     static const swbt_btstack_production_adapter_t adapter = {
-        .ipc_pump_start = swbt_btstack_production_ipc_pump_start,
-        .ipc_pump_stop = swbt_btstack_production_ipc_pump_stop,
-        .platform_start = swbt_btstack_production_platform_start,
-        .platform_stop = swbt_btstack_production_platform_stop,
-        .hid_register = swbt_btstack_production_hid_register,
-        .hid_stop = swbt_btstack_production_hid_stop,
-        .output_handler_start = swbt_btstack_production_output_handler_start,
-        .output_handler_stop = swbt_btstack_production_output_handler_stop,
-        .report_timer_init = swbt_btstack_production_report_timer_init,
-        .report_timer_start = swbt_btstack_production_report_timer_start,
-        .report_timer_on_can_send_now = swbt_btstack_production_report_timer_on_can_send_now,
-        .report_timer_enqueue_subcommand_reply = swbt_btstack_production_report_timer_enqueue_reply,
-        .report_timer_send_neutral_now = swbt_btstack_production_report_timer_send_neutral_now,
-        .report_timer_stop = swbt_btstack_production_report_timer_stop,
-        .ssp_confirm_user_confirmation = swbt_btstack_production_ssp_confirm_user_confirmation,
-        .read_controller_address = swbt_btstack_production_read_controller_address,
-        .time_ms = swbt_btstack_production_time_ms,
-        .power_on = swbt_btstack_production_power_on,
-        .power_off = swbt_btstack_production_power_off,
-        .run_loop_execute = swbt_btstack_production_run_loop_execute,
-        .run_loop_execute_on_main_thread = swbt_btstack_production_run_loop_execute_on_main_thread,
-        .run_loop_trigger_exit = swbt_btstack_production_run_loop_trigger_exit,
+        .ipc_pump =
+            {
+                .start = swbt_btstack_production_ipc_pump_start,
+                .stop = swbt_btstack_production_ipc_pump_stop,
+            },
+        .platform =
+            {
+                .start = swbt_btstack_production_platform_start,
+                .stop = swbt_btstack_production_platform_stop,
+            },
+        .hid =
+            {
+                .register_device = swbt_btstack_production_hid_register,
+                .stop = swbt_btstack_production_hid_stop,
+            },
+        .output_handler =
+            {
+                .start = swbt_btstack_production_output_handler_start,
+                .stop = swbt_btstack_production_output_handler_stop,
+            },
+        .report_timer =
+            {
+                .init = swbt_btstack_production_report_timer_init,
+                .start = swbt_btstack_production_report_timer_start,
+                .on_can_send_now = swbt_btstack_production_report_timer_on_can_send_now,
+                .enqueue_subcommand_reply = swbt_btstack_production_report_timer_enqueue_reply,
+                .send_neutral_now = swbt_btstack_production_report_timer_send_neutral_now,
+                .stop = swbt_btstack_production_report_timer_stop,
+            },
+        .controller =
+            {
+                .confirm_ssp_user_confirmation =
+                    swbt_btstack_production_ssp_confirm_user_confirmation,
+                .read_controller_address = swbt_btstack_production_read_controller_address,
+            },
+        .clock =
+            {
+                .time_ms = swbt_btstack_production_time_ms,
+            },
+        .power =
+            {
+                .on = swbt_btstack_production_power_on,
+                .off = swbt_btstack_production_power_off,
+            },
+        .run_loop =
+            {
+                .execute = swbt_btstack_production_run_loop_execute,
+                .execute_on_main_thread = swbt_btstack_production_run_loop_execute_on_main_thread,
+                .trigger_exit = swbt_btstack_production_run_loop_trigger_exit,
+            },
     };
     return &adapter;
 }

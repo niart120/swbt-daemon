@@ -80,6 +80,7 @@ daemon の論理状態、IPC transport、BTstack adapter、host composition、pl
 - Hardware Gate H1 は 2026-06-23 に `local_057` で pass。承認済みの CSR8510 A10、WinUSB、Switch2 firmware `22.1.0` baseline、`8000 us` report period、production backend で実行した。
 - H1 artifact は `tmp/hardware/local_057/20260623-105416-architecture-cutover-h1`。HCI dump は line `953` Button A、line `954` trailing neutral、line `955` `hci_power_control: 0` の順を記録した。current connection の `invalid size` と `non-registered handle` は `0` 件である。
 - 2026-06-23 の `local_058` で、shutdown neutral の即時送信が pending になった後の `CAN_SEND_NOW` 再送失敗でも pending を解除し、power-off と run-loop exit へ進む failure cleanup 経路を固定した。この変更は Switch-facing bytes、report period、BTstack source selection を変更しない。
+- 2026-06-23 の `local_061` で、`swbt_btstack_production_adapter_t` は `ipc_pump`、`platform`、`hid`、`output_handler`、`report_timer`、`controller`、`clock`、`power`、`run_loop` の能力別 port group へ分割した。旧 production backend ops table は復活させていない。この変更は Switch-facing bytes、report period、BTstack source selection、timer scheduling を変更しないため、H1 は再実行していない。
 - 「8. 採用した外部レビュー本文」内の未完了表記は、採用時点の作業指示として残す。現在の実装状態はこの章、`local_056`、`local_057`、`docs/status.md` を正とする。
 - 外部契約を破壊する必要が出た場合は、同じ PR に変更理由と migration note を含める。
 
@@ -488,20 +489,21 @@ host composition
 production backend ops table が持つ能力を次へ分ける。
 
 ```text
-host-only operations
-  power on/off
-  run loop
-  SSP configuration
-  startup / cleanup
-
-application ports
-  HID send
-  request can-send
-  timer
+production BTstack adapter port groups
+  ipc_pump
+  platform
+  hid
+  output_handler
+  report_timer
+  controller
   clock
+  power
+  run_loop
 ```
 
 application が production backend 全体へ依存してはならない。
+
+`local_061` では、旧 production backend ops table を復活させず、BTstack-facing の能力を `swbt_btstack_production_adapter_t` 内の port group に分けた。leaf callback 数は hardware-facing 能力として維持するが、top-level adapter field は 22 callback から 9 group へ縮小した。
 
 ### 5.5 `swbt_daemon_runtime_t`
 

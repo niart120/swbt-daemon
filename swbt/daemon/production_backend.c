@@ -12,20 +12,70 @@ static void swbt_daemon_production_finish_shutdown(swbt_daemon_production_backen
 static void swbt_daemon_production_shutdown_on_main_thread(void *context);
 
 static bool
+swbt_daemon_production_ipc_pump_port_is_valid(const swbt_btstack_production_ipc_pump_port_t *port) {
+    return port != NULL && port->start != NULL && port->stop != NULL;
+}
+
+static bool
+swbt_daemon_production_adapter_has_ipc_pump(const swbt_btstack_production_adapter_t *adapter) {
+    return adapter != NULL && swbt_daemon_production_ipc_pump_port_is_valid(&adapter->ipc_pump);
+}
+
+static bool
+swbt_daemon_production_platform_port_is_valid(const swbt_btstack_production_platform_port_t *port) {
+    return port != NULL && port->start != NULL && port->stop != NULL;
+}
+
+static bool
+swbt_daemon_production_hid_port_is_valid(const swbt_btstack_production_hid_port_t *port) {
+    return port != NULL && port->register_device != NULL && port->stop != NULL;
+}
+
+static bool swbt_daemon_production_output_handler_port_is_valid(
+    const swbt_btstack_production_output_handler_port_t *port) {
+    return port != NULL && port->start != NULL && port->stop != NULL;
+}
+
+static bool swbt_daemon_production_report_timer_port_is_valid(
+    const swbt_btstack_production_report_timer_port_t *port) {
+    return port != NULL && port->init != NULL && port->start != NULL &&
+           port->on_can_send_now != NULL && port->enqueue_subcommand_reply != NULL &&
+           port->stop != NULL && port->send_neutral_now != NULL;
+}
+
+static bool swbt_daemon_production_controller_port_is_valid(
+    const swbt_btstack_production_controller_port_t *port) {
+    return port != NULL && port->confirm_ssp_user_confirmation != NULL &&
+           port->read_controller_address != NULL;
+}
+
+static bool
+swbt_daemon_production_clock_port_is_valid(const swbt_btstack_production_clock_port_t *port) {
+    return port != NULL && port->time_ms != NULL;
+}
+
+static bool
+swbt_daemon_production_power_port_is_valid(const swbt_btstack_production_power_port_t *port) {
+    return port != NULL && port->on != NULL && port->off != NULL;
+}
+
+static bool
+swbt_daemon_production_run_loop_port_is_valid(const swbt_btstack_production_run_loop_port_t *port) {
+    return port != NULL && port->execute != NULL && port->execute_on_main_thread != NULL &&
+           port->trigger_exit != NULL;
+}
+
+static bool
 swbt_daemon_production_adapter_is_valid(const swbt_btstack_production_adapter_t *adapter) {
-    return adapter != NULL && adapter->ipc_pump_start != NULL && adapter->ipc_pump_stop != NULL &&
-           adapter->platform_start != NULL && adapter->platform_stop != NULL &&
-           adapter->hid_register != NULL && adapter->hid_stop != NULL &&
-           adapter->output_handler_start != NULL && adapter->output_handler_stop != NULL &&
-           adapter->report_timer_init != NULL && adapter->report_timer_start != NULL &&
-           adapter->report_timer_on_can_send_now != NULL &&
-           adapter->report_timer_enqueue_subcommand_reply != NULL &&
-           adapter->report_timer_stop != NULL && adapter->report_timer_send_neutral_now != NULL &&
-           adapter->ssp_confirm_user_confirmation != NULL && adapter->time_ms != NULL &&
-           adapter->read_controller_address != NULL && adapter->power_on != NULL &&
-           adapter->power_off != NULL && adapter->run_loop_execute != NULL &&
-           adapter->run_loop_execute_on_main_thread != NULL &&
-           adapter->run_loop_trigger_exit != NULL;
+    return swbt_daemon_production_adapter_has_ipc_pump(adapter) &&
+           swbt_daemon_production_platform_port_is_valid(&adapter->platform) &&
+           swbt_daemon_production_hid_port_is_valid(&adapter->hid) &&
+           swbt_daemon_production_output_handler_port_is_valid(&adapter->output_handler) &&
+           swbt_daemon_production_report_timer_port_is_valid(&adapter->report_timer) &&
+           swbt_daemon_production_controller_port_is_valid(&adapter->controller) &&
+           swbt_daemon_production_clock_port_is_valid(&adapter->clock) &&
+           swbt_daemon_production_power_port_is_valid(&adapter->power) &&
+           swbt_daemon_production_run_loop_port_is_valid(&adapter->run_loop);
 }
 
 static swbt_btstack_input_report_timer_adapter_config_t
@@ -48,7 +98,7 @@ swbt_daemon_production_result_t swbt_daemon_production_backend_init(
     swbt_daemon_production_backend_t *backend, const swbt_daemon_config_t *config,
     const swbt_btstack_production_adapter_t *adapter, void *adapter_context) {
     if (backend == NULL || config == NULL || config->report_period_us == 0u ||
-        !swbt_daemon_production_adapter_is_valid(adapter)) {
+        !swbt_daemon_production_adapter_has_ipc_pump(adapter)) {
         return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
     }
 
@@ -90,7 +140,7 @@ static int swbt_daemon_production_ipc_start(void *context, swbt_app_t *app) {
         .poll_once_at = swbt_daemon_production_ipc_runner_poll_once_at,
         .context = &backend->ipc_runner,
     };
-    if (backend->adapter->ipc_pump_start(backend->adapter_context, &pump) != 0) {
+    if (backend->adapter->ipc_pump.start(backend->adapter_context, &pump) != 0) {
         swbt_daemon_ipc_runner_stop(&backend->ipc_runner);
         return -1;
     }
@@ -102,7 +152,7 @@ static void swbt_daemon_production_ipc_stop(void *context) {
     if (backend == NULL || !backend->initialized) {
         return;
     }
-    backend->adapter->ipc_pump_stop(backend->adapter_context);
+    backend->adapter->ipc_pump.stop(backend->adapter_context);
     swbt_daemon_ipc_runner_stop(&backend->ipc_runner);
 }
 
@@ -120,26 +170,27 @@ static void swbt_daemon_production_hid_packet_handler(uint8_t packet_type, uint1
 
     switch (event.type) {
     case SWBT_BTSTACK_HID_EVENT_USER_CONFIRMATION_REQUEST:
-        (void)backend->adapter->ssp_confirm_user_confirmation(backend->adapter_context,
-                                                              event.address);
+        (void)backend->adapter->controller.confirm_ssp_user_confirmation(backend->adapter_context,
+                                                                         event.address);
         break;
     case SWBT_BTSTACK_HID_EVENT_CONNECTION_OPENED:
         if (!backend->report_timer_initialized || event.status != 0u) {
             return;
         }
         swbt_diagnostic_trace("production: hid connection opened");
-        (void)backend->adapter->report_timer_start(
+        (void)backend->adapter->report_timer.start(
             backend->adapter_context, &backend->report_timer,
             (swbt_btstack_input_report_timer_start_options_t){
                 .hid_cid = event.hid_cid,
-                .now_us = (uint64_t)backend->adapter->time_ms(backend->adapter_context) * 1000u,
+                .now_us =
+                    (uint64_t)backend->adapter->clock.time_ms(backend->adapter_context) * 1000u,
             });
         break;
     case SWBT_BTSTACK_HID_EVENT_CAN_SEND_NOW: {
         if (!backend->report_timer_initialized) {
             return;
         }
-        const int can_send_result = backend->adapter->report_timer_on_can_send_now(
+        const int can_send_result = backend->adapter->report_timer.on_can_send_now(
             backend->adapter_context, &backend->report_timer);
         if (backend->shutdown_neutral_pending && can_send_result == 0) {
             swbt_diagnostic_trace("production: shutdown neutral pending sent");
@@ -157,7 +208,7 @@ static void swbt_daemon_production_hid_packet_handler(uint8_t packet_type, uint1
             return;
         }
         swbt_diagnostic_trace("production: hid connection closed");
-        backend->adapter->report_timer_stop(backend->adapter_context, &backend->report_timer);
+        backend->adapter->report_timer.stop(backend->adapter_context, &backend->report_timer);
         if (backend->shutdown_neutral_pending) {
             swbt_diagnostic_trace("production: shutdown neutral pending connection closed");
             backend->shutdown_neutral_pending = false;
@@ -181,7 +232,7 @@ static int swbt_daemon_production_hid_register(void *context) {
     swbt_diagnostic_trace("production: hid register enter");
     if (!backend->platform_started) {
         swbt_diagnostic_trace("production: platform start");
-        if (backend->adapter->platform_start(backend->adapter_context) != 0) {
+        if (backend->adapter->platform.start(backend->adapter_context) != 0) {
             swbt_diagnostic_trace("production: platform start failed");
             return -1;
         }
@@ -193,15 +244,15 @@ static int swbt_daemon_production_hid_register(void *context) {
     config.packet_handler = swbt_daemon_production_hid_packet_handler;
     g_active_backend = backend;
     swbt_diagnostic_trace("production: hid register btstack");
-    if (backend->adapter->hid_register(backend->adapter_context, backend->hid_service_buffer,
-                                       sizeof(backend->hid_service_buffer), &config) != 0) {
+    if (backend->adapter->hid.register_device(backend->adapter_context, backend->hid_service_buffer,
+                                              sizeof(backend->hid_service_buffer), &config) != 0) {
         swbt_diagnostic_trace("production: hid register failed");
         if (g_active_backend == backend) {
             g_active_backend = NULL;
         }
         if (backend->platform_started) {
             swbt_diagnostic_trace("production: platform stop after hid failure");
-            backend->adapter->platform_stop(backend->adapter_context);
+            backend->adapter->platform.stop(backend->adapter_context);
             backend->platform_started = false;
             swbt_diagnostic_trace("production: platform stop after hid failure done");
         }
@@ -219,7 +270,7 @@ static void swbt_daemon_production_hid_stop(void *context) {
     }
     if (backend->hid_registered) {
         swbt_diagnostic_trace("production: hid stop");
-        backend->adapter->hid_stop(backend->adapter_context);
+        backend->adapter->hid.stop(backend->adapter_context);
         backend->hid_registered = false;
     }
     if (g_active_backend == backend) {
@@ -227,7 +278,7 @@ static void swbt_daemon_production_hid_stop(void *context) {
     }
     if (backend->platform_started) {
         swbt_diagnostic_trace("production: platform stop");
-        backend->adapter->platform_stop(backend->adapter_context);
+        backend->adapter->platform.stop(backend->adapter_context);
         backend->platform_started = false;
         swbt_diagnostic_trace("production: platform stop done");
     }
@@ -240,7 +291,7 @@ swbt_daemon_production_output_handler_start(void *context,
     if (backend == NULL || !backend->initialized) {
         return;
     }
-    backend->adapter->output_handler_start(backend->adapter_context, handler);
+    backend->adapter->output_handler.start(backend->adapter_context, handler);
 }
 
 static void swbt_daemon_production_output_handler_stop(void *context) {
@@ -248,7 +299,7 @@ static void swbt_daemon_production_output_handler_stop(void *context) {
     if (backend == NULL || !backend->initialized) {
         return;
     }
-    backend->adapter->output_handler_stop(backend->adapter_context);
+    backend->adapter->output_handler.stop(backend->adapter_context);
 }
 
 static int swbt_daemon_production_report_timer_start(
@@ -261,7 +312,7 @@ static int swbt_daemon_production_report_timer_start(
     }
 
     config = swbt_daemon_production_timer_config(backend, state_provider, state_context);
-    if (backend->adapter->report_timer_init(backend->adapter_context, &backend->report_timer,
+    if (backend->adapter->report_timer.init(backend->adapter_context, &backend->report_timer,
                                             &config) != 0) {
         return -1;
     }
@@ -274,7 +325,7 @@ static void swbt_daemon_production_report_timer_stop(void *context) {
     if (backend == NULL || !backend->initialized || !backend->report_timer_initialized) {
         return;
     }
-    backend->adapter->report_timer_stop(backend->adapter_context, &backend->report_timer);
+    backend->adapter->report_timer.stop(backend->adapter_context, &backend->report_timer);
     backend->report_timer_initialized = false;
 }
 
@@ -292,7 +343,7 @@ static int swbt_daemon_production_report_timer_send_neutral_now(void *context) {
         swbt_diagnostic_trace("production: neutral send timer stopped");
         return -1;
     }
-    const int result = backend->adapter->report_timer_send_neutral_now(backend->adapter_context,
+    const int result = backend->adapter->report_timer.send_neutral_now(backend->adapter_context,
                                                                        &backend->report_timer);
     if (result == 0) {
         swbt_diagnostic_trace("production: neutral send adapter ok");
@@ -311,7 +362,7 @@ static int swbt_daemon_production_subcommand_reply_enqueue(void *context, uint16
     if (backend == NULL || !backend->report_timer_initialized) {
         return -1;
     }
-    return backend->adapter->report_timer_enqueue_subcommand_reply(
+    return backend->adapter->report_timer.enqueue_subcommand_reply(
         backend->adapter_context, &backend->report_timer, hid_cid, report, report_size);
 }
 
@@ -323,8 +374,8 @@ static int swbt_daemon_production_read_device_info(void *context,
     }
 
     *out_device_info = backend->config.device_info;
-    return backend->adapter->read_controller_address(backend->adapter_context,
-                                                     out_device_info->bluetooth_address);
+    return backend->adapter->controller.read_controller_address(backend->adapter_context,
+                                                                out_device_info->bluetooth_address);
 }
 
 static uint32_t swbt_daemon_production_host_time_ms(void *context) {
@@ -333,7 +384,7 @@ static uint32_t swbt_daemon_production_host_time_ms(void *context) {
         return 0u;
     }
 
-    return backend->adapter->time_ms(backend->adapter_context);
+    return backend->adapter->clock.time_ms(backend->adapter_context);
 }
 
 const swbt_daemon_host_backend_t *swbt_daemon_production_host_backend(void) {
@@ -377,7 +428,7 @@ swbt_daemon_hardware_approval_from_env(const swbt_daemon_hardware_approval_env_t
 
 static swbt_daemon_production_result_t
 swbt_daemon_production_power_on(swbt_daemon_production_backend_t *backend) {
-    if (backend->adapter->power_on(backend->adapter_context) != 0) {
+    if (backend->adapter->power.on(backend->adapter_context) != 0) {
         return SWBT_DAEMON_PRODUCTION_ERROR_HARDWARE;
     }
     atomic_store(&backend->hardware_powered, true);
@@ -386,7 +437,7 @@ swbt_daemon_production_power_on(swbt_daemon_production_backend_t *backend) {
 
 static void swbt_daemon_production_power_off(swbt_daemon_production_backend_t *backend) {
     if (backend != NULL && atomic_exchange(&backend->hardware_powered, false)) {
-        backend->adapter->power_off(backend->adapter_context);
+        backend->adapter->power.off(backend->adapter_context);
     }
 }
 
@@ -395,7 +446,7 @@ static void swbt_daemon_production_finish_shutdown(swbt_daemon_production_backen
         return;
     }
     swbt_daemon_production_power_off(backend);
-    backend->adapter->run_loop_trigger_exit(backend->adapter_context);
+    backend->adapter->run_loop.trigger_exit(backend->adapter_context);
 }
 
 static bool
@@ -441,7 +492,7 @@ static void swbt_daemon_production_request_shutdown(void *context) {
         .callback = swbt_daemon_production_shutdown_on_main_thread,
         .context = backend,
     };
-    backend->adapter->run_loop_execute_on_main_thread(backend->adapter_context,
+    backend->adapter->run_loop.execute_on_main_thread(backend->adapter_context,
                                                       &backend->shutdown_callback);
 }
 
@@ -459,6 +510,9 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_backend_and_shu
     }
     if (!swbt_daemon_hardware_approval_is_granted(approval)) {
         return SWBT_DAEMON_PRODUCTION_ERROR_HARDWARE_APPROVAL_REQUIRED;
+    }
+    if (!swbt_daemon_production_adapter_is_valid(backend->adapter)) {
+        return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
     }
 
     swbt_diagnostic_trace("production: host init");
@@ -498,7 +552,7 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_backend_and_shu
         }
         if (result == SWBT_DAEMON_PRODUCTION_OK) {
             swbt_diagnostic_trace("production: run loop execute");
-            backend->adapter->run_loop_execute(backend->adapter_context);
+            backend->adapter->run_loop.execute(backend->adapter_context);
             swbt_diagnostic_trace("production: run loop returned");
         }
         if (shutdown_listener_installed) {
