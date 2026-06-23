@@ -11,8 +11,8 @@ static swbt_daemon_production_backend_t *g_active_backend;
 static void swbt_daemon_production_finish_shutdown(swbt_daemon_production_backend_t *backend);
 static void swbt_daemon_production_shutdown_on_main_thread(void *context);
 
-static bool swbt_daemon_production_ipc_pump_port_is_valid(
-    const swbt_btstack_production_ipc_pump_port_t *port) {
+static bool
+swbt_daemon_production_ipc_pump_port_is_valid(const swbt_btstack_production_ipc_pump_port_t *port) {
     return port != NULL && port->start != NULL && port->stop != NULL;
 }
 
@@ -343,8 +343,8 @@ static int swbt_daemon_production_report_timer_send_neutral_now(void *context) {
         swbt_diagnostic_trace("production: neutral send timer stopped");
         return -1;
     }
-    const int result = backend->adapter->report_timer.send_neutral_now(
-        backend->adapter_context, &backend->report_timer);
+    const int result = backend->adapter->report_timer.send_neutral_now(backend->adapter_context,
+                                                                       &backend->report_timer);
     if (result == 0) {
         swbt_diagnostic_trace("production: neutral send adapter ok");
     } else if (result > 0) {
@@ -374,8 +374,8 @@ static int swbt_daemon_production_read_device_info(void *context,
     }
 
     *out_device_info = backend->config.device_info;
-    return backend->adapter->controller.read_controller_address(
-        backend->adapter_context, out_device_info->bluetooth_address);
+    return backend->adapter->controller.read_controller_address(backend->adapter_context,
+                                                                out_device_info->bluetooth_address);
 }
 
 static uint32_t swbt_daemon_production_host_time_ms(void *context) {
