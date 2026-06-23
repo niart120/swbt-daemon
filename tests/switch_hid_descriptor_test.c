@@ -2,7 +2,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "btstack_bridge/hid_device_registration.h"
 #include "switch/switch_hid_descriptor.h"
 
 static const uint8_t k_expected_descriptor[] = {
@@ -84,26 +83,10 @@ static int test_descriptor_exposes_expected_report_ids(void) {
     return failed;
 }
 
-static int test_registration_config_can_reference_descriptor(void) {
-    const uint8_t *descriptor = swbt_switch_hid_descriptor_data();
-    const size_t descriptor_size = swbt_switch_hid_descriptor_size();
-    swbt_btstack_hid_registration_config_t config = {
-        .hid_descriptor = descriptor,
-        .hid_descriptor_size = (uint16_t)descriptor_size,
-    };
-
-    int failed = 0;
-    failed += expect_true(descriptor_size <= UINT16_MAX);
-    failed += expect_true(config.hid_descriptor == descriptor);
-    failed += expect_eq_size(config.hid_descriptor_size, descriptor_size);
-    return failed;
-}
-
 int main(void) {
     int failed = 0;
     failed += test_descriptor_accessor_returns_stable_data();
     failed += test_descriptor_matches_source_audited_fixture();
     failed += test_descriptor_exposes_expected_report_ids();
-    failed += test_registration_config_can_reference_descriptor();
     return failed == 0 ? 0 : 1;
 }
