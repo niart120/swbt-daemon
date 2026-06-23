@@ -88,7 +88,7 @@ not applicable。
 | done | production path report send failure increments send failure counters and keeps cleanup behavior | regression | integration | no |
 | done | rejected IPC state update increments rejected metrics without changing controller state | regression | unit | no |
 | done | coalesced state update count is either connected or documented as unavailable / zero by design | characterization | unit | no |
-| todo | status response preserves existing metrics field names and units | regression | unit | no |
+| done | status response preserves existing metrics field names and units | regression | unit | no |
 
 ## 10. 検証
 
@@ -117,6 +117,12 @@ item 4:
   - result: pass。`application_command_test` 1/1 passed。
   - red は実施しない。current behavior が intended behavior と一致していたため、`ipc_state_coalesced` を 0 by design として test で固定した。
 
+item 5:
+
+- regression: `$env:CTEST_ARGS='-R ipc_json_test'; just test-debug`
+  - result: pass。`ipc_json_test` 1/1 passed。
+  - `ipc_json_test` は status response の metrics field name と `_total` / `_us` / `_hz` suffix を既存 JSON 文字列で固定している。
+
 item 1 での棚卸し結果:
 
 - `swbt_metrics_record_report_tick` と `swbt_app_record_report_tick` は既存 API として存在していた。
@@ -142,6 +148,12 @@ item 4 での判断:
 - そのため、production path では coalesced update を観測しない。status schema の `ipc_state_coalesced_total` は 0 のまま返す。
 - 将来 queue / batching を導入する場合だけ、accepted update に coalesced count を渡す。
 
+item 5 での判断:
+
+- metrics field name と unit suffix は変更していない。
+- `spec/protocols/daemon-ipc-v1.md` に production path の counter 更新条件を追記した。
+- `docs/status.md` は support matrix と実機状態表であり、schema field の正本ではないため更新不要。
+
 ## 11. 実機実行条件
 
 通常は実機不要。production fake adapter と IPC JSON tests で閉じる。
@@ -158,6 +170,6 @@ none。起票時点の先送り事項は、この record の source として取
 - [x] use case を existing metrics schema の production connection として定義した。
 - [x] current metrics caller を棚卸しした。
 - [x] red test を追加した。
-- [ ] green 実装または未観測判断を記録した。
+- [x] green 実装または未観測判断を記録した。
 - [x] targeted CTest を実行した。
-- [ ] protocol docs の更新要否を判定した。
+- [x] protocol docs の更新要否を判定した。

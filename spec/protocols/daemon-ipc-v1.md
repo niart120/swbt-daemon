@@ -346,6 +346,10 @@ response:
 
 `metrics` は low-frequency diagnostic counters であり、input report ごとの event stream ではない。`*_us` は microseconds、`*_hz` は hertz、`*_total` は daemon process 内の累積 counter である。report tick counters と interval fields は scheduler または test timestamp から増える場合があるが、それだけでは hardware observation を意味しない。`hardware_status` が `"unavailable"` の場合、`actual_report_rate_hz` と `jitter_max_us` は実機観測値ではない。現行 status schema は未観測値を measured value として返さない。
 
+production backend では、periodic scheduler tick が input report send を試行したときに `report_ticks_total` を増やす。send が成功した場合は `reports_sent_total`、send callback が失敗した場合は `send_failures_total` を増やす。subcommand reply と shutdown neutral retry の send failure は、現時点では report tick metrics に含めない。
+
+`ipc_state_accepted_total` は app command path で `set_state` を accepted とした回数である。`ipc_state_rejected_total` は `set_state` が owner mismatch または stale sequence で拒否された回数であり、state は変わらない。invalid JSON と invalid state decode error は app command path に到達しないため、この counter に含めない。現行 app command path は state update queue を持たないため、`ipc_state_coalesced_total` は 0 のまま返す。
+
 `hardware.adapter_state`、`hardware.switch_connection_state`、`hardware.hid_channel_state` は adapter、Switch connection、HID channel の低頻度診断 state である。現行実装では noop backend と未観測状態を `"unavailable"` として返す。実機で観測した state 名は、この schema に追加する前に実機ログと対応する work unit で根拠を残す。
 
 `owner.present` が `false` の場合、`owner.owner_id` は `"00000000"` である。
@@ -397,7 +401,7 @@ heartbeat timeout は input timing 機能ではない。connection health 用の
 | state object field scope | protocol contract / implementation fact | `swbt/ipc/ipc_json.c`, `tests/ipc_json_test.c`, `work-units/complete/local_052/IPC_ADAPTER_COMMAND_CODEC_BOUNDARY.md` | current after `local_052` |
 | status daemon fields | protocol contract / implementation fact | `swbt/ipc/ipc_json.c`, `tests/ipc_json_test.c`, `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` | current after `local_039` |
 | status backend and hardware approval fields | protocol contract / implementation fact | `swbt/application/app.*`, `swbt/daemon/host.c`, `swbt/daemon/production_backend.c`, `swbt/ipc/ipc_adapter.c`, `tests/daemon_production_backend_test.c`, `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`, `work-units/complete/local_056/ARCHITECTURE_CUTOVER.md` | current after `local_056` |
-| status metrics field names and units | protocol contract / implementation fact | `swbt/core/metrics.h`, `swbt/ipc/ipc_json.c`, `tests/ipc_json_test.c`, `tests/report_metrics_test.c`, `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` | current after `local_039` |
+| status metrics field names and units | protocol contract / implementation fact | `swbt/core/metrics.h`, `swbt/ipc/ipc_json.c`, `swbt/btstack_bridge/input_report_timer_adapter.c`, `swbt/daemon/production_backend.c`, `tests/ipc_json_test.c`, `tests/report_metrics_test.c`, `tests/daemon_production_backend_test.c`, `tests/application_command_test.c`, `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`, `work-units/wip/local_064/PRODUCTION_STATUS_METRICS_CONNECTION.md` | current after `local_064` |
 | status hardware channel unavailable fields | protocol contract / implementation fact | `swbt/application/status.h`, `swbt/ipc/ipc_status.h`, `swbt/ipc/ipc_json.c`, `swbt/daemon/host.c`, `tests/daemon_host_test.c`, `tests/ipc_json_test.c`, `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`, `work-units/complete/local_056/ARCHITECTURE_CUTOVER.md` | current after `local_056` |
 | owner/application model | implementation fact | `swbt/application/app.*`, `swbt/ipc/ipc_adapter.*`, `tests/application_command_test.c`, `tests/ipc_server_test.c` | current after `local_056` |
 | loopback TCP transport | implementation fact | `swbt/ipc/ipc_server.*`, `tests/ipc_server_test.c` | current |
