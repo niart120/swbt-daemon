@@ -147,6 +147,8 @@ static void swbt_daemon_production_hid_packet_handler(uint8_t packet_type, uint1
             swbt_daemon_production_finish_shutdown(backend);
         } else if (backend->shutdown_neutral_pending && can_send_result != 0) {
             swbt_diagnostic_trace("production: shutdown neutral pending failed");
+            backend->shutdown_neutral_pending = false;
+            swbt_daemon_production_finish_shutdown(backend);
         }
         break;
     }

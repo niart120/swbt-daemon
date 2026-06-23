@@ -40,6 +40,7 @@ typedef struct {
     int hid_register_calls;
     int timer_start_calls;
     int timer_can_send_calls;
+    int timer_can_send_result;
     int timer_send_neutral_now_calls;
     int timer_send_neutral_now_result;
     int timer_stop_calls;
@@ -181,7 +182,7 @@ static int fake_timer_can_send_now(void *context,
     (void)adapter;
     fake->timer_can_send_calls += 1;
     record_step(fake, STEP_TIMER_CAN_SEND_NOW);
-    return 0;
+    return fake->timer_can_send_result;
 }
 
 static int fake_timer_enqueue_reply(void *context,
@@ -580,6 +581,59 @@ static int pending_stop_request_finishes_after_can_send_event(void) {
     return failed;
 }
 
+static int pending_stop_request_finishes_after_failed_can_send_event(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {
+        .timer_can_send_result = -1,
+        .timer_send_neutral_now_result = 1,
+        .fire_can_send_after_shutdown_request = 1,
+    };
+    const swbt_btstack_production_adapter_t adapter = fake_backend_adapter();
+    const swbt_daemon_shutdown_listener_t shutdown = {
+        .install = fake_shutdown_install,
+        .uninstall = fake_shutdown_uninstall,
+    };
+    swbt_daemon_production_backend_t backend;
+    const swbt_daemon_hardware_approval_t approval = {
+        .run_hardware = true,
+        .hardware_approved = true,
+    };
+    const int expected[] = {
+        STEP_IPC_START,
+        STEP_PLATFORM_START,
+        STEP_HID_REGISTER,
+        STEP_OUTPUT_START,
+        STEP_TIMER_INIT,
+        STEP_POWER_ON,
+        STEP_SHUTDOWN_INSTALL,
+        STEP_RUN_LOOP_EXECUTE,
+        STEP_RUN_LOOP_EXECUTE_ON_MAIN_THREAD,
+        STEP_TIMER_SEND_NEUTRAL_NOW,
+        STEP_TIMER_CAN_SEND_NOW,
+        STEP_POWER_OFF,
+        STEP_RUN_LOOP_TRIGGER_EXIT,
+        STEP_SHUTDOWN_UNINSTALL,
+        STEP_TIMER_STOP,
+        STEP_OUTPUT_STOP,
+        STEP_HID_STOP,
+        STEP_PLATFORM_STOP,
+        STEP_IPC_STOP,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += expect_eq_int(swbt_daemon_production_main_with_backend_and_shutdown(
+                                &backend, &approval, &shutdown, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "main result");
+    failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
+    failed += expect_eq_int(fake.timer_send_neutral_now_calls, 1, "neutral send calls");
+    failed += expect_eq_int(fake.timer_can_send_calls, 1, "can send calls");
+    failed += expect_eq_int(fake.power_off_calls, 1, "power off calls");
+    failed += expect_eq_int(fake.run_loop_trigger_exit_calls, 1, "trigger exit calls");
+    return failed;
+}
+
 static int shutdown_listener_is_not_installed_when_hardware_approval_is_missing(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_ops_t fake = {0};
@@ -752,6 +806,7 @@ int main(void) {
     failed += start_failure_cleans_started_resources_only();
     failed += stop_request_sends_neutral_before_power_off_and_run_loop_exit();
     failed += pending_stop_request_finishes_after_can_send_event();
+    failed += pending_stop_request_finishes_after_failed_can_send_event();
     failed += shutdown_listener_is_not_installed_when_hardware_approval_is_missing();
     failed += repeated_stop_request_does_not_power_off_twice();
     failed += report_period_and_ipc_config_are_exposed();
