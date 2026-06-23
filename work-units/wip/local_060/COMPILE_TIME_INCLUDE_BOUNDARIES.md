@@ -90,7 +90,7 @@ not applicable。
 | refactor-done | application target cannot include BTstack adapter internals through public include paths | regression | build | no |
 | refactor-skipped | BTstack adapter target cannot include IPC transport internals through public include paths | regression | build | no |
 | refactor-skipped | daemon host remains the composition owner for cross-module wiring | regression | build | no |
-| todo | protocol tests link without IPC, daemon host, or BTstack adapter targets | regression | build | no |
+| green | protocol tests link without IPC, daemon host, or BTstack adapter targets | regression | build | no |
 | todo | old text-only boundary checks are either removed or justified as absence checks | characterization | build | no |
 | todo | added boundary probes / targets are paired with removed or narrowed checks, or their retention condition is recorded | verification | docs/build | no |
 
@@ -137,6 +137,18 @@ TDD status:
   - boundary checks: `CTEST_ARGS="-R include_boundaries_cmake_test --output-on-failure" just test-debug` pass。`compile_include_boundaries_cmake_test` も同じ実行で pass。
 - notes: daemon host の公開 header は `daemon/host.h` と `daemon/ipc_runner.h` を probe した。`daemon/ipc_runner.h` は `ipc/ipc_server.h` を必要とするため、`swbt_ipc` も `ipc` root へ狭めた。`swbt_daemon_host` は `daemon` root を公開し、`swbt_ipc`、`swbt_btstack_adapter`、`swbt_application`、`swbt_support` を link して cross-module wiring を担う。
 - refactor: green 後に追加の構造変更は行わなかった。behavior、Switch-facing bytes、BTstack source selection は変更していない。
+
+TDD status:
+
+- source: `local_054` の protocol target link boundary。
+- use case: protocol test は IPC、daemon host、BTstack adapter target を link せず、`swbt_switch_protocol` だけで compile / link する。
+- item: protocol tests link without IPC, daemon host, or BTstack adapter targets。
+- state: green。
+- commands:
+  - green: `rg -n "target_link_libraries\\((switch_report_test|switch_hid_descriptor_test|switch_subcommand_test|switch_subcommand_reply_test|switch_subcommand_dispatcher_test|switch_spi_test|switch_spi_seed_test|switch_rumble_test|switch_player_lights_test) PRIVATE" CMakeLists.txt` で protocol test が `swbt_switch_protocol` だけを link することを確認。
+  - green: `rg -n "#include \"(ipc|daemon|btstack_bridge)/" tests/switch_* tests/swbt_smoke_test.c` は no matches。
+  - green: `CTEST_ARGS="-R \"(switch_report_test|switch_hid_descriptor_test|switch_subcommand_test|switch_subcommand_reply_test|switch_subcommand_dispatcher_test|switch_spi_test|switch_spi_seed_test|switch_rumble_test|switch_player_lights_test|include_boundaries_cmake_test)\" --output-on-failure" just test-debug` pass。`compile_include_boundaries_cmake_test` も同じ実行で pass。
+- notes: この item は既存 `include_boundaries_cmake_test` と、今回の `swbt_switch_protocol` 公開 root の縮小で満たせている。追加の build scaffolding は不要。
 
 ## 11. 実機実行条件
 
