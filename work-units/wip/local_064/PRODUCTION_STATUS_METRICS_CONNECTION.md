@@ -85,7 +85,7 @@ not applicable。
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | done | production path report tick success increments status report tick counters without implying hardware measurement | regression | integration | no |
-| todo | production path report send failure increments send failure counters and keeps cleanup behavior | regression | integration | no |
+| done | production path report send failure increments send failure counters and keeps cleanup behavior | regression | integration | no |
 | todo | rejected IPC state update increments rejected metrics without changing controller state | regression | unit | no |
 | todo | coalesced state update count is either connected or documented as unavailable / zero by design | characterization | unit | no |
 | todo | status response preserves existing metrics field names and units | regression | unit | no |
@@ -97,12 +97,25 @@ not applicable。
 - green: `$env:CTEST_ARGS='-R daemon_production_backend_test'; just test-debug`
   - result: pass。`daemon_production_backend_test` 1/1 passed。
 
+item 2:
+
+- red: `$env:CTEST_ARGS='-R daemon_production_backend_test'; just test-debug`
+  - result: expected failure。`production_report_failure_updates_send_failure_metrics_and_cleans_up` で `report_ticks` と `report_send_failed` が 0 のままだった。
+- green: `$env:CTEST_ARGS='-R daemon_production_backend_test'; just test-debug`
+  - result: pass。`daemon_production_backend_test` 1/1 passed。
+
 item 1 での棚卸し結果:
 
 - `swbt_metrics_record_report_tick` と `swbt_app_record_report_tick` は既存 API として存在していた。
 - production report timer adapter は periodic scheduler tick の `now_us` と send result を同時に持つ唯一の境界である。
 - production backend は timer adapter の `report_tick_observer` を `swbt_app_record_report_tick` に接続する。
 - `hardware_status`、`actual_report_rate_hz`、`jitter_max_us` は実機観測なしでは更新しない。
+
+item 2 での判断:
+
+- periodic scheduler tick が `SWBT_BTSTACK_INPUT_REPORT_ERROR_SEND_FAILED` を返した場合だけ `report_send_failed` を増やす。
+- subcommand reply や shutdown neutral retry の失敗は、現時点では report tick metrics として数えない。
+- failure metrics の更新後も production main の cleanup は `power_off` と `report_timer.stop` まで進む。
 
 ## 11. 実機実行条件
 

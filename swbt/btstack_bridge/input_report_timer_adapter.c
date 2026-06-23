@@ -65,11 +65,14 @@ static void notify_report_tick(swbt_btstack_input_report_timer_adapter_t *adapte
     if (adapter == NULL || adapter->report_tick_observer == NULL) {
         return;
     }
-    if (tick_result != SWBT_BTSTACK_INPUT_REPORT_OK) {
+    if (tick_result == SWBT_BTSTACK_INPUT_REPORT_OK) {
+        send_result = SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_OK;
+    } else if (tick_result == SWBT_BTSTACK_INPUT_REPORT_ERROR_SEND_FAILED) {
+        send_result = SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_FAILED;
+    } else {
         return;
     }
 
-    send_result = SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_OK;
     adapter->report_tick_observer(adapter->report_tick_context, now_us, send_result);
 }
 
