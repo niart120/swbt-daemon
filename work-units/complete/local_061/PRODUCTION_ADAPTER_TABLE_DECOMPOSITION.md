@@ -83,7 +83,7 @@ adapter table の構造だけを変える場合は not applicable。BTstack call
 - `tests/daemon_production_backend_test.c`
 - `tests/architecture_journey_test.c`
 - `spec/architecture/daemon-architecture-cutover.md`
-- `work-units/wip/local_061/PRODUCTION_ADAPTER_TABLE_DECOMPOSITION.md`
+- `work-units/complete/local_061/PRODUCTION_ADAPTER_TABLE_DECOMPOSITION.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
@@ -178,6 +178,11 @@ TDD status:
 - notes: 分割前の `swbt_btstack_production_adapter_t` は top-level に 22 callback field を持っていた。分割後の top-level は `ipc_pump`、`platform`、`hid`、`output_handler`、`report_timer`、`controller`、`clock`、`power`、`run_loop` の 9 group field である。leaf callback 数は 22 のまま残した。これは hardware-facing 能力自体を削除できないためであり、広い rollback table を復活させたわけではない。`backend_init` は IPC pump port だけで初期化できるため、test double は必要な能力だけを実装できる。
 - diff: code files は `production_adapter.h` `+62/-29`、`production_btstack.c` `+50/-22`、`production_backend.c` `+97/-43`、`btstack_production_hci_dump_test.c` `+2/-2`、`daemon_production_backend_test.c` `+108/-22`。追加 file はない。
 - refactor: 変更なし。完了判定の記録のみ。
+
+Full verification:
+
+- `just verify` pass。format check、clang-tidy build、linux-debug build / CTest、linux-asan build / CTest、Windows MinGW cross build を実行した。
+- 実機は未実行。adapter table の構造変更に閉じ、Switch-facing bytes、BTstack source selection、timer scheduling、HID registration order、shutdown power-off order を変更していない。
 
 ## 11. 実機実行条件
 
