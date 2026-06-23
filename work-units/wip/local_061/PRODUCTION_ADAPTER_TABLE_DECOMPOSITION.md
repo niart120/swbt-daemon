@@ -93,7 +93,7 @@ adapter table の構造だけを変える場合は not applicable。BTstack call
 | green | shutdown neutral failure cleanup still reaches power-off after adapter decomposition | regression | integration | no |
 | refactor-skipped | production host lifecycle uses explicit port groups instead of one wide table | new | integration | no |
 | green | old production backend ops table symbols remain absent | regression | build | no |
-| todo | hardware gate need is recorded if composition or scheduling changes | characterization | docs | yes |
+| green | hardware gate need is recorded if composition or scheduling changes | characterization | docs | yes |
 | todo | decomposition reduces or justifies the production adapter call surface instead of wrapping it with another broad layer | verification | docs/integration | no |
 
 ## 10. 検証
@@ -151,6 +151,19 @@ TDD status:
 - notes: `tests/cmake/architecture_absence_test.cmake` は `production_backend_` と `ops` を split token で組み立て、source / tests / build graph から旧 token を検出する。今回の adapter group 化ではこの absence test を変更していない。
 - refactor: 変更なし。既存 absence gate の確認のみ。
 
+TDD status:
+
+- source: この record の実機実行条件と `local_057` H1 条件。
+- use case: adapter table の分割が Switch-facing bytes、BTstack callback registration、timer scheduling、shutdown power-off order を変えたかを判定し、必要なら H1 再実行条件を記録する。
+- item: hardware gate need is recorded if composition or scheduling changes。
+- state: green。
+- commands:
+  - green: `git diff --name-only main..HEAD` で変更対象を確認。
+  - green: `git diff main..HEAD -- swbt/daemon/production_backend.c swbt/btstack_bridge/production_btstack.c` で production-facing 差分を確認。
+  - green: `just test-debug` pass。
+- notes: `production_btstack.c` の差分は adapter 初期化子の group 化に閉じる。`production_backend.c` は port validation と callback field 経由の呼び出し先を変更したが、host start、HID register、timer init、power-on、run loop、shutdown neutral、power-off、host stop の順序は変えていない。Switch-facing bytes、BTstack source selection、timer period、BTstack timer scheduling、HID packet handler registration の意味は変えていないため、H1 実機再実行は不要。
+- refactor: 変更なし。hardware gate 判定の記録のみ。
+
 ## 11. 実機実行条件
 
 software-only 分割で Switch-facing bytes、BTstack initialization、callback registration、timer / send scheduling、shutdown 実機順序を変えない場合は実機不要。
@@ -168,7 +181,7 @@ none。起票時点の先送り事項は、この record の source として取
 - [x] adapter table field を棚卸しした。
 - [x] red test を追加した。
 - [x] green 実装を行った。
-- [ ] hardware gate の要否を判定した。
+- [x] hardware gate の要否を判定した。
 - [x] `just debug` または targeted CTest を実行した。
 - [ ] 分割前後の field 数、fake callback 数、test helper 量を比較した。
 - [ ] 追加した port と削除または縮小した call surface を対応付けた。
