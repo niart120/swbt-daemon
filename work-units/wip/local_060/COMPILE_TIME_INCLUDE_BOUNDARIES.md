@@ -88,7 +88,7 @@ not applicable。
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | refactor-done | application target cannot include BTstack adapter internals through public include paths | regression | build | no |
-| todo | BTstack adapter target cannot include IPC transport internals through public include paths | regression | build | no |
+| refactor-skipped | BTstack adapter target cannot include IPC transport internals through public include paths | regression | build | no |
 | todo | daemon host remains the composition owner for cross-module wiring | regression | build | no |
 | todo | protocol tests link without IPC, daemon host, or BTstack adapter targets | regression | build | no |
 | todo | old text-only boundary checks are either removed or justified as absence checks | characterization | build | no |
@@ -109,6 +109,20 @@ TDD status:
   - affected checks: `CTEST_ARGS="-R \"(compile_include_boundaries_cmake_test|include_boundaries_cmake_test|switch_hid_descriptor_test|daemon_production_hid_sdp_record_test)\" --output-on-failure" just test-debug` pass。
 - notes: `swbt_application` の公開依存である `swbt_support` と `swbt_switch_protocol` が `swbt/` 全体を公開したままだと、推移的 include path から `btstack_bridge/` が見える。そのため 3 target の公開 include root を build directory の `swbt_public_includes/` 配下に生成し、公開 module を `application`、`core`、`switch` に限定した。target 自身の source compile には source tree の `swbt/` を `PRIVATE` include path として残す。生成 include root の更新は `CMAKE_CURRENT_BINARY_DIR/swbt_public_includes/<target>` 配下だけに限定し、path guard を置いた。
 - refactor: `switch_hid_descriptor_test` は protocol target だけに link する test なので、BTstack registration config への接続確認を `daemon_production_hid_sdp_record_test` へ移した。descriptor bytes / size / report ID の検査は protocol test に残した。
+
+TDD status:
+
+- source: `local_058` の先送り事項。
+- use case: `swbt_btstack_adapter` を link する利用側が、BTstack adapter の公開 header とその公開依存を使える一方で、IPC transport header を include できない。
+- item: BTstack adapter target cannot include IPC transport internals through public include paths。
+- state: refactor-skipped。
+- commands:
+  - red: `just build-debug` pass。`CTEST_ARGS="-R compile_include_boundaries_cmake_test --output-on-failure" just test-debug` は `swbt_btstack_adapter public include root is missing` で fail。
+  - green: `just build-debug` pass。`CTEST_ARGS="-R compile_include_boundaries_cmake_test --output-on-failure" just test-debug` pass。
+  - affected checks: `CTEST_ARGS="-R \"(btstack_hid_device_registration_test|btstack_hid_device_btstack_adapter_test|btstack_output_report_handler_test|btstack_input_report_timer_adapter_test|btstack_input_report_scheduler_test|btstack_subcommand_reply_queue_test|btstack_output_report_callbacks_test)\" --output-on-failure" just test-debug` pass。
+  - boundary checks: `CTEST_ARGS="-R include_boundaries_cmake_test --output-on-failure" just test-debug` pass。`compile_include_boundaries_cmake_test` も同じ実行で pass。
+- notes: `swbt_btstack_adapter` の公開 include root は `btstack_bridge` に限定した。`btstack_run_loop.h` など BTstack upstream header は public header から参照されるため、`swbt_btstack_selected_include_dirs` は public include path として残した。IPC module は公開 root に含めない。
+- refactor: green 後に追加の構造変更は行わなかった。今回の変更は `swbt_configure_module_public_includes(swbt_btstack_adapter MODULES btstack_bridge)` の適用に閉じる。
 
 ## 11. 実機実行条件
 

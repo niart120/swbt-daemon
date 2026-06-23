@@ -176,11 +176,8 @@ add_library(swbt_btstack_adapter STATIC
     swbt/btstack_bridge/subcommand_reply_queue.c
     swbt/btstack_bridge/timer_port.c
 )
-target_include_directories(swbt_btstack_adapter
-    PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/swbt"
-        ${swbt_btstack_selected_include_dirs}
-)
+swbt_configure_module_public_includes(swbt_btstack_adapter MODULES btstack_bridge)
+target_include_directories(swbt_btstack_adapter PUBLIC ${swbt_btstack_selected_include_dirs})
 target_link_libraries(swbt_btstack_adapter PUBLIC swbt_application swbt_switch_protocol swbt_support)
 swbt_apply_common_warnings(swbt_btstack_adapter)
 swbt_apply_sanitizers(swbt_btstack_adapter)
