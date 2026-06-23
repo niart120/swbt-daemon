@@ -197,6 +197,7 @@ static void fake_record_hid_input_report(fake_ops_t *fake, uint16_t hid_cid, con
     const int send_index = fake->hid_send_calls;
     fake->last_hid_cid = hid_cid;
     fake->last_hid_message[0] = 0xa1u;
+    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     memcpy(&fake->last_hid_message[1], report, written);
     fake->last_hid_message_len = (uint16_t)(written + 1u);
     if (send_index >= 0 && send_index < (int)(sizeof(fake->hid_send_button_bytes) /
