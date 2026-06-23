@@ -58,6 +58,7 @@ static bool backend_is_valid(const swbt_btstack_input_report_timer_backend_t *ba
            backend->send_interrupt_message != NULL;
 }
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 static void notify_report_tick(swbt_btstack_input_report_timer_adapter_t *adapter, uint64_t now_us,
                                swbt_btstack_input_report_result_t tick_result) {
     swbt_btstack_input_report_timer_report_send_result_t send_result;
@@ -75,6 +76,7 @@ static void notify_report_tick(swbt_btstack_input_report_timer_adapter_t *adapte
 
     adapter->report_tick_observer(adapter->report_tick_context, now_us, send_result);
 }
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
 static swbt_btstack_input_report_timer_result_t
 schedule_next_timer(swbt_btstack_input_report_timer_adapter_t *adapter, uint64_t now_us) {
