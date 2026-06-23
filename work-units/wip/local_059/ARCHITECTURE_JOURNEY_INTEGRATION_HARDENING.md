@@ -80,7 +80,7 @@ not applicable。
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | JSON IPC set_state reaches fake HID report send through daemon host without old runtime symbols | regression | integration | no |
+| refactor-skipped | JSON IPC set_state reaches fake HID report send through daemon host without old runtime symbols | regression | integration | no |
 | todo | owner disconnect in the journey emits neutral before reacquire | regression | integration | no |
 | todo | daemon shutdown in the journey emits trailing neutral before fake power-off / run-loop exit | regression | integration | no |
 | todo | architecture journey target links only cutover-era module targets | regression | build | no |
@@ -88,7 +88,17 @@ not applicable。
 
 ## 10. 検証
 
-未実行。起票のみで、実装と test はまだ追加していない。
+TDD status:
+
+- source: `local_058` の先送り事項。
+- use case: production backend の run loop 中に JSON IPC `acquire` / `set_state` を処理し、daemon host の state provider から fake HID send へ状態が届く。
+- item: JSON IPC set_state reaches fake HID report send through daemon host without old runtime symbols。
+- state: refactor-skipped。
+- commands:
+  - red: `just build-debug` pass。`CTEST_ARGS="-R daemon_production_backend_test --output-on-failure" just test-debug` は `hid send calls: expected 1, got 0` で fail。
+  - green: `just build-debug` pass。`CTEST_ARGS="-R daemon_production_backend_test --output-on-failure" just test-debug` pass。
+  - format: `just format` pass。
+- notes: `tdd-one-cycle` と `refactor-after-green` に従った。green 後の見直しでは、今回の item で必要な構造変更は fake timer の観測点追加だけだったため `refactor-skipped` とした。Switch-facing byte、BTstack source selection、report period は変更していない。
 
 開始時の確認:
 
@@ -109,8 +119,8 @@ none。起票時点の先送り事項は、この record の source として取
 
 - [x] source を `local_058` の先送り事項から特定した。
 - [x] use case を integration journey として定義した。
-- [ ] red test を追加した。
-- [ ] green 実装を行った。
-- [ ] `just debug` または targeted CTest を実行した。
+- [x] red test を追加した。
+- [x] green 実装を行った。
+- [x] `just debug` または targeted CTest を実行した。
 - [ ] full verification の要否を判定した。
-- [ ] 実機未実行理由または実機結果を記録した。
+- [x] 実機未実行理由または実機結果を記録した。
