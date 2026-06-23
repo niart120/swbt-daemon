@@ -82,7 +82,7 @@ not applicable。
 |---|---|---|---|---|
 | refactor-skipped | JSON IPC set_state reaches fake HID report send through daemon host without old runtime symbols | regression | integration | no |
 | refactor-done | owner disconnect in the journey emits neutral before reacquire | regression | integration | no |
-| todo | daemon shutdown in the journey emits trailing neutral before fake power-off / run-loop exit | regression | integration | no |
+| refactor-skipped | daemon shutdown in the journey emits trailing neutral before fake power-off / run-loop exit | regression | integration | no |
 | todo | architecture journey target links only cutover-era module targets | regression | build | no |
 | todo | failure-cleanup regression remains separate from normal journey naming | regression | unit | no |
 
@@ -111,6 +111,17 @@ TDD status:
   - green: `just build-debug` pass。`CTEST_ARGS="-R daemon_production_backend_test --output-on-failure" just test-debug` pass。
   - refactor: `just format` pass。`just build-debug` pass。`CTEST_ARGS="-R daemon_production_backend_test --output-on-failure" just test-debug` pass。
 - notes: green 後に fake run loop の JSON command 注入と HID event 注入を helper へ分離した。観測対象の順序は A report、disconnect neutral、reacquire 後 A report のまま。実機は不要。
+
+TDD status:
+
+- source: `local_058` の先送り事項。
+- use case: JSON state が入った production-like journey の shutdown で、trailing neutral が fake HID send として power-off / run-loop exit より前に観測される。
+- item: daemon shutdown in the journey emits trailing neutral before fake power-off / run-loop exit。
+- state: refactor-skipped。
+- commands:
+  - red: `just build-debug` pass。`CTEST_ARGS="-R daemon_production_backend_test --output-on-failure" just test-debug` は `hid send calls: expected 2, got 1` で fail。
+  - green: `just format` pass。`just build-debug` pass。`CTEST_ARGS="-R daemon_production_backend_test --output-on-failure" just test-debug` pass。
+- notes: fake `report_timer_send_neutral_now` でも HIDP input message を記録し、既存の step order check と合わせて trailing neutral が `STEP_POWER_OFF` と `STEP_RUN_LOOP_TRIGGER_EXIT` より前に出ることを固定した。追加の refactor は不要。
 
 開始時の確認:
 

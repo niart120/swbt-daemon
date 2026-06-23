@@ -188,6 +188,24 @@ static int fake_timer_start(void *context, swbt_btstack_input_report_timer_adapt
     return 0;
 }
 
+static void fake_record_hid_input_report(fake_ops_t *fake, uint16_t hid_cid, const uint8_t *report,
+                                         size_t written) {
+    if (fake == NULL || report == NULL || written + 1u > sizeof(fake->last_hid_message)) {
+        return;
+    }
+
+    const int send_index = fake->hid_send_calls;
+    fake->last_hid_cid = hid_cid;
+    fake->last_hid_message[0] = 0xa1u;
+    memcpy(&fake->last_hid_message[1], report, written);
+    fake->last_hid_message_len = (uint16_t)(written + 1u);
+    if (send_index >= 0 && send_index < (int)(sizeof(fake->hid_send_button_bytes) /
+                                              sizeof(fake->hid_send_button_bytes[0]))) {
+        fake->hid_send_button_bytes[send_index] = report[3];
+    }
+    fake->hid_send_calls += 1;
+}
+
 static int fake_timer_can_send_now(void *context,
                                    swbt_btstack_input_report_timer_adapter_t *adapter) {
     fake_ops_t *fake = context;
@@ -203,18 +221,8 @@ static int fake_timer_can_send_now(void *context,
         size_t written = 0u;
         options.timer = 0x42u;
         if (swbt_switch_build_standard_full_report(&state, &options, report, sizeof(report),
-                                                   &written) == SWBT_SWITCH_REPORT_OK &&
-            written + 1u <= sizeof(fake->last_hid_message)) {
-            const int send_index = fake->hid_send_calls;
-            fake->last_hid_cid = 0x0042u;
-            fake->last_hid_message[0] = 0xa1u;
-            memcpy(&fake->last_hid_message[1], report, written);
-            fake->last_hid_message_len = (uint16_t)(written + 1u);
-            if (send_index >= 0 && send_index < (int)(sizeof(fake->hid_send_button_bytes) /
-                                                      sizeof(fake->hid_send_button_bytes[0]))) {
-                fake->hid_send_button_bytes[send_index] = report[3];
-            }
-            fake->hid_send_calls += 1;
+                                                   &written) == SWBT_SWITCH_REPORT_OK) {
+            fake_record_hid_input_report(fake, 0x0042u, report, written);
         }
     }
     return fake->timer_can_send_result;
@@ -237,6 +245,18 @@ static int fake_timer_send_neutral_now(void *context,
     (void)adapter;
     fake->timer_send_neutral_now_calls += 1;
     record_step(fake, STEP_TIMER_SEND_NEUTRAL_NOW);
+    if (fake->timer_send_neutral_now_result == 0) {
+        swbt_switch_report_options_t options =
+            fake->captured_timer_config.scheduler_config.report_options;
+        const swbt_state_t state = swbt_state_neutral();
+        uint8_t report[SWBT_SWITCH_STANDARD_FULL_REPORT_SIZE];
+        size_t written = 0u;
+        options.timer = 0x42u;
+        if (swbt_switch_build_standard_full_report(&state, &options, report, sizeof(report),
+                                                   &written) == SWBT_SWITCH_REPORT_OK) {
+            fake_record_hid_input_report(fake, 0x0042u, report, written);
+        }
+    }
     return fake->timer_send_neutral_now_result;
 }
 
@@ -694,6 +714,57 @@ static int stop_request_sends_neutral_before_power_off_and_run_loop_exit(void) {
     return failed;
 }
 
+static int shutdown_after_json_state_sends_trailing_neutral_before_power_off(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {
+        .inject_json_state_during_run_loop = 1,
+    };
+    const swbt_btstack_production_adapter_t adapter = fake_backend_adapter();
+    const swbt_daemon_shutdown_listener_t shutdown = {
+        .install = fake_shutdown_install,
+        .uninstall = fake_shutdown_uninstall,
+    };
+    swbt_daemon_production_backend_t backend;
+    const swbt_daemon_hardware_approval_t approval = {
+        .run_hardware = true,
+        .hardware_approved = true,
+    };
+    const int expected[] = {
+        STEP_IPC_START,
+        STEP_PLATFORM_START,
+        STEP_HID_REGISTER,
+        STEP_OUTPUT_START,
+        STEP_TIMER_INIT,
+        STEP_POWER_ON,
+        STEP_SHUTDOWN_INSTALL,
+        STEP_RUN_LOOP_EXECUTE,
+        STEP_TIMER_CAN_SEND_NOW,
+        STEP_RUN_LOOP_EXECUTE_ON_MAIN_THREAD,
+        STEP_TIMER_SEND_NEUTRAL_NOW,
+        STEP_POWER_OFF,
+        STEP_RUN_LOOP_TRIGGER_EXIT,
+        STEP_SHUTDOWN_UNINSTALL,
+        STEP_TIMER_STOP,
+        STEP_OUTPUT_STOP,
+        STEP_HID_STOP,
+        STEP_PLATFORM_STOP,
+        STEP_IPC_STOP,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += expect_eq_int(swbt_daemon_production_main_with_backend_and_shutdown(
+                                &backend, &approval, &shutdown, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "main result");
+    failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
+    failed += expect_eq_int(fake.injected_json_result, 0, "json commands");
+    failed += expect_eq_int(fake.hid_send_calls, 2, "hid send calls");
+    failed += expect_eq_u8(fake.hid_send_button_bytes[0], 0x08u, "state button byte");
+    failed += expect_eq_u8(fake.hid_send_button_bytes[1], 0x00u, "shutdown neutral byte");
+    return failed;
+}
+
 static int pending_stop_request_finishes_after_can_send_event(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_ops_t fake = {
@@ -972,6 +1043,7 @@ int main(void) {
     failed += approved_backend_status_exposes_production_without_hardware_metrics();
     failed += start_failure_cleans_started_resources_only();
     failed += stop_request_sends_neutral_before_power_off_and_run_loop_exit();
+    failed += shutdown_after_json_state_sends_trailing_neutral_before_power_off();
     failed += pending_stop_request_finishes_after_can_send_event();
     failed += pending_stop_request_finishes_after_failed_can_send_event();
     failed += shutdown_listener_is_not_installed_when_hardware_approval_is_missing();
