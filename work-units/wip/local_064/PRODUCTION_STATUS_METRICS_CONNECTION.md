@@ -84,7 +84,7 @@ not applicable。
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | production path report tick success increments status report tick counters without implying hardware measurement | regression | integration | no |
+| done | production path report tick success increments status report tick counters without implying hardware measurement | regression | integration | no |
 | todo | production path report send failure increments send failure counters and keeps cleanup behavior | regression | integration | no |
 | todo | rejected IPC state update increments rejected metrics without changing controller state | regression | unit | no |
 | todo | coalesced state update count is either connected or documented as unavailable / zero by design | characterization | unit | no |
@@ -92,7 +92,17 @@ not applicable。
 
 ## 10. 検証
 
-未実行。起票のみで、実装と test はまだ追加していない。
+- red: `just build-debug`
+  - result: expected failure。`tests/daemon_production_backend_test.c` が未実装の `report_tick_observer` / `report_tick_context` / `SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_OK` を参照し、build が失敗した。
+- green: `$env:CTEST_ARGS='-R daemon_production_backend_test'; just test-debug`
+  - result: pass。`daemon_production_backend_test` 1/1 passed。
+
+item 1 での棚卸し結果:
+
+- `swbt_metrics_record_report_tick` と `swbt_app_record_report_tick` は既存 API として存在していた。
+- production report timer adapter は periodic scheduler tick の `now_us` と send result を同時に持つ唯一の境界である。
+- production backend は timer adapter の `report_tick_observer` を `swbt_app_record_report_tick` に接続する。
+- `hardware_status`、`actual_report_rate_hz`、`jitter_max_us` は実機観測なしでは更新しない。
 
 ## 11. 実機実行条件
 
@@ -108,8 +118,8 @@ none。起票時点の先送り事項は、この record の source として取
 
 - [x] source を `local_039` と `local_058` から特定した。
 - [x] use case を existing metrics schema の production connection として定義した。
-- [ ] current metrics caller を棚卸しした。
-- [ ] red test を追加した。
+- [x] current metrics caller を棚卸しした。
+- [x] red test を追加した。
 - [ ] green 実装または未観測判断を記録した。
-- [ ] targeted CTest を実行した。
+- [x] targeted CTest を実行した。
 - [ ] protocol docs の更新要否を判定した。
