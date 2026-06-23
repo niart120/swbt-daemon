@@ -92,7 +92,7 @@ adapter table の構造だけを変える場合は not applicable。BTstack call
 | refactor-skipped | fake production test can provide IPC pump ability without implementing unrelated BTstack abilities | new | unit | no |
 | green | shutdown neutral failure cleanup still reaches power-off after adapter decomposition | regression | integration | no |
 | refactor-skipped | production host lifecycle uses explicit port groups instead of one wide table | new | integration | no |
-| todo | old production backend ops table symbols remain absent | regression | build | no |
+| green | old production backend ops table symbols remain absent | regression | build | no |
 | todo | hardware gate need is recorded if composition or scheduling changes | characterization | docs | yes |
 | todo | decomposition reduces or justifies the production adapter call surface instead of wrapping it with another broad layer | verification | docs/integration | no |
 
@@ -137,6 +137,19 @@ TDD status:
   - format: `scripts/format.sh` pass。`scripts/check-format.sh` pass。
 - notes: `swbt_btstack_production_adapter_t` の top-level は `ipc_pump`、`platform`、`hid`、`output_handler`、`report_timer`、`controller`、`clock`、`power`、`run_loop` の 9 group になった。production host backend の処理順序は変えず、呼び出し先だけを group field へ移した。HCI dump test は platform port 経由の起動失敗確認に更新した。
 - refactor: green 後の追加構造変更は行わなかった。今回の構造変更は adapter field の group 化に閉じる。
+
+TDD status:
+
+- source: `local_056` の production backend ops table 削除条件。
+- use case: adapter 分割作業中に、旧 `production_backend_ops` header や `swbt_daemon_production_backend_ops_t` を rollback point として戻していない。
+- item: old production backend ops table symbols remain absent。
+- state: green。
+- commands:
+  - green: `rg -n "production_backend_ops|swbt_daemon_production_backend_ops_t" swbt apps api tests CMakeLists.txt` は no matches。
+  - green: `Test-Path swbt/daemon/production_backend_ops.h` は `False`。
+  - green: `just test-debug` pass。`architecture_absence_cmake_test` はこの実行に含まれる。
+- notes: `tests/cmake/architecture_absence_test.cmake` は `production_backend_` と `ops` を split token で組み立て、source / tests / build graph から旧 token を検出する。今回の adapter group 化ではこの absence test を変更していない。
+- refactor: 変更なし。既存 absence gate の確認のみ。
 
 ## 11. 実機実行条件
 
