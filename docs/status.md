@@ -15,9 +15,9 @@
 | Switch UI 入力反映 | `0x21` reply 後、NyXPy の Button A 入力が Switch2 の画面遷移に反映された。 | `docs/hardware-test-log.md`, `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` |
 | `swbt-pro` default profile | 上記構成で、`SWBT_DEVICE_INFO_PROFILE` 未指定の production run が `swbt-pro` の request device info reply と Switch UI 入力反映まで進むことを観測した。 | `docs/hardware-test-log.md`, `work-units/complete/local_049/SWBT_PRO_HARDWARE_VERIFICATION.md` |
 | report period comparison | `8000 / 8333 / 15000 / 16667 us` は画面遷移までの粗い受理確認を通過した。 | `docs/hardware-test-log.md`, `spec/references/btstack-periodic-input-report-core.md` |
-| neutral fail-safe | owner disconnect、heartbeat timeout、shutdown で neutral report へ戻ることを観測した。architecture cutover 後の H1 でも owner disconnect neutral と shutdown trailing neutral を確認した。 | `docs/hardware-test-log.md`, `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md`, `work-units/complete/local_057/ARCHITECTURE_CUTOVER_H1.md` |
+| neutral fail-safe | owner disconnect、heartbeat timeout、shutdown で neutral report へ戻ることを観測した。architecture cutover 後の H1 でも owner disconnect neutral と shutdown trailing neutral を確認した。shutdown neutral pending 後の `CAN_SEND_NOW` 再送失敗は software fake で power-off と run-loop exit まで確認した。 | `docs/hardware-test-log.md`, `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md`, `work-units/complete/local_057/ARCHITECTURE_CUTOVER_H1.md`, `work-units/complete/local_058/SHUTDOWN_NEUTRAL_RETRY_FAILURE.md` |
 | 環境変数依存の限定 smoke | `local_045` 完了後の `8000us` Button A + release smoke は同じ構成で pass。 | `docs/hardware-test-log.md`, `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md` |
-| architecture cutover | daemon logical state は `swbt_app_t`、lifecycle / cleanup は `swbt_daemon_host_t`、production BTstack 操作は `swbt_btstack_production_adapter_t` を経由する。旧 session、mailbox、runtime、production backend ops、`swbt_core` は source / tests / build graph から削除済み。H1 は dedicated adapter で pass。 | `spec/architecture/daemon-architecture-cutover.md`, `work-units/complete/local_056/ARCHITECTURE_CUTOVER.md`, `work-units/complete/local_057/ARCHITECTURE_CUTOVER_H1.md`, `CMakeLists.txt` |
+| architecture cutover | daemon logical state は `swbt_app_t`、lifecycle / cleanup は `swbt_daemon_host_t`、production BTstack 操作は `swbt_btstack_production_adapter_t` を経由する。旧 session、mailbox、runtime、production backend ops、`swbt_core` は source / tests / build graph から削除済み。H1 は dedicated adapter で pass。shutdown pending failure cleanup は `local_058` で固定済み。 | `spec/architecture/daemon-architecture-cutover.md`, `work-units/complete/local_056/ARCHITECTURE_CUTOVER.md`, `work-units/complete/local_057/ARCHITECTURE_CUTOVER_H1.md`, `work-units/complete/local_058/SHUTDOWN_NEUTRAL_RETRY_FAILURE.md`, `CMakeLists.txt` |
 
 ## 未確認
 
@@ -74,6 +74,7 @@
 | `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md` | 環境変数依存監査と完了後 smoke の記録。 |
 | `work-units/complete/local_046/DOC_IMPLEMENTATION_STATE_ALIGNMENT.md` | README / spec の直近整合更新記録。 |
 | `work-units/complete/local_057/ARCHITECTURE_CUTOVER_H1.md` | architecture cutover 後の Hardware Gate H1 実行記録。 |
+| `work-units/complete/local_058/SHUTDOWN_NEUTRAL_RETRY_FAILURE.md` | shutdown neutral pending 後の再送失敗でも power-off と run-loop exit へ進む software failure cleanup の完了記録。 |
 | `apps/swbt-daemon/main.c` | backend selection と起動時 environment config の実装根拠。 |
 | `swbt/daemon/host.c` | application、IPC、BTstack adapter、report timer、shutdown cleanup ordering の実装根拠。 |
 | `swbt/daemon/production_backend.c` | 実機承認条件と production lifecycle の実装根拠。 |

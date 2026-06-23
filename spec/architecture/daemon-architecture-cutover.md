@@ -64,6 +64,7 @@ daemon の論理状態、IPC transport、BTstack adapter、host composition、pl
 
 - `work-units/complete/local_056/ARCHITECTURE_CUTOVER.md`
 - `work-units/complete/local_057/ARCHITECTURE_CUTOVER_H1.md`
+- `work-units/complete/local_058/SHUTDOWN_NEUTRAL_RETRY_FAILURE.md`
 - `work-units/complete/local_050/DAEMON_APPLICATION_BOUNDARY_REARCHITECTURE.md`
 - `work-units/complete/local_051/DAEMON_APPLICATION_COMMAND_API.md`
 - `work-units/complete/local_052/IPC_ADAPTER_COMMAND_CODEC_BOUNDARY.md`
@@ -78,6 +79,7 @@ daemon の論理状態、IPC transport、BTstack adapter、host composition、pl
 - H1 artifact は削除対象ではない。raw HCI dump と daemon trace は実機証跡として `tmp/hardware/local_057/20260623-105416-architecture-cutover-h1` に保持し、durable docs では要約と artifact path だけを参照する。
 - Hardware Gate H1 は 2026-06-23 に `local_057` で pass。承認済みの CSR8510 A10、WinUSB、Switch2 firmware `22.1.0` baseline、`8000 us` report period、production backend で実行した。
 - H1 artifact は `tmp/hardware/local_057/20260623-105416-architecture-cutover-h1`。HCI dump は line `953` Button A、line `954` trailing neutral、line `955` `hci_power_control: 0` の順を記録した。current connection の `invalid size` と `non-registered handle` は `0` 件である。
+- 2026-06-23 の `local_058` で、shutdown neutral の即時送信が pending になった後の `CAN_SEND_NOW` 再送失敗でも pending を解除し、power-off と run-loop exit へ進む failure cleanup 経路を固定した。この変更は Switch-facing bytes、report period、BTstack source selection を変更しない。
 - 「8. 採用した外部レビュー本文」内の未完了表記は、採用時点の作業指示として残す。現在の実装状態はこの章、`local_056`、`local_057`、`docs/status.md` を正とする。
 - 外部契約を破壊する必要が出た場合は、同じ PR に変更理由と migration note を含める。
 
