@@ -90,7 +90,7 @@ adapter table の構造だけを変える場合は not applicable。BTstack call
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | refactor-skipped | fake production test can provide IPC pump ability without implementing unrelated BTstack abilities | new | unit | no |
-| todo | shutdown neutral failure cleanup still reaches power-off after adapter decomposition | regression | integration | no |
+| green | shutdown neutral failure cleanup still reaches power-off after adapter decomposition | regression | integration | no |
 | todo | production host lifecycle uses explicit port groups instead of one wide table | new | integration | no |
 | todo | old production backend ops table symbols remain absent | regression | build | no |
 | todo | hardware gate need is recorded if composition or scheduling changes | characterization | docs | yes |
@@ -111,6 +111,18 @@ TDD status:
   - format: `scripts/format.sh` pass。
 - notes: `swbt_btstack_production_ipc_pump_port_t` を追加し、adapter の IPC pump callback 2 個を `.ipc_pump.start` / `.ipc_pump.stop` へ移した。`swbt_daemon_production_backend_init` は IPC pump port だけを要求し、実機承認後の production main は従来どおり full adapter callback を要求する。Switch-facing bytes、BTstack source selection、timer scheduling、shutdown power-off order は変更していない。
 - refactor: green 後の追加構造変更は行わなかった。この item の構造変更は IPC pump port の導入に閉じる。
+
+TDD status:
+
+- source: `local_058` の shutdown neutral failure cleanup と、この work unit の adapter 分割後維持条件。
+- use case: shutdown neutral send が pending になり、次の can-send 処理で失敗しても、daemon は power-off と run-loop exit へ進む。
+- item: shutdown neutral failure cleanup still reaches power-off after adapter decomposition。
+- state: green。
+- commands:
+  - green: `just test-debug` pass。`daemon_production_backend_test` の `pending_stop_request_finishes_after_failed_can_send_event` はこの実行に含まれる。
+  - targeted attempt: `$env:CTEST_ARGS='-R daemon_production_backend_test --output-on-failure'; just test-debug` は Dev Container setup で fail したため、この item の根拠にしない。
+- notes: この item では production adapter の追加分割は行わない。item 1 の IPC pump port 導入後も、shutdown neutral failure cleanup は既存 regression test で power-off 1 回、run-loop exit 1 回として観測できる。
+- refactor: 変更なし。既存 test の green 確認のみ。
 
 ## 11. 実機実行条件
 
