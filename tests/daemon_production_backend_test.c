@@ -446,6 +446,66 @@ static swbt_btstack_production_ipc_pump_port_t fake_ipc_pump_port(void) {
     };
 }
 
+static swbt_btstack_production_platform_port_t fake_platform_port(void) {
+    return (swbt_btstack_production_platform_port_t){
+        .start = fake_platform_start,
+        .stop = fake_platform_stop,
+    };
+}
+
+static swbt_btstack_production_hid_port_t fake_hid_port(void) {
+    return (swbt_btstack_production_hid_port_t){
+        .register_device = fake_hid_register,
+        .stop = fake_hid_stop,
+    };
+}
+
+static swbt_btstack_production_output_handler_port_t fake_output_handler_port(void) {
+    return (swbt_btstack_production_output_handler_port_t){
+        .start = fake_output_handler_start,
+        .stop = fake_output_handler_stop,
+    };
+}
+
+static swbt_btstack_production_report_timer_port_t fake_report_timer_port(void) {
+    return (swbt_btstack_production_report_timer_port_t){
+        .init = fake_timer_init,
+        .start = fake_timer_start,
+        .on_can_send_now = fake_timer_can_send_now,
+        .enqueue_subcommand_reply = fake_timer_enqueue_reply,
+        .send_neutral_now = fake_timer_send_neutral_now,
+        .stop = fake_timer_stop,
+    };
+}
+
+static swbt_btstack_production_controller_port_t fake_controller_port(void) {
+    return (swbt_btstack_production_controller_port_t){
+        .confirm_ssp_user_confirmation = fake_ssp_confirm_user_confirmation,
+        .read_controller_address = fake_read_controller_address,
+    };
+}
+
+static swbt_btstack_production_clock_port_t fake_clock_port(void) {
+    return (swbt_btstack_production_clock_port_t){
+        .time_ms = fake_time_ms,
+    };
+}
+
+static swbt_btstack_production_power_port_t fake_power_port(void) {
+    return (swbt_btstack_production_power_port_t){
+        .on = fake_power_on,
+        .off = fake_power_off,
+    };
+}
+
+static swbt_btstack_production_run_loop_port_t fake_run_loop_port(void) {
+    return (swbt_btstack_production_run_loop_port_t){
+        .execute = fake_run_loop_execute,
+        .execute_on_main_thread = fake_run_loop_execute_on_main_thread,
+        .trigger_exit = fake_run_loop_trigger_exit,
+    };
+}
+
 static swbt_btstack_production_adapter_t fake_ipc_pump_only_adapter(void) {
     return (swbt_btstack_production_adapter_t){
         .ipc_pump = fake_ipc_pump_port(),
@@ -455,26 +515,14 @@ static swbt_btstack_production_adapter_t fake_ipc_pump_only_adapter(void) {
 static swbt_btstack_production_adapter_t fake_backend_adapter(void) {
     return (swbt_btstack_production_adapter_t){
         .ipc_pump = fake_ipc_pump_port(),
-        .platform_start = fake_platform_start,
-        .platform_stop = fake_platform_stop,
-        .hid_register = fake_hid_register,
-        .hid_stop = fake_hid_stop,
-        .output_handler_start = fake_output_handler_start,
-        .output_handler_stop = fake_output_handler_stop,
-        .report_timer_init = fake_timer_init,
-        .report_timer_start = fake_timer_start,
-        .report_timer_on_can_send_now = fake_timer_can_send_now,
-        .report_timer_enqueue_subcommand_reply = fake_timer_enqueue_reply,
-        .report_timer_send_neutral_now = fake_timer_send_neutral_now,
-        .report_timer_stop = fake_timer_stop,
-        .ssp_confirm_user_confirmation = fake_ssp_confirm_user_confirmation,
-        .read_controller_address = fake_read_controller_address,
-        .time_ms = fake_time_ms,
-        .power_on = fake_power_on,
-        .power_off = fake_power_off,
-        .run_loop_execute = fake_run_loop_execute,
-        .run_loop_execute_on_main_thread = fake_run_loop_execute_on_main_thread,
-        .run_loop_trigger_exit = fake_run_loop_trigger_exit,
+        .platform = fake_platform_port(),
+        .hid = fake_hid_port(),
+        .output_handler = fake_output_handler_port(),
+        .report_timer = fake_report_timer_port(),
+        .controller = fake_controller_port(),
+        .clock = fake_clock_port(),
+        .power = fake_power_port(),
+        .run_loop = fake_run_loop_port(),
     };
 }
 

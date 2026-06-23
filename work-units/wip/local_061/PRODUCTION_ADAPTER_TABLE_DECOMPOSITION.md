@@ -91,7 +91,7 @@ adapter table の構造だけを変える場合は not applicable。BTstack call
 |---|---|---|---|---|
 | refactor-skipped | fake production test can provide IPC pump ability without implementing unrelated BTstack abilities | new | unit | no |
 | green | shutdown neutral failure cleanup still reaches power-off after adapter decomposition | regression | integration | no |
-| todo | production host lifecycle uses explicit port groups instead of one wide table | new | integration | no |
+| refactor-skipped | production host lifecycle uses explicit port groups instead of one wide table | new | integration | no |
 | todo | old production backend ops table symbols remain absent | regression | build | no |
 | todo | hardware gate need is recorded if composition or scheduling changes | characterization | docs | yes |
 | todo | decomposition reduces or justifies the production adapter call surface instead of wrapping it with another broad layer | verification | docs/integration | no |
@@ -124,6 +124,20 @@ TDD status:
 - notes: この item では production adapter の追加分割は行わない。item 1 の IPC pump port 導入後も、shutdown neutral failure cleanup は既存 regression test で power-off 1 回、run-loop exit 1 回として観測できる。
 - refactor: 変更なし。既存 test の green 確認のみ。
 
+TDD status:
+
+- source: `local_058` の production adapter table 分割先送り事項。
+- use case: production host lifecycle が platform、HID、output handler、report timer、controller、clock、power、run loop を明示 port group として呼び出し、1 つの広い top-level callback table に依存しない。
+- item: production host lifecycle uses explicit port groups instead of one wide table。
+- state: refactor-skipped。
+- commands:
+  - red: `just build-debug` は `unknown type name 'swbt_btstack_production_platform_port_t'` と、`swbt_btstack_production_adapter_t` に `platform` / `hid` / `output_handler` / `report_timer` / `controller` / `clock` / `power` / `run_loop` がないことで fail。
+  - green: `just build-debug` pass。
+  - affected checks: `just test-debug` pass。`daemon_production_backend_test` と `btstack_production_hci_dump_test` はこの実行に含まれる。
+  - format: `scripts/format.sh` pass。`scripts/check-format.sh` pass。
+- notes: `swbt_btstack_production_adapter_t` の top-level は `ipc_pump`、`platform`、`hid`、`output_handler`、`report_timer`、`controller`、`clock`、`power`、`run_loop` の 9 group になった。production host backend の処理順序は変えず、呼び出し先だけを group field へ移した。HCI dump test は platform port 経由の起動失敗確認に更新した。
+- refactor: green 後の追加構造変更は行わなかった。今回の構造変更は adapter field の group 化に閉じる。
+
 ## 11. 実機実行条件
 
 software-only 分割で Switch-facing bytes、BTstack initialization、callback registration、timer / send scheduling、shutdown 実機順序を変えない場合は実機不要。
@@ -138,7 +152,7 @@ none。起票時点の先送り事項は、この record の source として取
 
 - [x] source を `local_056` と `local_058` から特定した。
 - [x] use case を production adapter table decomposition として定義した。
-- [ ] adapter table field を棚卸しした。
+- [x] adapter table field を棚卸しした。
 - [x] red test を追加した。
 - [x] green 実装を行った。
 - [ ] hardware gate の要否を判定した。
