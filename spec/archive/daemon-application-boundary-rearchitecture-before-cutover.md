@@ -1,8 +1,10 @@
-# Daemon Application Boundary Rearchitecture
+# Daemon Application Boundary Rearchitecture Before Architecture Cutover
 
 ## 1. 状態
 
-draft。
+superseded。
+
+この文書は `spec/architecture/daemon-architecture-cutover.md` に置き換えられた。段階移行、互換 wrapper、`swbt_core` aggregate target の残置を前提にした判断は、破壊的 architecture cutover の方針としては採用しない。
 
 この spec は、現行の `spec/architecture/daemon-runtime-boundaries.md` を置き換えない。現行実装の責務境界を保ちながら、application 所有の状態モデルへ段階的に寄せるための設計候補である。
 

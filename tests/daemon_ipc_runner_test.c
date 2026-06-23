@@ -3,9 +3,9 @@
 #include <string.h>
 
 #include "../apps/swbt-debug-client/debug_client.h"
-#include "core/state_mailbox.h"
+#include "application/app.h"
 #include "daemon/ipc_runner.h"
-#include "ipc/ipc_session.h"
+#include "ipc/ipc_server.h"
 #include "switch/switch_controller_state.h"
 
 static int expect_true(bool value) {
@@ -32,14 +32,6 @@ static int expect_contains(const char *text, const char *needle) {
     return strstr(text, needle) != NULL ? 0 : 1;
 }
 
-static int init_bound_session(swbt_ipc_session_t *session, swbt_state_mailbox_t *mailbox) {
-    int failed = 0;
-    failed += expect_eq_int(swbt_ipc_session_init(session), SWBT_IPC_OK);
-    failed += expect_eq_int(swbt_state_mailbox_init(mailbox), SWBT_STATE_MAILBOX_OK);
-    failed += expect_eq_int(swbt_ipc_session_bind_mailbox(session, mailbox), SWBT_IPC_OK);
-    return failed;
-}
-
 static swbt_daemon_ipc_runner_config_t loopback_port_zero_config(void) {
     return (swbt_daemon_ipc_runner_config_t){
         .host = "127.0.0.1",
@@ -60,8 +52,7 @@ static int send_and_serve(swbt_ipc_socket_t *client, swbt_daemon_ipc_runner_t *r
 
 static int test_rejects_non_loopback_bind(void) {
     swbt_daemon_ipc_runner_t runner;
-    swbt_ipc_session_t session;
-    swbt_state_mailbox_t mailbox;
+    swbt_app_t *app = swbt_app_create();
     swbt_daemon_ipc_runner_config_t config = {
         .host = "0.0.0.0",
         .port = 0u,
@@ -69,25 +60,25 @@ static int test_rejects_non_loopback_bind(void) {
     };
 
     int failed = 0;
-    failed += init_bound_session(&session, &mailbox);
+    failed += expect_true(app != NULL);
     failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
-    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, &session, &config),
+    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, app, &config),
                             SWBT_DAEMON_IPC_RUNNER_ERROR_UNSUPPORTED_BIND);
     swbt_daemon_ipc_runner_stop(&runner);
+    swbt_app_destroy(app);
     return failed;
 }
 
 static int test_exposes_loopback_endpoint_before_accept(void) {
     swbt_daemon_ipc_runner_t runner;
-    swbt_ipc_session_t session;
-    swbt_state_mailbox_t mailbox;
+    swbt_app_t *app = swbt_app_create();
     swbt_daemon_ipc_endpoint_t endpoint;
     const swbt_daemon_ipc_runner_config_t config = loopback_port_zero_config();
 
     int failed = 0;
-    failed += init_bound_session(&session, &mailbox);
+    failed += expect_true(app != NULL);
     failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
-    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, &session, &config),
+    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, app, &config),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed += expect_eq_int(swbt_daemon_ipc_runner_endpoint(&runner, &endpoint),
                             SWBT_DAEMON_IPC_RUNNER_OK);
@@ -97,22 +88,22 @@ static int test_exposes_loopback_endpoint_before_accept(void) {
     failed += expect_false(swbt_daemon_ipc_runner_has_connection(&runner));
 
     swbt_daemon_ipc_runner_stop(&runner);
+    swbt_app_destroy(app);
     return failed;
 }
 
 static int test_poll_once_accepts_and_serves_when_ready(void) {
     swbt_daemon_ipc_runner_t runner;
-    swbt_ipc_session_t session;
-    swbt_state_mailbox_t mailbox;
+    swbt_app_t *app = swbt_app_create();
     swbt_daemon_ipc_endpoint_t endpoint;
     swbt_ipc_socket_t client;
     char response[SWBT_IPC_JSON_RESPONSE_MAX];
     const swbt_daemon_ipc_runner_config_t config = loopback_port_zero_config();
 
     int failed = 0;
-    failed += init_bound_session(&session, &mailbox);
+    failed += expect_true(app != NULL);
     failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
-    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, &session, &config),
+    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, app, &config),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed += expect_eq_int(swbt_daemon_ipc_runner_endpoint(&runner, &endpoint),
                             SWBT_DAEMON_IPC_RUNNER_OK);
@@ -136,14 +127,14 @@ static int test_poll_once_accepts_and_serves_when_ready(void) {
 
     swbt_ipc_socket_close(&client);
     swbt_daemon_ipc_runner_stop(&runner);
+    swbt_app_destroy(app);
     return failed;
 }
 
-static int test_debug_client_status_sequence_updates_mailbox_state(void) {
+static int test_debug_client_status_sequence_updates_application_state(void) {
     swbt_daemon_ipc_runner_t runner;
-    swbt_ipc_session_t session;
-    swbt_state_mailbox_t mailbox;
-    swbt_state_mailbox_snapshot_t snapshot;
+    swbt_app_t *app = swbt_app_create();
+    swbt_app_snapshot_t snapshot;
     swbt_daemon_ipc_endpoint_t endpoint;
     swbt_ipc_socket_t client;
     swbt_state_t state = swbt_state_neutral();
@@ -152,9 +143,9 @@ static int test_debug_client_status_sequence_updates_mailbox_state(void) {
     const swbt_daemon_ipc_runner_config_t config = loopback_port_zero_config();
 
     int failed = 0;
-    failed += init_bound_session(&session, &mailbox);
+    failed += expect_true(app != NULL);
     failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
-    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, &session, &config),
+    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, app, &config),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed += expect_eq_int(swbt_daemon_ipc_runner_endpoint(&runner, &endpoint),
                             SWBT_DAEMON_IPC_RUNNER_OK);
@@ -186,7 +177,7 @@ static int test_debug_client_status_sequence_updates_mailbox_state(void) {
     failed +=
         expect_eq_int(swbt_debug_client_receive_response(&client, response, sizeof(response)), 0);
     failed += expect_contains(response, "\"type\":\"state_accepted\"");
-    failed += expect_eq_int(swbt_state_mailbox_load(&mailbox, &snapshot), SWBT_STATE_MAILBOX_OK);
+    failed += expect_eq_int(swbt_app_snapshot(app, &snapshot), SWBT_APP_OK);
     failed += expect_eq_u32(snapshot.state.buttons, SWBT_BUTTON_A | SWBT_BUTTON_X);
     failed += expect_eq_u16(snapshot.state.lx, 1234u);
     failed += expect_eq_u16(snapshot.state.ly, 2345u);
@@ -199,14 +190,14 @@ static int test_debug_client_status_sequence_updates_mailbox_state(void) {
 
     swbt_ipc_socket_close(&client);
     swbt_daemon_ipc_runner_stop(&runner);
+    swbt_app_destroy(app);
     return failed;
 }
 
 static int test_stop_closes_connection_and_stores_neutral(void) {
     swbt_daemon_ipc_runner_t runner;
-    swbt_ipc_session_t session;
-    swbt_state_mailbox_t mailbox;
-    swbt_state_mailbox_snapshot_t snapshot;
+    swbt_app_t *app = swbt_app_create();
+    swbt_app_snapshot_t snapshot;
     swbt_daemon_ipc_endpoint_t endpoint;
     swbt_ipc_socket_t client;
     swbt_state_t state = swbt_state_neutral();
@@ -215,9 +206,9 @@ static int test_stop_closes_connection_and_stores_neutral(void) {
     const swbt_daemon_ipc_runner_config_t config = loopback_port_zero_config();
 
     int failed = 0;
-    failed += init_bound_session(&session, &mailbox);
+    failed += expect_true(app != NULL);
     failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
-    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, &session, &config),
+    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, app, &config),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed += expect_eq_int(swbt_daemon_ipc_runner_endpoint(&runner, &endpoint),
                             SWBT_DAEMON_IPC_RUNNER_OK);
@@ -245,19 +236,19 @@ static int test_stop_closes_connection_and_stores_neutral(void) {
     swbt_daemon_ipc_runner_stop(&runner);
     failed += expect_false(swbt_daemon_ipc_runner_is_running(&runner));
     failed += expect_false(swbt_daemon_ipc_runner_has_connection(&runner));
-    failed += expect_eq_int(swbt_state_mailbox_load(&mailbox, &snapshot), SWBT_STATE_MAILBOX_OK);
+    failed += expect_eq_int(swbt_app_snapshot(app, &snapshot), SWBT_APP_OK);
     failed += expect_eq_u32(snapshot.state.buttons, 0u);
     failed += expect_eq_u16(snapshot.state.lx, 2048u);
 
     swbt_ipc_socket_close(&client);
+    swbt_app_destroy(app);
     return failed;
 }
 
 static int test_poll_once_at_heartbeat_timeout_stores_neutral(void) {
     swbt_daemon_ipc_runner_t runner;
-    swbt_ipc_session_t session;
-    swbt_state_mailbox_t mailbox;
-    swbt_state_mailbox_snapshot_t snapshot;
+    swbt_app_t *app = swbt_app_create();
+    swbt_app_snapshot_t snapshot;
     swbt_daemon_ipc_endpoint_t endpoint;
     swbt_ipc_socket_t client;
     swbt_state_t state = swbt_state_neutral();
@@ -268,9 +259,9 @@ static int test_poll_once_at_heartbeat_timeout_stores_neutral(void) {
     int failed = 0;
     config.heartbeat_timeout_ms = 100u;
 
-    failed += init_bound_session(&session, &mailbox);
+    failed += expect_true(app != NULL);
     failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
-    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, &session, &config),
+    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, app, &config),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed += expect_eq_int(swbt_daemon_ipc_runner_endpoint(&runner, &endpoint),
                             SWBT_DAEMON_IPC_RUNNER_OK);
@@ -302,24 +293,25 @@ static int test_poll_once_at_heartbeat_timeout_stores_neutral(void) {
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed +=
         expect_eq_int(swbt_debug_client_receive_response(&client, response, sizeof(response)), 0);
-    failed += expect_eq_int(swbt_state_mailbox_load(&mailbox, &snapshot), SWBT_STATE_MAILBOX_OK);
+    failed += expect_eq_int(swbt_app_snapshot(app, &snapshot), SWBT_APP_OK);
     failed += expect_eq_u32(snapshot.state.buttons, SWBT_BUTTON_A);
 
     failed += expect_eq_int(swbt_daemon_ipc_runner_poll_once_at(&runner, 1149u),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed += expect_true(swbt_daemon_ipc_runner_has_connection(&runner));
-    failed += expect_eq_int(swbt_state_mailbox_load(&mailbox, &snapshot), SWBT_STATE_MAILBOX_OK);
+    failed += expect_eq_int(swbt_app_snapshot(app, &snapshot), SWBT_APP_OK);
     failed += expect_eq_u32(snapshot.state.buttons, SWBT_BUTTON_A);
 
     failed += expect_eq_int(swbt_daemon_ipc_runner_poll_once_at(&runner, 1150u),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed += expect_false(swbt_daemon_ipc_runner_has_connection(&runner));
-    failed += expect_eq_int(swbt_state_mailbox_load(&mailbox, &snapshot), SWBT_STATE_MAILBOX_OK);
+    failed += expect_eq_int(swbt_app_snapshot(app, &snapshot), SWBT_APP_OK);
     failed += expect_eq_u32(snapshot.state.buttons, 0u);
     failed += expect_eq_u16(snapshot.state.lx, 2048u);
 
     swbt_ipc_socket_close(&client);
     swbt_daemon_ipc_runner_stop(&runner);
+    swbt_app_destroy(app);
     return failed;
 }
 
@@ -328,7 +320,7 @@ int main(void) {
     failed += test_rejects_non_loopback_bind();
     failed += test_exposes_loopback_endpoint_before_accept();
     failed += test_poll_once_accepts_and_serves_when_ready();
-    failed += test_debug_client_status_sequence_updates_mailbox_state();
+    failed += test_debug_client_status_sequence_updates_application_state();
     failed += test_stop_closes_connection_and_stores_neutral();
     failed += test_poll_once_at_heartbeat_timeout_stores_neutral();
     return failed == 0 ? 0 : 1;

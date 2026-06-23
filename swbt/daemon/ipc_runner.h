@@ -4,9 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "application/app.h"
 #include "daemon/config.h"
 #include "ipc/ipc_server.h"
-#include "ipc/ipc_session.h"
 
 #define SWBT_DAEMON_IPC_ENDPOINT_HOST_SIZE 16u
 
@@ -48,7 +48,7 @@ swbt_daemon_ipc_runner_config_from_daemon_config(const swbt_daemon_config_t *con
 swbt_daemon_ipc_runner_result_t swbt_daemon_ipc_runner_init(swbt_daemon_ipc_runner_t *runner);
 
 swbt_daemon_ipc_runner_result_t
-swbt_daemon_ipc_runner_start(swbt_daemon_ipc_runner_t *runner, swbt_ipc_session_t *session,
+swbt_daemon_ipc_runner_start(swbt_daemon_ipc_runner_t *runner, swbt_app_t *app,
                              const swbt_daemon_ipc_runner_config_t *config);
 
 swbt_daemon_ipc_runner_result_t
@@ -71,7 +71,7 @@ bool swbt_daemon_ipc_runner_is_running(const swbt_daemon_ipc_runner_t *runner);
 
 bool swbt_daemon_ipc_runner_has_connection(const swbt_daemon_ipc_runner_t *runner);
 
-int swbt_daemon_ipc_runner_backend_start(void *context, swbt_ipc_session_t *session);
+int swbt_daemon_ipc_runner_backend_start(void *context, swbt_app_t *app);
 
 void swbt_daemon_ipc_runner_backend_stop(void *context);
 

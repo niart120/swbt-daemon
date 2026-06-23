@@ -851,3 +851,26 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: daemon `tmp/hardware/local_049/20260622-202545-8000us-swbt-pro-default`
 - cleanup: pass by trace。startup trace は `production: shutdown neutral send`、`production: shutdown neutral send ok`、HCI power-off、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、runtime stop done、production runtime stop done まで到達した。PowerShell exit marker は `exit=0`、client markers は `client_lr_exit=0` と `client_a_exit=0`
 - notes: この entry は `local_048` で `mizuyoukanao-pro` を削除し、`swbt-pro` を daemon default にした後の実機再実行である。`SWBT_DEVICE_INFO_PROFILE=swbt-pro` の明示指定 run は、未指定 default run で `swbt-pro` reply と Switch UI 入力反映まで確認できたため実施していない。この結果は CSR8510 A10 / WinUSB / Switch2 firmware `22.1.0` の当該条件の hardware observation であり、別 adapter / firmware の一般互換性ではない
+
+## 2026-06-23: local_057 architecture cutover H1 on Switch2
+
+- OS: Microsoft Windows 11 Pro、Version `10.0.26200`、Build `26200`、64-bit
+- environment: Windows native PowerShell、swbt branch `codex/architecture-cutover`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Class `USBDevice`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`、Service `WinUSB`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: git HEAD `a45930304515d0eeb2b3f909961584da17ae5f31` plus uncommitted `codex/architecture-cutover` working tree diff。artifact の `git-status-short.txt` に差分一覧を保存した
+- Switch firmware: Switch2 `22.1.0`。既存実機環境の継続値であり、今回の artifact では本体画面を再読していない
+- approval scope: ユーザ承認済み。CSR8510 A10、WinUSB、pairing / HID advertising / periodic input report loop、owner disconnect、daemon shutdown、`SWBT_DAEMON_BACKEND=production`、`SWBT_RUN_HARDWARE=1`、`SWBT_HARDWARE_APPROVED=1`、HCI dump / diagnostic trace 保存を含む H1 scope
+- environment variables: daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: preflight として `just debug` pass、`just windows-cross` pass。PowerShell で `build/windows-mingw-debug/swbt-daemon.exe` を `CREATE_NEW_PROCESS_GROUP` 付きで起動し、HCI dump の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` が 2 件になるまで待った。`swbt-debug-client --button a --seq 1 --hold-ms 1000 --skip-release`、`swbt-debug-client --button a --seq 2 --hold-ms 1000 --skip-release` を順に実行し、owner disconnect 後の neutral と再度 Button A を観測した。shutdown held state は PowerShell から daemon IPC へ直接 `hello`、`acquire`、`set_state(seq=3, buttons=8)` を送り、TCP connection を保持したまま `GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT)` で daemon shutdown を要求した
+- failed attempts recorded: `20260623-104806`, `20260623-105050`, `20260623-105219` は shutdown request 前に `production: hid connection closed` へ進み、`production: neutral send timer stopped` または `shutdown neutral send failed` を記録した。これらは H1 fail として扱い、最終 pass には含めない
+- result: architecture cutover H1 pass。最終 artifact `tmp/hardware/local_057/20260623-105416-architecture-cutover-h1` では daemon trace が `production: shutdown requested`、`production: shutdown neutral send`、`production: neutral send adapter ok`、`production: shutdown neutral send ok`、`btstack: hci power off` の順を記録した。HCI dump では `pairing complete, status 00` `1` 件、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件、`invalid size` `0` 件、`non-registered handle` `0` 件だった。outgoing `a1 30` input report pattern は Button A `080000` が `109` 件、neutral `000000` が `205` 件だった。末尾は line `953` Button A `080000`、line `954` trailing neutral `000000`、line `955` `hci_power_control: 0` の順である
+- daemon log: daemon stdout / stderr log は未作成。`SWBT_DIAGNOSTIC_TRACE_PATH` の startup trace と `SWBT_HCI_DUMP_TRACE_PATH` の HCI dump text を正本にする
+- artifact root: `tmp/hardware/local_057/20260623-105416-architecture-cutover-h1`
+- cleanup: pass by trace。daemon exit code `0`。trace は HCI power-off、run loop returned、power off cleanup、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、host stop done まで到達した。crash dump は作成されなかった
+- notes: HCI dump には `usb_open: Device open failed` が `16` 件ある。これは BTstack の USB device 探索中に対象外 interface / device を試した記録であり、current connection の `invalid size` / `non-registered handle` とは分けて扱う。この entry の pass 判定は、Button A report、owner disconnect 後 neutral、再度 Button A、shutdown trailing neutral、cleanup trace の組み合わせに基づく hardware observation である

@@ -30,7 +30,7 @@
 #define SWBT_BTSTACK_IPC_PUMP_PERIOD_MS 1u
 
 static bool g_swbt_btstack_production_hci_dump_open;
-static swbt_daemon_production_ipc_pump_t g_swbt_btstack_production_ipc_pump;
+static swbt_btstack_production_ipc_pump_t g_swbt_btstack_production_ipc_pump;
 static bool g_swbt_btstack_production_ipc_pump_started;
 static btstack_timer_source_t g_swbt_btstack_production_ipc_pump_timer;
 static bool g_swbt_btstack_production_ipc_pump_timer_pending;
@@ -38,7 +38,7 @@ static bool g_swbt_btstack_production_ipc_pump_timer_pending;
 static void swbt_btstack_production_ipc_pump_schedule(void);
 
 static void swbt_btstack_production_ipc_pump_timer_handler(btstack_timer_source_t *timer) {
-    swbt_daemon_production_ipc_pump_t *pump = (swbt_daemon_production_ipc_pump_t *)timer->context;
+    swbt_btstack_production_ipc_pump_t *pump = (swbt_btstack_production_ipc_pump_t *)timer->context;
 
     g_swbt_btstack_production_ipc_pump_timer_pending = false;
     if (pump != NULL && pump->is_running != NULL && pump->poll_once_at != NULL &&
@@ -61,7 +61,7 @@ static void swbt_btstack_production_ipc_pump_schedule(void) {
 }
 
 static int swbt_btstack_production_ipc_pump_start(void *context,
-                                                  const swbt_daemon_production_ipc_pump_t *pump) {
+                                                  const swbt_btstack_production_ipc_pump_t *pump) {
     (void)context;
     if (pump == NULL || pump->is_running == NULL || pump->poll_once_at == NULL) {
         return -1;
@@ -85,12 +85,12 @@ static void swbt_btstack_production_ipc_pump_stop(void *context) {
         g_swbt_btstack_production_ipc_pump_timer_pending = false;
     }
     g_swbt_btstack_production_ipc_pump_started = false;
-    g_swbt_btstack_production_ipc_pump = (swbt_daemon_production_ipc_pump_t){0};
+    g_swbt_btstack_production_ipc_pump = (swbt_btstack_production_ipc_pump_t){0};
 }
 
 static swbt_btstack_classic_discovery_config_t swbt_btstack_production_discovery_config(void) {
     const swbt_btstack_hid_registration_config_t hid_config =
-        swbt_daemon_production_hid_registration_config();
+        swbt_btstack_production_hid_registration_config();
     return (swbt_btstack_classic_discovery_config_t){
         .class_of_device = hid_config.hid_device_subclass,
         .local_name = hid_config.device_name,
@@ -264,10 +264,15 @@ static int swbt_btstack_production_report_timer_enqueue_reply(
 static int swbt_btstack_production_report_timer_send_neutral_now(
     void *context, swbt_btstack_input_report_timer_adapter_t *adapter) {
     (void)context;
-    return swbt_btstack_input_report_timer_adapter_send_neutral_now(adapter) ==
-                   SWBT_BTSTACK_INPUT_REPORT_TIMER_OK
-               ? 0
-               : -1;
+    const swbt_btstack_input_report_timer_result_t result =
+        swbt_btstack_input_report_timer_adapter_send_neutral_now(adapter);
+    if (result == SWBT_BTSTACK_INPUT_REPORT_TIMER_OK) {
+        return 0;
+    }
+    if (result == SWBT_BTSTACK_INPUT_REPORT_TIMER_PENDING) {
+        return 1;
+    }
+    return -1;
 }
 
 static void
@@ -322,13 +327,19 @@ static void swbt_btstack_production_run_loop_execute(void *context) {
     btstack_run_loop_execute();
 }
 
+static void swbt_btstack_production_run_loop_execute_on_main_thread(
+    void *context, btstack_context_callback_registration_t *callback_registration) {
+    (void)context;
+    btstack_run_loop_execute_on_main_thread(callback_registration);
+}
+
 static void swbt_btstack_production_run_loop_trigger_exit(void *context) {
     (void)context;
     btstack_run_loop_trigger_exit();
 }
 
-const swbt_daemon_production_backend_ops_t *swbt_btstack_production_backend_ops(void) {
-    static const swbt_daemon_production_backend_ops_t ops = {
+const swbt_btstack_production_adapter_t *swbt_btstack_production_adapter(void) {
+    static const swbt_btstack_production_adapter_t adapter = {
         .ipc_pump_start = swbt_btstack_production_ipc_pump_start,
         .ipc_pump_stop = swbt_btstack_production_ipc_pump_stop,
         .platform_start = swbt_btstack_production_platform_start,
@@ -349,7 +360,8 @@ const swbt_daemon_production_backend_ops_t *swbt_btstack_production_backend_ops(
         .power_on = swbt_btstack_production_power_on,
         .power_off = swbt_btstack_production_power_off,
         .run_loop_execute = swbt_btstack_production_run_loop_execute,
+        .run_loop_execute_on_main_thread = swbt_btstack_production_run_loop_execute_on_main_thread,
         .run_loop_trigger_exit = swbt_btstack_production_run_loop_trigger_exit,
     };
-    return &ops;
+    return &adapter;
 }

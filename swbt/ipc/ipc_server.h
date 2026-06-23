@@ -5,8 +5,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "application/app.h"
 #include "ipc/ipc_json.h"
-#include "ipc/ipc_session.h"
+#include "ipc/ipc_status.h"
 
 typedef enum {
     SWBT_IPC_SERVER_OK = 0,
@@ -39,8 +40,8 @@ typedef struct {
 
 typedef struct {
     swbt_ipc_socket_t listen_socket;
-    swbt_ipc_session_t default_session;
-    swbt_ipc_session_t *session;
+    swbt_app_t *default_app;
+    swbt_app_t *app;
     uint32_t next_client_id;
     uint16_t bound_port;
     bool listening;
@@ -61,8 +62,7 @@ swbt_ipc_server_result_t swbt_ipc_socket_can_receive(const swbt_ipc_socket_t *so
                                                      bool *out_ready);
 
 swbt_ipc_server_result_t swbt_ipc_server_init(swbt_ipc_server_t *server);
-swbt_ipc_server_result_t swbt_ipc_server_bind_session(swbt_ipc_server_t *server,
-                                                      swbt_ipc_session_t *session);
+swbt_ipc_server_result_t swbt_ipc_server_bind_app(swbt_ipc_server_t *server, swbt_app_t *app);
 swbt_ipc_server_result_t swbt_ipc_server_listen(swbt_ipc_server_t *server, const char *host,
                                                 uint16_t port, int backlog);
 uint16_t swbt_ipc_server_port(const swbt_ipc_server_t *server);

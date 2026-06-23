@@ -39,7 +39,7 @@ static int expect_true(bool value, const char *label) {
 static int test_production_hid_service_buffer_fits_btstack_sdp_record(void) {
     uint8_t scratch[1024];
     const swbt_btstack_hid_registration_config_t config =
-        swbt_daemon_production_hid_registration_config();
+        swbt_btstack_production_hid_registration_config();
     const hid_sdp_record_t btstack_record = btstack_record_from_config(&config);
     const uint32_t service_record_handle = 0x10001u;
     uint32_t record_len = 0;

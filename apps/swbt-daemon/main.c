@@ -12,8 +12,8 @@
 #include "btstack_bridge/production_btstack.h"
 #include "core/diagnostics.h"
 #include "daemon/config.h"
+#include "daemon/host.h"
 #include "daemon/production_backend.h"
-#include "daemon/runtime.h"
 
 #if defined(_WIN32)
 static swbt_daemon_shutdown_request_t g_swbt_daemon_shutdown_request;
@@ -140,7 +140,7 @@ static int swbt_daemon_run_production(const swbt_daemon_config_t *config) {
         swbt_daemon_hardware_approval_from_process_env();
 
     swbt_diagnostic_trace("production: backend init");
-    if (swbt_daemon_production_backend_init(&backend, config, swbt_btstack_production_backend_ops(),
+    if (swbt_daemon_production_backend_init(&backend, config, swbt_btstack_production_adapter(),
                                             NULL) != SWBT_DAEMON_PRODUCTION_OK) {
         swbt_diagnostic_trace("production: backend init failed");
         return 1;
@@ -170,5 +170,5 @@ int main(void) {
         return swbt_daemon_run_production(&config);
     }
     swbt_diagnostic_trace("main: selected noop backend");
-    return swbt_daemon_main_with_backend(&config, swbt_daemon_runtime_noop_backend(), NULL);
+    return swbt_daemon_main_with_host_backend(&config, swbt_daemon_host_noop_backend(), NULL);
 }

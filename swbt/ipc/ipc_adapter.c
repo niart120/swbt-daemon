@@ -1,5 +1,20 @@
 #include "ipc/ipc_adapter.h"
 
+static swbt_ipc_result_t swbt_ipc_map_app_result(swbt_app_result_t result) {
+    switch (result) {
+    case SWBT_APP_OK:
+    case SWBT_APP_ERROR_STALE_SEQUENCE:
+        return SWBT_IPC_OK;
+    case SWBT_APP_ERROR_OWNER_BUSY:
+        return SWBT_IPC_ERROR_OWNER_BUSY;
+    case SWBT_APP_ERROR_NOT_OWNER:
+        return SWBT_IPC_ERROR_NOT_OWNER;
+    case SWBT_APP_ERROR_INVALID_ARGUMENT:
+        return SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    }
+    return SWBT_IPC_ERROR_INVALID_ARGUMENT;
+}
+
 static void swbt_ipc_adapter_init_response(swbt_ipc_response_t *response) {
     swbt_switch_rumble_state_t rumble = {0};
     swbt_metrics_snapshot_t metrics = {0};
@@ -82,6 +97,18 @@ static void swbt_ipc_adapter_copy_status(const swbt_ipc_status_t *status,
     out_status->hardware = status->hardware;
 }
 
+static void swbt_ipc_adapter_copy_snapshot(const swbt_app_snapshot_t *snapshot,
+                                           swbt_ipc_status_t *out_status) {
+    out_status->has_owner = snapshot->has_owner;
+    out_status->owner_client_id = snapshot->owner_client_id;
+    out_status->last_seq = snapshot->last_sequence;
+    out_status->state = snapshot->state;
+    out_status->rumble = snapshot->rumble;
+    out_status->metrics = snapshot->metrics;
+    out_status->daemon = snapshot->daemon;
+    out_status->hardware = snapshot->hardware;
+}
+
 static void swbt_ipc_adapter_error_from_command(const swbt_ipc_command_t *command,
                                                 swbt_ipc_response_t *response,
                                                 swbt_ipc_error_code_t error_code,
@@ -90,8 +117,7 @@ static void swbt_ipc_adapter_error_from_command(const swbt_ipc_command_t *comman
                                message);
 }
 
-static swbt_ipc_json_result_t swbt_ipc_adapter_execute_command(swbt_ipc_session_t *session,
-                                                               uint32_t client_id,
+static swbt_ipc_json_result_t swbt_ipc_adapter_execute_command(swbt_app_t *app, uint32_t client_id,
                                                                const swbt_ipc_command_t *command,
                                                                swbt_ipc_response_t *out_response) {
     swbt_ipc_status_t status;
@@ -106,7 +132,7 @@ static swbt_ipc_json_result_t swbt_ipc_adapter_execute_command(swbt_ipc_session_
         out_response->client_id = client_id;
         return SWBT_IPC_JSON_OK;
     case SWBT_IPC_COMMAND_ACQUIRE:
-        result = swbt_ipc_acquire(session, client_id);
+        result = swbt_ipc_map_app_result(swbt_app_acquire(app, client_id));
         if (result == SWBT_IPC_ERROR_OWNER_BUSY) {
             swbt_ipc_adapter_error_from_command(command, out_response,
                                                 SWBT_IPC_ERROR_CODE_OWNER_BUSY,
@@ -129,7 +155,7 @@ static swbt_ipc_json_result_t swbt_ipc_adapter_execute_command(swbt_ipc_session_
                                                 "client does not own the controller");
             return SWBT_IPC_JSON_OK;
         }
-        result = swbt_ipc_release(session, client_id);
+        result = swbt_ipc_map_app_result(swbt_app_revoke(app, SWBT_APP_REVOKE_RELEASE, client_id));
         if (result == SWBT_IPC_ERROR_NOT_OWNER) {
             swbt_ipc_adapter_error_from_command(command, out_response,
                                                 SWBT_IPC_ERROR_CODE_NOT_OWNER,
@@ -151,7 +177,8 @@ static swbt_ipc_json_result_t swbt_ipc_adapter_execute_command(swbt_ipc_session_
                                                 "client does not own the controller");
             return SWBT_IPC_JSON_OK;
         }
-        result = swbt_ipc_set_state(session, client_id, &command->state, command->sequence);
+        result = swbt_ipc_map_app_result(
+            swbt_app_set_state(app, client_id, &command->state, command->sequence));
         if (result == SWBT_IPC_ERROR_NOT_OWNER) {
             swbt_ipc_adapter_error_from_command(command, out_response,
                                                 SWBT_IPC_ERROR_CODE_NOT_OWNER,
@@ -167,7 +194,7 @@ static swbt_ipc_json_result_t swbt_ipc_adapter_execute_command(swbt_ipc_session_
         out_response->sequence = command->sequence;
         return SWBT_IPC_JSON_OK;
     case SWBT_IPC_COMMAND_GET_STATUS:
-        if (swbt_ipc_get_status(session, &status) != SWBT_IPC_OK) {
+        if (swbt_ipc_adapter_get_status(app, &status) != SWBT_IPC_OK) {
             swbt_ipc_adapter_error_from_command(
                 command, out_response, SWBT_IPC_ERROR_CODE_INTERNAL_ERROR, "failed to get status");
             return SWBT_IPC_JSON_OK;
@@ -184,14 +211,14 @@ static swbt_ipc_json_result_t swbt_ipc_adapter_execute_command(swbt_ipc_session_
     return SWBT_IPC_JSON_OK;
 }
 
-swbt_ipc_json_result_t swbt_ipc_adapter_handle_line(swbt_ipc_session_t *session, uint32_t client_id,
+swbt_ipc_json_result_t swbt_ipc_adapter_handle_line(swbt_app_t *app, uint32_t client_id,
                                                     const char *line, char *response,
                                                     size_t response_size) {
     swbt_ipc_command_t command;
     swbt_ipc_response_t typed_response;
     swbt_ipc_json_result_t result = SWBT_IPC_JSON_OK;
 
-    if (session == NULL || line == NULL || response == NULL || response_size == 0) {
+    if (app == NULL || line == NULL || response == NULL || response_size == 0) {
         return SWBT_IPC_JSON_ERROR_INVALID_ARGUMENT;
     }
 
@@ -200,7 +227,7 @@ swbt_ipc_json_result_t swbt_ipc_adapter_handle_line(swbt_ipc_session_t *session,
         return result;
     }
     if (typed_response.type == SWBT_IPC_RESPONSE_NONE) {
-        result = swbt_ipc_adapter_execute_command(session, client_id, &command, &typed_response);
+        result = swbt_ipc_adapter_execute_command(app, client_id, &command, &typed_response);
         if (result != SWBT_IPC_JSON_OK) {
             return result;
         }
@@ -209,16 +236,29 @@ swbt_ipc_json_result_t swbt_ipc_adapter_handle_line(swbt_ipc_session_t *session,
     return swbt_ipc_json_encode_response(&typed_response, response, response_size);
 }
 
-swbt_ipc_result_t swbt_ipc_adapter_handle_disconnect(swbt_ipc_session_t *session,
-                                                     uint32_t client_id) {
-    return swbt_ipc_disconnect(session, client_id);
+swbt_ipc_result_t swbt_ipc_adapter_handle_disconnect(swbt_app_t *app, uint32_t client_id) {
+    return swbt_ipc_map_app_result(swbt_app_revoke(app, SWBT_APP_REVOKE_DISCONNECT, client_id));
 }
 
-swbt_ipc_result_t swbt_ipc_adapter_handle_heartbeat_timeout(swbt_ipc_session_t *session,
-                                                            uint32_t client_id) {
-    return swbt_ipc_heartbeat_timeout(session, client_id);
+swbt_ipc_result_t swbt_ipc_adapter_handle_heartbeat_timeout(swbt_app_t *app, uint32_t client_id) {
+    return swbt_ipc_map_app_result(
+        swbt_app_revoke(app, SWBT_APP_REVOKE_HEARTBEAT_TIMEOUT, client_id));
 }
 
-swbt_ipc_result_t swbt_ipc_adapter_handle_shutdown(swbt_ipc_session_t *session) {
-    return swbt_ipc_clear_owner(session);
+swbt_ipc_result_t swbt_ipc_adapter_handle_shutdown(swbt_app_t *app) {
+    return swbt_ipc_map_app_result(swbt_app_revoke(app, SWBT_APP_REVOKE_SHUTDOWN, 0u));
+}
+
+swbt_ipc_result_t swbt_ipc_adapter_get_status(const swbt_app_t *app,
+                                              swbt_ipc_status_t *out_status) {
+    swbt_app_snapshot_t snapshot;
+
+    if (app == NULL || out_status == NULL) {
+        return SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    }
+    if (swbt_app_snapshot(app, &snapshot) != SWBT_APP_OK) {
+        return SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    }
+    swbt_ipc_adapter_copy_snapshot(&snapshot, out_status);
+    return SWBT_IPC_OK;
 }

@@ -38,15 +38,15 @@ static int missing_hci_dump_path_is_noop(void) {
 
 static int explicit_hci_dump_open_failure_rejects_platform_start(void) {
     int failed = 0;
-    const swbt_daemon_production_backend_ops_t *ops = swbt_btstack_production_backend_ops();
+    const swbt_btstack_production_adapter_t *adapter = swbt_btstack_production_adapter();
 
-    if (ops == NULL || ops->platform_start == NULL) {
+    if (adapter == NULL || adapter->platform_start == NULL) {
         return 1;
     }
     if (set_hci_dump_env("btstack-hci-dump-missing-dir/hci.log") != 0) {
         return 1;
     }
-    failed += expect_eq_int(ops->platform_start(NULL), -1);
+    failed += expect_eq_int(adapter->platform_start(NULL), -1);
     clear_hci_dump_env();
     return failed;
 }

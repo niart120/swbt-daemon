@@ -1,8 +1,10 @@
-# Daemon Runtime Boundaries
+# Daemon Runtime Boundaries Before Architecture Cutover
 
 ## 1. 状態
 
-current。
+superseded。
+
+この文書は `spec/architecture/daemon-architecture-cutover.md` に置き換えられた。旧 `swbt_ipc_session_t`、`state_mailbox`、`swbt_daemon_runtime_t`、production backend ops table、`swbt_core` aggregate target を current responsibility 付きで残す判断は、破壊的 architecture cutover の方針としては採用しない。
 
 ## 2. 目的
 
