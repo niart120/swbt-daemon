@@ -179,6 +179,11 @@ TDD status:
   - 生成 include root helper の保持条件: source tree が `swbt/<module>` layout で、公開 header が `application/...` のような prefix include を使う間だけ残す。将来 `include/` 配下の public/private header layout へ移した場合は、この helper を削除し、通常の `target_include_directories` に戻す。
 - diff review: `main..HEAD` は CMake 16+/25-、helper 57+、compile CMake test 154+、旧 boundary test 4+/3-、C test 責務移動 16+/17-、record 73+/10-。`swbt/*.c` / `swbt/*.h` の runtime 実装は変更していない。
 
+Full verification:
+
+- `just verify` pass。format check、clang-tidy build、linux-debug build / CTest、linux-asan build / CTest、Windows MinGW cross build を実行した。
+- 実機は未実行。build boundary の work unit であり、Bluetooth adapter、Switch pairing、HID advertising、report loop を実行していない。
+
 ## 11. 実機実行条件
 
 実機不要。build graph と compile-time check の work unit であり、Bluetooth adapter、Switch pairing、HID advertising、report loop を実行しない。
@@ -195,6 +200,6 @@ none。起票時点の先送り事項は、この record の source として取
 - [x] red build check を追加した。
 - [x] green 実装を行った。
 - [x] `just debug` または targeted configure/build を実行した。
-- [ ] full verification の要否を判定した。
+- [x] full verification の要否を判定した。
 - [x] 追加した build scaffolding と削除または縮小した check を対応付けた。
 - [x] diff の増加分が boundary enforcement に必要な範囲へ閉じているか確認した。
