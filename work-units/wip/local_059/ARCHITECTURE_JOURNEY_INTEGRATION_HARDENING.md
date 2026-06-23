@@ -83,7 +83,7 @@ not applicable。
 | refactor-skipped | JSON IPC set_state reaches fake HID report send through daemon host without old runtime symbols | regression | integration | no |
 | refactor-done | owner disconnect in the journey emits neutral before reacquire | regression | integration | no |
 | refactor-skipped | daemon shutdown in the journey emits trailing neutral before fake power-off / run-loop exit | regression | integration | no |
-| todo | architecture journey target links only cutover-era module targets | regression | build | no |
+| green | architecture journey target links only cutover-era module targets | regression | build | no |
 | todo | failure-cleanup regression remains separate from normal journey naming | regression | unit | no |
 
 ## 10. 検証
@@ -122,6 +122,16 @@ TDD status:
   - red: `just build-debug` pass。`CTEST_ARGS="-R daemon_production_backend_test --output-on-failure" just test-debug` は `hid send calls: expected 2, got 1` で fail。
   - green: `just format` pass。`just build-debug` pass。`CTEST_ARGS="-R daemon_production_backend_test --output-on-failure" just test-debug` pass。
 - notes: fake `report_timer_send_neutral_now` でも HIDP input message を記録し、既存の step order check と合わせて trailing neutral が `STEP_POWER_OFF` と `STEP_RUN_LOOP_TRIGGER_EXIT` より前に出ることを固定した。追加の refactor は不要。
+
+TDD status:
+
+- source: `local_056` の architecture cutover absence gate と `local_058` の follow-up。
+- use case: `architecture_journey_test` が旧 aggregate target や旧 runtime ではなく cutover 後の daemon host target だけを link する。
+- item: architecture journey target links only cutover-era module targets。
+- state: green。
+- commands:
+  - green: `CTEST_ARGS="-R architecture_absence_cmake_test --output-on-failure" just test-debug` pass。
+- notes: 既存の `tests/cmake/architecture_absence_test.cmake` が `target_link_libraries(architecture_journey_test PRIVATE swbt_daemon_host)` を要求している。現在の gate で item を満たしているため、新しい build scaffolding は追加しない。
 
 開始時の確認:
 
