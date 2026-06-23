@@ -48,6 +48,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(cmake/compiler_warnings.cmake)
 include(cmake/sanitizers.cmake)
 include(cmake/btstack_sources.cmake)
+include(cmake/module_public_includes.cmake)
 
 set(SWBT_BTSTACK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/btstack" CACHE PATH "BTstack source directory")
 if(EXISTS "${SWBT_BTSTACK_DIR}/LICENSE")
@@ -120,10 +121,7 @@ add_library(swbt_switch_protocol STATIC
     swbt/switch/switch_subcommand_dispatcher.c
     swbt/switch/switch_subcommand_reply.c
 )
-target_include_directories(swbt_switch_protocol
-    PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/swbt"
-)
+swbt_configure_module_public_includes(swbt_switch_protocol MODULES switch)
 swbt_apply_common_warnings(swbt_switch_protocol)
 swbt_apply_sanitizers(swbt_switch_protocol)
 
@@ -133,10 +131,7 @@ add_library(swbt_support STATIC
     swbt/core/logging.c
     swbt/core/metrics.c
 )
-target_include_directories(swbt_support
-    PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/swbt"
-)
+swbt_configure_module_public_includes(swbt_support MODULES core)
 swbt_apply_common_warnings(swbt_support)
 swbt_apply_sanitizers(swbt_support)
 
@@ -144,10 +139,7 @@ add_library(swbt_application STATIC
     swbt/application/app.c
     swbt/application/control_lease.c
 )
-target_include_directories(swbt_application
-    PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/swbt"
-)
+swbt_configure_module_public_includes(swbt_application MODULES application)
 target_link_libraries(swbt_application PUBLIC swbt_support swbt_switch_protocol)
 swbt_apply_common_warnings(swbt_application)
 swbt_apply_sanitizers(swbt_application)
@@ -279,6 +271,14 @@ if(SWBT_BUILD_TESTS)
             "${CMAKE_COMMAND}"
             "-DSWBT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/include_boundaries_test.cmake"
+    )
+    add_test(
+        NAME compile_include_boundaries_cmake_test
+        COMMAND
+            "${CMAKE_COMMAND}"
+            "-DSWBT_BINARY_DIR=${CMAKE_BINARY_DIR}"
+            "-DSWBT_C_COMPILER=${CMAKE_C_COMPILER}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/compile_include_boundaries_test.cmake"
     )
     add_test(
         NAME architecture_absence_cmake_test

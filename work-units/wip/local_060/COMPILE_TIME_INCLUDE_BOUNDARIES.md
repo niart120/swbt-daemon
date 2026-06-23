@@ -87,7 +87,7 @@ not applicable。
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | application target cannot include BTstack adapter internals through public include paths | regression | build | no |
+| refactor-done | application target cannot include BTstack adapter internals through public include paths | regression | build | no |
 | todo | BTstack adapter target cannot include IPC transport internals through public include paths | regression | build | no |
 | todo | daemon host remains the composition owner for cross-module wiring | regression | build | no |
 | todo | protocol tests link without IPC, daemon host, or BTstack adapter targets | regression | build | no |
@@ -96,7 +96,19 @@ not applicable。
 
 ## 10. 検証
 
-未実行。起票のみで、CMake target や tests は変更していない。
+TDD status:
+
+- source: `local_058` の先送り事項。
+- use case: `swbt_application` を link する利用側が、`swbt_application` 本体と公開依存の include path 経由で `btstack_bridge/` を include できない。
+- item: application target cannot include BTstack adapter internals through public include paths。
+- state: refactor-done。
+- commands:
+  - red: `just build-debug` pass。`CTEST_ARGS="-R compile_include_boundaries_cmake_test --output-on-failure" just test-debug` は `swbt_application public include root is missing` で fail。
+  - green: `just build-debug` pass。`CTEST_ARGS="-R compile_include_boundaries_cmake_test --output-on-failure" just test-debug` pass。
+  - format: `just format` pass。
+  - affected checks: `CTEST_ARGS="-R \"(compile_include_boundaries_cmake_test|include_boundaries_cmake_test|switch_hid_descriptor_test|daemon_production_hid_sdp_record_test)\" --output-on-failure" just test-debug` pass。
+- notes: `swbt_application` の公開依存である `swbt_support` と `swbt_switch_protocol` が `swbt/` 全体を公開したままだと、推移的 include path から `btstack_bridge/` が見える。そのため 3 target の公開 include root を build directory の `swbt_public_includes/` 配下に生成し、公開 module を `application`、`core`、`switch` に限定した。target 自身の source compile には source tree の `swbt/` を `PRIVATE` include path として残す。生成 include root の更新は `CMAKE_CURRENT_BINARY_DIR/swbt_public_includes/<target>` 配下だけに限定し、path guard を置いた。
+- refactor: `switch_hid_descriptor_test` は protocol target だけに link する test なので、BTstack registration config への接続確認を `daemon_production_hid_sdp_record_test` へ移した。descriptor bytes / size / report ID の検査は protocol test に残した。
 
 ## 11. 実機実行条件
 
@@ -110,10 +122,10 @@ none。起票時点の先送り事項は、この record の source として取
 
 - [x] source を `local_054` と `local_058` から特定した。
 - [x] use case を build boundary enforcement として定義した。
-- [ ] target include directory の現状を棚卸しした。
-- [ ] red build check を追加した。
-- [ ] green 実装を行った。
-- [ ] `just debug` または targeted configure/build を実行した。
+- [x] target include directory の現状を棚卸しした。
+- [x] red build check を追加した。
+- [x] green 実装を行った。
+- [x] `just debug` または targeted configure/build を実行した。
 - [ ] full verification の要否を判定した。
 - [ ] 追加した build scaffolding と削除または縮小した check を対応付けた。
 - [ ] diff の増加分が boundary enforcement に必要な範囲へ閉じているか確認した。

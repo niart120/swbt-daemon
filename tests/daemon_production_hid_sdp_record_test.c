@@ -7,6 +7,7 @@
 
 #include "classic/hid_device.h"
 #include "classic/sdp_util.h"
+#include "switch/switch_hid_descriptor.h"
 
 static hid_sdp_record_t
 btstack_record_from_config(const swbt_btstack_hid_registration_config_t *config) {
@@ -60,8 +61,23 @@ static int test_production_hid_service_buffer_fits_btstack_sdp_record(void) {
                        "record includes HID descriptor and SDP attributes");
 }
 
+static int test_production_registration_config_references_switch_descriptor(void) {
+    const swbt_btstack_hid_registration_config_t config =
+        swbt_btstack_production_hid_registration_config();
+    const size_t descriptor_size = swbt_switch_hid_descriptor_size();
+
+    int failed = 0;
+    failed += expect_true(descriptor_size <= UINT16_MAX, "descriptor fits uint16");
+    failed += expect_true(config.hid_descriptor == swbt_switch_hid_descriptor_data(),
+                          "registration descriptor pointer");
+    failed +=
+        expect_true(config.hid_descriptor_size == descriptor_size, "registration descriptor size");
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += test_production_hid_service_buffer_fits_btstack_sdp_record();
+    failed += test_production_registration_config_references_switch_descriptor();
     return failed == 0 ? 0 : 1;
 }
