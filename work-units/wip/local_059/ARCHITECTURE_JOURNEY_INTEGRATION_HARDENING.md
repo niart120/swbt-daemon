@@ -84,7 +84,7 @@ not applicable。
 | refactor-done | owner disconnect in the journey emits neutral before reacquire | regression | integration | no |
 | refactor-skipped | daemon shutdown in the journey emits trailing neutral before fake power-off / run-loop exit | regression | integration | no |
 | green | architecture journey target links only cutover-era module targets | regression | build | no |
-| todo | failure-cleanup regression remains separate from normal journey naming | regression | unit | no |
+| green | failure-cleanup regression remains separate from normal journey naming | regression | unit | no |
 
 ## 10. 検証
 
@@ -132,6 +132,17 @@ TDD status:
 - commands:
   - green: `CTEST_ARGS="-R architecture_absence_cmake_test --output-on-failure" just test-debug` pass。
 - notes: 既存の `tests/cmake/architecture_absence_test.cmake` が `target_link_libraries(architecture_journey_test PRIVATE swbt_daemon_host)` を要求している。現在の gate で item を満たしているため、新しい build scaffolding は追加しない。
+
+TDD status:
+
+- source: `local_058` の shutdown neutral retry failure cleanup。
+- use case: shutdown failure cleanup regression と正常 journey test の名前が分かれ、正常 journey に failure injection を混ぜない。
+- item: failure-cleanup regression remains separate from normal journey naming。
+- state: green。
+- commands:
+  - green: `rg -n "shutdown_after_json_state_sends_trailing_neutral_before_power_off|pending_stop_request_finishes_after_failed_can_send_event|pending_stop_request_finishes_after_can_send_event" tests/daemon_production_backend_test.c` で正常 journey と failure cleanup の test 名が別関数であることを確認。
+  - green: `CTEST_ARGS="-R daemon_production_backend_test --output-on-failure" just test-debug` pass。
+- notes: failure cleanup は `pending_stop_request_*`、正常 journey は `shutdown_after_json_state_*` として分けた。実機不要。
 
 開始時の確認:
 
