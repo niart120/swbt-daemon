@@ -86,7 +86,7 @@ not applicable。
 |---|---|---|---|---|
 | done | production path report tick success increments status report tick counters without implying hardware measurement | regression | integration | no |
 | done | production path report send failure increments send failure counters and keeps cleanup behavior | regression | integration | no |
-| todo | rejected IPC state update increments rejected metrics without changing controller state | regression | unit | no |
+| done | rejected IPC state update increments rejected metrics without changing controller state | regression | unit | no |
 | todo | coalesced state update count is either connected or documented as unavailable / zero by design | characterization | unit | no |
 | todo | status response preserves existing metrics field names and units | regression | unit | no |
 
@@ -104,6 +104,13 @@ item 2:
 - green: `$env:CTEST_ARGS='-R daemon_production_backend_test'; just test-debug`
   - result: pass。`daemon_production_backend_test` 1/1 passed。
 
+item 3:
+
+- red: `$env:CTEST_ARGS='-R ipc_json_test'; just test-debug`
+  - result: expected failure。not_owner の `set_state` 後も `ipc_state_rejected` が 0 のままだった。
+- green: `$env:CTEST_ARGS='-R ipc_json_test'; just test-debug`
+  - result: pass。`ipc_json_test` 1/1 passed。
+
 item 1 での棚卸し結果:
 
 - `swbt_metrics_record_report_tick` と `swbt_app_record_report_tick` は既存 API として存在していた。
@@ -116,6 +123,12 @@ item 2 での判断:
 - periodic scheduler tick が `SWBT_BTSTACK_INPUT_REPORT_ERROR_SEND_FAILED` を返した場合だけ `report_send_failed` を増やす。
 - subcommand reply や shutdown neutral retry の失敗は、現時点では report tick metrics として数えない。
 - failure metrics の更新後も production main の cleanup は `power_off` と `report_timer.stop` まで進む。
+
+item 3 での判断:
+
+- `set_state` が app 呼び出し前の owner mismatch で拒否された場合、IPC adapter が rejected counter を増やす。
+- `swbt_app_set_state` 内で not owner または stale sequence と判定した場合、state を変えずに rejected counter を増やす。
+- invalid JSON / invalid state decode error は app command path に到達していないため、この item では rejected counter に含めない。
 
 ## 11. 実機実行条件
 
