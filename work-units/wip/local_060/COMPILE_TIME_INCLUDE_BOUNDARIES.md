@@ -92,7 +92,7 @@ not applicable。
 | refactor-skipped | daemon host remains the composition owner for cross-module wiring | regression | build | no |
 | green | protocol tests link without IPC, daemon host, or BTstack adapter targets | regression | build | no |
 | refactor-done | old text-only boundary checks are either removed or justified as absence checks | characterization | build | no |
-| todo | added boundary probes / targets are paired with removed or narrowed checks, or their retention condition is recorded | verification | docs/build | no |
+| green | added boundary probes / targets are paired with removed or narrowed checks, or their retention condition is recorded | verification | docs/build | no |
 
 ## 10. 検証
 
@@ -161,6 +161,24 @@ TDD status:
 - notes: `target_include_directories(swbt_application ... swbt_btstack)` の文字列 check は、公開 include root compile probe に置き換わったため削除した。source scan は target source の `PRIVATE` include path 経由の禁止 include を検出する absence check として残した。CMake target / unit-test link check は、target 名と link topology の absence / topology check として残した。
 - refactor: `tests/cmake/include_boundaries_test.cmake` に残す check の分類コメントを追加した。runtime behavior は変更していない。
 
+TDD status:
+
+- source: `local_060` の完了条件。
+- use case: 追加した boundary probe / helper が、削除または縮小した check と対応している。残す helper には削除条件がある。
+- item: added boundary probes / targets are paired with removed or narrowed checks, or their retention condition is recorded。
+- state: green。
+- commands:
+  - green: `git diff --stat main..HEAD` で全体差分を確認。
+  - green: `git diff --numstat main..HEAD` で build / test / docs の増減を確認。
+  - green: `git log --oneline main..HEAD` で Test List item ごとの commit を確認。
+- notes:
+  - `cmake/module_public_includes.cmake` は、`swbt_switch_protocol`、`swbt_support`、`swbt_application`、`swbt_ipc`、`swbt_btstack_adapter`、`swbt_daemon_host` の `swbt/` 全体公開を置き換えるために追加した。
+  - `tests/cmake/compile_include_boundaries_test.cmake` は、公開 include root 経由の compile success / failure を見るために追加した。削除した stale check は `target_include_directories(swbt_application ... swbt_btstack)` の文字列 check。
+  - `tests/cmake/include_boundaries_test.cmake` は、target source の `PRIVATE` include path からの禁止 include と、CMake target / unit-test link topology を見る absence check として残す。
+  - `switch_hid_descriptor_test` から BTstack registration config 依存を外し、`daemon_production_hid_sdp_record_test` へ移した。protocol test link boundary と production config verification を分けるための移動である。
+  - 生成 include root helper の保持条件: source tree が `swbt/<module>` layout で、公開 header が `application/...` のような prefix include を使う間だけ残す。将来 `include/` 配下の public/private header layout へ移した場合は、この helper を削除し、通常の `target_include_directories` に戻す。
+- diff review: `main..HEAD` は CMake 16+/25-、helper 57+、compile CMake test 154+、旧 boundary test 4+/3-、C test 責務移動 16+/17-、record 73+/10-。`swbt/*.c` / `swbt/*.h` の runtime 実装は変更していない。
+
 ## 11. 実機実行条件
 
 実機不要。build graph と compile-time check の work unit であり、Bluetooth adapter、Switch pairing、HID advertising、report loop を実行しない。
@@ -178,5 +196,5 @@ none。起票時点の先送り事項は、この record の source として取
 - [x] green 実装を行った。
 - [x] `just debug` または targeted configure/build を実行した。
 - [ ] full verification の要否を判定した。
-- [ ] 追加した build scaffolding と削除または縮小した check を対応付けた。
-- [ ] diff の増加分が boundary enforcement に必要な範囲へ閉じているか確認した。
+- [x] 追加した build scaffolding と削除または縮小した check を対応付けた。
+- [x] diff の増加分が boundary enforcement に必要な範囲へ閉じているか確認した。
