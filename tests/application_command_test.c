@@ -85,6 +85,32 @@ static int stale_sequence_does_not_update_state(void) {
     return failed;
 }
 
+static int sequential_updates_do_not_report_coalesced_state_updates(void) {
+    swbt_app_t *app = swbt_app_create();
+    swbt_app_snapshot_t status;
+    swbt_state_t state = swbt_state_neutral();
+    int failed = 0;
+
+    failed += expect_true(app != NULL);
+    failed += expect_eq_int(swbt_app_acquire(app, 1001u), SWBT_APP_OK);
+
+    state.buttons = SWBT_BUTTON_A;
+    failed += expect_eq_int(swbt_app_set_state(app, 1001u, &state, 1u), SWBT_APP_OK);
+
+    state.buttons = SWBT_BUTTON_B;
+    failed += expect_eq_int(swbt_app_set_state(app, 1001u, &state, 2u), SWBT_APP_OK);
+
+    failed += expect_eq_int(swbt_app_snapshot(app, &status), SWBT_APP_OK);
+    failed += expect_eq_u32(status.state.buttons, SWBT_BUTTON_B);
+    failed += expect_eq_u64(status.last_sequence, 2u);
+    failed += expect_eq_u64(status.metrics.ipc_state_accepted, 2u);
+    failed += expect_eq_u64(status.metrics.ipc_state_rejected, 0u);
+    failed += expect_eq_u64(status.metrics.ipc_state_coalesced, 0u);
+
+    swbt_app_destroy(app);
+    return failed;
+}
+
 static int expect_active_state(const swbt_app_t *app, expected_active_state_t expected) {
     swbt_app_snapshot_t status;
     int failed = 0;
@@ -158,6 +184,7 @@ int main(void) {
     int failed = 0;
     failed += application_acquires_and_rejects_owners();
     failed += stale_sequence_does_not_update_state();
+    failed += sequential_updates_do_not_report_coalesced_state_updates();
     failed += revoke_reasons_share_neutral_policy();
     return failed == 0 ? 0 : 1;
 }

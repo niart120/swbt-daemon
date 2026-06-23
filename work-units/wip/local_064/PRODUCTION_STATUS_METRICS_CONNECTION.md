@@ -87,7 +87,7 @@ not applicable。
 | done | production path report tick success increments status report tick counters without implying hardware measurement | regression | integration | no |
 | done | production path report send failure increments send failure counters and keeps cleanup behavior | regression | integration | no |
 | done | rejected IPC state update increments rejected metrics without changing controller state | regression | unit | no |
-| todo | coalesced state update count is either connected or documented as unavailable / zero by design | characterization | unit | no |
+| done | coalesced state update count is either connected or documented as unavailable / zero by design | characterization | unit | no |
 | todo | status response preserves existing metrics field names and units | regression | unit | no |
 
 ## 10. 検証
@@ -111,6 +111,12 @@ item 3:
 - green: `$env:CTEST_ARGS='-R ipc_json_test'; just test-debug`
   - result: pass。`ipc_json_test` 1/1 passed。
 
+item 4:
+
+- characterization: `$env:CTEST_ARGS='-R application_command_test'; just test-debug`
+  - result: pass。`application_command_test` 1/1 passed。
+  - red は実施しない。current behavior が intended behavior と一致していたため、`ipc_state_coalesced` を 0 by design として test で固定した。
+
 item 1 での棚卸し結果:
 
 - `swbt_metrics_record_report_tick` と `swbt_app_record_report_tick` は既存 API として存在していた。
@@ -129,6 +135,12 @@ item 3 での判断:
 - `set_state` が app 呼び出し前の owner mismatch で拒否された場合、IPC adapter が rejected counter を増やす。
 - `swbt_app_set_state` 内で not owner または stale sequence と判定した場合、state を変えずに rejected counter を増やす。
 - invalid JSON / invalid state decode error は app command path に到達していないため、この item では rejected counter に含めない。
+
+item 4 での判断:
+
+- 現在の app command path は state update queue を持たず、accepted update を即時に authoritative state へ反映する。
+- そのため、production path では coalesced update を観測しない。status schema の `ipc_state_coalesced_total` は 0 のまま返す。
+- 将来 queue / batching を導入する場合だけ、accepted update に coalesced count を渡す。
 
 ## 11. 実機実行条件
 
