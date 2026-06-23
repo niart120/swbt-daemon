@@ -94,7 +94,7 @@ adapter table の構造だけを変える場合は not applicable。BTstack call
 | refactor-skipped | production host lifecycle uses explicit port groups instead of one wide table | new | integration | no |
 | green | old production backend ops table symbols remain absent | regression | build | no |
 | green | hardware gate need is recorded if composition or scheduling changes | characterization | docs | yes |
-| todo | decomposition reduces or justifies the production adapter call surface instead of wrapping it with another broad layer | verification | docs/integration | no |
+| green | decomposition reduces or justifies the production adapter call surface instead of wrapping it with another broad layer | verification | docs/integration | no |
 
 ## 10. 検証
 
@@ -164,6 +164,21 @@ TDD status:
 - notes: `production_btstack.c` の差分は adapter 初期化子の group 化に閉じる。`production_backend.c` は port validation と callback field 経由の呼び出し先を変更したが、host start、HID register、timer init、power-on、run loop、shutdown neutral、power-off、host stop の順序は変えていない。Switch-facing bytes、BTstack source selection、timer period、BTstack timer scheduling、HID packet handler registration の意味は変えていないため、H1 実機再実行は不要。
 - refactor: 変更なし。hardware gate 判定の記録のみ。
 
+TDD status:
+
+- source: user follow-up, 2026-06-23: adapter table 分割でコードベースが増えるだけの再抽象化にならないよう、削除条件と差分の上限感を先に持つ。
+- use case: production adapter 分割が広い table を別名の広い wrapper へ置き換えるだけではなく、top-level call surface を縮小し、残す leaf callback を hardware-facing 能力として説明できる。
+- item: decomposition reduces or justifies the production adapter call surface instead of wrapping it with another broad layer。
+- state: green。
+- commands:
+  - green: `git show main:swbt/btstack_bridge/production_adapter.h` で分割前の adapter field を確認。
+  - green: `Get-Content swbt/btstack_bridge/production_adapter.h` と `rg -n "typedef struct \\{|swbt_btstack_production_.*port_t|swbt_btstack_production_adapter_t|\\(\\*" swbt/btstack_bridge/production_adapter.h` で分割後の type と field を確認。
+  - green: `rg -n "fake_.*_port|fake_backend_adapter|fake_ipc_pump_only_adapter" tests/daemon_production_backend_test.c` で fake helper の構成を確認。
+  - green: `git diff --numstat main..HEAD` と `git diff --stat main..HEAD` で差分規模を確認。
+- notes: 分割前の `swbt_btstack_production_adapter_t` は top-level に 22 callback field を持っていた。分割後の top-level は `ipc_pump`、`platform`、`hid`、`output_handler`、`report_timer`、`controller`、`clock`、`power`、`run_loop` の 9 group field である。leaf callback 数は 22 のまま残した。これは hardware-facing 能力自体を削除できないためであり、広い rollback table を復活させたわけではない。`backend_init` は IPC pump port だけで初期化できるため、test double は必要な能力だけを実装できる。
+- diff: code files は `production_adapter.h` `+62/-29`、`production_btstack.c` `+50/-22`、`production_backend.c` `+97/-43`、`btstack_production_hci_dump_test.c` `+2/-2`、`daemon_production_backend_test.c` `+108/-22`。追加 file はない。
+- refactor: 変更なし。完了判定の記録のみ。
+
 ## 11. 実機実行条件
 
 software-only 分割で Switch-facing bytes、BTstack initialization、callback registration、timer / send scheduling、shutdown 実機順序を変えない場合は実機不要。
@@ -183,5 +198,5 @@ none。起票時点の先送り事項は、この record の source として取
 - [x] green 実装を行った。
 - [x] hardware gate の要否を判定した。
 - [x] `just debug` または targeted CTest を実行した。
-- [ ] 分割前後の field 数、fake callback 数、test helper 量を比較した。
-- [ ] 追加した port と削除または縮小した call surface を対応付けた。
+- [x] 分割前後の field 数、fake callback 数、test helper 量を比較した。
+- [x] 追加した port と削除または縮小した call surface を対応付けた。
