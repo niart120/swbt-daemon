@@ -78,7 +78,7 @@ not applicable。
 - `tests/ipc_json_test.c`
 - `tests/daemon_production_backend_test.c`
 - `spec/protocols/daemon-ipc-v1.md`
-- `work-units/wip/local_064/PRODUCTION_STATUS_METRICS_CONNECTION.md`
+- `work-units/complete/local_064/PRODUCTION_STATUS_METRICS_CONNECTION.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
@@ -123,6 +123,13 @@ item 5:
   - result: pass。`ipc_json_test` 1/1 passed。
   - `ipc_json_test` は status response の metrics field name と `_total` / `_us` / `_hz` suffix を既存 JSON 文字列で固定している。
 
+Full verification:
+
+- `just verify`
+  - result: pass。
+  - scope: format check、clang-tidy build、linux-debug build / CTest、linux-asan build / CTest、Windows MinGW cross build。
+  - initial run finding: `notify_report_tick` helper が `bugprone-easily-swappable-parameters` に該当したため、既存方針どおり NOLINT boundary を追加して再実行した。
+
 item 1 での棚卸し結果:
 
 - `swbt_metrics_record_report_tick` と `swbt_app_record_report_tick` は既存 API として存在していた。
@@ -159,6 +166,8 @@ item 5 での判断:
 通常は実機不要。production fake adapter と IPC JSON tests で閉じる。
 
 actual report rate、jitter、adapter driver state などを measured value として扱う場合は実機 work unit に切り出す。実行時は専用 USB Bluetooth dongle、WinUSB、明示承認、`docs/hardware-test-log.md` 記録を必須にする。
+
+この work unit では実機検証を実行していない。実機由来の report rate、jitter、adapter state を measured value として追加していないため、software fake と IPC JSON tests で完了する。
 
 ## 12. 先送り事項
 
