@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "ipc/ipc_session.h"
+#include "application/app.h"
 #include "switch/switch_subcommand.h"
 
 typedef struct {
@@ -171,7 +171,7 @@ static int test_reports_parse_failure_without_dispatch(void) {
 }
 
 typedef struct {
-    swbt_ipc_session_t *session;
+    swbt_app_t *app;
     uint64_t now_ms;
     int calls;
 } rumble_status_capture_t;
@@ -181,7 +181,7 @@ static void record_rumble_status(void *context, uint16_t hid_cid,
     rumble_status_capture_t *capture = context;
     (void)hid_cid;
     ++capture->calls;
-    (void)swbt_ipc_record_output_report_rumble(capture->session, report, capture->now_ms);
+    (void)swbt_app_record_rumble(capture->app, report->rumble, capture->now_ms);
 }
 
 static int test_parsed_reports_can_feed_rumble_status(void) {
@@ -213,36 +213,37 @@ static int test_parsed_reports_can_feed_rumble_status(void) {
         0x40u,
         SWBT_SWITCH_SUBCOMMAND_SET_REPORT_MODE,
     };
-    swbt_ipc_session_t session;
-    swbt_ipc_status_t status;
+    swbt_app_t *app = swbt_app_create();
+    swbt_app_snapshot_t snapshot;
     rumble_status_capture_t capture = {
-        .session = &session,
+        .app = app,
         .now_ms = 100u,
     };
     swbt_btstack_output_report_handler_t handler;
 
     int failed = 0;
-    failed += expect_eq_int(swbt_ipc_session_init(&session), SWBT_IPC_OK);
+    failed += expect_true(app != NULL);
     swbt_btstack_output_report_handler_init(&handler, record_rumble_status, &capture);
     failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
                                 &handler, 0x0047u, SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT, 0u,
                                 rumble_only_report, sizeof(rumble_only_report)),
                             SWBT_BTSTACK_OUTPUT_REPORT_OK);
-    failed += expect_eq_int(swbt_ipc_get_status(&session, &status), SWBT_IPC_OK);
+    failed += expect_eq_int(swbt_app_snapshot(app, &snapshot), SWBT_APP_OK);
     failed += expect_eq_int(capture.calls, 1);
-    failed += expect_true(status.rumble.updated);
-    failed += expect_eq_u64(status.rumble.updated_at_ms, 100u);
-    failed += expect_payload(status.rumble.raw, active_rumble);
+    failed += expect_true(snapshot.rumble.updated);
+    failed += expect_eq_u64(snapshot.rumble.updated_at_ms, 100u);
+    failed += expect_payload(snapshot.rumble.raw, active_rumble);
 
     capture.now_ms = 200u;
     failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
                                 &handler, 0x0047u, SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT, 0u,
                                 rumble_and_subcommand_report, sizeof(rumble_and_subcommand_report)),
                             SWBT_BTSTACK_OUTPUT_REPORT_OK);
-    failed += expect_eq_int(swbt_ipc_get_status(&session, &status), SWBT_IPC_OK);
+    failed += expect_eq_int(swbt_app_snapshot(app, &snapshot), SWBT_APP_OK);
     failed += expect_eq_int(capture.calls, 2);
-    failed += expect_eq_u64(status.rumble.updated_at_ms, 200u);
-    failed += expect_payload(status.rumble.raw, SWBT_SWITCH_RUMBLE_NEUTRAL_PAYLOAD);
+    failed += expect_eq_u64(snapshot.rumble.updated_at_ms, 200u);
+    failed += expect_payload(snapshot.rumble.raw, SWBT_SWITCH_RUMBLE_NEUTRAL_PAYLOAD);
+    swbt_app_destroy(app);
     return failed;
 }
 
@@ -250,25 +251,26 @@ static int test_invalid_output_report_does_not_change_rumble_status(void) {
     const uint8_t payload[] = {
         0x00u,
     };
-    swbt_ipc_session_t session;
-    swbt_ipc_status_t status;
+    swbt_app_t *app = swbt_app_create();
+    swbt_app_snapshot_t snapshot;
     rumble_status_capture_t capture = {
-        .session = &session,
+        .app = app,
         .now_ms = 300u,
     };
     swbt_btstack_output_report_handler_t handler;
 
     int failed = 0;
-    failed += expect_eq_int(swbt_ipc_session_init(&session), SWBT_IPC_OK);
+    failed += expect_true(app != NULL);
     swbt_btstack_output_report_handler_init(&handler, record_rumble_status, &capture);
     failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
                                 &handler, 0x0048u, SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
                                 SWBT_SWITCH_OUTPUT_REPORT_NFC_IR_MCU, payload, sizeof(payload)),
                             SWBT_BTSTACK_OUTPUT_REPORT_ERROR_PARSE_FAILED);
-    failed += expect_eq_int(swbt_ipc_get_status(&session, &status), SWBT_IPC_OK);
+    failed += expect_eq_int(swbt_app_snapshot(app, &snapshot), SWBT_APP_OK);
     failed += expect_eq_int(capture.calls, 0);
-    failed += expect_false(status.rumble.updated);
-    failed += expect_payload(status.rumble.raw, SWBT_SWITCH_RUMBLE_NEUTRAL_PAYLOAD);
+    failed += expect_false(snapshot.rumble.updated);
+    failed += expect_payload(snapshot.rumble.raw, SWBT_SWITCH_RUMBLE_NEUTRAL_PAYLOAD);
+    swbt_app_destroy(app);
     return failed;
 }
 

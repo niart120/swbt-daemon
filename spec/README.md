@@ -30,8 +30,7 @@ spec は設計、protocol、挙動、方針を書く文書である。
 
 ## 現在の主要 spec
 
-- `architecture/daemon-runtime-boundaries.md`: daemon runtime と BTstack bridge の責務境界。
-- `architecture/daemon-application-boundary-rearchitecture.md`: daemon の状態所有権を application boundary へ寄せる draft。
+- `architecture/daemon-architecture-cutover.md`: 外部レビュー結果を採用した current architecture cutover 方針。
 - `protocols/daemon-ipc-v1.md`: daemon IPC v1 の通信仕様。
 - `protocols/switch-hid-core.md`: Switch HID protocol core の current contract。
 - `operations/development-tooling.md`: `just` を入口にする開発運用。

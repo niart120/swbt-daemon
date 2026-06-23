@@ -14,7 +14,7 @@ recorded。
 |---|---|---|
 | BTstack pinned submodule | `075a0780f0fad7ff67d58ac19f46e8953656a752` | `vendor/btstack/src/bluetooth.h`, `vendor/btstack/src/btstack_defines.h`, `vendor/btstack/src/btstack_event.h`, `vendor/btstack/src/classic/hid_device.h`, `vendor/btstack/src/btstack_run_loop.h`, `vendor/btstack/src/btstack_run_loop.c` |
 | swbt periodic report audit | current repository | `spec/references/btstack-periodic-input-report-core.md` |
-| swbt runtime boundary draft | current repository | `spec/architecture/daemon-application-boundary-rearchitecture.md` |
+| swbt architecture cutover spec | current repository | `spec/architecture/daemon-architecture-cutover.md` |
 
 ## 3. 根拠監査
 
@@ -41,9 +41,9 @@ recorded。
 - `swbt/btstack_bridge/hid_port.*` は HID can-send request と interrupt send を薄く包む。report bytes は変更しない。
 - `swbt/btstack_bridge/timer_port.*` は BTstack run loop timer API を薄く包む。`btstack_timer_source_t` を扱うため `timer_port.h` は BTstack header を含むが、これは `btstack_bridge` 内の port であり application public API ではない。
 - `swbt/btstack_bridge/input_report_timer_adapter.c` は HID send と timer の直接 BTstack call を port 経由にした。
-- `swbt/daemon/production_backend.c` は raw packet offset 判定を `swbt_btstack_hid_event_decode` へ移した。
+- `swbt/daemon/production_backend.c` と `swbt/daemon/host.c` は raw packet offset 判定を `swbt_btstack_hid_event_decode` へ移した production adapter / host 経路を使う。
 
 ## 5. 未解決事項
 
-- `local_053` 完了時点では、`swbt/btstack_bridge/production_btstack.c` が BTstack run loop 上の IPC pump と `swbt_daemon_ipc_runner_t` を直接扱っていた。この直接参照は `local_054` で解消し、残る production backend ops table 接続と aggregate target は `local_055` の cutover cleanup で棚卸しする。
+- `local_056` 完了時点では、`swbt/btstack_bridge/production_btstack.c` は `swbt_btstack_production_adapter_t` を返す。production backend ops table と aggregate target は source / tests / build graph から削除済みである。
 - production 実機経路の callback registration、report scheduling、shutdown order は今回の software gate では再実行していない。production composition を切り替える PR で hardware gate を判定する。

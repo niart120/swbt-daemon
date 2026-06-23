@@ -13,6 +13,7 @@ typedef enum {
     SWBT_BTSTACK_INPUT_REPORT_TIMER_OK = 0,
     SWBT_BTSTACK_INPUT_REPORT_TIMER_NOT_DUE = 1,
     SWBT_BTSTACK_INPUT_REPORT_TIMER_STOPPED = 2,
+    SWBT_BTSTACK_INPUT_REPORT_TIMER_PENDING = 3,
     SWBT_BTSTACK_INPUT_REPORT_TIMER_ERROR_INVALID_ARGUMENT = -1,
     SWBT_BTSTACK_INPUT_REPORT_TIMER_ERROR_SCHEDULER = -2,
     SWBT_BTSTACK_INPUT_REPORT_TIMER_ERROR_REPLY_QUEUE = -3,
@@ -56,6 +57,7 @@ typedef struct {
     bool running;
     bool timer_pending;
     bool can_send_pending;
+    bool neutral_send_pending;
     uint64_t periodic_holdoff_until_us;
 } swbt_btstack_input_report_timer_adapter_t;
 

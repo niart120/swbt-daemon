@@ -49,7 +49,7 @@ file(GLOB_RECURSE swbt_btstack_bridge_files
 foreach(path IN LISTS swbt_btstack_bridge_files)
     file(RELATIVE_PATH relative_path "${SWBT_SOURCE_DIR}" "${path}")
     swbt_assert_file_not_match("${relative_path}"
-                               "#include \"(ipc/|daemon/(ipc_runner|runtime)\\.h)"
+                               "#include \"(ipc/|daemon/(host|ipc_runner)\\.h)"
                                "BTstack bridge IPC internal include boundary")
 endforeach()
 
@@ -65,6 +65,12 @@ swbt_assert_file_not_match("swbt/btstack_bridge/production_btstack.h"
 
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_application STATIC"
                        "application target boundary")
+swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_ipc STATIC"
+                       "IPC target boundary")
+swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_btstack_adapter STATIC"
+                       "BTstack adapter target boundary")
+swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_daemon_host STATIC"
+                       "daemon host target boundary")
 swbt_assert_file_not_match("CMakeLists.txt"
                            "target_include_directories\\(swbt_application[^\\)]*swbt_btstack"
                            "application target BTstack include boundary")

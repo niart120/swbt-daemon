@@ -374,7 +374,7 @@ current error codes:
 | `owner_busy` | 別 connection が active owner。 |
 | `not_owner` | `owner_id` が送信元 connection と一致しない、または送信元が active owner ではない。 |
 | `invalid_state` | `state` が object ではない、必須 field がない、range が不正、未定義 button bit が立っている。 |
-| `internal_error` | session operation が内部 error を返した。 |
+| `internal_error` | application command mapping が内部 error を返した。 |
 
 ### 4.12 Neutral Fail-Safe
 
@@ -396,10 +396,10 @@ heartbeat timeout は input timing 機能ではない。connection health 用の
 | JSON envelope and command dispatch | implementation fact | `swbt/ipc/ipc_json.c`, `tests/ipc_json_test.c` | current |
 | state object field scope | protocol contract / implementation fact | `swbt/ipc/ipc_json.c`, `tests/ipc_json_test.c`, `work-units/complete/local_052/IPC_ADAPTER_COMMAND_CODEC_BOUNDARY.md` | current after `local_052` |
 | status daemon fields | protocol contract / implementation fact | `swbt/ipc/ipc_json.c`, `tests/ipc_json_test.c`, `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` | current after `local_039` |
-| status backend and hardware approval fields | protocol contract / implementation fact | `swbt/daemon/runtime.c`, `swbt/daemon/production_backend.c`, `swbt/ipc/ipc_session.*`, `tests/daemon_production_backend_test.c`, `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` | current after `local_039` |
+| status backend and hardware approval fields | protocol contract / implementation fact | `swbt/application/app.*`, `swbt/daemon/host.c`, `swbt/daemon/production_backend.c`, `swbt/ipc/ipc_adapter.c`, `tests/daemon_production_backend_test.c`, `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`, `work-units/complete/local_056/ARCHITECTURE_CUTOVER.md` | current after `local_056` |
 | status metrics field names and units | protocol contract / implementation fact | `swbt/core/metrics.h`, `swbt/ipc/ipc_json.c`, `tests/ipc_json_test.c`, `tests/report_metrics_test.c`, `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` | current after `local_039` |
-| status hardware channel unavailable fields | protocol contract / implementation fact | `swbt/ipc/ipc_status.h`, `swbt/ipc/ipc_json.c`, `swbt/daemon/runtime.c`, `tests/daemon_runtime_test.c`, `tests/ipc_json_test.c`, `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md` | current after `local_039` |
-| owner/session model | implementation fact | `swbt/ipc/ipc_session.*`, `tests/ipc_session_test.c` | current |
+| status hardware channel unavailable fields | protocol contract / implementation fact | `swbt/application/status.h`, `swbt/ipc/ipc_status.h`, `swbt/ipc/ipc_json.c`, `swbt/daemon/host.c`, `tests/daemon_host_test.c`, `tests/ipc_json_test.c`, `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`, `work-units/complete/local_056/ARCHITECTURE_CUTOVER.md` | current after `local_056` |
+| owner/application model | implementation fact | `swbt/application/app.*`, `swbt/ipc/ipc_adapter.*`, `tests/application_command_test.c`, `tests/ipc_server_test.c` | current after `local_056` |
 | loopback TCP transport | implementation fact | `swbt/ipc/ipc_server.*`, `tests/ipc_server_test.c` | current |
 | heartbeat timeout neutral | implementation fact | `swbt/ipc/ipc_server.*`, `work-units/complete/local_011/IPC_HEARTBEAT_CORE.md` | current |
 | state bit layout | implementation fact | `swbt/switch/switch_controller_state.h` | current |
@@ -417,6 +417,7 @@ heartbeat timeout は input timing 機能ではない。connection health 用の
 - `work-units/complete/local_028/MINIMAL_DEBUG_IPC_CLIENT.md`
 - `work-units/complete/local_052/IPC_ADAPTER_COMMAND_CODEC_BOUNDARY.md`
 - `work-units/complete/local_039/DAEMON_STATUS_OBSERVABILITY_PROTOCOL.md`
+- `work-units/complete/local_056/ARCHITECTURE_CUTOVER.md`
 
 ## 7. 未解決事項
 

@@ -239,24 +239,25 @@ swbt_ipc_server_result_t swbt_ipc_server_init(swbt_ipc_server_t *server) {
         return SWBT_IPC_SERVER_ERROR_INVALID_ARGUMENT;
     }
 
+    *server = (swbt_ipc_server_t){0};
     swbt_ipc_socket_init(&server->listen_socket);
-    if (swbt_ipc_session_init(&server->default_session) != SWBT_IPC_OK) {
+    server->default_app = swbt_app_create();
+    if (server->default_app == NULL) {
         return SWBT_IPC_SERVER_ERROR_SOCKET;
     }
-    server->session = &server->default_session;
+    server->app = server->default_app;
     server->next_client_id = 1;
     server->bound_port = 0;
     server->listening = false;
     return SWBT_IPC_SERVER_OK;
 }
 
-swbt_ipc_server_result_t swbt_ipc_server_bind_session(swbt_ipc_server_t *server,
-                                                      swbt_ipc_session_t *session) {
-    if (server == NULL || session == NULL || server->listening) {
+swbt_ipc_server_result_t swbt_ipc_server_bind_app(swbt_ipc_server_t *server, swbt_app_t *app) {
+    if (server == NULL || app == NULL || server->listening) {
         return SWBT_IPC_SERVER_ERROR_INVALID_ARGUMENT;
     }
 
-    server->session = session;
+    server->app = app;
     return SWBT_IPC_SERVER_OK;
 }
 
@@ -421,7 +422,7 @@ swbt_ipc_server_serve_connection_once_internal(swbt_ipc_server_t *server,
     read_result = swbt_ipc_read_line(&connection->socket, line, sizeof(line), &line_length);
     if (read_result == SWBT_IPC_SERVER_ERROR_DISCONNECTED ||
         read_result == SWBT_IPC_SERVER_ERROR_SOCKET) {
-        (void)swbt_ipc_adapter_handle_disconnect(server->session, connection->client_id);
+        (void)swbt_ipc_adapter_handle_disconnect(server->app, connection->client_id);
         return SWBT_IPC_SERVER_ERROR_DISCONNECTED;
     }
     if (read_result != SWBT_IPC_SERVER_OK) {
@@ -432,8 +433,8 @@ swbt_ipc_server_serve_connection_once_internal(swbt_ipc_server_t *server,
     if (update_heartbeat) {
         swbt_ipc_connection_record_heartbeat(connection, now_ms);
     }
-    json_result = swbt_ipc_adapter_handle_line(server->session, connection->client_id, line,
-                                               response, sizeof(response));
+    json_result = swbt_ipc_adapter_handle_line(server->app, connection->client_id, line, response,
+                                               sizeof(response));
     if (json_result != SWBT_IPC_JSON_OK) {
         return SWBT_IPC_SERVER_ERROR_SOCKET;
     }
@@ -475,7 +476,7 @@ swbt_ipc_server_result_t swbt_ipc_server_check_heartbeat(swbt_ipc_server_t *serv
         return SWBT_IPC_SERVER_OK;
     }
 
-    (void)swbt_ipc_adapter_handle_heartbeat_timeout(server->session, connection->client_id);
+    (void)swbt_ipc_adapter_handle_heartbeat_timeout(server->app, connection->client_id);
     return SWBT_IPC_SERVER_ERROR_HEARTBEAT_TIMEOUT;
 }
 
@@ -484,7 +485,7 @@ swbt_ipc_server_result_t swbt_ipc_server_get_status(const swbt_ipc_server_t *ser
     if (server == NULL || out_status == NULL) {
         return SWBT_IPC_SERVER_ERROR_INVALID_ARGUMENT;
     }
-    if (swbt_ipc_get_status(server->session, out_status) != SWBT_IPC_OK) {
+    if (swbt_ipc_adapter_get_status(server->app, out_status) != SWBT_IPC_OK) {
         return SWBT_IPC_SERVER_ERROR_SOCKET;
     }
     return SWBT_IPC_SERVER_OK;
@@ -507,6 +508,11 @@ void swbt_ipc_server_close(swbt_ipc_server_t *server) {
         return;
     }
     swbt_ipc_socket_close(&server->listen_socket);
+    if (server->default_app != NULL) {
+        swbt_app_destroy(server->default_app);
+    }
+    server->default_app = NULL;
+    server->app = NULL;
     server->bound_port = 0;
     server->listening = false;
 }

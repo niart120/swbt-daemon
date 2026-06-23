@@ -84,6 +84,13 @@ holdoff_periodic_after_reply(swbt_btstack_input_report_timer_adapter_t *adapter,
     return schedule_next_timer(adapter, now_us);
 }
 
+static void cancel_pending_timer(swbt_btstack_input_report_timer_adapter_t *adapter) {
+    if (adapter->timer_pending) {
+        (void)adapter->backend->remove_timer(&adapter->timer);
+        adapter->timer_pending = false;
+    }
+}
+
 static int send_hidp_input_report(swbt_btstack_input_report_timer_adapter_t *adapter,
                                   uint16_t hid_cid, const uint8_t *report, size_t report_size) {
     if (adapter == NULL || report == NULL || report_size == 0u ||
@@ -109,6 +116,27 @@ static int send_hidp_input_report(swbt_btstack_input_report_timer_adapter_t *ada
         adapter->scheduler.timer = (uint8_t)(adapter->scheduler.timer + 1u);
     }
     return result;
+}
+
+static swbt_btstack_input_report_timer_result_t
+send_neutral_report(swbt_btstack_input_report_timer_adapter_t *adapter) {
+    swbt_switch_report_options_t report_options = adapter->scheduler.report_options;
+    report_options.timer = adapter->scheduler.timer;
+    const swbt_state_t state = swbt_state_neutral();
+    size_t written = 0u;
+
+    if (swbt_switch_build_standard_full_report(&state, &report_options, adapter->scheduler.scratch,
+                                               sizeof(adapter->scheduler.scratch),
+                                               &written) != SWBT_SWITCH_REPORT_OK) {
+        return SWBT_BTSTACK_INPUT_REPORT_TIMER_ERROR_SCHEDULER;
+    }
+    if (send_hidp_input_report(adapter, adapter->hid_cid, adapter->scheduler.scratch, written) !=
+        0) {
+        return SWBT_BTSTACK_INPUT_REPORT_TIMER_ERROR_SCHEDULER;
+    }
+
+    adapter->scheduler.timer = (uint8_t)(adapter->scheduler.timer + 1u);
+    return SWBT_BTSTACK_INPUT_REPORT_TIMER_OK;
 }
 
 static int scheduler_send_callback(void *context, uint16_t hid_cid, const uint8_t *report,
@@ -236,6 +264,7 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
     adapter->timer_pending = false;
     adapter->can_send_pending = false;
     adapter->periodic_holdoff_until_us = 0u;
+    adapter->neutral_send_pending = false;
     adapter->backend->set_timer_handler(&adapter->timer, adapter_timer_handler);
     adapter->backend->set_timer_context(&adapter->timer, adapter);
     return schedule_next_timer(adapter, options.now_us);
@@ -268,6 +297,21 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
     }
     if (!adapter->running) {
         return SWBT_BTSTACK_INPUT_REPORT_TIMER_STOPPED;
+    }
+    if (adapter->neutral_send_pending) {
+        const swbt_btstack_input_report_timer_result_t neutral_result =
+            send_neutral_report(adapter);
+        if (neutral_result != SWBT_BTSTACK_INPUT_REPORT_TIMER_OK) {
+            adapter->backend->request_can_send_now_event(adapter->hid_cid);
+            return neutral_result;
+        }
+
+        const uint64_t now_us = (uint64_t)adapter->backend->get_time_ms() * 1000u;
+        adapter->neutral_send_pending = false;
+        adapter->can_send_pending = false;
+        adapter->periodic_holdoff_until_us = 0u;
+        cancel_pending_timer(adapter);
+        return schedule_next_timer(adapter, now_us);
     }
     if (swbt_btstack_subcommand_reply_queue_size(&adapter->reply_queue) > 0u) {
         const swbt_btstack_subcommand_reply_queue_result_t reply_result =
@@ -341,21 +385,14 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
         return SWBT_BTSTACK_INPUT_REPORT_TIMER_STOPPED;
     }
 
-    swbt_switch_report_options_t report_options = adapter->scheduler.report_options;
-    report_options.timer = adapter->scheduler.timer;
-    const swbt_state_t state = swbt_state_neutral();
-    size_t written = 0u;
-    if (swbt_switch_build_standard_full_report(&state, &report_options, adapter->scheduler.scratch,
-                                               sizeof(adapter->scheduler.scratch),
-                                               &written) != SWBT_SWITCH_REPORT_OK) {
-        return SWBT_BTSTACK_INPUT_REPORT_TIMER_ERROR_SCHEDULER;
-    }
-    if (send_hidp_input_report(adapter, adapter->hid_cid, adapter->scheduler.scratch, written) !=
-        0) {
-        return SWBT_BTSTACK_INPUT_REPORT_TIMER_ERROR_SCHEDULER;
+    const swbt_btstack_input_report_timer_result_t result = send_neutral_report(adapter);
+    if (result != SWBT_BTSTACK_INPUT_REPORT_TIMER_OK) {
+        adapter->neutral_send_pending = true;
+        adapter->backend->request_can_send_now_event(adapter->hid_cid);
+        return SWBT_BTSTACK_INPUT_REPORT_TIMER_PENDING;
     }
 
-    adapter->scheduler.timer = (uint8_t)(adapter->scheduler.timer + 1u);
+    adapter->neutral_send_pending = false;
     return SWBT_BTSTACK_INPUT_REPORT_TIMER_OK;
 }
 
@@ -369,6 +406,7 @@ void swbt_btstack_input_report_timer_adapter_stop(
         adapter->timer_pending = false;
     }
     adapter->can_send_pending = false;
+    adapter->neutral_send_pending = false;
     adapter->periodic_holdoff_until_us = 0u;
     adapter->running = false;
     (void)swbt_btstack_subcommand_reply_queue_init(&adapter->reply_queue);

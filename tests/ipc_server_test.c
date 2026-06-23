@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "ipc/ipc_server.h"
-#include "ipc/ipc_session.h"
 #include "switch/switch_controller_state.h"
 
 static int expect_contains(const char *text, const char *needle) {

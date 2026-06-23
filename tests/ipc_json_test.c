@@ -4,7 +4,6 @@
 
 #include "ipc/ipc_adapter.h"
 #include "ipc/ipc_json.h"
-#include "ipc/ipc_session.h"
 #include "switch/switch_controller_state.h"
 #include "switch/switch_rumble.h"
 
@@ -20,12 +19,12 @@ static int expect_eq_u16(uint16_t actual, uint16_t expected) {
     return actual == expected ? 0 : 1;
 }
 
-static int handle(swbt_ipc_session_t *session, uint32_t client_id, const char *line, char *response,
+static int handle(swbt_app_t *app, uint32_t client_id, const char *line, char *response,
                   size_t response_size) {
     for (size_t index = 0; index < response_size; ++index) {
         response[index] = '\0';
     }
-    return swbt_ipc_adapter_handle_line(session, client_id, line, response, response_size);
+    return swbt_ipc_adapter_handle_line(app, client_id, line, response, response_size);
 }
 
 static int large_status_response_fits_response_buffer(void) {
@@ -102,7 +101,7 @@ static int large_status_response_fits_response_buffer(void) {
 int main(void) {
     swbt_ipc_command_t command;
     swbt_ipc_response_t codec_error;
-    swbt_ipc_session_t session;
+    swbt_app_t *app;
     swbt_ipc_status_t status;
     swbt_ipc_status_t status_after_decode;
     char response[SWBT_IPC_JSON_RESPONSE_MAX];
@@ -110,7 +109,8 @@ int main(void) {
         0x04, 0x01, 0x80, 0x41, 0x08, 0x01, 0x80, 0x42,
     };
 
-    if (swbt_ipc_session_init(&session) != SWBT_IPC_OK) {
+    app = swbt_app_create();
+    if (app == NULL) {
         return 1;
     }
 
@@ -129,7 +129,7 @@ int main(void) {
         expect_eq_u16(command.state.lx, 1234) || expect_eq_u16(command.state.ly, 2345)) {
         return 38;
     }
-    if (swbt_ipc_get_status(&session, &status_after_decode) != SWBT_IPC_OK) {
+    if (swbt_ipc_adapter_get_status(app, &status_after_decode) != SWBT_IPC_OK) {
         return 39;
     }
     if (status_after_decode.has_owner || expect_eq_u32(status_after_decode.state.buttons, 0) ||
@@ -154,7 +154,7 @@ int main(void) {
         expect_contains(response, "\"message\":\"message is not a complete JSON object\"")) {
         return 44;
     }
-    if (swbt_ipc_get_status(&session, &status_after_decode) != SWBT_IPC_OK) {
+    if (swbt_ipc_adapter_get_status(app, &status_after_decode) != SWBT_IPC_OK) {
         return 45;
     }
     if (status_after_decode.has_owner || expect_eq_u32(status_after_decode.state.buttons, 0) ||
@@ -175,7 +175,7 @@ int main(void) {
         codec_error.error_code != SWBT_IPC_ERROR_CODE_INVALID_STATE) {
         return 48;
     }
-    if (swbt_ipc_get_status(&session, &status_after_decode) != SWBT_IPC_OK) {
+    if (swbt_ipc_adapter_get_status(app, &status_after_decode) != SWBT_IPC_OK) {
         return 49;
     }
     if (status_after_decode.has_owner || expect_eq_u32(status_after_decode.state.buttons, 0) ||
@@ -183,7 +183,7 @@ int main(void) {
         return 50;
     }
 
-    if (handle(&session, 1001,
+    if (handle(app, 1001,
                "{\"v\":1,\"type\":\"hello\",\"client_name\":\"unit\",\"request_id\":\"h1\"}\n",
                response, sizeof(response)) != SWBT_IPC_JSON_OK) {
         return 2;
@@ -194,7 +194,7 @@ int main(void) {
         return 3;
     }
 
-    if (handle(&session, 1001,
+    if (handle(app, 1001,
                "{\"v\":1,\"type\":\"acquire\",\"mode\":\"exclusive\",\"request_id\":\"a1\"}\n",
                response, sizeof(response)) != SWBT_IPC_JSON_OK) {
         return 4;
@@ -205,7 +205,7 @@ int main(void) {
         return 5;
     }
 
-    if (handle(&session, 2002,
+    if (handle(app, 2002,
                "{\"v\":1,\"type\":\"acquire\",\"mode\":\"exclusive\",\"request_id\":\"a2\"}\n",
                response, sizeof(response)) != SWBT_IPC_JSON_OK) {
         return 6;
@@ -216,7 +216,7 @@ int main(void) {
         return 7;
     }
 
-    if (handle(&session, 2002,
+    if (handle(app, 2002,
                "{\"v\":1,\"type\":\"set_state\",\"owner_id\":\"000007d2\",\"seq\":77,"
                "\"request_id\":\"s2\",\"state\":{\"buttons\":8,\"lx\":1234,\"ly\":2345,"
                "\"rx\":2048,\"ry\":2048,\"accel_x\":1,\"accel_y\":2,\"accel_z\":3,"
@@ -230,7 +230,7 @@ int main(void) {
         return 9;
     }
 
-    if (handle(&session, 1001,
+    if (handle(app, 1001,
                "{\"v\":1,\"type\":\"set_state\",\"owner_id\":\"000003e9\",\"seq\":77,"
                "\"request_id\":\"s1\",\"state\":{\"buttons\":8,\"lx\":1234,\"ly\":2345,"
                "\"rx\":2048,\"ry\":2048,\"accel_x\":1,\"accel_y\":2,\"accel_z\":3,"
@@ -243,7 +243,7 @@ int main(void) {
         expect_contains(response, "\"seq\":77")) {
         return 11;
     }
-    if (swbt_ipc_get_status(&session, &status) != SWBT_IPC_OK) {
+    if (swbt_ipc_adapter_get_status(app, &status) != SWBT_IPC_OK) {
         return 12;
     }
     if (expect_eq_u32(status.state.buttons, SWBT_BUTTON_A) ||
@@ -251,12 +251,12 @@ int main(void) {
         status.last_seq != 77) {
         return 13;
     }
-    if (swbt_ipc_record_rumble(&session, active_rumble, 4242u) != SWBT_IPC_OK) {
+    if (swbt_app_record_rumble(app, active_rumble, 4242u) != SWBT_APP_OK) {
         return 32;
     }
 
-    if (handle(&session, 2002, "{\"v\":1,\"type\":\"get_status\",\"request_id\":\"g1\"}\n",
-               response, sizeof(response)) != SWBT_IPC_JSON_OK) {
+    if (handle(app, 2002, "{\"v\":1,\"type\":\"get_status\",\"request_id\":\"g1\"}\n", response,
+               sizeof(response)) != SWBT_IPC_JSON_OK) {
         return 14;
     }
     if (expect_contains(response, "\"type\":\"status\"") ||
@@ -268,7 +268,7 @@ int main(void) {
         expect_contains(response, "\"metrics\":{\"hardware_status\":\"unavailable\","
                                   "\"report_ticks_total\":0,\"reports_sent_total\":0,"
                                   "\"send_failures_total\":0,\"report_interval_average_us\":0,"
-                                  "\"report_interval_max_us\":0,\"ipc_state_accepted_total\":0,"
+                                  "\"report_interval_max_us\":0,\"ipc_state_accepted_total\":1,"
                                   "\"ipc_state_rejected_total\":0,\"ipc_state_coalesced_total\":0,"
                                   "\"actual_report_rate_hz\":0,\"jitter_max_us\":0}") ||
         expect_contains(response, "\"hardware\":{\"adapter_state\":\"unavailable\","
@@ -283,7 +283,7 @@ int main(void) {
         return 15;
     }
 
-    if (handle(&session, 1001,
+    if (handle(app, 1001,
                "{\"v\":1,\"type\":\"set_state\",\"owner_id\":\"000003e9\",\"seq\":78,"
                "\"request_id\":\"bad-state\",\"state\":{\"buttons\":8,\"lx\":5000,\"ly\":2048,"
                "\"rx\":2048,\"ry\":2048,\"accel_x\":0,\"accel_y\":0,\"accel_z\":0,"
@@ -296,14 +296,14 @@ int main(void) {
         expect_contains(response, "\"request_id\":\"bad-state\"")) {
         return 17;
     }
-    if (swbt_ipc_get_status(&session, &status) != SWBT_IPC_OK) {
+    if (swbt_ipc_adapter_get_status(app, &status) != SWBT_IPC_OK) {
         return 18;
     }
     if (expect_eq_u16(status.state.lx, 1234) || status.last_seq != 77) {
         return 19;
     }
 
-    if (handle(&session, 1001,
+    if (handle(app, 1001,
                "{\"v\":1,\"type\":\"set_state\",\"owner_id\":\"000003e9\",\"seq\":79,"
                "\"request_id\":\"bad-state-object\",\"state\":0,\"buttons\":0,\"lx\":2048,"
                "\"ly\":2048,\"rx\":2048,\"ry\":2048,\"accel_x\":0,\"accel_y\":0,"
@@ -316,14 +316,14 @@ int main(void) {
         expect_contains(response, "\"request_id\":\"bad-state-object\"")) {
         return 21;
     }
-    if (swbt_ipc_get_status(&session, &status) != SWBT_IPC_OK) {
+    if (swbt_ipc_adapter_get_status(app, &status) != SWBT_IPC_OK) {
         return 22;
     }
     if (expect_eq_u16(status.state.lx, 1234) || status.last_seq != 77) {
         return 23;
     }
 
-    if (handle(&session, 1001,
+    if (handle(app, 1001,
                "{\"v\":1,\"type\":\"set_state\",\"owner_id\":\"000003e9\",\"seq\":76,"
                "\"request_id\":\"stale\",\"state\":{\"buttons\":2,\"lx\":3456,\"ly\":2048,"
                "\"rx\":2048,\"ry\":2048,\"accel_x\":0,\"accel_y\":0,\"accel_z\":0,"
@@ -336,7 +336,7 @@ int main(void) {
         expect_contains(response, "\"seq\":76")) {
         return 34;
     }
-    if (swbt_ipc_get_status(&session, &status) != SWBT_IPC_OK) {
+    if (swbt_ipc_adapter_get_status(app, &status) != SWBT_IPC_OK) {
         return 35;
     }
     if (expect_eq_u32(status.state.buttons, SWBT_BUTTON_A) ||
@@ -344,7 +344,7 @@ int main(void) {
         return 36;
     }
 
-    if (handle(&session, 1001,
+    if (handle(app, 1001,
                "{\"v\":1,\"type\":\"release\",\"owner_id\":\"000003e9\",\"request_id\":\"r1\"}\n",
                response, sizeof(response)) != SWBT_IPC_JSON_OK) {
         return 24;
@@ -353,7 +353,7 @@ int main(void) {
         expect_contains(response, "\"request_id\":\"r1\"")) {
         return 25;
     }
-    if (swbt_ipc_get_status(&session, &status) != SWBT_IPC_OK) {
+    if (swbt_ipc_adapter_get_status(app, &status) != SWBT_IPC_OK) {
         return 26;
     }
     if (status.has_owner || expect_eq_u32(status.state.buttons, 0) ||
@@ -361,7 +361,7 @@ int main(void) {
         return 27;
     }
 
-    if (handle(&session, 1001, "{\"v\":2,\"type\":\"hello\",\"request_id\":\"bad-v\"}\n", response,
+    if (handle(app, 1001, "{\"v\":2,\"type\":\"hello\",\"request_id\":\"bad-v\"}\n", response,
                sizeof(response)) != SWBT_IPC_JSON_OK) {
         return 28;
     }
@@ -371,7 +371,7 @@ int main(void) {
         return 29;
     }
 
-    if (handle(&session, 1001, "{\"v\":1,\"type\":\"hello\"", response, sizeof(response)) !=
+    if (handle(app, 1001, "{\"v\":1,\"type\":\"hello\"", response, sizeof(response)) !=
         SWBT_IPC_JSON_OK) {
         return 30;
     }
@@ -384,5 +384,6 @@ int main(void) {
         return 51;
     }
 
+    swbt_app_destroy(app);
     return 0;
 }

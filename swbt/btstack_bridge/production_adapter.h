@@ -1,5 +1,5 @@
-#ifndef SWBT_DAEMON_PRODUCTION_BACKEND_OPS_H
-#define SWBT_DAEMON_PRODUCTION_BACKEND_OPS_H
+#ifndef SWBT_BTSTACK_BRIDGE_PRODUCTION_ADAPTER_H
+#define SWBT_BTSTACK_BRIDGE_PRODUCTION_ADAPTER_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -9,17 +9,17 @@
 #include "btstack_bridge/input_report_timer_adapter.h"
 #include "btstack_bridge/output_report_handler.h"
 
-typedef bool (*swbt_daemon_production_ipc_pump_is_running_t)(void *context);
-typedef void (*swbt_daemon_production_ipc_pump_poll_once_at_t)(void *context, uint32_t now_ms);
+typedef bool (*swbt_btstack_production_ipc_pump_is_running_t)(void *context);
+typedef void (*swbt_btstack_production_ipc_pump_poll_once_at_t)(void *context, uint32_t now_ms);
 
 typedef struct {
-    swbt_daemon_production_ipc_pump_is_running_t is_running;
-    swbt_daemon_production_ipc_pump_poll_once_at_t poll_once_at;
+    swbt_btstack_production_ipc_pump_is_running_t is_running;
+    swbt_btstack_production_ipc_pump_poll_once_at_t poll_once_at;
     void *context;
-} swbt_daemon_production_ipc_pump_t;
+} swbt_btstack_production_ipc_pump_t;
 
 typedef struct {
-    int (*ipc_pump_start)(void *context, const swbt_daemon_production_ipc_pump_t *pump);
+    int (*ipc_pump_start)(void *context, const swbt_btstack_production_ipc_pump_t *pump);
     void (*ipc_pump_stop)(void *context);
     int (*platform_start)(void *context);
     void (*platform_stop)(void *context);
@@ -47,9 +47,11 @@ typedef struct {
     int (*power_on)(void *context);
     void (*power_off)(void *context);
     void (*run_loop_execute)(void *context);
+    void (*run_loop_execute_on_main_thread)(
+        void *context, btstack_context_callback_registration_t *callback_registration);
     void (*run_loop_trigger_exit)(void *context);
-} swbt_daemon_production_backend_ops_t;
+} swbt_btstack_production_adapter_t;
 
-swbt_btstack_hid_registration_config_t swbt_daemon_production_hid_registration_config(void);
+swbt_btstack_hid_registration_config_t swbt_btstack_production_hid_registration_config(void);
 
 #endif

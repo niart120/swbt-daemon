@@ -408,6 +408,46 @@ static int send_neutral_now_ignores_non_neutral_provider_state(void) {
     return failed;
 }
 
+static int send_neutral_now_failure_retries_urgent_neutral_before_periodic(void) {
+    swbt_btstack_input_report_timer_adapter_t adapter;
+    swbt_state_t state = sample_state();
+    const swbt_btstack_input_report_timer_backend_t backend = fake_backend_with_send_result();
+    const swbt_btstack_input_report_timer_adapter_config_t config =
+        sample_config_with_backend(&state, &backend);
+
+    fake_reset(1u);
+    int failed = 0;
+    failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_init(&adapter, &config),
+                            SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+    failed += expect_eq_int(
+        swbt_btstack_input_report_timer_adapter_start(&adapter, start_options(0x0042u, 1000u)),
+        SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+
+    g_fake_btstack.send_interrupt_result = -7;
+    failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_send_neutral_now(&adapter),
+                            SWBT_BTSTACK_INPUT_REPORT_TIMER_PENDING);
+    failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 1);
+    failed += expect_eq_int(g_fake_btstack.request_can_send_calls, 1);
+    failed += expect_eq_u8(g_fake_btstack.report[0], 0xA1u);
+    failed += expect_eq_u8(g_fake_btstack.report[1], SWBT_SWITCH_INPUT_REPORT_STANDARD_FULL);
+    failed += expect_eq_u8(g_fake_btstack.report[2], 0x41u);
+    failed += expect_eq_u8(g_fake_btstack.report[4], 0x00u);
+    failed += expect_eq_u8(g_fake_btstack.report[5], 0x00u);
+    failed += expect_eq_u8(g_fake_btstack.report[6], 0x00u);
+
+    g_fake_btstack.send_interrupt_result = 0;
+    failed += expect_eq_int(swbt_btstack_input_report_timer_adapter_on_can_send_now(&adapter),
+                            SWBT_BTSTACK_INPUT_REPORT_TIMER_OK);
+    failed += expect_eq_int(g_fake_btstack.send_interrupt_calls, 2);
+    failed += expect_eq_u8(g_fake_btstack.report[0], 0xA1u);
+    failed += expect_eq_u8(g_fake_btstack.report[1], SWBT_SWITCH_INPUT_REPORT_STANDARD_FULL);
+    failed += expect_eq_u8(g_fake_btstack.report[2], 0x41u);
+    failed += expect_eq_u8(g_fake_btstack.report[4], 0x00u);
+    failed += expect_eq_u8(g_fake_btstack.report[5], 0x00u);
+    failed += expect_eq_u8(g_fake_btstack.report[6], 0x00u);
+    return failed;
+}
+
 static int reply_send_failure_keeps_item_for_retry(void) {
     uint8_t reply[SWBT_SWITCH_SUBCOMMAND_REPLY_REPORT_SIZE] = {0};
     swbt_btstack_input_report_timer_adapter_t adapter;
@@ -550,6 +590,8 @@ int main(void) {
                        queued_replies_share_advancing_input_report_timer);
     failed += run_test("send_neutral_now_ignores_non_neutral_provider_state",
                        send_neutral_now_ignores_non_neutral_provider_state);
+    failed += run_test("send_neutral_now_failure_retries_urgent_neutral_before_periodic",
+                       send_neutral_now_failure_retries_urgent_neutral_before_periodic);
     failed += run_test("reply_send_failure_keeps_item_for_retry",
                        reply_send_failure_keeps_item_for_retry);
     failed += run_test("stop_cancels_timer_and_prevents_later_sends",

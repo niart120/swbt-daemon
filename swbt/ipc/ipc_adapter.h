@@ -4,19 +4,27 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "application/app.h"
 #include "ipc/ipc_json.h"
-#include "ipc/ipc_session.h"
+#include "ipc/ipc_status.h"
 
-swbt_ipc_json_result_t swbt_ipc_adapter_handle_line(swbt_ipc_session_t *session, uint32_t client_id,
+typedef enum {
+    SWBT_IPC_OK = 0,
+    SWBT_IPC_ERROR_INVALID_ARGUMENT = -1,
+    SWBT_IPC_ERROR_OWNER_BUSY = -2,
+    SWBT_IPC_ERROR_NOT_OWNER = -3,
+} swbt_ipc_result_t;
+
+swbt_ipc_json_result_t swbt_ipc_adapter_handle_line(swbt_app_t *app, uint32_t client_id,
                                                     const char *line, char *response,
                                                     size_t response_size);
 
-swbt_ipc_result_t swbt_ipc_adapter_handle_disconnect(swbt_ipc_session_t *session,
-                                                     uint32_t client_id);
+swbt_ipc_result_t swbt_ipc_adapter_handle_disconnect(swbt_app_t *app, uint32_t client_id);
 
-swbt_ipc_result_t swbt_ipc_adapter_handle_heartbeat_timeout(swbt_ipc_session_t *session,
-                                                            uint32_t client_id);
+swbt_ipc_result_t swbt_ipc_adapter_handle_heartbeat_timeout(swbt_app_t *app, uint32_t client_id);
 
-swbt_ipc_result_t swbt_ipc_adapter_handle_shutdown(swbt_ipc_session_t *session);
+swbt_ipc_result_t swbt_ipc_adapter_handle_shutdown(swbt_app_t *app);
+
+swbt_ipc_result_t swbt_ipc_adapter_get_status(const swbt_app_t *app, swbt_ipc_status_t *out_status);
 
 #endif
