@@ -18,6 +18,8 @@ function(swbt_assert_file_match relative_path pattern label)
     endif()
 endfunction()
 
+# Target sources still receive private source-tree include paths. These absence checks cover
+# forbidden implementation includes that public include-root compile probes cannot detect.
 file(GLOB_RECURSE swbt_application_files
     "${SWBT_SOURCE_DIR}/swbt/application/*.c"
     "${SWBT_SOURCE_DIR}/swbt/application/*.h"
@@ -63,6 +65,8 @@ swbt_assert_file_not_match("swbt/btstack_bridge/production_btstack.h"
                            "daemon/production_backend.h"
                            "BTstack production adapter production backend struct boundary")
 
+# These checks cover CMake topology. Public include-root compile probes cover include visibility,
+# but they do not prove the intended target names and unit-test link targets remain in place.
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_application STATIC"
                        "application target boundary")
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_ipc STATIC"
@@ -71,9 +75,6 @@ swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_btstack_adapter STAT
                        "BTstack adapter target boundary")
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_daemon_host STATIC"
                        "daemon host target boundary")
-swbt_assert_file_not_match("CMakeLists.txt"
-                           "target_include_directories\\(swbt_application[^\\)]*swbt_btstack"
-                           "application target BTstack include boundary")
 swbt_assert_file_not_match("CMakeLists.txt"
                            "target_link_libraries\\(swbt_application[^\\)]*swbt_btstack"
                            "application target BTstack link boundary")

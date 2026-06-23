@@ -91,7 +91,7 @@ not applicable。
 | refactor-skipped | BTstack adapter target cannot include IPC transport internals through public include paths | regression | build | no |
 | refactor-skipped | daemon host remains the composition owner for cross-module wiring | regression | build | no |
 | green | protocol tests link without IPC, daemon host, or BTstack adapter targets | regression | build | no |
-| todo | old text-only boundary checks are either removed or justified as absence checks | characterization | build | no |
+| refactor-done | old text-only boundary checks are either removed or justified as absence checks | characterization | build | no |
 | todo | added boundary probes / targets are paired with removed or narrowed checks, or their retention condition is recorded | verification | docs/build | no |
 
 ## 10. 検証
@@ -149,6 +149,17 @@ TDD status:
   - green: `rg -n "#include \"(ipc|daemon|btstack_bridge)/" tests/switch_* tests/swbt_smoke_test.c` は no matches。
   - green: `CTEST_ARGS="-R \"(switch_report_test|switch_hid_descriptor_test|switch_subcommand_test|switch_subcommand_reply_test|switch_subcommand_dispatcher_test|switch_spi_test|switch_spi_seed_test|switch_rumble_test|switch_player_lights_test|include_boundaries_cmake_test)\" --output-on-failure" just test-debug` pass。`compile_include_boundaries_cmake_test` も同じ実行で pass。
 - notes: この item は既存 `include_boundaries_cmake_test` と、今回の `swbt_switch_protocol` 公開 root の縮小で満たせている。追加の build scaffolding は不要。
+
+TDD status:
+
+- source: `local_060` の完了条件。
+- use case: 既存の text-only boundary check が、compile probe に置き換わった stale check と、private source include / target topology を見る absence check に分類されている。
+- item: old text-only boundary checks are either removed or justified as absence checks。
+- state: refactor-done。
+- commands:
+  - green: `CTEST_ARGS="-R \"(include_boundaries_cmake_test|compile_include_boundaries_cmake_test)\" --output-on-failure" just test-debug` pass。
+- notes: `target_include_directories(swbt_application ... swbt_btstack)` の文字列 check は、公開 include root compile probe に置き換わったため削除した。source scan は target source の `PRIVATE` include path 経由の禁止 include を検出する absence check として残した。CMake target / unit-test link check は、target 名と link topology の absence / topology check として残した。
+- refactor: `tests/cmake/include_boundaries_test.cmake` に残す check の分類コメントを追加した。runtime behavior は変更していない。
 
 ## 11. 実機実行条件
 
