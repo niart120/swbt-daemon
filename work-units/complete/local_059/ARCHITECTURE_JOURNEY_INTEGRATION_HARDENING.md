@@ -144,6 +144,11 @@ TDD status:
   - green: `CTEST_ARGS="-R daemon_production_backend_test --output-on-failure" just test-debug` pass。
 - notes: failure cleanup は `pending_stop_request_*`、正常 journey は `shutdown_after_json_state_*` として分けた。実機不要。
 
+Full verification:
+
+- `just debug` pass。Linux debug configure、build、CTest 38/38 pass。
+- full verification は local_059 の変更範囲に対する merge 前 gate として実行した。
+
 開始時の確認:
 
 - 対象 source は `local_058` の先送り事項である。
@@ -166,5 +171,5 @@ none。起票時点の先送り事項は、この record の source として取
 - [x] red test を追加した。
 - [x] green 実装を行った。
 - [x] `just debug` または targeted CTest を実行した。
-- [ ] full verification の要否を判定した。
+- [x] full verification の要否を判定した。
 - [x] 実機未実行理由または実機結果を記録した。
