@@ -75,7 +75,7 @@ not applicable。
 - `docs/status.md`
 - `spec/architecture/daemon-architecture-cutover.md`
 - `spec/operations/*`
-- `work-units/wip/local_066/RELEASE_LICENSE_BOUNDARY_POLICY.md`
+- `work-units/complete/local_066/RELEASE_LICENSE_BOUNDARY_POLICY.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
@@ -97,6 +97,13 @@ not applicable。
 - green: `spec/operations/release-license-boundary.md` に release 前 checklist を追加し、binary artifact 作成前に `THIRD_PARTY_NOTICES.md`、`vendor/btstack/LICENSE`、`vendor/btstack/3rd-party/README.md` を確認する手順を記録する。
 - red: `rg -n "root LICENSE.*自前|third-party notice|bundled third-party notices|source repository license text|source repository の license" spec\operations\release-license-boundary.md` -> no match。
 - green: `spec/operations/release-license-boundary.md` と `README.md` に、root `LICENSE` は自前 project files の license text、`THIRD_PARTY_NOTICES.md` は bundled third-party notices の入口として別に確認する方針を記録する。
+- verification: `Test-Path THIRD_PARTY_NOTICES.md` -> `True`。
+- verification: `Test-Path vendor\btstack\LICENSE` -> `True`。
+- verification: `Test-Path vendor\btstack\3rd-party\README.md` -> `True`。
+- verification: `rg -n "binary release は現時点の対象外|MIT-only artifact|release 前 checklist|bundled third-party notices|THIRD_PARTY_NOTICES.md" spec\operations\release-license-boundary.md README.md THIRD_PARTY_NOTICES.md work-units\wip\local_066\RELEASE_LICENSE_BOUNDARY_POLICY.md` -> pass。
+- verification: `git diff --check` -> pass。
+- verification: `just verify` -> pass。`format-check`、`tidy`、linux-debug configure/build/CTest、linux-asan configure/build/CTest、windows-mingw-debug cross build を実行した。
+- Test Desiderata review: docs 検索は binary release scope、MIT-only 禁止表現、release 前 checklist、license / notice の役割分離を直接確認している。`Test-Path` は notice 参照先の存在確認であり、release artifact の同梱検証ではない。この work unit は artifact を作成しないため、その範囲で十分である。
 
 ## 11. 実機実行条件
 
@@ -110,7 +117,7 @@ none。起票時点の先送り事項は、この record の source として取
 
 - [x] source を `local_050`、`local_055`、architecture spec、repository policy から特定した。
 - [x] use case を release / license policy gate として定義した。
-- [ ] `THIRD_PARTY_NOTICES.md` を確認した。
-- [ ] docs の license / release 表現を確認した。
-- [ ] 必要な docs / spec を更新した。
-- [ ] docs-only verification を実行した。
+- [x] `THIRD_PARTY_NOTICES.md` を確認した。
+- [x] docs の license / release 表現を確認した。
+- [x] 必要な docs / spec を更新した。
+- [x] docs-only verification を実行した。

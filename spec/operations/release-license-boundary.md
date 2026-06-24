@@ -63,7 +63,7 @@ Switch HID protocol、BTstack source selection、report timing、WinUSB/libusb �
 
 ## 6. 関連 work units
 
-- `work-units/wip/local_066/RELEASE_LICENSE_BOUNDARY_POLICY.md`
+- `work-units/complete/local_066/RELEASE_LICENSE_BOUNDARY_POLICY.md`
 - `work-units/complete/local_050/DAEMON_APPLICATION_BOUNDARY_REARCHITECTURE.md`
 - `work-units/complete/local_055/REARCHITECTURE_CUTOVER_ACCEPTANCE_AND_CLEANUP.md`
 
