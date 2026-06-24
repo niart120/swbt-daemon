@@ -82,7 +82,7 @@ not applicable。
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | refactor-skipped | malformed JSON corpus leaves application state unchanged | regression | unit | no |
-| todo | oversized IPC line is rejected or closed without buffer overrun and with documented behavior | edge | integration | no |
+| refactor-skipped | oversized IPC line is rejected or closed without buffer overrun and with documented behavior | edge | integration | no |
 | todo | fragmented valid command is handled according to line framing contract | regression | integration | no |
 | todo | invalid input followed by valid input has explicit recovery or close semantics | edge | integration | no |
 | todo | slow client does not block unrelated owner disconnect / heartbeat processing in the tested loopback model | characterization | integration | no |
@@ -107,6 +107,20 @@ TDD status:
   - after format: `$env:CTEST_ARGS='-R ipc_json_test'; just test-debug` -> pass。
 - notes: `tdd-one-cycle` と `refactor-after-green` を使用。追加の構造変更は、今回の item で必要な parser 終端確認と corpus test の範囲を超えるため `refactor-skipped` とした。
 
+TDD status:
+
+- source: `spec/protocols/daemon-ipc-v1.md` の line size contract と、この record の oversized input item。
+- use case: active owner connection が oversized line を送った場合、buffer overrun せず、message-too-long として接続を閉じ、owner / state を neutral に戻す。
+- item: oversized IPC line is rejected or closed without buffer overrun and with documented behavior。
+- state: refactor-skipped。
+- commands:
+  - red: `just build-debug` -> pass。
+  - red: `$env:CTEST_ARGS='-R ipc_server_test'; just test-debug` -> fail。oversized line 後に connection が閉じられず、owner state が残る既存挙動で失敗した。
+  - format: `just format` -> pass。
+  - green: `just build-debug` -> pass。
+  - green: `$env:CTEST_ARGS='-R "ipc_server_test|daemon_ipc_runner_test"'; just test-debug` -> pass。
+- notes: message-too-long は typed JSON error response ではなく transport close として固定した。`spec/protocols/daemon-ipc-v1.md` に connection close と owner neutral 化を追記した。runner の `has_connection` も message-too-long 後に clear する。追加の構造変更は不要なため `refactor-skipped` とした。
+
 ## 11. 実機実行条件
 
 実機不要。local IPC と fake application state で閉じる。
@@ -121,6 +135,6 @@ none。起票時点の先送り事項は、この record の source として取
 - [x] use case を IPC malformed / slow-client behavior として定義した。
 - [x] input corpus を決めた。
 - [x] red test を追加した。
-- [ ] green 実装を行った。
+- [x] green 実装を行った。
 - [x] targeted CTest を実行した。
-- [ ] protocol docs の更新要否を判定した。
+- [x] protocol docs の更新要否を判定した。

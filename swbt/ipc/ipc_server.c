@@ -423,6 +423,11 @@ swbt_ipc_server_serve_connection_once_internal(swbt_ipc_server_t *server,
         (void)swbt_ipc_adapter_handle_disconnect(server->app, connection->client_id);
         return SWBT_IPC_SERVER_ERROR_DISCONNECTED;
     }
+    if (read_result == SWBT_IPC_SERVER_ERROR_MESSAGE_TOO_LONG) {
+        (void)swbt_ipc_adapter_handle_disconnect(server->app, connection->client_id);
+        swbt_ipc_connection_close(connection);
+        return SWBT_IPC_SERVER_ERROR_MESSAGE_TOO_LONG;
+    }
     if (read_result != SWBT_IPC_SERVER_OK) {
         return read_result;
     }

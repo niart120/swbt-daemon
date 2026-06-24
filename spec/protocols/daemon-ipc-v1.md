@@ -55,7 +55,7 @@ server は accepted connection ごとに internal `client_id` を割り当てる
 
 line は `\n` で終端する。server は newline まで読み、1 line を 1 request として処理する。
 
-message は `SWBT_IPC_JSON_LINE_MAX`、現行値 `8192` bytes に収まる必要がある。これを超える line は transport layer で message too long として扱う。
+message は `SWBT_IPC_JSON_LINE_MAX`、現行値 `8192` bytes に収まる必要がある。これを超える line は transport layer で message too long として扱い、server はその connection を閉じる。閉じる connection が active owner の場合、owner は解除され、latest state は neutral に戻る。
 
 response がある場合、server は 1 JSON object と trailing newline を返す。
 

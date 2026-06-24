@@ -30,6 +30,106 @@ static int receive_response(swbt_ipc_socket_t *socket, char *buffer, size_t buff
     return 0;
 }
 
+static int oversized_line_closes_owner_connection(void) {
+    swbt_ipc_server_t server;
+    swbt_ipc_connection_t connection;
+    swbt_ipc_socket_t client;
+    swbt_ipc_status_t status;
+    uint16_t port = 0;
+    char response[SWBT_IPC_JSON_RESPONSE_MAX];
+    char oversized_line[SWBT_IPC_JSON_LINE_MAX + 2u];
+
+    if (swbt_ipc_server_init(&server) != SWBT_IPC_SERVER_OK) {
+        return 1;
+    }
+    if (swbt_ipc_server_listen(&server, (swbt_ipc_server_listen_options_t){
+                                            .host = "127.0.0.1",
+                                            .port = 0,
+                                            .backlog = 1,
+                                        }) != SWBT_IPC_SERVER_OK) {
+        swbt_ipc_server_close(&server);
+        return 2;
+    }
+    port = swbt_ipc_server_port(&server);
+
+    swbt_ipc_socket_init(&client);
+    if (swbt_ipc_socket_connect_loopback(&client, port) != SWBT_IPC_SERVER_OK) {
+        swbt_ipc_server_close(&server);
+        return 3;
+    }
+    if (swbt_ipc_server_accept(&server, &connection) != SWBT_IPC_SERVER_OK) {
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 4;
+    }
+
+    if (send_line(
+            &client,
+            "{\"v\":1,\"type\":\"acquire\",\"mode\":\"exclusive\",\"request_id\":\"a1\"}\n") != 0) {
+        swbt_ipc_connection_close(&connection);
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 5;
+    }
+    if (swbt_ipc_server_serve_connection_once(&server, &connection) != SWBT_IPC_SERVER_OK) {
+        swbt_ipc_connection_close(&connection);
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 6;
+    }
+    if (receive_response(&client, response, sizeof(response)) != 0) {
+        swbt_ipc_connection_close(&connection);
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 7;
+    }
+    if (expect_contains(response, "\"type\":\"acquired\"")) {
+        swbt_ipc_connection_close(&connection);
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 8;
+    }
+
+    for (size_t index = 0; index < sizeof(oversized_line) - 1u; ++index) {
+        oversized_line[index] = 'x';
+    }
+    oversized_line[sizeof(oversized_line) - 1u] = '\0';
+    if (swbt_ipc_socket_send_all(&client, oversized_line, strlen(oversized_line)) !=
+        SWBT_IPC_SERVER_OK) {
+        swbt_ipc_connection_close(&connection);
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 9;
+    }
+    if (swbt_ipc_server_serve_connection_once(&server, &connection) !=
+        SWBT_IPC_SERVER_ERROR_MESSAGE_TOO_LONG) {
+        swbt_ipc_connection_close(&connection);
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 10;
+    }
+    if (connection.open) {
+        swbt_ipc_connection_close(&connection);
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 11;
+    }
+    if (swbt_ipc_server_get_status(&server, &status) != SWBT_IPC_SERVER_OK) {
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 12;
+    }
+    if (status.has_owner || status.state.buttons != 0u || status.state.lx != 2048u) {
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 13;
+    }
+
+    swbt_ipc_socket_close(&client);
+    swbt_ipc_server_close(&server);
+    return 0;
+}
+
 int main(void) {
     swbt_ipc_server_t server;
     swbt_ipc_server_t rejected_server;
@@ -75,6 +175,10 @@ int main(void) {
     }
     if (connection.client_id != 1u) {
         return 8;
+    }
+
+    if (oversized_line_closes_owner_connection() != 0) {
+        return 38;
     }
 
     if (send_line(&client, "{\"v\":1,\"type\":\"hello\",\"request_id\":\"h1\"}\n") != 0) {
