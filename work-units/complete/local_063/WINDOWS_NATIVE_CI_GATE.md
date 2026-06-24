@@ -81,7 +81,7 @@ not applicable。
 - `justfile`
 - `spec/operations/development-tooling.md`
 - `spec/operations/windows-native-preflight.md`
-- `work-units/wip/local_063/WINDOWS_NATIVE_CI_GATE.md`
+- `work-units/complete/local_063/WINDOWS_NATIVE_CI_GATE.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
@@ -102,6 +102,8 @@ not applicable。
 - green: `spec/operations/development-tooling.md` とこの record に `just list-presets` を Windows native PowerShell entrypoint の失敗再現コマンドとして記録し、Dev Container CLI 不足と host build への退避の扱いを明示する。
 - red: `rg -n '主要なソフトウェア検証経路は|Windows native local gate は置き換えない|Linux debug、ASan、Windows cross build' spec\operations\development-tooling.md work-units\wip\local_063\WINDOWS_NATIVE_CI_GATE.md` -> no match。
 - green: `spec/operations/development-tooling.md` とこの record に `just verify` / `just verify-ci` の `format-check`、`tidy`、`debug`、`asan`、`windows-cross` が主要なソフトウェア検証経路であり、Windows native local gate はそれを置き換えないことを記録する。
+- verification: `just verify` -> pass。`format-check`、`tidy`、linux-debug configure/build/CTest、linux-asan configure/build/CTest、windows-mingw-debug cross build を実行した。
+- Test Desiderata review: docs 検索は gate 判断、実機承認 flag、entrypoint failure、主要検証経路の本文を直接確認している。workflow 変更は `rg` と `git diff --check` で確認し、最終的に `just verify` で既存 software gate が通ることを確認した。実機挙動を変更していないため、実機検証は不要。
 
 ## 11. 実機実行条件
 
@@ -117,7 +119,7 @@ none。起票時点の先送り事項は、この record の source として取
 
 - [x] source を `local_052`、`local_054`、`local_055`、`local_057` から特定した。
 - [x] use case を Windows native non-hardware gate として定義した。
-- [ ] 現行 CI workflow を確認した。
-- [ ] gate の追加または非追加判断を記録した。
-- [ ] 必要な docs / workflow を更新した。
-- [ ] CI または local verification を実行した。
+- [x] 現行 CI workflow を確認した。
+- [x] gate の追加または非追加判断を記録した。
+- [x] 必要な docs / workflow を更新した。
+- [x] CI または local verification を実行した。
