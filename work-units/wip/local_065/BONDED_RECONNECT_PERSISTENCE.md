@@ -124,7 +124,7 @@ BTstack link key DB、bond persistence、Windows port behavior、reconnect event
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | source audit records that Classic reconnect requires stored link key material and does not rely on deterministic derivation from public device data | characterization | docs | no |
+| refactor-skipped | source audit records that Classic reconnect requires stored link key material and does not rely on deterministic derivation from public device data | characterization | docs | no |
 | todo | fake link key DB stores, reloads, and deletes link key material without application ownership | new | unit | no |
 | todo | production BTstack adapter wires TLV-backed link key DB at the chosen HCI / local-address boundary before link-key request handling | new | integration | no |
 | todo | explicit bond cache cleanup removes swbt-owned bond data without relying on startup environment variables | new | unit | no |
@@ -135,7 +135,18 @@ BTstack link key DB、bond persistence、Windows port behavior、reconnect event
 
 ## 10. 検証
 
-未実行。2026-06-24 時点では、BTstack source と swbt implementation の初期根拠監査だけを実施した。実装、software test、実機検証はまだ実行していない。
+2026-06-24 時点では、BTstack source と swbt implementation の初期根拠監査を実施した。実装、software test、実機検証はまだ実行していない。
+
+TDD status:
+
+- source: user request, 2026-06-24; `docs/status.md` の daemon 再起動後 bonded reconnect 未確認項目。
+- use case: daemon restart 後に Switch 側の再操作なしで既存 bond による reconnect が成立する。
+- item: source audit records that Classic reconnect requires stored link key material and does not rely on deterministic derivation from public device data。
+- state: refactor-skipped。
+- commands:
+  - `rg -n "link key|deterministic|固定値|決定論的" work-units/wip/local_065/BONDED_RECONNECT_PERSISTENCE.md`
+  - `git diff --check`
+- notes: `source-audit` により BTstack link key DB、TLV persistence、swbt production path の未接続状態を記録済み。docs characterization item であり CMake / CTest は対象外。構造変更は不要のため refactor は行わない。
 
 ## 11. 実機実行条件
 
@@ -160,7 +171,7 @@ none。起票時点の先送り事項は、この record の source として取
 - [x] source を `local_050`、`local_053`、`local_055`、`local_057`、`docs/status.md` から特定した。
 - [x] use case を再ペアリング回避の bonded reconnect persistence として定義した。
 - [x] 初期 `source-audit` で BTstack link key DB と swbt 未接続状態を確認した。
-- [ ] 実装前の詳細 `source-audit` を完了した。
+- [x] 実装前の詳細 `source-audit` を完了した。
 - [ ] hardware preflight を確認した。
 - [ ] red test または characterization test を追加した。
 - [ ] link key DB / bond cache 実装または unsupported 判断を記録した。
