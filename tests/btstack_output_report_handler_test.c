@@ -78,9 +78,13 @@ static int test_recombines_btstack_report_id_with_payload(void) {
     swbt_btstack_output_report_handler_init(&handler, capture_report, &capture);
 
     const swbt_btstack_output_report_result_t result = swbt_btstack_output_report_handler_handle(
-        &handler, 0x0042u, SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
-        SWBT_SWITCH_OUTPUT_REPORT_RUMBLE_AND_SUBCOMMAND, payload_without_report_id,
-        sizeof(payload_without_report_id));
+        &handler, (swbt_btstack_output_report_handle_options_t){
+                      .hid_cid = 0x0042u,
+                      .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
+                      .report_id = SWBT_SWITCH_OUTPUT_REPORT_RUMBLE_AND_SUBCOMMAND,
+                      .report = payload_without_report_id,
+                      .report_size = sizeof(payload_without_report_id),
+                  });
 
     int failed = 0;
     failed += expect_eq_int(result, SWBT_BTSTACK_OUTPUT_REPORT_OK);
@@ -114,8 +118,13 @@ static int test_uses_payload_as_full_report_when_report_id_is_zero(void) {
     swbt_btstack_output_report_handler_init(&handler, capture_report, &capture);
 
     const swbt_btstack_output_report_result_t result = swbt_btstack_output_report_handler_handle(
-        &handler, 0x0043u, SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT, 0u, full_report,
-        sizeof(full_report));
+        &handler, (swbt_btstack_output_report_handle_options_t){
+                      .hid_cid = 0x0043u,
+                      .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
+                      .report_id = 0u,
+                      .report = full_report,
+                      .report_size = sizeof(full_report),
+                  });
 
     int failed = 0;
     failed += expect_eq_int(result, SWBT_BTSTACK_OUTPUT_REPORT_OK);
@@ -144,7 +153,13 @@ static int test_ignores_non_output_reports(void) {
     swbt_btstack_output_report_handler_init(&handler, capture_report, &capture);
 
     const swbt_btstack_output_report_result_t result = swbt_btstack_output_report_handler_handle(
-        &handler, 0x0044u, SWBT_BTSTACK_HID_REPORT_TYPE_INPUT, 0u, report, sizeof(report));
+        &handler, (swbt_btstack_output_report_handle_options_t){
+                      .hid_cid = 0x0044u,
+                      .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_INPUT,
+                      .report_id = 0u,
+                      .report = report,
+                      .report_size = sizeof(report),
+                  });
 
     int failed = 0;
     failed += expect_eq_int(result, SWBT_BTSTACK_OUTPUT_REPORT_IGNORED_REPORT_TYPE);
@@ -161,8 +176,13 @@ static int test_reports_parse_failure_without_dispatch(void) {
     swbt_btstack_output_report_handler_init(&handler, capture_report, &capture);
 
     const swbt_btstack_output_report_result_t result = swbt_btstack_output_report_handler_handle(
-        &handler, 0x0045u, SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
-        SWBT_SWITCH_OUTPUT_REPORT_NFC_IR_MCU, payload, sizeof(payload));
+        &handler, (swbt_btstack_output_report_handle_options_t){
+                      .hid_cid = 0x0045u,
+                      .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
+                      .report_id = SWBT_SWITCH_OUTPUT_REPORT_NFC_IR_MCU,
+                      .report = payload,
+                      .report_size = sizeof(payload),
+                  });
 
     int failed = 0;
     failed += expect_eq_int(result, SWBT_BTSTACK_OUTPUT_REPORT_ERROR_PARSE_FAILED);
@@ -225,8 +245,14 @@ static int test_parsed_reports_can_feed_rumble_status(void) {
     failed += expect_true(app != NULL);
     swbt_btstack_output_report_handler_init(&handler, record_rumble_status, &capture);
     failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
-                                &handler, 0x0047u, SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT, 0u,
-                                rumble_only_report, sizeof(rumble_only_report)),
+                                &handler,
+                                (swbt_btstack_output_report_handle_options_t){
+                                    .hid_cid = 0x0047u,
+                                    .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
+                                    .report_id = 0u,
+                                    .report = rumble_only_report,
+                                    .report_size = sizeof(rumble_only_report),
+                                }),
                             SWBT_BTSTACK_OUTPUT_REPORT_OK);
     failed += expect_eq_int(swbt_app_snapshot(app, &snapshot), SWBT_APP_OK);
     failed += expect_eq_int(capture.calls, 1);
@@ -236,8 +262,14 @@ static int test_parsed_reports_can_feed_rumble_status(void) {
 
     capture.now_ms = 200u;
     failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
-                                &handler, 0x0047u, SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT, 0u,
-                                rumble_and_subcommand_report, sizeof(rumble_and_subcommand_report)),
+                                &handler,
+                                (swbt_btstack_output_report_handle_options_t){
+                                    .hid_cid = 0x0047u,
+                                    .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
+                                    .report_id = 0u,
+                                    .report = rumble_and_subcommand_report,
+                                    .report_size = sizeof(rumble_and_subcommand_report),
+                                }),
                             SWBT_BTSTACK_OUTPUT_REPORT_OK);
     failed += expect_eq_int(swbt_app_snapshot(app, &snapshot), SWBT_APP_OK);
     failed += expect_eq_int(capture.calls, 2);
@@ -263,8 +295,14 @@ static int test_invalid_output_report_does_not_change_rumble_status(void) {
     failed += expect_true(app != NULL);
     swbt_btstack_output_report_handler_init(&handler, record_rumble_status, &capture);
     failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
-                                &handler, 0x0048u, SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
-                                SWBT_SWITCH_OUTPUT_REPORT_NFC_IR_MCU, payload, sizeof(payload)),
+                                &handler,
+                                (swbt_btstack_output_report_handle_options_t){
+                                    .hid_cid = 0x0048u,
+                                    .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
+                                    .report_id = SWBT_SWITCH_OUTPUT_REPORT_NFC_IR_MCU,
+                                    .report = payload,
+                                    .report_size = sizeof(payload),
+                                }),
                             SWBT_BTSTACK_OUTPUT_REPORT_ERROR_PARSE_FAILED);
     failed += expect_eq_int(swbt_app_snapshot(app, &snapshot), SWBT_APP_OK);
     failed += expect_eq_int(capture.calls, 0);
@@ -285,21 +323,44 @@ static int test_rejects_invalid_arguments_and_oversized_reconstruction(void) {
 
     int failed = 0;
     failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
-                                NULL, 0x0046u, SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
-                                SWBT_SWITCH_OUTPUT_REPORT_RUMBLE_ONLY, payload, sizeof(payload)),
+                                NULL,
+                                (swbt_btstack_output_report_handle_options_t){
+                                    .hid_cid = 0x0046u,
+                                    .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
+                                    .report_id = SWBT_SWITCH_OUTPUT_REPORT_RUMBLE_ONLY,
+                                    .report = payload,
+                                    .report_size = sizeof(payload),
+                                }),
                             SWBT_BTSTACK_OUTPUT_REPORT_ERROR_INVALID_ARGUMENT);
     failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
-                                &handler, 0x0046u, SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
-                                SWBT_SWITCH_OUTPUT_REPORT_RUMBLE_ONLY, NULL, sizeof(payload)),
+                                &handler,
+                                (swbt_btstack_output_report_handle_options_t){
+                                    .hid_cid = 0x0046u,
+                                    .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
+                                    .report_id = SWBT_SWITCH_OUTPUT_REPORT_RUMBLE_ONLY,
+                                    .report = NULL,
+                                    .report_size = sizeof(payload),
+                                }),
                             SWBT_BTSTACK_OUTPUT_REPORT_ERROR_INVALID_ARGUMENT);
     failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
-                                &handler, 0x0046u, SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT, 0x0100u,
-                                payload, sizeof(payload)),
+                                &handler,
+                                (swbt_btstack_output_report_handle_options_t){
+                                    .hid_cid = 0x0046u,
+                                    .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
+                                    .report_id = 0x0100u,
+                                    .report = payload,
+                                    .report_size = sizeof(payload),
+                                }),
                             SWBT_BTSTACK_OUTPUT_REPORT_ERROR_REPORT_ID_TOO_LARGE);
     failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
-                                &handler, 0x0046u, SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
-                                SWBT_SWITCH_OUTPUT_REPORT_RUMBLE_ONLY, large_payload,
-                                sizeof(large_payload)),
+                                &handler,
+                                (swbt_btstack_output_report_handle_options_t){
+                                    .hid_cid = 0x0046u,
+                                    .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
+                                    .report_id = SWBT_SWITCH_OUTPUT_REPORT_RUMBLE_ONLY,
+                                    .report = large_payload,
+                                    .report_size = sizeof(large_payload),
+                                }),
                             SWBT_BTSTACK_OUTPUT_REPORT_ERROR_BUFFER_TOO_SMALL);
     return failed;
 }

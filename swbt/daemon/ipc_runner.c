@@ -91,7 +91,11 @@ swbt_daemon_ipc_runner_start(swbt_daemon_ipc_runner_t *runner, swbt_app_t *app,
     if (result != SWBT_IPC_SERVER_OK) {
         return swbt_daemon_ipc_runner_map_server_result(result);
     }
-    result = swbt_ipc_server_listen(&runner->server, config->host, config->port, config->backlog);
+    result = swbt_ipc_server_listen(&runner->server, (swbt_ipc_server_listen_options_t){
+                                                         .host = config->host,
+                                                         .port = config->port,
+                                                         .backlog = config->backlog,
+                                                     });
     if (result != SWBT_IPC_SERVER_OK) {
         swbt_ipc_server_close(&runner->server);
         return swbt_daemon_ipc_runner_map_server_result(result);

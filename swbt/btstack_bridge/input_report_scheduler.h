@@ -28,6 +28,11 @@ typedef struct {
 } swbt_btstack_input_report_scheduler_config_t;
 
 typedef struct {
+    uint16_t hid_cid;
+    uint64_t now_us;
+} swbt_btstack_input_report_scheduler_start_options_t;
+
+typedef struct {
     swbt_btstack_input_report_send_callback_t send_callback;
     void *send_context;
     uint32_t report_period_us;
@@ -44,11 +49,9 @@ swbt_btstack_input_report_result_t swbt_btstack_input_report_scheduler_init(
     swbt_btstack_input_report_send_callback_t send_callback, void *send_context,
     const swbt_btstack_input_report_scheduler_config_t *config);
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-swbt_btstack_input_report_result_t
-swbt_btstack_input_report_scheduler_start(swbt_btstack_input_report_scheduler_t *scheduler,
-                                          uint16_t hid_cid, uint64_t now_us);
-// NOLINTEND(bugprone-easily-swappable-parameters)
+swbt_btstack_input_report_result_t swbt_btstack_input_report_scheduler_start(
+    swbt_btstack_input_report_scheduler_t *scheduler,
+    swbt_btstack_input_report_scheduler_start_options_t options);
 
 void swbt_btstack_input_report_scheduler_stop(swbt_btstack_input_report_scheduler_t *scheduler);
 

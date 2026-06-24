@@ -86,6 +86,7 @@ static void record_step(fake_ops_t *fake, int step) {
 
 static int expect_true(bool value, const char *label) {
     if (!value) {
+        // Test diagnostics write to stderr with no retained buffer.
         // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(stderr, "expected true: %s\n", label);
         return 1;
@@ -95,6 +96,7 @@ static int expect_true(bool value, const char *label) {
 
 static int expect_eq_int(int actual, int expected, const char *label) {
     if (actual != expected) {
+        // Test diagnostics write to stderr with no retained buffer.
         // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(stderr, "%s: expected %d, got %d\n", label, expected, actual);
         return 1;
@@ -104,6 +106,7 @@ static int expect_eq_int(int actual, int expected, const char *label) {
 
 static int expect_eq_u16(uint16_t actual, uint16_t expected, const char *label) {
     if (actual != expected) {
+        // Test diagnostics write to stderr with no retained buffer.
         // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(stderr, "%s: expected %u, got %u\n", label, (unsigned)expected, (unsigned)actual);
         return 1;
@@ -113,6 +116,7 @@ static int expect_eq_u16(uint16_t actual, uint16_t expected, const char *label) 
 
 static int expect_eq_u8(uint8_t actual, uint8_t expected, const char *label) {
     if (actual != expected) {
+        // Test diagnostics write to stderr with no retained buffer.
         // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(stderr, "%s: expected %u, got %u\n", label, (unsigned)expected, (unsigned)actual);
         return 1;
@@ -200,6 +204,7 @@ static void fake_record_hid_input_report(fake_ops_t *fake, uint16_t hid_cid, con
     const int send_index = fake->hid_send_calls;
     fake->last_hid_cid = hid_cid;
     fake->last_hid_message[0] = 0xa1u;
+    // The fake HID buffer capacity is checked before copying report bytes.
     // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     memcpy(&fake->last_hid_message[1], report, written);
     fake->last_hid_message_len = (uint16_t)(written + 1u);
@@ -333,6 +338,7 @@ static void fake_handle_json_line(fake_ops_t *fake, uint32_t client_id, const ch
 static void fake_handle_acquire(fake_ops_t *fake, uint32_t client_id, const char *request_id) {
     char line[128];
 
+    // Test JSON formatting is bounded by the local line buffer.
     // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     if (snprintf(line, sizeof(line), "{\"v\":1,\"type\":\"acquire\",\"request_id\":\"%s\"}\n",
                  request_id) < 0) {
@@ -346,6 +352,7 @@ static void fake_handle_button_a_state(fake_ops_t *fake, uint32_t client_id, con
                                        const char *request_id) {
     char line[256];
 
+    // Test JSON formatting is bounded by the local line buffer.
     // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     if (snprintf(line, sizeof(line),
                  "{\"v\":1,\"type\":\"set_state\",\"owner_id\":\"%s\",\"seq\":1,"

@@ -39,6 +39,12 @@ typedef struct {
 } swbt_ipc_heartbeat_config_t;
 
 typedef struct {
+    const char *host;
+    uint16_t port;
+    int backlog;
+} swbt_ipc_server_listen_options_t;
+
+typedef struct {
     swbt_ipc_socket_t listen_socket;
     swbt_app_t *default_app;
     swbt_app_t *app;
@@ -63,8 +69,8 @@ swbt_ipc_server_result_t swbt_ipc_socket_can_receive(const swbt_ipc_socket_t *so
 
 swbt_ipc_server_result_t swbt_ipc_server_init(swbt_ipc_server_t *server);
 swbt_ipc_server_result_t swbt_ipc_server_bind_app(swbt_ipc_server_t *server, swbt_app_t *app);
-swbt_ipc_server_result_t swbt_ipc_server_listen(swbt_ipc_server_t *server, const char *host,
-                                                uint16_t port, int backlog);
+swbt_ipc_server_result_t swbt_ipc_server_listen(swbt_ipc_server_t *server,
+                                                swbt_ipc_server_listen_options_t options);
 uint16_t swbt_ipc_server_port(const swbt_ipc_server_t *server);
 swbt_ipc_server_result_t swbt_ipc_server_has_pending_connection(const swbt_ipc_server_t *server,
                                                                 bool *out_pending);

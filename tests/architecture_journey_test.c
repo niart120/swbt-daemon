@@ -160,6 +160,7 @@ static int send_button_a_state(swbt_app_t *app, uint32_t client_id, uint64_t seq
     char line[256];
     char response[SWBT_IPC_JSON_RESPONSE_MAX];
 
+    // Test JSON formatting is bounded by the local line buffer.
     // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     if (snprintf(line, sizeof(line),
                  "{\"v\":1,\"type\":\"set_state\",\"owner_id\":\"%08x\",\"seq\":%llu,"

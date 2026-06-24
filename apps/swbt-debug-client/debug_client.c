@@ -32,6 +32,12 @@ typedef struct {
     uint32_t mask;
 } swbt_debug_client_button_name_t;
 
+typedef struct {
+    const char *option;
+    const char *text;
+    FILE *err;
+} swbt_debug_client_parse_option_t;
+
 static const swbt_debug_client_button_name_t SWBT_DEBUG_CLIENT_BUTTONS[] = {
     {"y", SWBT_BUTTON_Y},
     {"x", SWBT_BUTTON_X},
@@ -157,24 +163,23 @@ static int swbt_debug_client_require_value(int argc, const char *const *argv, in
     return 0;
 }
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-static int swbt_debug_client_parse_stick(const char *option, const char *text, uint16_t *out,
-                                         FILE *err) {
+static int swbt_debug_client_parse_stick(swbt_debug_client_parse_option_t option, uint16_t *out) {
     uint64_t parsed = 0;
-    if (swbt_debug_client_parse_u64(text, 4095u, &parsed) != 0) {
-        swbt_debug_client_write_option_message(err, option, " must be in range 0..4095\n");
+    if (swbt_debug_client_parse_u64(option.text, 4095u, &parsed) != 0) {
+        swbt_debug_client_write_option_message(option.err, option.option,
+                                               " must be in range 0..4095\n");
         return -1;
     }
     *out = (uint16_t)parsed;
     return 0;
 }
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-static int swbt_debug_client_parse_i16_option(const char *option, const char *text, int16_t *out,
-                                              FILE *err) {
+static int swbt_debug_client_parse_i16_option(swbt_debug_client_parse_option_t option,
+                                              int16_t *out) {
     int64_t parsed = 0;
-    if (swbt_debug_client_parse_i64(text, INT16_MIN, INT16_MAX, &parsed) != 0) {
-        swbt_debug_client_write_option_message(err, option, " must be in range -32768..32767\n");
+    if (swbt_debug_client_parse_i64(option.text, INT16_MIN, INT16_MAX, &parsed) != 0) {
+        swbt_debug_client_write_option_message(option.err, option.option,
+                                               " must be in range -32768..32767\n");
         return -1;
     }
     *out = (int16_t)parsed;
@@ -248,67 +253,91 @@ static int swbt_debug_client_parse_args(int argc, const char *const *argv,
             ++index;
         } else if (strcmp(arg, "--lx") == 0) {
             if (swbt_debug_client_require_value(argc, argv, index, err) != 0 ||
-                swbt_debug_client_parse_stick(arg, argv[index + 1], &config.state.lx, err) != 0) {
+                swbt_debug_client_parse_stick(
+                    (swbt_debug_client_parse_option_t){
+                        .option = arg, .text = argv[index + 1], .err = err},
+                    &config.state.lx) != 0) {
                 return -1;
             }
             ++index;
         } else if (strcmp(arg, "--ly") == 0) {
             if (swbt_debug_client_require_value(argc, argv, index, err) != 0 ||
-                swbt_debug_client_parse_stick(arg, argv[index + 1], &config.state.ly, err) != 0) {
+                swbt_debug_client_parse_stick(
+                    (swbt_debug_client_parse_option_t){
+                        .option = arg, .text = argv[index + 1], .err = err},
+                    &config.state.ly) != 0) {
                 return -1;
             }
             ++index;
         } else if (strcmp(arg, "--rx") == 0) {
             if (swbt_debug_client_require_value(argc, argv, index, err) != 0 ||
-                swbt_debug_client_parse_stick(arg, argv[index + 1], &config.state.rx, err) != 0) {
+                swbt_debug_client_parse_stick(
+                    (swbt_debug_client_parse_option_t){
+                        .option = arg, .text = argv[index + 1], .err = err},
+                    &config.state.rx) != 0) {
                 return -1;
             }
             ++index;
         } else if (strcmp(arg, "--ry") == 0) {
             if (swbt_debug_client_require_value(argc, argv, index, err) != 0 ||
-                swbt_debug_client_parse_stick(arg, argv[index + 1], &config.state.ry, err) != 0) {
+                swbt_debug_client_parse_stick(
+                    (swbt_debug_client_parse_option_t){
+                        .option = arg, .text = argv[index + 1], .err = err},
+                    &config.state.ry) != 0) {
                 return -1;
             }
             ++index;
         } else if (strcmp(arg, "--accel-x") == 0) {
             if (swbt_debug_client_require_value(argc, argv, index, err) != 0 ||
-                swbt_debug_client_parse_i16_option(arg, argv[index + 1], &config.state.accel_x,
-                                                   err) != 0) {
+                swbt_debug_client_parse_i16_option(
+                    (swbt_debug_client_parse_option_t){
+                        .option = arg, .text = argv[index + 1], .err = err},
+                    &config.state.accel_x) != 0) {
                 return -1;
             }
             ++index;
         } else if (strcmp(arg, "--accel-y") == 0) {
             if (swbt_debug_client_require_value(argc, argv, index, err) != 0 ||
-                swbt_debug_client_parse_i16_option(arg, argv[index + 1], &config.state.accel_y,
-                                                   err) != 0) {
+                swbt_debug_client_parse_i16_option(
+                    (swbt_debug_client_parse_option_t){
+                        .option = arg, .text = argv[index + 1], .err = err},
+                    &config.state.accel_y) != 0) {
                 return -1;
             }
             ++index;
         } else if (strcmp(arg, "--accel-z") == 0) {
             if (swbt_debug_client_require_value(argc, argv, index, err) != 0 ||
-                swbt_debug_client_parse_i16_option(arg, argv[index + 1], &config.state.accel_z,
-                                                   err) != 0) {
+                swbt_debug_client_parse_i16_option(
+                    (swbt_debug_client_parse_option_t){
+                        .option = arg, .text = argv[index + 1], .err = err},
+                    &config.state.accel_z) != 0) {
                 return -1;
             }
             ++index;
         } else if (strcmp(arg, "--gyro-x") == 0) {
             if (swbt_debug_client_require_value(argc, argv, index, err) != 0 ||
-                swbt_debug_client_parse_i16_option(arg, argv[index + 1], &config.state.gyro_x,
-                                                   err) != 0) {
+                swbt_debug_client_parse_i16_option(
+                    (swbt_debug_client_parse_option_t){
+                        .option = arg, .text = argv[index + 1], .err = err},
+                    &config.state.gyro_x) != 0) {
                 return -1;
             }
             ++index;
         } else if (strcmp(arg, "--gyro-y") == 0) {
             if (swbt_debug_client_require_value(argc, argv, index, err) != 0 ||
-                swbt_debug_client_parse_i16_option(arg, argv[index + 1], &config.state.gyro_y,
-                                                   err) != 0) {
+                swbt_debug_client_parse_i16_option(
+                    (swbt_debug_client_parse_option_t){
+                        .option = arg, .text = argv[index + 1], .err = err},
+                    &config.state.gyro_y) != 0) {
                 return -1;
             }
             ++index;
         } else if (strcmp(arg, "--gyro-z") == 0) {
             if (swbt_debug_client_require_value(argc, argv, index, err) != 0 ||
-                swbt_debug_client_parse_i16_option(arg, argv[index + 1], &config.state.gyro_z,
-                                                   err) != 0) {
+                swbt_debug_client_parse_i16_option(
+                    (swbt_debug_client_parse_option_t){
+                        .option = arg, .text = argv[index + 1], .err = err},
+                    &config.state.gyro_z) != 0) {
                 return -1;
             }
             ++index;
@@ -371,6 +400,7 @@ static int swbt_debug_client_send_format(swbt_ipc_socket_t *socket, const char *
 
     va_start(args, format);
     // C11 Annex K formatting functions are not consistently available in the target toolchains.
+    // The request buffer size is checked against vsnprintf's return value.
     // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     written = vsnprintf(request, sizeof(request), format, args);
     va_end(args);
@@ -400,6 +430,7 @@ static int swbt_debug_client_io_send_format(swbt_debug_client_io_t *io, const ch
 
     va_start(args, format);
     // C11 Annex K formatting functions are not consistently available in the target toolchains.
+    // The request buffer size is checked against vsnprintf's return value.
     // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     written = vsnprintf(request, sizeof(request), format, args);
     va_end(args);
@@ -421,10 +452,11 @@ static int swbt_debug_client_io_send_acquire(swbt_debug_client_io_t *io) {
         io, "{\"v\":1,\"type\":\"acquire\",\"mode\":\"exclusive\",\"request_id\":\"a1\"}\n");
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-static int swbt_debug_client_io_send_set_state(swbt_debug_client_io_t *io, const char *owner_id,
-                                               const swbt_state_t *state, uint64_t sequence) {
-    if (owner_id == NULL || state == NULL) {
+static int swbt_debug_client_io_send_set_state(swbt_debug_client_io_t *io,
+                                               swbt_debug_client_set_state_options_t options) {
+    const swbt_state_t *state = options.state;
+
+    if (options.owner_id == NULL || state == NULL) {
         return -1;
     }
     return swbt_debug_client_io_send_format(
@@ -433,12 +465,11 @@ static int swbt_debug_client_io_send_set_state(swbt_debug_client_io_t *io, const
         "\"request_id\":\"s1\",\"state\":{\"buttons\":%u,\"lx\":%u,\"ly\":%u,"
         "\"rx\":%u,\"ry\":%u,\"accel_x\":%d,\"accel_y\":%d,\"accel_z\":%d,"
         "\"gyro_x\":%d,\"gyro_y\":%d,\"gyro_z\":%d}}\n",
-        owner_id, (unsigned long long)sequence, (unsigned int)state->buttons,
+        options.owner_id, (unsigned long long)options.sequence, (unsigned int)state->buttons,
         (unsigned int)state->lx, (unsigned int)state->ly, (unsigned int)state->rx,
         (unsigned int)state->ry, (int)state->accel_x, (int)state->accel_y, (int)state->accel_z,
         (int)state->gyro_x, (int)state->gyro_y, (int)state->gyro_z);
 }
-// NOLINTEND(bugprone-easily-swappable-parameters)
 
 static int swbt_debug_client_io_send_get_status(swbt_debug_client_io_t *io) {
     return swbt_debug_client_io_send(io,
@@ -453,10 +484,11 @@ static int swbt_debug_client_io_send_release(swbt_debug_client_io_t *io, const c
         io, "{\"v\":1,\"type\":\"release\",\"owner_id\":\"%s\",\"request_id\":\"r1\"}\n", owner_id);
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-int swbt_debug_client_send_set_state(swbt_ipc_socket_t *socket, const char *owner_id,
-                                     const swbt_state_t *state, uint64_t sequence) {
-    if (socket == NULL || owner_id == NULL || state == NULL) {
+int swbt_debug_client_send_set_state(swbt_ipc_socket_t *socket,
+                                     swbt_debug_client_set_state_options_t options) {
+    const swbt_state_t *state = options.state;
+
+    if (socket == NULL || options.owner_id == NULL || state == NULL) {
         return -1;
     }
 
@@ -466,12 +498,11 @@ int swbt_debug_client_send_set_state(swbt_ipc_socket_t *socket, const char *owne
         "\"request_id\":\"s1\",\"state\":{\"buttons\":%u,\"lx\":%u,\"ly\":%u,"
         "\"rx\":%u,\"ry\":%u,\"accel_x\":%d,\"accel_y\":%d,\"accel_z\":%d,"
         "\"gyro_x\":%d,\"gyro_y\":%d,\"gyro_z\":%d}}\n",
-        owner_id, (unsigned long long)sequence, (unsigned int)state->buttons,
+        options.owner_id, (unsigned long long)options.sequence, (unsigned int)state->buttons,
         (unsigned int)state->lx, (unsigned int)state->ly, (unsigned int)state->rx,
         (unsigned int)state->ry, (int)state->accel_x, (int)state->accel_y, (int)state->accel_z,
         (int)state->gyro_x, (int)state->gyro_y, (int)state->gyro_z);
 }
-// NOLINTEND(bugprone-easily-swappable-parameters)
 
 int swbt_debug_client_send_get_status(swbt_ipc_socket_t *socket) {
     const char request[] = "{\"v\":1,\"type\":\"get_status\",\"request_id\":\"g1\"}\n";
@@ -632,7 +663,12 @@ int swbt_debug_client_run_io(const swbt_debug_client_config_t *config, swbt_debu
     }
     owner_acquired = true;
 
-    if (swbt_debug_client_io_send_set_state(io, owner_id, &config->state, config->sequence) != 0 ||
+    if (swbt_debug_client_io_send_set_state(io,
+                                            (swbt_debug_client_set_state_options_t){
+                                                .owner_id = owner_id,
+                                                .state = &config->state,
+                                                .sequence = config->sequence,
+                                            }) != 0 ||
         swbt_debug_client_receive_io(io, response, sizeof(response)) != 0) {
         if (owner_acquired) {
             (void)swbt_debug_client_release_best_effort(io, owner_id);

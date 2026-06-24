@@ -23,12 +23,16 @@ typedef struct {
     void *context;
 } swbt_debug_client_io_t;
 
+typedef struct {
+    const char *owner_id;
+    const swbt_state_t *state;
+    uint64_t sequence;
+} swbt_debug_client_set_state_options_t;
+
 int swbt_debug_client_send_hello(swbt_ipc_socket_t *socket);
 int swbt_debug_client_send_acquire(swbt_ipc_socket_t *socket);
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-int swbt_debug_client_send_set_state(swbt_ipc_socket_t *socket, const char *owner_id,
-                                     const swbt_state_t *state, uint64_t sequence);
-// NOLINTEND(bugprone-easily-swappable-parameters)
+int swbt_debug_client_send_set_state(swbt_ipc_socket_t *socket,
+                                     swbt_debug_client_set_state_options_t options);
 int swbt_debug_client_send_get_status(swbt_ipc_socket_t *socket);
 int swbt_debug_client_send_release(swbt_ipc_socket_t *socket, const char *owner_id);
 int swbt_debug_client_receive_response(swbt_ipc_socket_t *socket, char *buffer, size_t buffer_size);

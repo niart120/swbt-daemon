@@ -28,15 +28,20 @@ typedef struct {
     uint8_t scratch[SWBT_BTSTACK_OUTPUT_REPORT_MAX_SIZE];
 } swbt_btstack_output_report_handler_t;
 
+typedef struct {
+    uint16_t hid_cid;
+    uint8_t report_type;
+    uint16_t report_id;
+    const uint8_t *report;
+    size_t report_size;
+} swbt_btstack_output_report_handle_options_t;
+
 void swbt_btstack_output_report_handler_init(swbt_btstack_output_report_handler_t *handler,
                                              swbt_btstack_output_report_callback_t callback,
                                              void *callback_context);
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 swbt_btstack_output_report_result_t
 swbt_btstack_output_report_handler_handle(swbt_btstack_output_report_handler_t *handler,
-                                          uint16_t hid_cid, uint8_t report_type, uint16_t report_id,
-                                          const uint8_t *report, size_t report_size);
-// NOLINTEND(bugprone-easily-swappable-parameters)
+                                          swbt_btstack_output_report_handle_options_t options);
 
 #endif

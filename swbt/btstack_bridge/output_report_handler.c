@@ -40,24 +40,23 @@ swbt_btstack_output_report_rejoin_id(swbt_btstack_output_report_handler_t *handl
     return SWBT_BTSTACK_OUTPUT_REPORT_OK;
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 swbt_btstack_output_report_result_t
 swbt_btstack_output_report_handler_handle(swbt_btstack_output_report_handler_t *handler,
-                                          uint16_t hid_cid, uint8_t report_type, uint16_t report_id,
-                                          const uint8_t *report, size_t report_size) {
-    if (!swbt_btstack_output_report_handler_is_valid(handler) || report == NULL) {
+                                          swbt_btstack_output_report_handle_options_t options) {
+    if (!swbt_btstack_output_report_handler_is_valid(handler) || options.report == NULL) {
         return SWBT_BTSTACK_OUTPUT_REPORT_ERROR_INVALID_ARGUMENT;
     }
-    if (report_type != SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT) {
+    if (options.report_type != SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT) {
         return SWBT_BTSTACK_OUTPUT_REPORT_IGNORED_REPORT_TYPE;
     }
 
-    const uint8_t *parser_report = report;
-    size_t parser_report_size = report_size;
-    if (report_id != 0u) {
+    const uint8_t *parser_report = options.report;
+    size_t parser_report_size = options.report_size;
+    if (options.report_id != 0u) {
         const swbt_btstack_output_report_result_t rejoin_result =
-            swbt_btstack_output_report_rejoin_id(handler, report_id, report, report_size,
-                                                 &parser_report, &parser_report_size);
+            swbt_btstack_output_report_rejoin_id(handler, options.report_id, options.report,
+                                                 options.report_size, &parser_report,
+                                                 &parser_report_size);
         if (rejoin_result != SWBT_BTSTACK_OUTPUT_REPORT_OK) {
             return rejoin_result;
         }
@@ -69,7 +68,6 @@ swbt_btstack_output_report_handler_handle(swbt_btstack_output_report_handler_t *
         return SWBT_BTSTACK_OUTPUT_REPORT_ERROR_PARSE_FAILED;
     }
 
-    handler->callback(handler->callback_context, hid_cid, &parsed);
+    handler->callback(handler->callback_context, options.hid_cid, &parsed);
     return SWBT_BTSTACK_OUTPUT_REPORT_OK;
 }
-// NOLINTEND(bugprone-easily-swappable-parameters)

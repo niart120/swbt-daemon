@@ -72,14 +72,26 @@ static int report_ticks_update_intervals_and_send_counters(void) {
 
     int failed = 0;
     failed += expect_eq_int(swbt_metrics_init(&metrics), SWBT_METRICS_OK);
-    failed +=
-        expect_eq_int(swbt_metrics_record_report_tick(&metrics, 1000u, SWBT_METRICS_REPORT_SEND_OK),
-                      SWBT_METRICS_OK);
-    failed +=
-        expect_eq_int(swbt_metrics_record_report_tick(&metrics, 9000u, SWBT_METRICS_REPORT_SEND_OK),
-                      SWBT_METRICS_OK);
     failed += expect_eq_int(
-        swbt_metrics_record_report_tick(&metrics, 22000u, SWBT_METRICS_REPORT_SEND_FAILED),
+        swbt_metrics_record_report_tick(&metrics,
+                                        (swbt_metrics_report_tick_options_t){
+                                            .now_us = 1000u,
+                                            .send_result = SWBT_METRICS_REPORT_SEND_OK,
+                                        }),
+        SWBT_METRICS_OK);
+    failed += expect_eq_int(
+        swbt_metrics_record_report_tick(&metrics,
+                                        (swbt_metrics_report_tick_options_t){
+                                            .now_us = 9000u,
+                                            .send_result = SWBT_METRICS_REPORT_SEND_OK,
+                                        }),
+        SWBT_METRICS_OK);
+    failed += expect_eq_int(
+        swbt_metrics_record_report_tick(&metrics,
+                                        (swbt_metrics_report_tick_options_t){
+                                            .now_us = 22000u,
+                                            .send_result = SWBT_METRICS_REPORT_SEND_FAILED,
+                                        }),
         SWBT_METRICS_OK);
     failed += expect_eq_int(swbt_metrics_snapshot(&metrics, &snapshot), SWBT_METRICS_OK);
     failed += expect_eq_u64(snapshot.report_ticks, 3u);
@@ -137,19 +149,31 @@ static int metrics_snapshot_does_not_mutate_live_counters(void) {
 
     int failed = 0;
     failed += expect_eq_int(swbt_metrics_init(&metrics), SWBT_METRICS_OK);
-    failed +=
-        expect_eq_int(swbt_metrics_record_report_tick(&metrics, 1000u, SWBT_METRICS_REPORT_SEND_OK),
-                      SWBT_METRICS_OK);
-    failed +=
-        expect_eq_int(swbt_metrics_record_report_tick(&metrics, 9000u, SWBT_METRICS_REPORT_SEND_OK),
-                      SWBT_METRICS_OK);
+    failed += expect_eq_int(
+        swbt_metrics_record_report_tick(&metrics,
+                                        (swbt_metrics_report_tick_options_t){
+                                            .now_us = 1000u,
+                                            .send_result = SWBT_METRICS_REPORT_SEND_OK,
+                                        }),
+        SWBT_METRICS_OK);
+    failed += expect_eq_int(
+        swbt_metrics_record_report_tick(&metrics,
+                                        (swbt_metrics_report_tick_options_t){
+                                            .now_us = 9000u,
+                                            .send_result = SWBT_METRICS_REPORT_SEND_OK,
+                                        }),
+        SWBT_METRICS_OK);
     failed += expect_eq_int(swbt_metrics_snapshot(&metrics, &first), SWBT_METRICS_OK);
     failed += expect_eq_int(swbt_metrics_snapshot(&metrics, &second), SWBT_METRICS_OK);
     failed += expect_true(first.report_ticks == second.report_ticks);
     failed += expect_true(first.report_interval_count == second.report_interval_count);
 
     failed += expect_eq_int(
-        swbt_metrics_record_report_tick(&metrics, 17000u, SWBT_METRICS_REPORT_SEND_OK),
+        swbt_metrics_record_report_tick(&metrics,
+                                        (swbt_metrics_report_tick_options_t){
+                                            .now_us = 17000u,
+                                            .send_result = SWBT_METRICS_REPORT_SEND_OK,
+                                        }),
         SWBT_METRICS_OK);
     failed += expect_eq_int(swbt_metrics_snapshot(&metrics, &third), SWBT_METRICS_OK);
     failed += expect_eq_u64(third.report_ticks, 3u);

@@ -94,7 +94,12 @@ static int test_sends_standard_full_report_when_due(void) {
     failed += expect_eq_int(
         swbt_btstack_input_report_scheduler_init(&scheduler, capture_send, &capture, &config),
         SWBT_BTSTACK_INPUT_REPORT_OK);
-    failed += expect_eq_int(swbt_btstack_input_report_scheduler_start(&scheduler, 0x0042u, 1000u),
+    failed += expect_eq_int(swbt_btstack_input_report_scheduler_start(
+                                &scheduler,
+                                (swbt_btstack_input_report_scheduler_start_options_t){
+                                    .hid_cid = 0x0042u,
+                                    .now_us = 1000u,
+                                }),
                             SWBT_BTSTACK_INPUT_REPORT_OK);
     failed += expect_true(swbt_btstack_input_report_scheduler_is_running(&scheduler));
     failed +=
@@ -137,7 +142,12 @@ static int test_late_tick_drops_catchup_reports(void) {
     failed += expect_eq_int(
         swbt_btstack_input_report_scheduler_init(&scheduler, capture_send, &capture, &config),
         SWBT_BTSTACK_INPUT_REPORT_OK);
-    failed += expect_eq_int(swbt_btstack_input_report_scheduler_start(&scheduler, 0x0042u, 0u),
+    failed += expect_eq_int(swbt_btstack_input_report_scheduler_start(
+                                &scheduler,
+                                (swbt_btstack_input_report_scheduler_start_options_t){
+                                    .hid_cid = 0x0042u,
+                                    .now_us = 0u,
+                                }),
                             SWBT_BTSTACK_INPUT_REPORT_OK);
     failed += expect_eq_int(swbt_btstack_input_report_scheduler_tick(&scheduler, 25000u, &state),
                             SWBT_BTSTACK_INPUT_REPORT_OK);
@@ -174,7 +184,12 @@ static int test_stop_invalid_arguments_and_send_failure(void) {
         SWBT_BTSTACK_INPUT_REPORT_OK);
     failed += expect_eq_int(swbt_btstack_input_report_scheduler_tick(&scheduler, 8000u, &state),
                             SWBT_BTSTACK_INPUT_REPORT_STOPPED);
-    failed += expect_eq_int(swbt_btstack_input_report_scheduler_start(&scheduler, 0x0042u, 0u),
+    failed += expect_eq_int(swbt_btstack_input_report_scheduler_start(
+                                &scheduler,
+                                (swbt_btstack_input_report_scheduler_start_options_t){
+                                    .hid_cid = 0x0042u,
+                                    .now_us = 0u,
+                                }),
                             SWBT_BTSTACK_INPUT_REPORT_OK);
     failed += expect_eq_int(swbt_btstack_input_report_scheduler_tick(&scheduler, 8000u, NULL),
                             SWBT_BTSTACK_INPUT_REPORT_ERROR_INVALID_ARGUMENT);

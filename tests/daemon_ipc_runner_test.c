@@ -171,7 +171,14 @@ static int test_debug_client_status_sequence_updates_application_state(void) {
     state.buttons = SWBT_BUTTON_A | SWBT_BUTTON_X;
     state.lx = 1234u;
     state.ly = 2345u;
-    failed += expect_eq_int(swbt_debug_client_send_set_state(&client, owner_id, &state, 42u), 0);
+    failed +=
+        expect_eq_int(swbt_debug_client_send_set_state(&client,
+                                                       (swbt_debug_client_set_state_options_t){
+                                                           .owner_id = owner_id,
+                                                           .state = &state,
+                                                           .sequence = 42u,
+                                                       }),
+                      0);
     failed += expect_eq_int(swbt_daemon_ipc_runner_serve_connection_once(&runner),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed +=
@@ -227,7 +234,14 @@ static int test_stop_closes_connection_and_stores_neutral(void) {
         swbt_debug_client_response_string(response, "owner_id", owner_id, sizeof(owner_id)), 0);
 
     state.buttons = SWBT_BUTTON_A;
-    failed += expect_eq_int(swbt_debug_client_send_set_state(&client, owner_id, &state, 7u), 0);
+    failed +=
+        expect_eq_int(swbt_debug_client_send_set_state(&client,
+                                                       (swbt_debug_client_set_state_options_t){
+                                                           .owner_id = owner_id,
+                                                           .state = &state,
+                                                           .sequence = 7u,
+                                                       }),
+                      0);
     failed += expect_eq_int(swbt_daemon_ipc_runner_serve_connection_once(&runner),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed +=
@@ -288,7 +302,14 @@ static int test_poll_once_at_heartbeat_timeout_stores_neutral(void) {
         swbt_debug_client_response_string(response, "owner_id", owner_id, sizeof(owner_id)), 0);
 
     state.buttons = SWBT_BUTTON_A;
-    failed += expect_eq_int(swbt_debug_client_send_set_state(&client, owner_id, &state, 9u), 0);
+    failed +=
+        expect_eq_int(swbt_debug_client_send_set_state(&client,
+                                                       (swbt_debug_client_set_state_options_t){
+                                                           .owner_id = owner_id,
+                                                           .state = &state,
+                                                           .sequence = 9u,
+                                                       }),
+                      0);
     failed += expect_eq_int(swbt_daemon_ipc_runner_poll_once_at(&runner, 1050u),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed +=

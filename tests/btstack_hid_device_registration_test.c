@@ -86,7 +86,7 @@ static void fake_hid_device_register_packet_handler(void *context,
     backend->packet_handler_called = handler != NULL;
 }
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): BTstack packet handler ABI.
 static void fake_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet,
                                 uint16_t size) {
     (void)packet_type;
@@ -97,6 +97,7 @@ static void fake_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *
 
 static int expect_true(bool condition, const char *label) {
     if (!condition) {
+        // Test diagnostics write to stderr with no retained buffer.
         // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(stderr, "expected true: %s\n", label);
         return 1;
@@ -106,6 +107,7 @@ static int expect_true(bool condition, const char *label) {
 
 static int expect_eq_int(int actual, int expected, const char *label) {
     if (actual != expected) {
+        // Test diagnostics write to stderr with no retained buffer.
         // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(stderr, "%s: expected %d, got %d\n", label, expected, actual);
         return 1;
@@ -115,6 +117,7 @@ static int expect_eq_int(int actual, int expected, const char *label) {
 
 static int expect_eq_u16(uint16_t actual, uint16_t expected, const char *label) {
     if (actual != expected) {
+        // Test diagnostics write to stderr with no retained buffer.
         // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(stderr, "%s: expected %u, got %u\n", label, (unsigned)expected, (unsigned)actual);
         return 1;

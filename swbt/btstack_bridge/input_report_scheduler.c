@@ -38,21 +38,19 @@ swbt_btstack_input_report_result_t swbt_btstack_input_report_scheduler_init(
     return SWBT_BTSTACK_INPUT_REPORT_OK;
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-swbt_btstack_input_report_result_t
-swbt_btstack_input_report_scheduler_start(swbt_btstack_input_report_scheduler_t *scheduler,
-                                          uint16_t hid_cid, uint64_t now_us) {
+swbt_btstack_input_report_result_t swbt_btstack_input_report_scheduler_start(
+    swbt_btstack_input_report_scheduler_t *scheduler,
+    swbt_btstack_input_report_scheduler_start_options_t options) {
     if (!swbt_btstack_input_report_scheduler_is_valid(scheduler)) {
         return SWBT_BTSTACK_INPUT_REPORT_ERROR_INVALID_ARGUMENT;
     }
 
-    scheduler->hid_cid = hid_cid;
+    scheduler->hid_cid = options.hid_cid;
     scheduler->running = true;
-    scheduler->next_deadline_us = now_us + scheduler->report_period_us;
+    scheduler->next_deadline_us = options.now_us + scheduler->report_period_us;
     scheduler->timer = scheduler->report_options.timer;
     return SWBT_BTSTACK_INPUT_REPORT_OK;
 }
-// NOLINTEND(bugprone-easily-swappable-parameters)
 
 void swbt_btstack_input_report_scheduler_stop(swbt_btstack_input_report_scheduler_t *scheduler) {
     if (scheduler == NULL) {

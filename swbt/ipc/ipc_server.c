@@ -261,9 +261,8 @@ swbt_ipc_server_result_t swbt_ipc_server_bind_app(swbt_ipc_server_t *server, swb
     return SWBT_IPC_SERVER_OK;
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-swbt_ipc_server_result_t swbt_ipc_server_listen(swbt_ipc_server_t *server, const char *host,
-                                                uint16_t port, int backlog) {
+swbt_ipc_server_result_t swbt_ipc_server_listen(swbt_ipc_server_t *server,
+                                                swbt_ipc_server_listen_options_t options) {
     struct sockaddr_in address = {0};
     struct sockaddr_in bound_address = {0};
 #ifdef _WIN32
@@ -272,10 +271,10 @@ swbt_ipc_server_result_t swbt_ipc_server_listen(swbt_ipc_server_t *server, const
     socklen_t bound_address_size = (socklen_t)sizeof(bound_address);
 #endif
 
-    if (server == NULL || host == NULL || backlog <= 0) {
+    if (server == NULL || options.host == NULL || options.backlog <= 0) {
         return SWBT_IPC_SERVER_ERROR_INVALID_ARGUMENT;
     }
-    if (strcmp(host, "127.0.0.1") != 0) {
+    if (strcmp(options.host, "127.0.0.1") != 0) {
         return SWBT_IPC_SERVER_ERROR_UNSUPPORTED_BIND;
     }
     if (swbt_ipc_create_tcp_socket(&server->listen_socket) != SWBT_IPC_SERVER_OK) {
@@ -289,14 +288,14 @@ swbt_ipc_server_result_t swbt_ipc_server_listen(swbt_ipc_server_t *server, const
 
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    address.sin_port = htons(port);
+    address.sin_port = htons(options.port);
 
     if (bind(swbt_ipc_native_socket(&server->listen_socket), (struct sockaddr *)&address,
              sizeof(address)) != 0) {
         swbt_ipc_socket_close(&server->listen_socket);
         return SWBT_IPC_SERVER_ERROR_SOCKET;
     }
-    if (listen(swbt_ipc_native_socket(&server->listen_socket), backlog) != 0) {
+    if (listen(swbt_ipc_native_socket(&server->listen_socket), options.backlog) != 0) {
         swbt_ipc_socket_close(&server->listen_socket);
         return SWBT_IPC_SERVER_ERROR_SOCKET;
     }
@@ -310,7 +309,6 @@ swbt_ipc_server_result_t swbt_ipc_server_listen(swbt_ipc_server_t *server, const
     server->listening = true;
     return SWBT_IPC_SERVER_OK;
 }
-// NOLINTEND(bugprone-easily-swappable-parameters)
 
 uint16_t swbt_ipc_server_port(const swbt_ipc_server_t *server) {
     if (server == NULL || !server->listening) {

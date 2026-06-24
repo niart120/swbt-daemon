@@ -58,25 +58,28 @@ static bool backend_is_valid(const swbt_btstack_input_report_timer_backend_t *ba
            backend->send_interrupt_message != NULL;
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-static void notify_report_tick(swbt_btstack_input_report_timer_adapter_t *adapter, uint64_t now_us,
-                               swbt_btstack_input_report_result_t tick_result) {
+typedef struct {
+    uint64_t now_us;
+    swbt_btstack_input_report_result_t tick_result;
+} swbt_btstack_input_report_tick_notification_t;
+
+static void notify_report_tick(swbt_btstack_input_report_timer_adapter_t *adapter,
+                               swbt_btstack_input_report_tick_notification_t notification) {
     swbt_btstack_input_report_timer_report_send_result_t send_result;
 
     if (adapter == NULL || adapter->report_tick_observer == NULL) {
         return;
     }
-    if (tick_result == SWBT_BTSTACK_INPUT_REPORT_OK) {
+    if (notification.tick_result == SWBT_BTSTACK_INPUT_REPORT_OK) {
         send_result = SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_OK;
-    } else if (tick_result == SWBT_BTSTACK_INPUT_REPORT_ERROR_SEND_FAILED) {
+    } else if (notification.tick_result == SWBT_BTSTACK_INPUT_REPORT_ERROR_SEND_FAILED) {
         send_result = SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_FAILED;
     } else {
         return;
     }
 
-    adapter->report_tick_observer(adapter->report_tick_context, now_us, send_result);
+    adapter->report_tick_observer(adapter->report_tick_context, notification.now_us, send_result);
 }
-// NOLINTEND(bugprone-easily-swappable-parameters)
 
 static swbt_btstack_input_report_timer_result_t
 schedule_next_timer(swbt_btstack_input_report_timer_adapter_t *adapter, uint64_t now_us) {
@@ -275,8 +278,11 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
     }
 
     const swbt_btstack_input_report_result_t start_result =
-        swbt_btstack_input_report_scheduler_start(&adapter->scheduler, options.hid_cid,
-                                                  options.now_us);
+        swbt_btstack_input_report_scheduler_start(
+            &adapter->scheduler, (swbt_btstack_input_report_scheduler_start_options_t){
+                                     .hid_cid = options.hid_cid,
+                                     .now_us = options.now_us,
+                                 });
     if (start_result != SWBT_BTSTACK_INPUT_REPORT_OK) {
         return map_scheduler_result(start_result);
     }
@@ -367,7 +373,10 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
     const swbt_state_t state = adapter->state_provider(adapter->state_context);
     const swbt_btstack_input_report_result_t tick_result =
         swbt_btstack_input_report_scheduler_tick(&adapter->scheduler, now_us, &state);
-    notify_report_tick(adapter, now_us, tick_result);
+    notify_report_tick(adapter, (swbt_btstack_input_report_tick_notification_t){
+                                    .now_us = now_us,
+                                    .tick_result = tick_result,
+                                });
     const swbt_btstack_input_report_timer_result_t result = map_scheduler_result(tick_result);
     adapter->can_send_pending = false;
     if (result != SWBT_BTSTACK_INPUT_REPORT_TIMER_OK) {

@@ -38,10 +38,20 @@ int main(void) {
     failed += expect_eq_int(swbt_control_lease_acquire(&lease, 1001u), SWBT_CONTROL_LEASE_OK);
     failed += expect_eq_int(swbt_control_lease_acquire(&lease, 2002u),
                             SWBT_CONTROL_LEASE_ERROR_OWNER_BUSY);
-    failed += expect_eq_int(swbt_control_lease_accept_sequence(&lease, 2002u, 77u),
-                            SWBT_CONTROL_LEASE_ERROR_NOT_OWNER);
-    failed += expect_eq_int(swbt_control_lease_accept_sequence(&lease, 1001u, 77u),
-                            SWBT_CONTROL_LEASE_OK);
+    failed += expect_eq_int(
+        swbt_control_lease_accept_sequence(&lease,
+                                           (swbt_control_lease_accept_sequence_options_t){
+                                               .client_id = 2002u,
+                                               .sequence = 77u,
+                                           }),
+        SWBT_CONTROL_LEASE_ERROR_NOT_OWNER);
+    failed += expect_eq_int(
+        swbt_control_lease_accept_sequence(&lease,
+                                           (swbt_control_lease_accept_sequence_options_t){
+                                               .client_id = 1001u,
+                                               .sequence = 77u,
+                                           }),
+        SWBT_CONTROL_LEASE_OK);
     snapshot = swbt_control_lease_snapshot(&lease);
     failed += expect_true(snapshot.has_owner);
     failed += expect_eq_u32(snapshot.owner_client_id, 1001u);
@@ -55,8 +65,13 @@ int main(void) {
     failed += expect_eq_u64(snapshot.last_sequence, 0u);
 
     failed += expect_eq_int(swbt_control_lease_acquire(&lease, 2002u), SWBT_CONTROL_LEASE_OK);
-    failed += expect_eq_int(swbt_control_lease_accept_sequence(&lease, 2002u, 88u),
-                            SWBT_CONTROL_LEASE_OK);
+    failed += expect_eq_int(
+        swbt_control_lease_accept_sequence(&lease,
+                                           (swbt_control_lease_accept_sequence_options_t){
+                                               .client_id = 2002u,
+                                               .sequence = 88u,
+                                           }),
+        SWBT_CONTROL_LEASE_OK);
     failed += expect_false(swbt_control_lease_revoke_if_owner(&lease, 1001u));
     failed += expect_true(swbt_control_lease_revoke_if_owner(&lease, 2002u));
     snapshot = swbt_control_lease_snapshot(&lease);

@@ -38,18 +38,17 @@ swbt_control_lease_result_t swbt_control_lease_acquire(swbt_control_lease_t *lea
     return SWBT_CONTROL_LEASE_OK;
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-swbt_control_lease_result_t swbt_control_lease_accept_sequence(swbt_control_lease_t *lease,
-                                                               uint32_t client_id,
-                                                               uint64_t sequence) {
+swbt_control_lease_result_t
+swbt_control_lease_accept_sequence(swbt_control_lease_t *lease,
+                                   swbt_control_lease_accept_sequence_options_t options) {
+    const uint32_t client_id = options.client_id;
     if (lease == NULL || !lease->has_owner || lease->owner_client_id != client_id) {
         return SWBT_CONTROL_LEASE_ERROR_NOT_OWNER;
     }
 
-    lease->last_sequence = sequence;
+    lease->last_sequence = options.sequence;
     return SWBT_CONTROL_LEASE_OK;
 }
-// NOLINTEND(bugprone-easily-swappable-parameters)
 
 swbt_control_lease_result_t swbt_control_lease_release(swbt_control_lease_t *lease,
                                                        uint32_t client_id) {

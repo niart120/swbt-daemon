@@ -254,7 +254,12 @@ static int start_wires_application_hid_output_and_timer(void) {
     failed += expect_true(fake.state_context == &host);
 
     failed += expect_eq_int(swbt_app_acquire(swbt_daemon_host_app(&host), 1001u), SWBT_APP_OK);
-    failed += expect_eq_int(swbt_app_set_state(swbt_daemon_host_app(&host), 1001u, &state, 7u),
+    failed += expect_eq_int(swbt_app_set_state(swbt_daemon_host_app(&host),
+                                               (swbt_app_set_state_options_t){
+                                                   .client_id = 1001u,
+                                                   .state = &state,
+                                                   .sequence = 7u,
+                                               }),
                             SWBT_APP_OK);
     failed += expect_eq_int(swbt_app_snapshot(swbt_daemon_host_app(&host), &snapshot), SWBT_APP_OK);
     failed += expect_eq_u32(snapshot.state.buttons, SWBT_BUTTON_A | SWBT_BUTTON_X);
@@ -295,11 +300,16 @@ static int output_report_dispatcher_response_enqueues_reply(void) {
     failed +=
         expect_eq_int(swbt_daemon_host_init(&host, &config, &backend, &fake), SWBT_DAEMON_HOST_OK);
     failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK);
-    failed += expect_eq_int(
-        swbt_btstack_output_report_handler_handle(swbt_daemon_host_output_handler(&host), 0x0042u,
-                                                  SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT, 0u,
-                                                  set_report_mode, sizeof(set_report_mode)),
-        SWBT_BTSTACK_OUTPUT_REPORT_OK);
+    failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
+                                swbt_daemon_host_output_handler(&host),
+                                (swbt_btstack_output_report_handle_options_t){
+                                    .hid_cid = 0x0042u,
+                                    .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
+                                    .report_id = 0u,
+                                    .report = set_report_mode,
+                                    .report_size = sizeof(set_report_mode),
+                                }),
+                            SWBT_BTSTACK_OUTPUT_REPORT_OK);
     failed += expect_eq_int(fake.subcommand_reply_enqueue_calls, 1);
     failed += expect_eq_u16(fake.reply_hid_cid, 0x0042u);
     failed +=
@@ -341,11 +351,16 @@ static int output_report_device_info_uses_backend_identity(void) {
     failed +=
         expect_eq_int(swbt_daemon_host_init(&host, &config, &backend, &fake), SWBT_DAEMON_HOST_OK);
     failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK);
-    failed += expect_eq_int(
-        swbt_btstack_output_report_handler_handle(swbt_daemon_host_output_handler(&host), 0x0042u,
-                                                  SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT, 0u,
-                                                  request_device_info, sizeof(request_device_info)),
-        SWBT_BTSTACK_OUTPUT_REPORT_OK);
+    failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
+                                swbt_daemon_host_output_handler(&host),
+                                (swbt_btstack_output_report_handle_options_t){
+                                    .hid_cid = 0x0042u,
+                                    .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
+                                    .report_id = 0u,
+                                    .report = request_device_info,
+                                    .report_size = sizeof(request_device_info),
+                                }),
+                            SWBT_BTSTACK_OUTPUT_REPORT_OK);
     failed += expect_eq_int(fake.read_device_info_calls, 1);
     failed += expect_eq_int(fake.subcommand_reply_enqueue_calls, 1);
     failed += expect_eq_int(fake.reply_report[13], SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_DEVICE_INFO);
@@ -388,11 +403,16 @@ static int output_report_rumble_updates_application_status(void) {
     failed +=
         expect_eq_int(swbt_daemon_host_init(&host, &config, &backend, &fake), SWBT_DAEMON_HOST_OK);
     failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK);
-    failed += expect_eq_int(
-        swbt_btstack_output_report_handler_handle(swbt_daemon_host_output_handler(&host), 0x0042u,
-                                                  SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT, 0u,
-                                                  rumble_only_report, sizeof(rumble_only_report)),
-        SWBT_BTSTACK_OUTPUT_REPORT_OK);
+    failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
+                                swbt_daemon_host_output_handler(&host),
+                                (swbt_btstack_output_report_handle_options_t){
+                                    .hid_cid = 0x0042u,
+                                    .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
+                                    .report_id = 0u,
+                                    .report = rumble_only_report,
+                                    .report_size = sizeof(rumble_only_report),
+                                }),
+                            SWBT_BTSTACK_OUTPUT_REPORT_OK);
 
     failed += expect_eq_int(swbt_app_snapshot(swbt_daemon_host_app(&host), &snapshot), SWBT_APP_OK);
     failed += expect_true(snapshot.rumble.updated);
@@ -445,7 +465,12 @@ static int send_neutral_now_clears_owner_and_flushes_report_timer(void) {
         expect_eq_int(swbt_daemon_host_init(&host, &config, &backend, &fake), SWBT_DAEMON_HOST_OK);
     failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK);
     failed += expect_eq_int(swbt_app_acquire(swbt_daemon_host_app(&host), 1001u), SWBT_APP_OK);
-    failed += expect_eq_int(swbt_app_set_state(swbt_daemon_host_app(&host), 1001u, &state, 7u),
+    failed += expect_eq_int(swbt_app_set_state(swbt_daemon_host_app(&host),
+                                               (swbt_app_set_state_options_t){
+                                                   .client_id = 1001u,
+                                                   .state = &state,
+                                                   .sequence = 7u,
+                                               }),
                             SWBT_APP_OK);
 
     failed += expect_eq_int(swbt_daemon_host_send_neutral_now(&host), SWBT_DAEMON_HOST_OK);
@@ -474,7 +499,12 @@ static int shutdown_neutralizes_state_and_stops_resources_once(void) {
         expect_eq_int(swbt_daemon_host_init(&host, &config, &backend, &fake), SWBT_DAEMON_HOST_OK);
     failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK);
     failed += expect_eq_int(swbt_app_acquire(swbt_daemon_host_app(&host), 1001u), SWBT_APP_OK);
-    failed += expect_eq_int(swbt_app_set_state(swbt_daemon_host_app(&host), 1001u, &state, 7u),
+    failed += expect_eq_int(swbt_app_set_state(swbt_daemon_host_app(&host),
+                                               (swbt_app_set_state_options_t){
+                                                   .client_id = 1001u,
+                                                   .state = &state,
+                                                   .sequence = 7u,
+                                               }),
                             SWBT_APP_OK);
 
     swbt_daemon_host_stop(&host);

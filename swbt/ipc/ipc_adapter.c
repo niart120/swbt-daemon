@@ -155,7 +155,10 @@ static swbt_ipc_json_result_t swbt_ipc_adapter_execute_command(swbt_app_t *app, 
                                                 "client does not own the controller");
             return SWBT_IPC_JSON_OK;
         }
-        result = swbt_ipc_map_app_result(swbt_app_revoke(app, SWBT_APP_REVOKE_RELEASE, client_id));
+        result = swbt_ipc_map_app_result(swbt_app_revoke(app, (swbt_app_revoke_options_t){
+                                                                  .reason = SWBT_APP_REVOKE_RELEASE,
+                                                                  .client_id = client_id,
+                                                              }));
         if (result == SWBT_IPC_ERROR_NOT_OWNER) {
             swbt_ipc_adapter_error_from_command(command, out_response,
                                                 SWBT_IPC_ERROR_CODE_NOT_OWNER,
@@ -178,8 +181,11 @@ static swbt_ipc_json_result_t swbt_ipc_adapter_execute_command(swbt_app_t *app, 
                                                 "client does not own the controller");
             return SWBT_IPC_JSON_OK;
         }
-        result = swbt_ipc_map_app_result(
-            swbt_app_set_state(app, client_id, &command->state, command->sequence));
+        result = swbt_ipc_map_app_result(swbt_app_set_state(app, (swbt_app_set_state_options_t){
+                                                                     .client_id = client_id,
+                                                                     .state = &command->state,
+                                                                     .sequence = command->sequence,
+                                                                 }));
         if (result == SWBT_IPC_ERROR_NOT_OWNER) {
             swbt_ipc_adapter_error_from_command(command, out_response,
                                                 SWBT_IPC_ERROR_CODE_NOT_OWNER,
@@ -238,16 +244,25 @@ swbt_ipc_json_result_t swbt_ipc_adapter_handle_line(swbt_app_t *app, uint32_t cl
 }
 
 swbt_ipc_result_t swbt_ipc_adapter_handle_disconnect(swbt_app_t *app, uint32_t client_id) {
-    return swbt_ipc_map_app_result(swbt_app_revoke(app, SWBT_APP_REVOKE_DISCONNECT, client_id));
+    return swbt_ipc_map_app_result(swbt_app_revoke(app, (swbt_app_revoke_options_t){
+                                                            .reason = SWBT_APP_REVOKE_DISCONNECT,
+                                                            .client_id = client_id,
+                                                        }));
 }
 
 swbt_ipc_result_t swbt_ipc_adapter_handle_heartbeat_timeout(swbt_app_t *app, uint32_t client_id) {
     return swbt_ipc_map_app_result(
-        swbt_app_revoke(app, SWBT_APP_REVOKE_HEARTBEAT_TIMEOUT, client_id));
+        swbt_app_revoke(app, (swbt_app_revoke_options_t){
+                                 .reason = SWBT_APP_REVOKE_HEARTBEAT_TIMEOUT,
+                                 .client_id = client_id,
+                             }));
 }
 
 swbt_ipc_result_t swbt_ipc_adapter_handle_shutdown(swbt_app_t *app) {
-    return swbt_ipc_map_app_result(swbt_app_revoke(app, SWBT_APP_REVOKE_SHUTDOWN, 0u));
+    return swbt_ipc_map_app_result(swbt_app_revoke(app, (swbt_app_revoke_options_t){
+                                                            .reason = SWBT_APP_REVOKE_SHUTDOWN,
+                                                            .client_id = 0u,
+                                                        }));
 }
 
 swbt_ipc_result_t swbt_ipc_adapter_get_status(const swbt_app_t *app,

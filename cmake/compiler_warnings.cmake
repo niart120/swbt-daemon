@@ -19,7 +19,7 @@ function(swbt_apply_common_warnings target_name)
                 C_CLANG_TIDY "${CLANG_TIDY_EXE}"
             )
         else()
-            message(WARNING "SWBT_ENABLE_CLANG_TIDY is ON but clang-tidy was not found")
+            message(FATAL_ERROR "SWBT_ENABLE_CLANG_TIDY is ON but clang-tidy was not found")
         endif()
     endif()
 endfunction()

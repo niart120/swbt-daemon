@@ -51,7 +51,7 @@ build-debug:
 test-debug:
     @just --justfile "{{justfile()}}" _run-or-delegate test-debug
 
-# Configure, build, and test linux-debug.
+# Configure, build, and test linux-debug. Does not run format-check or clang-tidy.
 debug:
     @just --justfile "{{justfile()}}" _run-or-delegate debug
 
@@ -63,7 +63,7 @@ format:
 format-check:
     @just --justfile "{{justfile()}}" _run-or-delegate format-check
 
-# Configure and build linux-clang-tidy.
+# Configure and build linux-clang-tidy with clang-tidy enabled.
 tidy:
     @just --justfile "{{justfile()}}" _run-or-delegate tidy
 
@@ -75,7 +75,7 @@ asan:
 windows-cross:
     @just --justfile "{{justfile()}}" _run-or-delegate windows-cross
 
-# Run the full non-hardware verification set.
+# Run format-check, clang-tidy, debug, ASan, and Windows cross build.
 verify:
     @just --justfile "{{justfile()}}" _run-or-delegate verify
 

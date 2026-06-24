@@ -6,7 +6,7 @@
 
 static swbt_btstack_output_report_handler_t *g_output_report_handler;
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+// NOLINTBEGIN(bugprone-easily-swappable-parameters): BTstack HID callback ABI.
 static void swbt_btstack_output_report_callbacks_dispatch(uint16_t hid_cid,
                                                           hid_report_type_t report_type,
                                                           uint16_t report_id, int report_size,
@@ -15,9 +15,14 @@ static void swbt_btstack_output_report_callbacks_dispatch(uint16_t hid_cid,
         return;
     }
 
-    (void)swbt_btstack_output_report_handler_handle(g_output_report_handler, hid_cid,
-                                                    (uint8_t)report_type, report_id, report,
-                                                    (size_t)report_size);
+    (void)swbt_btstack_output_report_handler_handle(g_output_report_handler,
+                                                    (swbt_btstack_output_report_handle_options_t){
+                                                        .hid_cid = hid_cid,
+                                                        .report_type = (uint8_t)report_type,
+                                                        .report_id = report_id,
+                                                        .report = report,
+                                                        .report_size = (size_t)report_size,
+                                                    });
 }
 
 static void swbt_btstack_output_report_data_callback(uint16_t hid_cid,

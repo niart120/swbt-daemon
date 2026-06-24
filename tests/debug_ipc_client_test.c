@@ -39,7 +39,11 @@ static int test_loopback_hello_send_receive(void) {
     if (swbt_ipc_server_init(&server) != SWBT_IPC_SERVER_OK) {
         return 10;
     }
-    if (swbt_ipc_server_listen(&server, "127.0.0.1", 0, 1) != SWBT_IPC_SERVER_OK) {
+    if (swbt_ipc_server_listen(&server, (swbt_ipc_server_listen_options_t){
+                                            .host = "127.0.0.1",
+                                            .port = 0,
+                                            .backlog = 1,
+                                        }) != SWBT_IPC_SERVER_OK) {
         swbt_ipc_server_close(&server);
         return 11;
     }
@@ -113,7 +117,12 @@ static int test_loopback_hello_send_receive(void) {
     state.buttons = SWBT_BUTTON_A;
     state.lx = 1234;
     state.ly = 2345;
-    if (expect_zero(swbt_debug_client_send_set_state(&client, owner_id, &state, 42u))) {
+    if (expect_zero(
+            swbt_debug_client_send_set_state(&client, (swbt_debug_client_set_state_options_t){
+                                                          .owner_id = owner_id,
+                                                          .state = &state,
+                                                          .sequence = 42u,
+                                                      }))) {
         swbt_ipc_connection_close(&connection);
         swbt_ipc_socket_close(&client);
         swbt_ipc_server_close(&server);
