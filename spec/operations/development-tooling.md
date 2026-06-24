@@ -97,6 +97,7 @@ Git hooks は `.githooks/` を正本とする。
 hook 全体を明示的にスキップする場合は `SWBT_SKIP_HOOKS=1` を使う。
 
 CI では Dev Container 内で `just verify-ci` を実行する。
+CI job は `SWBT_RUN_HARDWARE=0` と `SWBT_HARDWARE_APPROVED=0` を明示し、実機承認を必要とする処理を既定で開始しない。
 
 ## 5. 根拠
 
