@@ -69,7 +69,8 @@ not applicable。
 - `SWBT_RUN_HARDWARE` と `SWBT_HARDWARE_APPROVED` は CI で有効化しない。
 - host build opt-in を CI の都合で既定化しない。
 - Dev Container を CI で起動する場合は、Docker availability と cache failure を明示する。
-- CI に入れない判断も、理由と代替 local gate を記録すれば完了にできる。
+- 2026-06-24 の判断: 独立した Windows native CI job は追加しない。現在の CI gate は Ubuntu runner 上の Dev Container で `just verify-ci` を実行する。
+- Windows native PowerShell entrypoint は local gate として扱い、Windows filesystem checkout で `just list-presets` を実行して Dev Container 委譲と CMake preset 読み取りを最小確認する。広い確認が必要な場合は、同じ PowerShell 入口で `just verify` を実行する。
 
 ## 8. 対象ファイル
 
@@ -83,14 +84,15 @@ not applicable。
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | Windows native gate documents whether it uses Dev Container, host preset read, or docs-only verification | characterization | docs | no |
+| green | Windows native gate documents whether it uses Dev Container, host preset read, or docs-only verification | characterization | docs | no |
 | todo | CI or local script refuses hardware execution by default | regression | integration | no |
 | todo | Windows native entrypoint failure is represented by a reproducible command or explicit non-goal | characterization | build | no |
 | todo | existing Linux / ASan / Windows cross gates remain the primary software verification path | regression | docs | no |
 
 ## 10. 検証
 
-未実行。起票のみで、CI workflow や tooling はまだ変更していない。
+- red: `rg -n "Windows native CI decision|Windows native CI job is not added|Windows native gate mode|Windows native CI job は追加しない" spec\operations\development-tooling.md` -> no match。
+- green: `spec/operations/development-tooling.md` に Windows native CI job を追加しない判断、CI の Dev Container gate、Windows native PowerShell local gate を記録する。
 
 ## 11. 実機実行条件
 

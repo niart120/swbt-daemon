@@ -62,6 +62,10 @@ host 側 recipe は `SWBT_ALLOW_HOST_BUILD=1` を自動で付けない。
 
 formatter / linter を含む非実機 gate は `just verify` と `just verify-ci` である。`just verify` は `format-check`、`tidy`、`debug`、`asan`、`windows-cross` を順に実行する。
 
+Windows native CI job は追加しない。現在の CI gate は Ubuntu runner 上の Dev Container で `just verify-ci` を実行する。
+Windows native PowerShell entrypoint は local gate として扱い、Windows filesystem checkout で `just list-presets` を実行して Dev Container 委譲と CMake preset 読み取りを最小確認する。
+広い確認が必要な場合は、同じ Windows native PowerShell 入口で `just verify` を実行する。
+
 `just clean` は host 側 workspace の Git 除外対象である CMake build 出力だけを削除する。対象は `build/` と `cmake-build-*` であり、`tmp/`、Dev Container、submodule には触れない。
 
 Windows では、Windows filesystem 上の repository は Windows native PowerShell から `just` を実行する経路を標準入口に含める。
