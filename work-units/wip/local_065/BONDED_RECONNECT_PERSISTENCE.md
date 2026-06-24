@@ -58,6 +58,7 @@ bonded reconnect は architecture cleanup ではなく、BTstack link key persis
 ## 5. 関連 spec / docs
 
 - `spec/architecture/daemon-architecture-cutover.md`
+- `spec/architecture/bond-cache-persistence.md`
 - `spec/operations/windows-native-preflight.md`
 - `spec/operations/windows-hardware-bringup-sequence.md`
 - `docs/status.md`
@@ -116,6 +117,7 @@ BTstack link key DB、bond persistence、Windows port behavior、reconnect event
 - `tests/btstack_*`
 - `tests/daemon_production_backend_test.c`
 - `spec/references/*`
+- `spec/architecture/bond-cache-persistence.md`
 - `spec/architecture/daemon-architecture-cutover.md`
 - `docs/status.md`
 - `docs/hardware-test-log.md`
@@ -132,11 +134,11 @@ BTstack link key DB、bond persistence、Windows port behavior、reconnect event
 | todo | daemon process restart after initial pairing reconnects without Switch-side operation, or records the exact unsupported boundary with artifact | characterization | hardware | yes |
 | todo | Switch sleep / resume reconnects without re-pairing, or records the exact unsupported boundary with artifact | characterization | hardware | yes |
 | todo | Switch-side controller reconnect operation uses existing bond without full re-pairing | characterization | hardware | yes |
-| todo | bond cache storage / cleanup / migration policy is documented before treating persistence as a release-compatible external contract | characterization | docs | no |
+| refactor-skipped | bond cache storage / cleanup / migration policy is documented before treating persistence as a release-compatible external contract | characterization | docs | no |
 
 ## 10. 検証
 
-2026-06-24 時点では、BTstack source と swbt implementation の初期根拠監査を実施した。fake TLV backend による link key DB unit test、production adapter が `HCI_STATE_WORKING` 後に TLV-backed link key DB を設定する software test、起動時環境変数に依存しない明示 cleanup API の unit test を追加し、software test は通過した。実機検証はまだ実行していない。
+2026-06-24 時点では、BTstack source と swbt implementation の初期根拠監査を実施した。fake TLV backend による link key DB unit test、production adapter が `HCI_STATE_WORKING` 後に TLV-backed link key DB を設定する software test、起動時環境変数に依存しない明示 cleanup API の unit test を追加し、software test は通過した。bond cache の内部運用境界と外部契約化条件は `spec/architecture/bond-cache-persistence.md` に記録した。実機検証はまだ実行していない。
 
 TDD status:
 
@@ -217,6 +219,26 @@ Refactor status:
 - unchanged behavior: TLV-backed link key DB configure、fake TLV backend の put / reload / get / delete、invalid argument rejection。
 - verification: `just build-debug`、`just test-debug`、`just windows-cross`。
 - notes: cleanup の利用口を daemon 起動時環境変数として増やさないため、production main や daemon config には触れない。
+
+TDD status:
+
+- source: `spec/architecture/daemon-architecture-cutover.md` の external contract 判定、user clarification, 2026-06-24。
+- use case: bond cache を release 互換の外部契約として扱う前に、保存先、削除、破損時復旧、migration 条件、未検証境界を spec で確認できる。
+- item: bond cache storage / cleanup / migration policy is documented before treating persistence as a release-compatible external contract。
+- state: refactor-skipped。
+- commands:
+  - `rg -n "bond-cache-persistence|Bond Cache Persistence" spec/architecture work-units/wip/local_065` red: no matches。
+  - `rg -n "bond-cache-persistence|Bond Cache Persistence|swbt-bond-<local-bdaddr>|release 互換" spec/architecture work-units/wip/local_065`
+  - `git diff --check`
+- notes: `spec/architecture/bond-cache-persistence.md` を追加し、現行 TLV file を swbt 内部 cache として扱うこと、cleanup を起動時環境変数で発火させないこと、release 互換へ格上げする条件を記録した。docs characterization item であり CMake / CTest は対象外。
+
+Refactor status:
+
+- decision: refactor-skipped。
+- change: なし。新しい spec と既存 cutover spec の参照更新だけであり、追加の構造整理は行わない。
+- unchanged behavior: code、build graph、実機実行条件。
+- verification: `rg -n "bond-cache-persistence|Bond Cache Persistence|swbt-bond-<local-bdaddr>|release 互換" spec/architecture work-units/wip/local_065`、`git diff --check`。
+- notes: `local_071` の設定ファイル移行 work unit は既存の関連 work unit として参照し、設定ファイル format の決定はここへ混ぜない。
 
 ## 11. 実機実行条件
 

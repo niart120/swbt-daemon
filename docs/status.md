@@ -26,7 +26,7 @@
 | 初代Switch各モデル | 初代Switch、Switch Lite、Switch OLED での pairing、subcommand sequence、input 反映。 | firmware、adapter、driver、report period を記録した実機ログ。 |
 | 他のUSBドングル | CSR8510 A10 以外の Bluetooth ドングルでの WinUSB / libusb 挙動。 | VID/PID、driver、BTstack backend、HCI dump を含む実機ログ。 |
 | Linux実機経路 | Linux + libusb backend での adapter open、pairing、HID report loop。 | Linux host、libusb device、udev / permission、HCI dump を含む実機ログ。 |
-| daemon再起動後の bonded reconnect | 初回 pairing 後、daemon 再起動をまたいで Switch が bonded reconnect できるか。 | link key persistence、BTstack bond database、再起動手順を含む実機ログ。 |
+| daemon再起動後の bonded reconnect | 初回 pairing 後、daemon 再起動をまたいで Switch が bonded reconnect できるか。software boundary は TLV-backed link key DB 接続まで追加済みだが、実機では未確認。 | `spec/architecture/bond-cache-persistence.md`、link key persistence、BTstack bond database、再起動手順を含む実機ログ。 |
 | 厳密な遅延・jitter・取りこぼし率 | input report の実送信周期、Switch 側入力遅延、取りこぼし率。 | timestamp 付き計測、サンプル数、解析方法、測定誤差の記録。 |
 
 ## 未実装

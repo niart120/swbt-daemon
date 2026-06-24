@@ -7,5 +7,5 @@ upstream 調査や根拠の要約だけを置く場合は `spec/references/` を
 
 ## 現在の spec
 
-- [Daemon Runtime Boundaries](daemon-runtime-boundaries.md): daemon runtime、IPC、Switch protocol core、BTstack bridge、fake backend、実機実行条件の責務境界。
-- [Daemon Application Boundary Rearchitecture](daemon-application-boundary-rearchitecture.md): daemon の状態所有権を IPC / BTstack adapter から application boundary へ寄せるための draft。
+- [Daemon Architecture Cutover](daemon-architecture-cutover.md): daemon logical state、IPC、BTstack adapter、host composition、platform shutdown の current architecture policy。
+- [Bond Cache Persistence](bond-cache-persistence.md): BTstack Classic link key DB / TLV bond cache の内部運用境界、cleanup、外部契約化条件。
