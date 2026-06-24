@@ -85,7 +85,7 @@ not applicable。
 | refactor-skipped | oversized IPC line is rejected or closed without buffer overrun and with documented behavior | edge | integration | no |
 | refactor-skipped | fragmented valid command is handled according to line framing contract | regression | integration | no |
 | refactor-skipped | invalid input followed by valid input has explicit recovery or close semantics | edge | integration | no |
-| todo | slow client does not block unrelated owner disconnect / heartbeat processing in the tested loopback model | characterization | integration | no |
+| refactor-skipped | slow client does not block unrelated owner disconnect / heartbeat processing in the tested loopback model | characterization | integration | no |
 
 ## 10. 検証
 
@@ -148,6 +148,20 @@ TDD status:
   - green: `$env:CTEST_ARGS='-R ipc_server_test --timeout 5'; just test-debug` -> pass。
   - docs check: `rg -n "invalid_json.*connection|message too long.*connection|malformed complete JSON" spec\protocols\daemon-ipc-v1.md` -> pass。
 - notes: `ipc_server_test` に malformed line 後の valid `hello` recovery を追加した。oversized line の close semantics は item 2 の test と spec を参照する。追加の構造変更は不要なため `refactor-skipped` とした。
+
+TDD status:
+
+- source: slow client handling item と JSON Lines framing の partial line behavior。
+- use case: slow client が complete line を送らない場合でも server loop は戻り、heartbeat timeout の確認で owner / state を neutral に戻せる。
+- item: slow client does not block unrelated owner disconnect / heartbeat processing in the tested loopback model。
+- state: refactor-skipped。
+- commands:
+  - red: `rg -n "slow client|partial line.*heartbeat|heartbeat.*partial line" spec\protocols\daemon-ipc-v1.md` -> fail。slow client / partial line と heartbeat の関係が spec に明記されていなかった。
+  - format: `just format` -> pass。
+  - green: `just build-debug` -> pass。
+  - green: `$env:CTEST_ARGS='-R ipc_server_test --timeout 5'; just test-debug` -> pass。
+  - docs check: `rg -n "slow client|partial line.*heartbeat|heartbeat.*partial line" spec\protocols\daemon-ipc-v1.md` -> pass。
+- notes: `ipc_server_test` に partial line 後でも heartbeat timeout が owner / state を neutral に戻す characterization を追加した。実機や remote network security は範囲外。追加の構造変更は不要なため `refactor-skipped` とした。
 
 ## 11. 実機実行条件
 

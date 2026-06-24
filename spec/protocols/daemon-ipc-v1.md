@@ -57,6 +57,8 @@ line は `\n` で終端する。server は newline まで読み、1 line を 1 r
 
 newline 前の partial line は request として処理しない。server は connection ごとに未完了 line を保持し、response は complete line を処理した場合だけ返す。
 
+complete line がない connection は、request 処理なしで server loop に戻る。これにより、slow client の partial line は heartbeat timeout の確認を塞がない。
+
 message は `SWBT_IPC_JSON_LINE_MAX`、現行値 `8192` bytes に収まる必要がある。これを超える line は transport layer で message too long として扱い、server はその connection を閉じる。閉じる connection が active owner の場合、owner は解除され、latest state は neutral に戻る。
 
 response がある場合、server は 1 JSON object と trailing newline を返す。
