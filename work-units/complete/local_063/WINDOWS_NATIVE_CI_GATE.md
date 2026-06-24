@@ -67,9 +67,13 @@ not applicable。
 
 - Windows native CI は hardware gate ではない。
 - `SWBT_RUN_HARDWARE` と `SWBT_HARDWARE_APPROVED` は CI で有効化しない。
+- CI job は `SWBT_RUN_HARDWARE=0` と `SWBT_HARDWARE_APPROVED=0` を明示し、実機承認を必要とする処理を既定で開始しない。
 - host build opt-in を CI の都合で既定化しない。
 - Dev Container を CI で起動する場合は、Docker availability と cache failure を明示する。
-- CI に入れない判断も、理由と代替 local gate を記録すれば完了にできる。
+- 2026-06-24 の判断: 独立した Windows native CI job は追加しない。現在の CI gate は Ubuntu runner 上の Dev Container で `just verify-ci` を実行する。
+- Windows native PowerShell entrypoint は local gate として扱い、Windows filesystem checkout で `just list-presets` を実行して Dev Container 委譲と CMake preset 読み取りを最小確認する。広い確認が必要な場合は、同じ PowerShell 入口で `just verify` を実行する。
+- 主要なソフトウェア検証経路は `just verify` と `just verify-ci` の `format-check`、`tidy`、`debug`、`asan`、`windows-cross` である。Windows native local gate は host 側入口の確認であり、この経路を置き換えない。
+- Windows native PowerShell entrypoint の失敗再現コマンドは `just list-presets` とする。Dev Container CLI がない場合は `devcontainer CLI was not found. Install the Dev Containers CLI or open this repository in the Dev Container.` を前提条件不足として扱う。host build への退避は対象外であり、この失敗を `SWBT_ALLOW_HOST_BUILD=1` で迂回しない。
 
 ## 8. 対象ファイル
 
@@ -77,20 +81,29 @@ not applicable。
 - `justfile`
 - `spec/operations/development-tooling.md`
 - `spec/operations/windows-native-preflight.md`
-- `work-units/wip/local_063/WINDOWS_NATIVE_CI_GATE.md`
+- `work-units/complete/local_063/WINDOWS_NATIVE_CI_GATE.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | Windows native gate documents whether it uses Dev Container, host preset read, or docs-only verification | characterization | docs | no |
-| todo | CI or local script refuses hardware execution by default | regression | integration | no |
-| todo | Windows native entrypoint failure is represented by a reproducible command or explicit non-goal | characterization | build | no |
-| todo | existing Linux / ASan / Windows cross gates remain the primary software verification path | regression | docs | no |
+| green | Windows native gate documents whether it uses Dev Container, host preset read, or docs-only verification | characterization | docs | no |
+| green | CI or local script refuses hardware execution by default | regression | integration | no |
+| green | Windows native entrypoint failure is represented by a reproducible command or explicit non-goal | characterization | build | no |
+| green | existing Linux / ASan / Windows cross gates remain the primary software verification path | regression | docs | no |
 
 ## 10. 検証
 
-未実行。起票のみで、CI workflow や tooling はまだ変更していない。
+- red: `rg -n "Windows native CI decision|Windows native CI job is not added|Windows native gate mode|Windows native CI job は追加しない" spec\operations\development-tooling.md` -> no match。
+- green: `spec/operations/development-tooling.md` に Windows native CI job を追加しない判断、CI の Dev Container gate、Windows native PowerShell local gate を記録する。
+- red: `rg -n 'SWBT_RUN_HARDWARE:\s*"0"|SWBT_HARDWARE_APPROVED:\s*"0"|CI job explicitly disables hardware approval' .github\workflows\ci.yml work-units\wip\local_063\WINDOWS_NATIVE_CI_GATE.md` -> no match。
+- green: `.github/workflows/ci.yml` の `verify` job に `SWBT_RUN_HARDWARE=0` と `SWBT_HARDWARE_APPROVED=0` を明示し、`spec/operations/development-tooling.md` とこの record に非実機 CI の既定状態を記録する。
+- red: `rg -n '失敗再現コマンドは|host build への退避は対象外' spec\operations\development-tooling.md work-units\wip\local_063\WINDOWS_NATIVE_CI_GATE.md` -> no match。
+- green: `spec/operations/development-tooling.md` とこの record に `just list-presets` を Windows native PowerShell entrypoint の失敗再現コマンドとして記録し、Dev Container CLI 不足と host build への退避の扱いを明示する。
+- red: `rg -n '主要なソフトウェア検証経路は|Windows native local gate は置き換えない|Linux debug、ASan、Windows cross build' spec\operations\development-tooling.md work-units\wip\local_063\WINDOWS_NATIVE_CI_GATE.md` -> no match。
+- green: `spec/operations/development-tooling.md` とこの record に `just verify` / `just verify-ci` の `format-check`、`tidy`、`debug`、`asan`、`windows-cross` が主要なソフトウェア検証経路であり、Windows native local gate はそれを置き換えないことを記録する。
+- verification: `just verify` -> pass。`format-check`、`tidy`、linux-debug configure/build/CTest、linux-asan configure/build/CTest、windows-mingw-debug cross build を実行した。
+- Test Desiderata review: docs 検索は gate 判断、実機承認 flag、entrypoint failure、主要検証経路の本文を直接確認している。workflow 変更は `rg` と `git diff --check` で確認し、最終的に `just verify` で既存 software gate が通ることを確認した。実機挙動を変更していないため、実機検証は不要。
 
 ## 11. 実機実行条件
 
@@ -106,7 +119,7 @@ none。起票時点の先送り事項は、この record の source として取
 
 - [x] source を `local_052`、`local_054`、`local_055`、`local_057` から特定した。
 - [x] use case を Windows native non-hardware gate として定義した。
-- [ ] 現行 CI workflow を確認した。
-- [ ] gate の追加または非追加判断を記録した。
-- [ ] 必要な docs / workflow を更新した。
-- [ ] CI または local verification を実行した。
+- [x] 現行 CI workflow を確認した。
+- [x] gate の追加または非追加判断を記録した。
+- [x] 必要な docs / workflow を更新した。
+- [x] CI または local verification を実行した。
