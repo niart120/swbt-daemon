@@ -85,7 +85,8 @@ BTstack link key DB、bond persistence、Windows port behavior、reconnect event
 | Windows TLV file creation | init 時に既存 file を開き、存在しないか不正なら `CREATE_ALWAYS` で作る | source fact | `vendor/btstack/platform/windows/btstack_tlv_windows.c:196`, `:274`, `:314` | stable source fact |
 | POSIX TLV file creation | init 時に既存 file を `r+` で開き、存在しないか不正なら `w+` で作る | source fact | `vendor/btstack/platform/posix/btstack_tlv_posix.c:182`, `:251`, `:279` | stable source fact |
 | swbt production path の現状 | `hci_init` と discovery / L2CAP 初期化はあるが、link key DB 設定はない | implementation fact | `swbt/btstack_bridge/production_btstack.c:139`, `:156`, `:168`; repo-wide `rg hci_set_link_key_db` は swbt 側 0 件 | missing implementation |
-| source inclusion | BTstack Classic source と platform Windows source は CMake 選択に含まれる | implementation fact | `cmake/btstack_sources.cmake:60`, `:133` | available but not wired |
+| source inclusion | BTstack Classic source は CMake 選択に含まれ、TLV platform source は swbt link source に追加済み | implementation fact | `cmake/btstack_sources.cmake:60`, `CMakeLists.txt` の `btstack_tlv_posix.c` / `btstack_tlv_windows.c` 追加 | wired for build |
+| production link key DB wiring | `HCI_STATE_WORKING` event で local BD_ADDR から `swbt-bond-<bdaddr>.tlv` を決め、BTstack TLV singleton と Classic link key DB を設定する | implementation fact | `swbt/btstack_bridge/production_btstack.c`, `swbt/btstack_bridge/bond_cache.c`, `tests/btstack_bond_cache_test.c` | software-verified, hardware unverified |
 
 ### 未解決事項
 
@@ -126,7 +127,7 @@ BTstack link key DB、bond persistence、Windows port behavior、reconnect event
 |---|---|---|---|---|
 | refactor-skipped | source audit records that Classic reconnect requires stored link key material and does not rely on deterministic derivation from public device data | characterization | docs | no |
 | refactor-skipped | fake link key DB stores, reloads, and deletes link key material without application ownership | new | unit | no |
-| todo | production BTstack adapter wires TLV-backed link key DB at the chosen HCI / local-address boundary before link-key request handling | new | integration | no |
+| refactor-skipped | production BTstack adapter wires TLV-backed link key DB at the chosen HCI / local-address boundary before link-key request handling | new | integration | no |
 | todo | explicit bond cache cleanup removes swbt-owned bond data without relying on startup environment variables | new | unit | no |
 | todo | daemon process restart after initial pairing reconnects without Switch-side operation, or records the exact unsupported boundary with artifact | characterization | hardware | yes |
 | todo | Switch sleep / resume reconnects without re-pairing, or records the exact unsupported boundary with artifact | characterization | hardware | yes |
@@ -135,7 +136,7 @@ BTstack link key DB、bond persistence、Windows port behavior、reconnect event
 
 ## 10. 検証
 
-2026-06-24 時点では、BTstack source と swbt implementation の初期根拠監査を実施した。fake TLV backend による link key DB unit test を追加し、software test は通過した。production wiring と実機検証はまだ実行していない。
+2026-06-24 時点では、BTstack source と swbt implementation の初期根拠監査を実施した。fake TLV backend による link key DB unit test と、production adapter が `HCI_STATE_WORKING` 後に TLV-backed link key DB を設定する software test を追加し、software test は通過した。実機検証はまだ実行していない。
 
 TDD status:
 
@@ -170,6 +171,29 @@ Refactor status:
 - unchanged behavior: fake TLV backend 経由の put / reload / get / delete、invalid argument rejection。
 - verification: `just build-debug`、`just test-debug`。
 - notes: この cycle では production wiring、path 決定、cleanup policy へ進めない。
+
+TDD status:
+
+- source: `local_053` の bond store port 先送り事項、`docs/status.md` の daemon 再起動後 bonded reconnect 未確認項目。
+- use case: HCI が working になった後、link key request が来る前に production adapter が TLV-backed Classic link key DB を BTstack へ渡す。
+- item: production BTstack adapter wires TLV-backed link key DB at the chosen HCI / local-address boundary before link-key request handling。
+- state: refactor-skipped。
+- commands:
+  - `just build-debug` red: `swbt_btstack_bond_cache_configure_for_local_address` などの production wiring API が未定義。
+  - `just build-debug` green。
+  - `just format`
+  - `git diff --check`
+  - `just test-debug` green: 40/40 passed。
+  - `just windows-cross` green。
+- notes: production adapter は `HCI_STATE_WORKING` event で `gap_local_bd_addr` を読み、`swbt-bond-<bdaddr>.tlv` を開いて BTstack TLV singleton と Classic link key DB を設定する。実機で Link Key Request より前にこの event ordering になることは未検証。
+
+Refactor status:
+
+- decision: refactor-skipped。
+- change: `HCI_STATE_WORKING` event の重複 configure を避ける guard のみ。
+- unchanged behavior: platform start、HID registration、report loop、HCI dump start の既存 test は green。
+- verification: `just build-debug`、`just test-debug`、`just windows-cross`。
+- notes: 保存先の外部契約化、設定ファイル連携、明示 cleanup は別 item として残す。
 
 ## 11. 実機実行条件
 
