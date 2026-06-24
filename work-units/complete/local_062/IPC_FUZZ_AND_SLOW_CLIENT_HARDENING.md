@@ -75,7 +75,7 @@ not applicable。
 - `tests/ipc_server_test.c`
 - `tests/debug_ipc_client_test.c`
 - `spec/protocols/daemon-ipc-v1.md`
-- `work-units/wip/local_062/IPC_FUZZ_AND_SLOW_CLIENT_HARDENING.md`
+- `work-units/complete/local_062/IPC_FUZZ_AND_SLOW_CLIENT_HARDENING.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
@@ -89,7 +89,7 @@ not applicable。
 
 ## 10. 検証
 
-進行中。
+完了。
 
 TDD status:
 
@@ -162,6 +162,19 @@ TDD status:
   - green: `$env:CTEST_ARGS='-R ipc_server_test --timeout 5'; just test-debug` -> pass。
   - docs check: `rg -n "slow client|partial line.*heartbeat|heartbeat.*partial line" spec\protocols\daemon-ipc-v1.md` -> pass。
 - notes: `ipc_server_test` に partial line 後でも heartbeat timeout が owner / state を neutral に戻す characterization を追加した。実機や remote network security は範囲外。追加の構造変更は不要なため `refactor-skipped` とした。
+
+Final verification:
+
+- `just verify` -> fail。`clang-tidy` が `swbt/ipc/ipc_server.c` の `memcpy` を `clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling` として検出した。
+- `just format` -> pass。
+- `just verify` -> pass。含まれる gate は `format-check`、`clang-tidy`、debug build / CTest、ASan build / CTest、Windows MinGW cross build。
+
+Test desiderata:
+
+- purpose: malformed JSON、oversized line、fragmented line、invalid input recovery、partial line heartbeat を IPC codec / server boundary の regression / edge / characterization として固定する。
+- key trade-offs: test は local loopback と fake application state に閉じるため fast / deterministic / automated を優先した。slow client は remote network security ではなく、complete line がない場合に server loop が戻ることと heartbeat timeout が進むことだけを観測した。
+- risks: `ipc_server_test.c` の setup は重複が多く、failure code だけでは失敗箇所を即座に読みにくい。実機、BTstack、Windows native socket scheduling はこの work unit の検証対象外。
+- action: 現時点で追加 refactor は行わない。次に IPC server test fixture の重複が増える場合は、別 work unit で setup helper 化を検討する。
 
 ## 11. 実機実行条件
 
