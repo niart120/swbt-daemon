@@ -159,6 +159,7 @@ swbt_apply_sanitizers(swbt_ipc)
 
 add_library(swbt_btstack_adapter STATIC
     swbt/btstack_bridge/production_adapter.c
+    swbt/btstack_bridge/bond_cache.c
     swbt/btstack_bridge/classic_discovery.c
     swbt/btstack_bridge/classic_discovery_btstack_adapter.c
     swbt/btstack_bridge/hci_dump_text.c
@@ -466,6 +467,19 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(btstack_timer_port_test)
 
     add_test(NAME btstack_timer_port_test COMMAND btstack_timer_port_test)
+
+    add_executable(btstack_bond_cache_test
+        tests/btstack_bond_cache_test.c
+    )
+    target_link_libraries(btstack_bond_cache_test PRIVATE swbt_btstack_adapter swbt_btstack)
+    target_include_directories(btstack_bond_cache_test
+        PRIVATE
+            ${swbt_btstack_selected_include_dirs}
+    )
+    swbt_apply_common_warnings(btstack_bond_cache_test)
+    swbt_apply_sanitizers(btstack_bond_cache_test)
+
+    add_test(NAME btstack_bond_cache_test COMMAND btstack_bond_cache_test)
 
     add_executable(btstack_classic_discovery_test
         tests/btstack_classic_discovery_test.c

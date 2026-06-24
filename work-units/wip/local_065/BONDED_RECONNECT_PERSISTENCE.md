@@ -125,7 +125,7 @@ BTstack link key DB、bond persistence、Windows port behavior、reconnect event
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | refactor-skipped | source audit records that Classic reconnect requires stored link key material and does not rely on deterministic derivation from public device data | characterization | docs | no |
-| todo | fake link key DB stores, reloads, and deletes link key material without application ownership | new | unit | no |
+| refactor-skipped | fake link key DB stores, reloads, and deletes link key material without application ownership | new | unit | no |
 | todo | production BTstack adapter wires TLV-backed link key DB at the chosen HCI / local-address boundary before link-key request handling | new | integration | no |
 | todo | explicit bond cache cleanup removes swbt-owned bond data without relying on startup environment variables | new | unit | no |
 | todo | daemon process restart after initial pairing reconnects without Switch-side operation, or records the exact unsupported boundary with artifact | characterization | hardware | yes |
@@ -135,7 +135,7 @@ BTstack link key DB、bond persistence、Windows port behavior、reconnect event
 
 ## 10. 検証
 
-2026-06-24 時点では、BTstack source と swbt implementation の初期根拠監査を実施した。実装、software test、実機検証はまだ実行していない。
+2026-06-24 時点では、BTstack source と swbt implementation の初期根拠監査を実施した。fake TLV backend による link key DB unit test を追加し、software test は通過した。production wiring と実機検証はまだ実行していない。
 
 TDD status:
 
@@ -147,6 +147,29 @@ TDD status:
   - `rg -n "link key|deterministic|固定値|決定論的" work-units/wip/local_065/BONDED_RECONNECT_PERSISTENCE.md`
   - `git diff --check`
 - notes: `source-audit` により BTstack link key DB、TLV persistence、swbt production path の未接続状態を記録済み。docs characterization item であり CMake / CTest は対象外。構造変更は不要のため refactor は行わない。
+
+TDD status:
+
+- source: user request, 2026-06-24; `local_053` の bond store port 先送り事項。
+- use case: daemon ではなく BTstack link key DB が link key material を保存、再読込、削除する。
+- item: fake link key DB stores, reloads, and deletes link key material without application ownership。
+- state: refactor-skipped。
+- commands:
+  - `just configure-debug`
+  - `just build-debug` red: `btstack_bridge/bond_cache.h` が未実装のため `btstack_bond_cache_test` compile failure。
+  - `just build-debug` green。
+  - `just format`
+  - `git diff --check`
+  - `just test-debug` green: 40/40 passed。
+- notes: `swbt_btstack_bond_cache_link_key_db_from_tlv` は BTstack の `btstack_link_key_db_tlv_get_instance` に TLV backend を渡すだけにし、swbt application state では raw link key を保持しない。`CTEST_ARGS='-R btstack_bond_cache_test' just test-debug` は Windows 側 Dev Container setup で失敗したため、対象テストを含む full `just test-debug` を検証根拠にした。
+
+Refactor status:
+
+- decision: refactor-skipped。
+- change: なし。`just format` による機械的整形のみ。
+- unchanged behavior: fake TLV backend 経由の put / reload / get / delete、invalid argument rejection。
+- verification: `just build-debug`、`just test-debug`。
+- notes: この cycle では production wiring、path 決定、cleanup policy へ進めない。
 
 ## 11. 実機実行条件
 
@@ -173,6 +196,6 @@ none。起票時点の先送り事項は、この record の source として取
 - [x] 初期 `source-audit` で BTstack link key DB と swbt 未接続状態を確認した。
 - [x] 実装前の詳細 `source-audit` を完了した。
 - [ ] hardware preflight を確認した。
-- [ ] red test または characterization test を追加した。
+- [x] red test または characterization test を追加した。
 - [ ] link key DB / bond cache 実装または unsupported 判断を記録した。
 - [ ] 実機結果または未実行理由を記録した。
