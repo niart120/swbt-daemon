@@ -131,6 +131,7 @@ BTstack link key DB、bond persistence、Windows port behavior、reconnect event
 | refactor-skipped | fake link key DB stores, reloads, and deletes link key material without application ownership | new | unit | no |
 | refactor-skipped | production BTstack adapter wires TLV-backed link key DB at the chosen HCI / local-address boundary before link-key request handling | new | integration | no |
 | refactor-skipped | explicit bond cache cleanup removes swbt-owned bond data without relying on startup environment variables | new | unit | no |
+| refactor-skipped | bonded reconnect hardware preflight defines daemon restart, sleep / resume, Switch-side reconnect runs and pauses before hardware access | characterization | docs | no |
 | todo | daemon process restart after initial pairing reconnects without Switch-side operation, or records the exact unsupported boundary with artifact | characterization | hardware | yes |
 | todo | Switch sleep / resume reconnects without re-pairing, or records the exact unsupported boundary with artifact | characterization | hardware | yes |
 | todo | Switch-side controller reconnect operation uses existing bond without full re-pairing | characterization | hardware | yes |
@@ -240,6 +241,26 @@ Refactor status:
 - verification: `rg -n "bond-cache-persistence|Bond Cache Persistence|swbt-bond-<local-bdaddr>|release 互換" spec/architecture work-units/wip/local_065`、`git diff --check`。
 - notes: `local_071` の設定ファイル移行 work unit は既存の関連 work unit として参照し、設定ファイル format の決定はここへ混ぜない。
 
+TDD status:
+
+- source: user request, 2026-06-24; daemon restart、Switch sleep / resume、Switch 側 reconnect 操作を実機検証に含める。
+- use case: 実機承認前に、対象 adapter、artifact root、実行順、観測項目、cleanup、停止条件を確認できる。
+- item: bonded reconnect hardware preflight defines daemon restart, sleep / resume, Switch-side reconnect runs and pauses before hardware access。
+- state: refactor-skipped。
+- commands:
+  - `rg -n "bonded reconnect hardware preflight|hardware execution paused|daemon restart reconnect run|sleep / resume reconnect run" work-units/wip/local_065/BONDED_RECONNECT_PERSISTENCE.md` red: no matches。
+  - `rg -n "bonded reconnect hardware preflight|hardware execution paused|daemon restart reconnect run|sleep / resume reconnect run|Switch-side reconnect run" work-units/wip/local_065/BONDED_RECONNECT_PERSISTENCE.md`
+  - `git diff --check`
+- notes: `hardware-harness` と `spec/operations/windows-native-preflight.md` を確認し、実機コマンド実行前に中断する状態を record に残した。docs characterization item であり CMake / CTest は対象外。
+
+Refactor status:
+
+- decision: refactor-skipped。
+- change: なし。実機実行前の handoff 追記だけであり、構造変更はない。
+- unchanged behavior: code、build graph、Switch-facing behavior。
+- verification: `rg -n "bonded reconnect hardware preflight|hardware execution paused|daemon restart reconnect run|sleep / resume reconnect run|Switch-side reconnect run" work-units/wip/local_065/BONDED_RECONNECT_PERSISTENCE.md`、`git diff --check`。
+- notes: 実機 item は todo のまま残す。承認後に各 hardware item を個別に実行し、結果または unsupported boundary を `docs/hardware-test-log.md` とこの record に記録する。
+
 ## 11. 実機実行条件
 
 実機が必要である。
@@ -254,9 +275,25 @@ Refactor status:
 - `docs/hardware-test-log.md` へ OS、dongle VID/PID、driver、BTstack commit、swbt commit、Switch firmware、結果を記録する。
 - raw link key value は記録しない。bond cache の path、存在有無、reset 結果だけを記録する。
 
+bonded reconnect hardware preflight:
+
+- hardware execution paused: この record は実機承認前に停止する。Bluetooth adapter open、HID advertising、pairing、report loop はまだ実行しない。
+- approval scope needed: CSR8510 A10 または明示された専用 USB Bluetooth dongle、WinUSB driver assignment、adapter open、HID advertising、initial pairing または既存 bond 接続、daemon restart、Switch sleep / resume、Switch 側 controller reconnect 操作、HCI dump / diagnostic trace 保存、cleanup 確認。
+- assumed backend: Windows native `windows-winusb`、`build/windows-mingw-debug/swbt-daemon.exe`。
+- required software gate before hardware access: `just windows-cross` pass、clean or intentionally recorded `git status --short`、current swbt commit、BTstack submodule commit。
+- artifact root pattern: `tmp/hardware/local_065/YYYYMMDD-HHMMSS-bonded-reconnect`。run ごとに `initial-pairing`, `daemon-restart-reconnect`, `sleep-resume-reconnect`, `switch-side-reconnect` の trace / dump / marker を分ける。
+- daemon environment for approved run: `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`。`SWBT_DEVICE_INFO_PROFILE` は既定 `swbt-pro` を使い、必要になるまで増やさない。
+- bond cache handling: clean baseline が必要な場合、実行前に `swbt-bond-*.tlv` の存在だけを記録し、ユーザ承認を得て artifact root へ退避する。raw link key value は表示、転記、commit しない。daemon restart run では、initial pairing 後に作られた同じ TLV file を残す。
+- daemon restart reconnect run: initial pairing / L2CAP open / report loop を確認した後、daemon を cleanup 付きで停止し、Switch 側を操作せず daemon を再起動する。期待結果は Link Key Request が既存 DB で処理され、再ペアリングなしで L2CAP open と input report loop へ戻ること。`Simple Pairing Complete` が再度出る場合は unsupported boundary として記録する。
+- sleep / resume reconnect run: bonded 状態で Switch を sleep し、resume 後に再ペアリングなしで接続が戻るかを観測する。操作時刻と daemon 側 event / HCI dump の対応を artifact に残す。
+- Switch-side reconnect run: Switch 側の controller reconnect 操作を行い、再ペアリング画面ではなく既存 bond で接続が戻るかを観測する。
+- pass evidence: HCI dump、diagnostic trace、daemon exit marker、bond cache file existence、L2CAP `PSM 0x11` / `0x13` open、必要なら neutral input report。Switch UI の人間観測は補助根拠として記録し、HCI / trace と分ける。
+- cleanup requirement: daemon stop、HCI power-off、run loop return、BTstack close、HCI dump close、IPC stop、crash dump absence or path、bond cache の残置または退避状態を記録する。
+- stop conditions: 対象 adapter が曖昧、WinUSB state が未確認、承認範囲が pairing / advertising / report loop を含まない、neutral cleanup が不明、artifact path が未決定、または raw link key を表示しそうな手順になった場合は daemon 起動前に停止する。
+
 ## 12. 先送り事項
 
-none。起票時点の先送り事項は、この record の source として取り込んだ。
+- hardware execution paused: 実機 item は人間の明示承認前のため未実行。承認後は TDD Test List の 3 つの hardware item を個別に進め、各 item ごとに結果または unsupported boundary を commit する。
 
 ## 13. チェックリスト
 
@@ -264,7 +301,7 @@ none。起票時点の先送り事項は、この record の source として取
 - [x] use case を再ペアリング回避の bonded reconnect persistence として定義した。
 - [x] 初期 `source-audit` で BTstack link key DB と swbt 未接続状態を確認した。
 - [x] 実装前の詳細 `source-audit` を完了した。
-- [ ] hardware preflight を確認した。
+- [x] hardware preflight を確認した。
 - [x] red test または characterization test を追加した。
 - [x] link key DB / bond cache 実装または unsupported 判断を記録した。
-- [ ] 実機結果または未実行理由を記録した。
+- [x] 実機結果または未実行理由を記録した。
