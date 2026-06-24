@@ -382,6 +382,8 @@ current error codes:
 | `invalid_state` | `state` が object ではない、必須 field がない、range が不正、未定義 button bit が立っている。 |
 | `internal_error` | application command mapping が内部 error を返した。 |
 
+`invalid_json` response を返せる complete line では、server は connection を継続し、次の valid line を同じ connection で処理する。`SWBT_IPC_JSON_LINE_MAX` を超える line は response を返さず、message too long として connection を閉じる。
+
 ### 4.12 Neutral Fail-Safe
 
 次の場合、daemon は owner を解除し、latest state を neutral に戻す。

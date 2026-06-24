@@ -84,7 +84,7 @@ not applicable。
 | refactor-skipped | malformed JSON corpus leaves application state unchanged | regression | unit | no |
 | refactor-skipped | oversized IPC line is rejected or closed without buffer overrun and with documented behavior | edge | integration | no |
 | refactor-skipped | fragmented valid command is handled according to line framing contract | regression | integration | no |
-| todo | invalid input followed by valid input has explicit recovery or close semantics | edge | integration | no |
+| refactor-skipped | invalid input followed by valid input has explicit recovery or close semantics | edge | integration | no |
 | todo | slow client does not block unrelated owner disconnect / heartbeat processing in the tested loopback model | characterization | integration | no |
 
 ## 10. 検証
@@ -134,6 +134,20 @@ TDD status:
   - green: `just build-debug` -> pass。
   - green: `$env:CTEST_ARGS='-R "ipc_server_test|daemon_ipc_runner_test" --timeout 5'; just test-debug` -> pass。
 - notes: connection ごとの未完了 line buffer を追加し、complete line がない場合は response なしで `SWBT_IPC_SERVER_OK` を返す。`spec/protocols/daemon-ipc-v1.md` に partial line の保持と complete line 処理を追記した。green 後の追加構造変更は不要なため `refactor-skipped` とした。
+
+TDD status:
+
+- source: malformed / oversized input の recovery or close semantics item。
+- use case: `invalid_json` response を返せる complete line は同じ connection で次の valid command を処理し、oversized line は connection close として扱う。
+- item: invalid input followed by valid input has explicit recovery or close semantics。
+- state: refactor-skipped。
+- commands:
+  - red: `rg -n "malformed complete JSON|malformed JSON.*connection|invalid_json.*connection" spec\protocols\daemon-ipc-v1.md` -> fail。recovery / close semantics が spec に明記されていなかった。
+  - format: `just format` -> pass。
+  - green: `just build-debug` -> pass。
+  - green: `$env:CTEST_ARGS='-R ipc_server_test --timeout 5'; just test-debug` -> pass。
+  - docs check: `rg -n "invalid_json.*connection|message too long.*connection|malformed complete JSON" spec\protocols\daemon-ipc-v1.md` -> pass。
+- notes: `ipc_server_test` に malformed line 後の valid `hello` recovery を追加した。oversized line の close semantics は item 2 の test と spec を参照する。追加の構造変更は不要なため `refactor-skipped` とした。
 
 ## 11. 実機実行条件
 
