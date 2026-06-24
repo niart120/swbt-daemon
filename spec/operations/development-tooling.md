@@ -61,10 +61,12 @@ host 側 recipe は `SWBT_ALLOW_HOST_BUILD=1` を自動で付けない。
 `just debug` は linux-debug preset の configure、build、CTest を実行する fast debug loop である。`just debug` は `format-check` と `clang-tidy` を実行しない。
 
 formatter / linter を含む非実機 gate は `just verify` と `just verify-ci` である。`just verify` は `format-check`、`tidy`、`debug`、`asan`、`windows-cross` を順に実行する。
+主要なソフトウェア検証経路は `just verify` と `just verify-ci` の `format-check`、`tidy`、`debug`、`asan`、`windows-cross` である。
 
 Windows native CI job は追加しない。現在の CI gate は Ubuntu runner 上の Dev Container で `just verify-ci` を実行する。
 Windows native PowerShell entrypoint は local gate として扱い、Windows filesystem checkout で `just list-presets` を実行して Dev Container 委譲と CMake preset 読み取りを最小確認する。
 広い確認が必要な場合は、同じ Windows native PowerShell 入口で `just verify` を実行する。
+Windows native local gate は host 側入口の確認であり、主要なソフトウェア検証経路を置き換えない。
 Windows native PowerShell entrypoint の失敗再現コマンドは `just list-presets` とする。
 このコマンドは Dev Container CLI の起動、container 内 `cmake --list-presets`、CMake preset 読み取りまでを確認する。
 Dev Container CLI がない場合は `devcontainer CLI was not found. Install the Dev Containers CLI or open this repository in the Dev Container.` を前提条件不足として扱う。

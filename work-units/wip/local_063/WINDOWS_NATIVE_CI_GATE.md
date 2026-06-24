@@ -72,6 +72,7 @@ not applicable。
 - Dev Container を CI で起動する場合は、Docker availability と cache failure を明示する。
 - 2026-06-24 の判断: 独立した Windows native CI job は追加しない。現在の CI gate は Ubuntu runner 上の Dev Container で `just verify-ci` を実行する。
 - Windows native PowerShell entrypoint は local gate として扱い、Windows filesystem checkout で `just list-presets` を実行して Dev Container 委譲と CMake preset 読み取りを最小確認する。広い確認が必要な場合は、同じ PowerShell 入口で `just verify` を実行する。
+- 主要なソフトウェア検証経路は `just verify` と `just verify-ci` の `format-check`、`tidy`、`debug`、`asan`、`windows-cross` である。Windows native local gate は host 側入口の確認であり、この経路を置き換えない。
 - Windows native PowerShell entrypoint の失敗再現コマンドは `just list-presets` とする。Dev Container CLI がない場合は `devcontainer CLI was not found. Install the Dev Containers CLI or open this repository in the Dev Container.` を前提条件不足として扱う。host build への退避は対象外であり、この失敗を `SWBT_ALLOW_HOST_BUILD=1` で迂回しない。
 
 ## 8. 対象ファイル
@@ -89,7 +90,7 @@ not applicable。
 | green | Windows native gate documents whether it uses Dev Container, host preset read, or docs-only verification | characterization | docs | no |
 | green | CI or local script refuses hardware execution by default | regression | integration | no |
 | green | Windows native entrypoint failure is represented by a reproducible command or explicit non-goal | characterization | build | no |
-| todo | existing Linux / ASan / Windows cross gates remain the primary software verification path | regression | docs | no |
+| green | existing Linux / ASan / Windows cross gates remain the primary software verification path | regression | docs | no |
 
 ## 10. 検証
 
@@ -99,6 +100,8 @@ not applicable。
 - green: `.github/workflows/ci.yml` の `verify` job に `SWBT_RUN_HARDWARE=0` と `SWBT_HARDWARE_APPROVED=0` を明示し、`spec/operations/development-tooling.md` とこの record に非実機 CI の既定状態を記録する。
 - red: `rg -n '失敗再現コマンドは|host build への退避は対象外' spec\operations\development-tooling.md work-units\wip\local_063\WINDOWS_NATIVE_CI_GATE.md` -> no match。
 - green: `spec/operations/development-tooling.md` とこの record に `just list-presets` を Windows native PowerShell entrypoint の失敗再現コマンドとして記録し、Dev Container CLI 不足と host build への退避の扱いを明示する。
+- red: `rg -n '主要なソフトウェア検証経路は|Windows native local gate は置き換えない|Linux debug、ASan、Windows cross build' spec\operations\development-tooling.md work-units\wip\local_063\WINDOWS_NATIVE_CI_GATE.md` -> no match。
+- green: `spec/operations/development-tooling.md` とこの record に `just verify` / `just verify-ci` の `format-check`、`tidy`、`debug`、`asan`、`windows-cross` が主要なソフトウェア検証経路であり、Windows native local gate はそれを置き換えないことを記録する。
 
 ## 11. 実機実行条件
 
