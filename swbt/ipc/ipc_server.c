@@ -417,7 +417,9 @@ static swbt_ipc_server_result_t swbt_ipc_read_line(swbt_ipc_connection_t *connec
         connection->line_buffer[length] = byte;
         ++length;
         if (byte == '\n') {
-            memcpy(line, connection->line_buffer, length);
+            for (size_t index = 0; index < length; ++index) {
+                line[index] = connection->line_buffer[index];
+            }
             line[length] = '\0';
             *out_length = length;
             *out_complete = true;
