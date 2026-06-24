@@ -123,11 +123,13 @@ Switch protocol、BTstack source selection、report timing、HID descriptor、su
 
 ## テストと検証
 
-通常のローカル検証:
+通常の debug build/test:
 
 ```console
 just debug
 ```
+
+`just debug` は `format-check` と `clang-tidy` を実行しない。
 
 sanitizer:
 
@@ -146,6 +148,8 @@ just windows-cross
 ```console
 just verify
 ```
+
+`just verify` は `format-check`、`clang-tidy`、debug build/test、ASan、Windows cross build を実行する。
 
 変更範囲に応じて、targeted CTest、sanitizer、cross build、実機未実行理由を報告する。
 
@@ -184,8 +188,8 @@ just verify
 - Git hooks は `.githooks/` を正本とし、clone 後は `sh scripts/install-git-hooks.sh` または `scripts/install-git-hooks.ps1` で有効化する。
 - `pre-commit` は staged diff の whitespace、`just` 経由の CMake presets の読み取り、staged C source がある場合の format を確認する。
 - `commit-msg` は Conventional Commits の形式と subject 末尾句点なしを確認する。
-- `pre-push` は `just debug` を実行する。host からは `justfile` が Dev Container CLI へ委譲する。
-- `pre-push` は `SWBT_FULL_PRE_PUSH=1` のとき `just verify` を実行する。
+- `pre-push` は `just debug` を実行する。これは build/test only で、`format-check` と `clang-tidy` は含まない。host からは `justfile` が Dev Container CLI へ委譲する。
+- `pre-push` は `SWBT_FULL_PRE_PUSH=1` のとき `just verify` を実行する。push 前に formatter / linter まで確認する場合はこちらを使う。
 - PR では `.github/PULL_REQUEST_TEMPLATE.md` に従い、テスト、実機、根拠監査、BTstack / License impact を明記する。
 
 ## Commit ルール
