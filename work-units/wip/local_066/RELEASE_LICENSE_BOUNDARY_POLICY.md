@@ -82,7 +82,7 @@ not applicable。
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | green | docs state that binary release is out of current scope or list exact release gate prerequisites | characterization | docs | no |
-| todo | BTstack-containing artifacts are not described as MIT-only | regression | docs | no |
+| green | BTstack-containing artifacts are not described as MIT-only | regression | docs | no |
 | todo | release checklist points to `THIRD_PARTY_NOTICES.md` before binary artifact creation | new | docs | no |
 | todo | docs distinguish source repository license text from bundled third-party notices | regression | docs | no |
 
@@ -90,6 +90,9 @@ not applicable。
 
 - red: `rg -n "binary release は現時点の対象外|binary release は現在の scope に含めない|binary release を現在の対象範囲に含めない" spec\operations README.md docs\status.md` -> no match。
 - green: `spec/operations/release-license-boundary.md` に binary release が現時点の対象外であり、release artifact 作成は別 work unit で scope 化する判断を記録する。
+- characterization: `rg -n "MIT-only|MIT only|MIT License" README.md docs spec THIRD_PARTY_NOTICES.md LICENSE` -> 一致箇所は自前 license の記述、または BTstack を含む artifact の MIT-only 表記を禁止する否定形 policy である。
+- red: `rg -n "BTstack を含む.*MIT-only|MIT-only artifact|MIT-only binary|MIT-only と表現しない" spec\operations\release-license-boundary.md` -> no match。
+- green: `spec/operations/release-license-boundary.md` に BTstack を含む source 配布物、binary artifact、release artifact を MIT-only artifact と表現しない方針を記録する。
 
 ## 11. 実機実行条件
 

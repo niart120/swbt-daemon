@@ -33,10 +33,14 @@ binary release は現時点の対象外である。
 binary artifact、installer、package manager 配布、または BTstack を含む source archive を作る場合は、別 work unit として release scope を立てる。
 その work unit では、artifact 名、含める source / binary、BTstack の有無、notice 同梱方法、検証結果を記録する。
 
+BTstack を含む source 配布物、binary artifact、release artifact を MIT-only artifact と表現しない。
+自前ファイルの MIT License と、BTstack の license 条件は別に扱う。
+
 ## 5. 根拠
 
 - `LICENSE` は、自前の `swbt-daemon` project files だけに MIT License が適用され、third-party dependencies には適用されないと記録している。
 - `THIRD_PARTY_NOTICES.md` は、BTstack が `vendor/btstack` の submodule であり、BTstack 固有の license 条件を持つと記録している。
+- `THIRD_PARTY_NOTICES.md` は、BTstack を含む binary を MIT-only artifact と表現しないと記録している。
 - `README.md` は、BTstack を含む build / source distribution が BTstack license の対象にもなると記録している。
 - `spec/architecture/daemon-architecture-cutover.md` は、release packaging と BTstack license を含む配布方針を architecture cutover の対象外としていた。
 
