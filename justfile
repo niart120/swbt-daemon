@@ -35,6 +35,16 @@ _devcontainer-rebuild-unix:
 _devcontainer-rebuild-windows:
     @$env:DEVCONTAINER_UP_FLAGS = "--remove-existing-container $env:DEVCONTAINER_UP_FLAGS"; & just --justfile "{{justfile()}}" _devcontainer-up-windows; exit $LASTEXITCODE
 
+# Remove ignored CMake build outputs.
+clean:
+    @just --justfile "{{justfile()}}" _clean-{{os_family()}}
+
+_clean-unix:
+    @git -C "{{justfile_directory()}}" clean -fdX -- build/ 'cmake-build-*'
+
+_clean-windows:
+    @& git -C "{{justfile_directory()}}" clean -fdX -- build/ 'cmake-build-*'; exit $LASTEXITCODE
+
 # List configured CMake presets.
 list-presets:
     @just --justfile "{{justfile()}}" _run-or-delegate list-presets

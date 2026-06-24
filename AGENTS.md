@@ -151,6 +151,14 @@ just verify
 
 `just verify` は `format-check`、`clang-tidy`、debug build/test、ASan、Windows cross build を実行する。
 
+CMake / Ninja 生成物の削除:
+
+```console
+just clean
+```
+
+`just clean` は Git の除外対象である `build/` と `cmake-build-*` だけを削除する。`tmp/`、Dev Container、submodule には触れない。
+
 変更範囲に応じて、targeted CTest、sanitizer、cross build、実機未実行理由を報告する。
 
 ## ドキュメントルール
