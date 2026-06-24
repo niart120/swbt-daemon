@@ -81,7 +81,7 @@ not applicable。
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | malformed JSON corpus leaves application state unchanged | regression | unit | no |
+| refactor-skipped | malformed JSON corpus leaves application state unchanged | regression | unit | no |
 | todo | oversized IPC line is rejected or closed without buffer overrun and with documented behavior | edge | integration | no |
 | todo | fragmented valid command is handled according to line framing contract | regression | integration | no |
 | todo | invalid input followed by valid input has explicit recovery or close semantics | edge | integration | no |
@@ -89,7 +89,23 @@ not applicable。
 
 ## 10. 検証
 
-未実行。起票のみで、実装と test はまだ追加していない。
+進行中。
+
+TDD status:
+
+- source: `local_052` と `local_055` の parser fuzz 先送り事項。
+- use case: malformed JSON を送った client が、既存 owner / state / IPC state metrics を壊さない。
+- item: malformed JSON corpus leaves application state unchanged。
+- state: refactor-skipped。
+- commands:
+  - red: `just build-debug` -> pass。
+  - red: `$env:CTEST_ARGS='-R ipc_json_test'; just test-debug` -> fail。`ipc_json_test` が malformed JSON corpus を `invalid_json` として扱わない既存挙動で失敗した。
+  - green: `just build-debug` -> pass。
+  - green: `$env:CTEST_ARGS='-R ipc_json_test'; just test-debug` -> pass。
+  - format: `just format` -> pass。
+  - after format: `just build-debug` -> pass。
+  - after format: `$env:CTEST_ARGS='-R ipc_json_test'; just test-debug` -> pass。
+- notes: `tdd-one-cycle` と `refactor-after-green` を使用。追加の構造変更は、今回の item で必要な parser 終端確認と corpus test の範囲を超えるため `refactor-skipped` とした。
 
 ## 11. 実機実行条件
 
@@ -103,8 +119,8 @@ none。起票時点の先送り事項は、この record の source として取
 
 - [x] source を `local_052` と `local_055` から特定した。
 - [x] use case を IPC malformed / slow-client behavior として定義した。
-- [ ] input corpus を決めた。
-- [ ] red test を追加した。
+- [x] input corpus を決めた。
+- [x] red test を追加した。
 - [ ] green 実装を行った。
-- [ ] targeted CTest を実行した。
+- [x] targeted CTest を実行した。
 - [ ] protocol docs の更新要否を判定した。

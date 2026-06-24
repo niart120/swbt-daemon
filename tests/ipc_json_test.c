@@ -23,6 +23,21 @@ static int expect_eq_u64(uint64_t actual, uint64_t expected) {
     return actual == expected ? 0 : 1;
 }
 
+static int expect_status_core_unchanged(const swbt_ipc_status_t *actual,
+                                        const swbt_ipc_status_t *expected) {
+    return actual->has_owner == expected->has_owner &&
+                   actual->owner_client_id == expected->owner_client_id &&
+                   actual->last_seq == expected->last_seq &&
+                   actual->state.buttons == expected->state.buttons &&
+                   actual->state.lx == expected->state.lx &&
+                   actual->state.ly == expected->state.ly &&
+                   actual->metrics.ipc_state_accepted == expected->metrics.ipc_state_accepted &&
+                   actual->metrics.ipc_state_rejected == expected->metrics.ipc_state_rejected &&
+                   actual->metrics.ipc_state_coalesced == expected->metrics.ipc_state_coalesced
+               ? 0
+               : 1;
+}
+
 static int handle(swbt_app_t *app, uint32_t client_id, const char *line, char *response,
                   size_t response_size) {
     for (size_t index = 0; index < response_size; ++index) {
@@ -149,6 +164,71 @@ static int unsafe_response_text_is_rejected_before_formatting(void) {
         return 1;
     }
     return response[0] == '\0' ? 0 : 1;
+}
+
+static int malformed_json_corpus_is_rejected_without_state_mutation(void) {
+    static const char *const malformed_lines[] = {
+        "{\"v\":1,\"type\":\"hello\",}\n",
+        "{\"v\":1,\"type\":\"get_status\" \"request_id\":\"missing-comma\"}\n",
+        "{\"v\":1,\"type\":\"hello\",\"request_id\":\"bad\" \"extra\"}\n",
+    };
+    swbt_app_t *app = swbt_app_create();
+    swbt_ipc_status_t baseline;
+    swbt_ipc_status_t current;
+    char response[SWBT_IPC_JSON_RESPONSE_MAX];
+
+    if (app == NULL) {
+        return 1;
+    }
+
+    if (handle(app, 1001,
+               "{\"v\":1,\"type\":\"acquire\",\"mode\":\"exclusive\",\"request_id\":\"a1\"}\n",
+               response, sizeof(response)) != SWBT_IPC_JSON_OK) {
+        swbt_app_destroy(app);
+        return 2;
+    }
+    if (handle(app, 1001,
+               "{\"v\":1,\"type\":\"set_state\",\"owner_id\":\"000003e9\",\"seq\":77,"
+               "\"request_id\":\"s1\",\"state\":{\"buttons\":8,\"lx\":1234,\"ly\":2345,"
+               "\"rx\":2048,\"ry\":2048,\"accel_x\":1,\"accel_y\":2,\"accel_z\":3,"
+               "\"gyro_x\":4,\"gyro_y\":5,\"gyro_z\":6}}\n",
+               response, sizeof(response)) != SWBT_IPC_JSON_OK) {
+        swbt_app_destroy(app);
+        return 3;
+    }
+    if (swbt_ipc_adapter_get_status(app, &baseline) != SWBT_IPC_OK) {
+        swbt_app_destroy(app);
+        return 4;
+    }
+
+    for (size_t index = 0; index < sizeof(malformed_lines) / sizeof(malformed_lines[0]); ++index) {
+        if (handle(app, 1001, malformed_lines[index], response, sizeof(response)) !=
+            SWBT_IPC_JSON_OK) {
+            swbt_app_destroy(app);
+            return 5;
+        }
+        if (expect_contains(response, "\"type\":\"error\"") ||
+            expect_contains(response, "\"code\":\"invalid_json\"")) {
+            swbt_app_destroy(app);
+            return 6;
+        }
+        if (expect_contains(response, "\"type\":\"hello_ok\"") == 0 ||
+            expect_contains(response, "\"type\":\"status\"") == 0) {
+            swbt_app_destroy(app);
+            return 7;
+        }
+        if (swbt_ipc_adapter_get_status(app, &current) != SWBT_IPC_OK) {
+            swbt_app_destroy(app);
+            return 8;
+        }
+        if (expect_status_core_unchanged(&current, &baseline) != 0) {
+            swbt_app_destroy(app);
+            return 9;
+        }
+    }
+
+    swbt_app_destroy(app);
+    return 0;
 }
 
 int main(void) {
@@ -452,6 +532,9 @@ int main(void) {
     }
     if (unsafe_response_text_is_rejected_before_formatting() != 0) {
         return 56;
+    }
+    if (malformed_json_corpus_is_rejected_without_state_mutation() != 0) {
+        return 57;
     }
 
     swbt_app_destroy(app);
