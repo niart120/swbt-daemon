@@ -220,3 +220,5 @@ BTstack license. Such builds are intended for personal, non-commercial use
 unless a separate commercial BTstack license is obtained from BlueKitchen.
 
 See `THIRD_PARTY_NOTICES.md`.
+Release artifact and bundled notice policy is recorded in
+`spec/operations/release-license-boundary.md`.
