@@ -874,3 +874,25 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: `tmp/hardware/local_057/20260623-105416-architecture-cutover-h1`
 - cleanup: pass by trace。daemon exit code `0`。trace は HCI power-off、run loop returned、power off cleanup、report timer stop、output handler stop、HID stop、BTstack close、run loop deinit、HCI dump close、IPC stop、host stop done まで到達した。crash dump は作成されなかった
 - notes: HCI dump には `usb_open: Device open failed` が `16` 件ある。これは BTstack の USB device 探索中に対象外 interface / device を試した記録であり、current connection の `invalid size` / `non-registered handle` とは分けて扱う。この entry の pass 判定は、Button A report、owner disconnect 後 neutral、再度 Button A、shutdown trailing neutral、cleanup trace の組み合わせに基づく hardware observation である
+
+## 2026-06-24: local_065 daemon restart reconnect boundary on Switch2
+
+- OS: Microsoft Windows 11 Pro、Version `10.0.26200`、Build `26200`、64-bit
+- environment: Windows native PowerShell、swbt branch `docs/config-file-work-units`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Class `USBDevice`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`、Service `WinUSB`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: `371914f5fd65b23c9f59dcd7366a3cda2edd410b`
+- Switch firmware: Switch2 `22.1.0`。既存実機環境の継続値であり、今回の artifact では本体画面を再読していない
+- approval scope: ユーザ承認済み。CSR8510 A10、WinUSB、adapter open、HID advertising、initial pairing、daemon restart、Switch 側操作なしの reconnect 待ち、`8000 us` report loop、HCI dump / diagnostic trace 保存、cleanup 確認
+- environment variables: daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`。`SWBT_DEVICE_INFO_PROFILE` は未指定
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: preflight として `just windows-cross` pass。PowerShell で `tmp/hardware/local_065/run-daemon-restart-reconnect.ps1` を実行した。script は artifact root を daemon working directory とし、`initial-pairing` で L2CAP open と Button A smoke を確認後に daemon を `CTRL_BREAK_EVENT` で停止した。その後、同じ working directory と同じ `swbt-bond-*.tlv` を残したまま `daemon-restart-reconnect` を起動し、Switch 側を操作せず L2CAP open を待って Button A smoke を実行した
+- result: bonded reconnect は未達。`initial-pairing` と `daemon-restart-reconnect` はどちらも PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件と Button A client exit `0` を記録したが、restart 側 HCI dump にも `pairing complete, status 00` が `1` 件出た。両 run の HCI dump は `Remote not bonding, dropping local flag` を記録し、`swbt-bond-00-1b-dc-f9-9f-7d.tlv` は `8` bytes のまま、restart 後も更新されなかった。現行実装では TLV-backed DB は接続されるが、Switch2 `22.1.0` が bonding を要求しないため link key material が保存されず、daemon restart 後の接続は既存 bond ではなく再 pairing と扱う
+- daemon log: daemon stdout / stderr log は未作成。各 run の `daemon-trace.txt` と `hci-dump.txt`、artifact root の `summary.json` を正本にする
+- artifact root: `tmp/hardware/local_065/20260624-234907-daemon-restart-reconnect`
+- cleanup: pass by trace。両 run とも daemon exit code `0`、forced stop `false`、crash dump なし。trace は `btstack: bond cache configured`、`btstack: hci power off`、`btstack: bond cache close` を各 `1` 件記録した
+- notes: raw TLV content と link key value は表示、転記していない。この entry は `CSR8510 A10` / WinUSB / Switch2 firmware `22.1.0` / swbt commit `371914f` の hardware observation であり、別 firmware や別 adapter の一般結果ではない
