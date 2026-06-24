@@ -133,13 +133,13 @@ BTstack link key DB、bond persistence、Windows port behavior、reconnect event
 | refactor-skipped | explicit bond cache cleanup removes swbt-owned bond data without relying on startup environment variables | new | unit | no |
 | refactor-skipped | bonded reconnect hardware preflight defines daemon restart, sleep / resume, Switch-side reconnect runs and pauses before hardware access | characterization | docs | no |
 | refactor-skipped | daemon process restart after initial pairing reconnects without Switch-side operation, or records the exact unsupported boundary with artifact | characterization | hardware | yes |
-| todo | Switch sleep / resume reconnects without re-pairing, or records the exact unsupported boundary with artifact | characterization | hardware | yes |
+| refactor-skipped | Switch sleep / resume reconnects without re-pairing, or records the exact unsupported boundary with artifact | characterization | hardware | yes |
 | todo | Switch-side controller reconnect operation uses existing bond without full re-pairing | characterization | hardware | yes |
 | refactor-skipped | bond cache storage / cleanup / migration policy is documented before treating persistence as a release-compatible external contract | characterization | docs | no |
 
 ## 10. 検証
 
-2026-06-24 時点では、BTstack source と swbt implementation の初期根拠監査を実施した。fake TLV backend による link key DB unit test、production adapter が `HCI_STATE_WORKING` 後に TLV-backed link key DB を設定する software test、起動時環境変数に依存しない明示 cleanup API の unit test を追加し、software test は通過した。bond cache の内部運用境界と外部契約化条件は `spec/architecture/bond-cache-persistence.md` に記録した。daemon restart の実機 item は実行済みで、現行実装と Switch2 `22.1.0` では既存 bond reconnect ではなく再 pairing になる境界を記録した。Switch sleep / resume と Switch 側 reconnect 操作の実機 item は未実行である。
+2026-06-25 時点では、BTstack source と swbt implementation の初期根拠監査を実施した。fake TLV backend による link key DB unit test、production adapter が `HCI_STATE_WORKING` 後に TLV-backed link key DB を設定する software test、起動時環境変数に依存しない明示 cleanup API の unit test を追加し、software test は通過した。bond cache の内部運用境界と外部契約化条件は `spec/architecture/bond-cache-persistence.md` に記録した。daemon restart と Switch sleep / resume の実機 item は実行済みで、現行実装と Switch2 `22.1.0` では既存 bond reconnect ではなく再 pairing になる境界を記録した。Switch 側 reconnect 操作の実機 item は未実行である。
 
 TDD status:
 
@@ -281,6 +281,26 @@ Refactor status:
 - verification: `just windows-cross`、`tmp/hardware/local_065/20260624-234907-daemon-restart-reconnect/summary.json`、`docs/hardware-test-log.md` の local_065 entry。
 - notes: この result は unsupported boundary の記録であり、BTstack vendor patch や link key notification interception はこの cycle に混ぜない。
 
+TDD status:
+
+- source: user request, 2026-06-24; Switch sleep / resume を実機検証に含める。
+- use case: daemon process を維持したまま Switch を sleep / resume したとき、再ペアリングなしで既存 bond による reconnect が成立する。
+- item: Switch sleep / resume reconnects without re-pairing, or records the exact unsupported boundary with artifact。
+- state: refactor-skipped。
+- commands:
+  - `just windows-cross` green。
+  - `& .\tmp\hardware\local_065\run-sleep-resume-reconnect.ps1` hardware result: `summary.json` の `pass=false`。
+  - `rg -n "pairing complete|L2CAP_EVENT_CHANNEL_OPENED|Remote not bonding|open db swbt-bond|bond cache" tmp/hardware/local_065/20260625-000432-sleep-resume-reconnect`
+- notes: operator action window で Switch sleep / resume を実施した。`final_l2cap_open_count=4` と `after_resume_client_ran=true` により、resume 後の接続復帰と Button A smoke は成立した。一方、HCI dump は初回接続と resume 後の再接続で `pairing complete, status 00` を計 `2` 件、`Remote not bonding, dropping local flag` を計 `2` 件記録した。`swbt-bond-00-1b-dc-f9-9f-7d.tlv` は `8` bytes の空 DB のままだった。したがって Switch sleep / resume 後の復帰は既存 bond reconnect ではなく再 pairing と判断する。raw TLV content と link key value は記録していない。
+
+Refactor status:
+
+- decision: refactor-skipped。
+- change: なし。実機 characterization と docs 更新だけであり、behavior change は行わない。
+- unchanged behavior: production daemon、bond cache wiring、Switch-facing report loop。
+- verification: `tmp/hardware/local_065/20260625-000432-sleep-resume-reconnect/summary.json`、`docs/hardware-test-log.md` の local_065 sleep / resume entry。
+- notes: この result は daemon restart item と同じ unsupported boundary を補強する実機観測であり、追加設計は Switch 側 reconnect item を記録した後に後続 source として扱う。
+
 ## 11. 実機実行条件
 
 実機が必要である。
@@ -299,7 +319,8 @@ bonded reconnect hardware execution status:
 
 - approval: ユーザは 2026-06-24 に実機実験を承認済み。Bluetooth adapter open、HID advertising、pairing、report loop、daemon restart、Switch sleep / resume、Switch 側 reconnect 操作を local_065 の後続検証として実行してよい。
 - daemon restart item: executed。artifact `tmp/hardware/local_065/20260624-234907-daemon-restart-reconnect`。結果は existing bond reconnect pass ではなく、`Remote not bonding, dropping local flag` と空 TLV DB による unsupported boundary。
-- remaining hardware items: Switch sleep / resume、Switch 側 reconnect 操作。
+- Switch sleep / resume item: executed。artifact `tmp/hardware/local_065/20260625-000432-sleep-resume-reconnect`。sleep / resume 後の L2CAP reconnect と Button A smoke は成立したが、既存 bond reconnect ではなく `pairing complete, status 00` が再度出る再 pairing だった。
+- remaining hardware items: Switch 側 reconnect 操作。
 - approval scope needed: CSR8510 A10 または明示された専用 USB Bluetooth dongle、WinUSB driver assignment、adapter open、HID advertising、initial pairing または既存 bond 接続、daemon restart、Switch sleep / resume、Switch 側 controller reconnect 操作、HCI dump / diagnostic trace 保存、cleanup 確認。
 - assumed backend: Windows native `windows-winusb`、`build/windows-mingw-debug/swbt-daemon.exe`。
 - required software gate before hardware access: `just windows-cross` pass、clean or intentionally recorded `git status --short`、current swbt commit、BTstack submodule commit。
@@ -315,8 +336,8 @@ bonded reconnect hardware execution status:
 
 ## 12. 先送り事項
 
-- daemon restart の hardware item は実行済み。現行実装と Switch2 `22.1.0` では `Remote not bonding, dropping local flag` により link key material が TLV DB に保存されず、既存 bond reconnect は未達だった。BTstack vendor patch、Link Key Notification interception、専用 bonding mode の調査は、この work unit の残り 2 実機 item を記録した後に後続 source として扱う。
-- Switch sleep / resume と Switch 側 reconnect 操作は未実行。各 item ごとに結果または unsupported boundary を記録して commit する。
+- daemon restart と Switch sleep / resume の hardware item は実行済み。現行実装と Switch2 `22.1.0` では `Remote not bonding, dropping local flag` により link key material が TLV DB に保存されず、既存 bond reconnect は未達だった。BTstack vendor patch、Link Key Notification interception、専用 bonding mode の調査は、この work unit の Switch 側 reconnect item を記録した後に後続 source として扱う。
+- Switch 側 reconnect 操作は未実行。結果または unsupported boundary を記録して commit する。
 
 ## 13. チェックリスト
 

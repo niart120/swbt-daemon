@@ -4,7 +4,7 @@
 
 current。
 
-この spec は、`local_065` 時点の bond cache 境界を定義する。software boundary は current とする。daemon restart の実機 characterization では、Switch2 `22.1.0` が bonding を要求せず、現行実装では既存 bond reconnect ではなく再 pairing になる境界を確認した。Switch sleep / resume、Switch 側 reconnect 操作で既存 bond が使われることはまだ実機未検証である。
+この spec は、`local_065` 時点の bond cache 境界を定義する。software boundary は current とする。daemon restart と Switch sleep / resume の実機 characterization では、Switch2 `22.1.0` が bonding を要求せず、現行実装では既存 bond reconnect ではなく再 pairing になる境界を確認した。Switch 側 reconnect 操作で既存 bond が使われることはまだ実機未検証である。
 
 現在の `swbt-bond-<local-bdaddr>.tlv` は swbt 内部の運用 cache であり、release 互換を約束するユーザ向け永続データ契約ではない。
 
@@ -23,8 +23,8 @@ daemon restart のたびに Switch 側で再ペアリングが必要になる状
 
 次はこの spec の対象外である。
 
-- Switch sleep / resume と Switch 側 reconnect 操作での実機 reconnect 成否の確定。
-- daemon restart 後の既存 bond reconnect を成立させるための追加設計。`local_065` の実機観測では `Remote not bonding, dropping local flag` により link key material が TLV DB に保存されなかった。
+- Switch 側 reconnect 操作での実機 reconnect 成否の確定。
+- daemon restart と Switch sleep / resume 後の既存 bond reconnect を成立させるための追加設計。`local_065` の実機観測では `Remote not bonding, dropping local flag` により link key material が TLV DB に保存されなかった。
 - 複数 controller 向け bond store。
 - PC reboot、USB dongle 抜き差し、adapter removal / reinsertion recovery。
 - 設定ファイル format と探索 path の完成。
@@ -49,6 +49,7 @@ daemon restart のたびに Switch 側で再ペアリングが必要になる状
 - swbt implementation fact: `production_btstack.c` は `HCI_STATE_WORKING` event で bond cache を設定し、`HCI_STATE_OFF` または stop path で TLV / link key DB を外す。
 - test evidence: `tests/btstack_bond_cache_test.c` は fake TLV backend の put / reload / get / delete、production path 用の path 決定、起動時環境変数に依存しない cleanup callback を確認する。
 - hardware observation: `docs/hardware-test-log.md` の `2026-06-24: local_065 daemon restart reconnect boundary on Switch2` では、`btstack: bond cache configured` は各 run で出たが、HCI dump は `Remote not bonding, dropping local flag` と再起動後の `pairing complete, status 00` を記録した。TLV file は `8` bytes の空 DB のままだった。
+- hardware observation: `docs/hardware-test-log.md` の `2026-06-25: local_065 Switch sleep/resume reconnect boundary on Switch2` では、sleep / resume 後の L2CAP open と Button A smoke は成立したが、HCI dump は初回接続と resume 後の再接続で `pairing complete, status 00` を計 `2` 件記録した。TLV file は `8` bytes の空 DB のままだった。
 
 ## 6. 関連 work units
 
@@ -59,7 +60,7 @@ daemon restart のたびに Switch 側で再ペアリングが必要になる状
 
 ## 7. 未解決事項
 
-- Switch sleep / resume と Switch 側 reconnect 操作で既存 bond が使われるか。
+- Switch 側 reconnect 操作で既存 bond が使われるか。
 - daemon restart 後の既存 bond reconnect を成立させる場合、BTstack vendor patch、Link Key Notification interception、専用 bonding mode のどれを採用できるか。
 - release 互換の保存 root、設定ファイル key、operator cleanup command。
 - TLV file 破損時の復旧手順。現時点では BTstack TLV init の再作成挙動以上の swbt policy を持たない。

@@ -18,7 +18,7 @@
 | neutral fail-safe | owner disconnect、heartbeat timeout、shutdown で neutral report へ戻ることを観測した。architecture cutover 後の H1 でも owner disconnect neutral と shutdown trailing neutral を確認した。shutdown neutral pending 後の `CAN_SEND_NOW` 再送失敗は software fake で power-off と run-loop exit まで確認した。 | `docs/hardware-test-log.md`, `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md`, `work-units/complete/local_057/ARCHITECTURE_CUTOVER_H1.md`, `work-units/complete/local_058/SHUTDOWN_NEUTRAL_RETRY_FAILURE.md` |
 | 環境変数依存の限定 smoke | `local_045` 完了後の `8000us` Button A + release smoke は同じ構成で pass。 | `docs/hardware-test-log.md`, `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md` |
 | architecture cutover | daemon logical state は `swbt_app_t`、lifecycle / cleanup は `swbt_daemon_host_t`、production BTstack 操作は能力別 port group を持つ `swbt_btstack_production_adapter_t` を経由する。旧 session、mailbox、runtime、production backend ops、`swbt_core` は source / tests / build graph から削除済み。H1 は dedicated adapter で pass。shutdown pending failure cleanup は `local_058` で固定済み。 | `spec/architecture/daemon-architecture-cutover.md`, `work-units/complete/local_056/ARCHITECTURE_CUTOVER.md`, `work-units/complete/local_057/ARCHITECTURE_CUTOVER_H1.md`, `work-units/complete/local_058/SHUTDOWN_NEUTRAL_RETRY_FAILURE.md`, `work-units/complete/local_061/PRODUCTION_ADAPTER_TABLE_DECOMPOSITION.md`, `CMakeLists.txt` |
-| daemon restart reconnect boundary | `local_065` で TLV-backed link key DB は `HCI_STATE_WORKING` 後に接続されることを trace で確認したが、Switch2 `22.1.0` は bonding を要求せず、HCI dump は `Remote not bonding, dropping local flag` を記録した。daemon restart 後の L2CAP open と Button A smoke は成立したが、restart 側にも `pairing complete, status 00` が出たため、現行実装では既存 bond reconnect ではなく再 pairing と扱う。 | `docs/hardware-test-log.md`, `work-units/wip/local_065/BONDED_RECONNECT_PERSISTENCE.md`, `spec/architecture/bond-cache-persistence.md` |
+| bonded reconnect boundary | `local_065` で TLV-backed link key DB は `HCI_STATE_WORKING` 後に接続されることを trace で確認したが、Switch2 `22.1.0` は bonding を要求せず、HCI dump は `Remote not bonding, dropping local flag` を記録した。daemon restart と Switch sleep / resume では L2CAP open と Button A smoke は成立したが、どちらも再接続時に `pairing complete, status 00` が出たため、現行実装では既存 bond reconnect ではなく再 pairing と扱う。 | `docs/hardware-test-log.md`, `work-units/wip/local_065/BONDED_RECONNECT_PERSISTENCE.md`, `spec/architecture/bond-cache-persistence.md` |
 
 ## 未確認
 
@@ -27,7 +27,7 @@
 | 初代Switch各モデル | 初代Switch、Switch Lite、Switch OLED での pairing、subcommand sequence、input 反映。 | firmware、adapter、driver、report period を記録した実機ログ。 |
 | 他のUSBドングル | CSR8510 A10 以外の Bluetooth ドングルでの WinUSB / libusb 挙動。 | VID/PID、driver、BTstack backend、HCI dump を含む実機ログ。 |
 | Linux実機経路 | Linux + libusb backend での adapter open、pairing、HID report loop。 | Linux host、libusb device、udev / permission、HCI dump を含む実機ログ。 |
-| Switch sleep / resume と Switch 側 reconnect での bond 利用 | `local_065` では daemon restart 境界を先に確認した。Switch sleep / resume と Switch 側 controller reconnect 操作でも、再 pairing ではなく既存 bond を使えるかは未確認。 | `spec/architecture/bond-cache-persistence.md`、link key persistence、BTstack bond database、sleep / resume と Switch 側 reconnect 手順を含む実機ログ。 |
+| Switch 側 reconnect 操作での bond 利用 | `local_065` では daemon restart と Switch sleep / resume の境界を確認した。Switch 側 controller reconnect 操作でも、再 pairing ではなく既存 bond を使えるかは未確認。 | `spec/architecture/bond-cache-persistence.md`、link key persistence、BTstack bond database、Switch 側 reconnect 手順を含む実機ログ。 |
 | 厳密な遅延・jitter・取りこぼし率 | input report の実送信周期、Switch 側入力遅延、取りこぼし率。 | timestamp 付き計測、サンプル数、解析方法、測定誤差の記録。 |
 
 ## 未実装
