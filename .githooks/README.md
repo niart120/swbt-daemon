@@ -25,6 +25,6 @@ Git は tracked hooks を clone 時に自動有効化しない。
 
 - `pre-commit`: staged diff の whitespace、`just` 経由の CMake presets 読み取り、staged C source の format を確認する。
 - `commit-msg`: Conventional Commits の形式と subject 末尾句点なしを確認する。
-- `pre-push`: `just debug` を実行する。これは linux-debug の configure / build / test であり、`format-check` と `clang-tidy` は実行しない。host からは `justfile` が Dev Container CLI へ委譲する。
-- `SWBT_FULL_PRE_PUSH=1`: pre-push で `just verify` を実行する。`just verify` は `format-check`、`clang-tidy`、debug build/test、ASan、Windows cross build を含む。
+- `pre-push`: `just verify` を実行する。`just verify` は `format-check`、`clang-tidy`、debug build/test、ASan、Windows cross build を含む。host からは `justfile` が Dev Container CLI へ委譲する。
+- `SWBT_FAST_PRE_PUSH=1`: pre-push で `just debug` だけを実行する。これは linux-debug の configure / build / test であり、`format-check` と `clang-tidy` は実行しない。
 - `SWBT_SKIP_HOOKS=1`: hook を明示的にスキップする。

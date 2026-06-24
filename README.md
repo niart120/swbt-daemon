@@ -155,8 +155,9 @@ hooks の挙動は次のとおりです。
 
 - `pre-commit` は staged diff の whitespace、`just` 経由の CMake presets、staged C source の format を確認します。
 - `commit-msg` は Conventional Commits の形式と subject 末尾句点なしを確認します。
-- `pre-push` は `just debug` を実行します。これは build/test only で、`format-check` と `clang-tidy` は含みません。
-- `SWBT_FULL_PRE_PUSH=1` を指定すると `just verify` を実行します。push 前に formatter / linter まで確認する場合はこちらを使います。
+- `pre-push` は `just verify` を実行します。`format-check`、`clang-tidy`、debug build/test、ASan、Windows cross build を含みます。
+- `SWBT_FAST_PRE_PUSH=1` を指定すると `just debug` だけを実行します。これは build/test only で、`format-check` と `clang-tidy` は含みません。
+- `SWBT_SKIP_HOOKS=1` は hook 全体を明示的にスキップします。
 
 format と lint のコマンド:
 

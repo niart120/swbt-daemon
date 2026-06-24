@@ -9,10 +9,10 @@ fi
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
 
-if [ "${SWBT_FULL_PRE_PUSH:-0}" = "1" ]; then
+if [ "${SWBT_FAST_PRE_PUSH:-0}" = "1" ]; then
+    echo "[pre-push] just debug (SWBT_FAST_PRE_PUSH=1: build/test only)"
+    just debug
+else
     echo "[pre-push] just verify (format-check, clang-tidy, debug, ASan, Windows cross build)"
     just verify
-else
-    echo "[pre-push] just debug (build/test only; set SWBT_FULL_PRE_PUSH=1 for format-check and clang-tidy)"
-    just debug
 fi
