@@ -65,6 +65,10 @@ formatter / linter を含む非実機 gate は `just verify` と `just verify-ci
 Windows native CI job は追加しない。現在の CI gate は Ubuntu runner 上の Dev Container で `just verify-ci` を実行する。
 Windows native PowerShell entrypoint は local gate として扱い、Windows filesystem checkout で `just list-presets` を実行して Dev Container 委譲と CMake preset 読み取りを最小確認する。
 広い確認が必要な場合は、同じ Windows native PowerShell 入口で `just verify` を実行する。
+Windows native PowerShell entrypoint の失敗再現コマンドは `just list-presets` とする。
+このコマンドは Dev Container CLI の起動、container 内 `cmake --list-presets`、CMake preset 読み取りまでを確認する。
+Dev Container CLI がない場合は `devcontainer CLI was not found. Install the Dev Containers CLI or open this repository in the Dev Container.` を前提条件不足として扱う。
+host build への退避は対象外であり、この失敗を `SWBT_ALLOW_HOST_BUILD=1` で迂回しない。
 
 `just clean` は host 側 workspace の Git 除外対象である CMake build 出力だけを削除する。対象は `build/` と `cmake-build-*` であり、`tmp/`、Dev Container、submodule には触れない。
 
