@@ -2,7 +2,6 @@
 
 #include <stddef.h>
 
-#include "bluetooth.h"
 #include "btstack_bridge/classic_discovery.h"
 #include "btstack_bridge/classic_discovery_btstack_adapter.h"
 #include "btstack_bridge/hci_dump_text.h"
