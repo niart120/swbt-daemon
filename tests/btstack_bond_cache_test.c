@@ -30,7 +30,10 @@ typedef struct {
     int init_tlv_calls;
     int set_tlv_instance_calls;
     int set_link_key_db_calls;
+    int remove_path_calls;
+    int remove_path_result;
     char init_path[96];
+    char removed_path[96];
     const btstack_tlv_t *captured_tlv_impl;
     void *captured_tlv_context;
     const btstack_link_key_db_t *captured_link_key_db;
@@ -125,6 +128,15 @@ static void fake_set_link_key_db(void *context, const btstack_link_key_db_t *lin
     fake_bond_platform_t *platform = (fake_bond_platform_t *)context;
     platform->set_link_key_db_calls += 1;
     platform->captured_link_key_db = link_key_db;
+}
+
+static int fake_remove_path(void *context, const char *path) {
+    fake_bond_platform_t *platform = (fake_bond_platform_t *)context;
+    platform->remove_path_calls += 1;
+    if (path != NULL) {
+        (void)snprintf(platform->removed_path, sizeof(platform->removed_path), "%s", path);
+    }
+    return platform->remove_path_result;
 }
 
 static swbt_btstack_bond_cache_platform_t fake_bond_platform(void) {
@@ -230,11 +242,68 @@ static int invalid_configure_arguments_are_rejected(void) {
     return failed;
 }
 
+static int cleanup_removes_local_address_bond_cache_without_env(void) {
+    fake_bond_platform_t platform = {0};
+    char path_buffer[96];
+    const uint8_t local_address[6] = {0x98u, 0x76u, 0x54u, 0x32u, 0x10u, 0x01u};
+    const swbt_btstack_bond_cache_cleanup_config_t config = {
+        .remove_path = fake_remove_path,
+        .remove_context = &platform,
+        .path_buffer = path_buffer,
+        .path_buffer_size = sizeof(path_buffer),
+    };
+
+    const swbt_btstack_bond_cache_result_t result =
+        swbt_btstack_bond_cache_cleanup_for_local_address(&config, local_address);
+
+    int failed = 0;
+    failed += expect_eq_int(result, SWBT_BTSTACK_BOND_CACHE_OK);
+    failed += expect_eq_int(platform.remove_path_calls, 1);
+    failed += expect_eq_int(strcmp(platform.removed_path, "swbt-bond-98-76-54-32-10-01.tlv"), 0);
+    failed += expect_eq_int(strcmp(path_buffer, "swbt-bond-98-76-54-32-10-01.tlv"), 0);
+    return failed;
+}
+
+static int invalid_cleanup_arguments_are_rejected(void) {
+    fake_bond_platform_t platform = {0};
+    char path_buffer[96];
+    const uint8_t local_address[6] = {0x98u, 0x76u, 0x54u, 0x32u, 0x10u, 0x01u};
+    swbt_btstack_bond_cache_cleanup_config_t config = {
+        .remove_path = fake_remove_path,
+        .remove_context = &platform,
+        .path_buffer = path_buffer,
+        .path_buffer_size = sizeof(path_buffer),
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_btstack_bond_cache_cleanup_for_local_address(NULL, local_address),
+                            SWBT_BTSTACK_BOND_CACHE_ERROR_INVALID_ARGUMENT);
+    failed += expect_eq_int(swbt_btstack_bond_cache_cleanup_for_local_address(&config, NULL),
+                            SWBT_BTSTACK_BOND_CACHE_ERROR_INVALID_ARGUMENT);
+    config.remove_path = NULL;
+    failed +=
+        expect_eq_int(swbt_btstack_bond_cache_cleanup_for_local_address(&config, local_address),
+                      SWBT_BTSTACK_BOND_CACHE_ERROR_INVALID_ARGUMENT);
+    config.remove_path = fake_remove_path;
+    config.path_buffer_size = 8u;
+    failed +=
+        expect_eq_int(swbt_btstack_bond_cache_cleanup_for_local_address(&config, local_address),
+                      SWBT_BTSTACK_BOND_CACHE_ERROR_BUFFER_TOO_SMALL);
+    config.path_buffer_size = sizeof(path_buffer);
+    platform.remove_path_result = -1;
+    failed +=
+        expect_eq_int(swbt_btstack_bond_cache_cleanup_for_local_address(&config, local_address),
+                      SWBT_BTSTACK_BOND_CACHE_ERROR_RUNTIME);
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += stores_reloads_and_deletes_link_key_in_tlv_backend();
     failed += invalid_tlv_arguments_are_rejected();
     failed += configures_tlv_link_key_db_for_local_address();
     failed += invalid_configure_arguments_are_rejected();
+    failed += cleanup_removes_local_address_bond_cache_without_env();
+    failed += invalid_cleanup_arguments_are_rejected();
     return failed == 0 ? 0 : 1;
 }

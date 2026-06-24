@@ -19,6 +19,12 @@ swbt_btstack_bond_cache_config_is_valid(const swbt_btstack_bond_cache_config_t *
            config->path_buffer_size > 0u;
 }
 
+static bool swbt_btstack_bond_cache_cleanup_config_is_valid(
+    const swbt_btstack_bond_cache_cleanup_config_t *config) {
+    return config != NULL && config->remove_path != NULL && config->path_buffer != NULL &&
+           config->path_buffer_size > 0u;
+}
+
 static bool swbt_btstack_bond_cache_tlv_is_valid(const btstack_tlv_t *tlv_impl,
                                                  const void *tlv_context) {
     return tlv_impl != NULL && tlv_context != NULL && tlv_impl->get_tag != NULL &&
@@ -75,6 +81,23 @@ swbt_btstack_bond_cache_configure_for_local_address(const swbt_btstack_bond_cach
     config->platform->set_tlv_instance(config->platform_context, tlv_impl, config->tlv_context);
     config->platform->set_link_key_db(config->platform_context, link_key_db);
     return SWBT_BTSTACK_BOND_CACHE_OK;
+}
+
+swbt_btstack_bond_cache_result_t swbt_btstack_bond_cache_cleanup_for_local_address(
+    const swbt_btstack_bond_cache_cleanup_config_t *config, const uint8_t local_address[6]) {
+    if (!swbt_btstack_bond_cache_cleanup_config_is_valid(config) || local_address == NULL) {
+        return SWBT_BTSTACK_BOND_CACHE_ERROR_INVALID_ARGUMENT;
+    }
+
+    const swbt_btstack_bond_cache_result_t path_result = swbt_btstack_bond_cache_format_path(
+        config->path_buffer, config->path_buffer_size, local_address);
+    if (path_result != SWBT_BTSTACK_BOND_CACHE_OK) {
+        return path_result;
+    }
+
+    return config->remove_path(config->remove_context, config->path_buffer) == 0
+               ? SWBT_BTSTACK_BOND_CACHE_OK
+               : SWBT_BTSTACK_BOND_CACHE_ERROR_RUNTIME;
 }
 
 void swbt_btstack_bond_cache_deinit(const swbt_btstack_bond_cache_config_t *config) {

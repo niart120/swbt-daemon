@@ -128,7 +128,7 @@ BTstack link key DB、bond persistence、Windows port behavior、reconnect event
 | refactor-skipped | source audit records that Classic reconnect requires stored link key material and does not rely on deterministic derivation from public device data | characterization | docs | no |
 | refactor-skipped | fake link key DB stores, reloads, and deletes link key material without application ownership | new | unit | no |
 | refactor-skipped | production BTstack adapter wires TLV-backed link key DB at the chosen HCI / local-address boundary before link-key request handling | new | integration | no |
-| todo | explicit bond cache cleanup removes swbt-owned bond data without relying on startup environment variables | new | unit | no |
+| refactor-skipped | explicit bond cache cleanup removes swbt-owned bond data without relying on startup environment variables | new | unit | no |
 | todo | daemon process restart after initial pairing reconnects without Switch-side operation, or records the exact unsupported boundary with artifact | characterization | hardware | yes |
 | todo | Switch sleep / resume reconnects without re-pairing, or records the exact unsupported boundary with artifact | characterization | hardware | yes |
 | todo | Switch-side controller reconnect operation uses existing bond without full re-pairing | characterization | hardware | yes |
@@ -136,7 +136,7 @@ BTstack link key DB、bond persistence、Windows port behavior、reconnect event
 
 ## 10. 検証
 
-2026-06-24 時点では、BTstack source と swbt implementation の初期根拠監査を実施した。fake TLV backend による link key DB unit test と、production adapter が `HCI_STATE_WORKING` 後に TLV-backed link key DB を設定する software test を追加し、software test は通過した。実機検証はまだ実行していない。
+2026-06-24 時点では、BTstack source と swbt implementation の初期根拠監査を実施した。fake TLV backend による link key DB unit test、production adapter が `HCI_STATE_WORKING` 後に TLV-backed link key DB を設定する software test、起動時環境変数に依存しない明示 cleanup API の unit test を追加し、software test は通過した。実機検証はまだ実行していない。
 
 TDD status:
 
@@ -195,6 +195,29 @@ Refactor status:
 - verification: `just build-debug`、`just test-debug`、`just windows-cross`。
 - notes: 保存先の外部契約化、設定ファイル連携、明示 cleanup は別 item として残す。
 
+TDD status:
+
+- source: user clarification, 2026-06-24; reset path を起動時環境変数依存で与えない。
+- use case: 明示操作では、local BD_ADDR から swbt-owned bond cache path を決め、起動時環境変数に依存せず該当 file を削除する。
+- item: explicit bond cache cleanup removes swbt-owned bond data without relying on startup environment variables。
+- state: refactor-skipped。
+- commands:
+  - `just build-debug` red: `swbt_btstack_bond_cache_cleanup_config_t` と `swbt_btstack_bond_cache_cleanup_for_local_address` が未定義。
+  - `just build-debug` green。
+  - `just format`
+  - `git diff --check`
+  - `just test-debug` green: 40/40 passed。
+  - `just windows-cross` green。
+- notes: cleanup は daemon 起動時の `SWBT_*` input として追加せず、local BD_ADDR から `swbt-bond-<bdaddr>.tlv` を決める bond cache module の明示 API と fake remove callback で観測した。実際の operator command、設定ファイル連携、実機手順での手動 cleanup はこの API の利用側で扱う。
+
+Refactor status:
+
+- decision: refactor-skipped。
+- change: なし。`swbt_btstack_bond_cache_format_path` を configure と cleanup で共有する既存構造のまま使った。
+- unchanged behavior: TLV-backed link key DB configure、fake TLV backend の put / reload / get / delete、invalid argument rejection。
+- verification: `just build-debug`、`just test-debug`、`just windows-cross`。
+- notes: cleanup の利用口を daemon 起動時環境変数として増やさないため、production main や daemon config には触れない。
+
 ## 11. 実機実行条件
 
 実機が必要である。
@@ -221,5 +244,5 @@ none。起票時点の先送り事項は、この record の source として取
 - [x] 実装前の詳細 `source-audit` を完了した。
 - [ ] hardware preflight を確認した。
 - [x] red test または characterization test を追加した。
-- [ ] link key DB / bond cache 実装または unsupported 判断を記録した。
+- [x] link key DB / bond cache 実装または unsupported 判断を記録した。
 - [ ] 実機結果または未実行理由を記録した。

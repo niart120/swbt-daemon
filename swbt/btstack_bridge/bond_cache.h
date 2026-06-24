@@ -29,12 +29,24 @@ typedef struct {
     size_t path_buffer_size;
 } swbt_btstack_bond_cache_config_t;
 
+typedef int (*swbt_btstack_bond_cache_remove_path_t)(void *context, const char *path);
+
+typedef struct {
+    swbt_btstack_bond_cache_remove_path_t remove_path;
+    void *remove_context;
+    char *path_buffer;
+    size_t path_buffer_size;
+} swbt_btstack_bond_cache_cleanup_config_t;
+
 const btstack_link_key_db_t *
 swbt_btstack_bond_cache_link_key_db_from_tlv(const btstack_tlv_t *tlv_impl, void *tlv_context);
 
 swbt_btstack_bond_cache_result_t
 swbt_btstack_bond_cache_configure_for_local_address(const swbt_btstack_bond_cache_config_t *config,
                                                     const uint8_t local_address[6]);
+
+swbt_btstack_bond_cache_result_t swbt_btstack_bond_cache_cleanup_for_local_address(
+    const swbt_btstack_bond_cache_cleanup_config_t *config, const uint8_t local_address[6]);
 
 void swbt_btstack_bond_cache_deinit(const swbt_btstack_bond_cache_config_t *config);
 
