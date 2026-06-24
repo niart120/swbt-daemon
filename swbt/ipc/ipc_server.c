@@ -336,6 +336,8 @@ swbt_ipc_server_result_t swbt_ipc_server_accept(swbt_ipc_server_t *server,
 
     swbt_ipc_socket_init(&out_connection->socket);
     out_connection->client_id = 0;
+    out_connection->line_buffer[0] = '\0';
+    out_connection->line_length = 0;
     out_connection->last_heartbeat_ms = 0;
     out_connection->heartbeat_timeout_ms = 0;
     out_connection->heartbeat_enabled = false;
@@ -368,18 +370,35 @@ swbt_ipc_connection_has_pending_data(const swbt_ipc_connection_t *connection, bo
     return swbt_ipc_socket_can_receive(&connection->socket, out_pending);
 }
 
-static swbt_ipc_server_result_t swbt_ipc_read_line(swbt_ipc_socket_t *socket, char *line,
-                                                   size_t line_size, size_t *out_length) {
+static swbt_ipc_server_result_t swbt_ipc_read_line(swbt_ipc_connection_t *connection, char *line,
+                                                   size_t line_size, size_t *out_length,
+                                                   bool *out_complete) {
     size_t length = 0;
 
-    if (socket == NULL || line == NULL || line_size == 0 || out_length == NULL) {
+    if (connection == NULL || !connection->open || line == NULL || line_size == 0 ||
+        out_length == NULL || out_complete == NULL) {
         return SWBT_IPC_SERVER_ERROR_INVALID_ARGUMENT;
     }
 
+    *out_length = 0;
+    *out_complete = false;
+    length = connection->line_length;
+
     while (true) {
+        bool ready = false;
         char byte = '\0';
         size_t received = 0;
-        swbt_ipc_server_result_t result = swbt_ipc_socket_receive(socket, &byte, 1, &received);
+        swbt_ipc_server_result_t result = swbt_ipc_socket_can_receive(&connection->socket, &ready);
+        if (result != SWBT_IPC_SERVER_OK) {
+            return result;
+        }
+        if (!ready) {
+            connection->line_length = length;
+            connection->line_buffer[length] = '\0';
+            return SWBT_IPC_SERVER_OK;
+        }
+
+        result = swbt_ipc_socket_receive(&connection->socket, &byte, 1, &received);
         if (result != SWBT_IPC_SERVER_OK) {
             *out_length = 0;
             return result;
@@ -390,14 +409,20 @@ static swbt_ipc_server_result_t swbt_ipc_read_line(swbt_ipc_socket_t *socket, ch
         }
         if (length + 1 >= line_size) {
             *out_length = 0;
+            connection->line_length = 0;
+            connection->line_buffer[0] = '\0';
             return SWBT_IPC_SERVER_ERROR_MESSAGE_TOO_LONG;
         }
 
-        line[length] = byte;
+        connection->line_buffer[length] = byte;
         ++length;
         if (byte == '\n') {
+            memcpy(line, connection->line_buffer, length);
             line[length] = '\0';
             *out_length = length;
+            *out_complete = true;
+            connection->line_length = 0;
+            connection->line_buffer[0] = '\0';
             return SWBT_IPC_SERVER_OK;
         }
     }
@@ -410,6 +435,7 @@ swbt_ipc_server_serve_connection_once_internal(swbt_ipc_server_t *server,
     char line[SWBT_IPC_JSON_LINE_MAX + 1u];
     char response[SWBT_IPC_JSON_RESPONSE_MAX];
     size_t line_length = 0;
+    bool line_complete = false;
     swbt_ipc_server_result_t read_result;
     swbt_ipc_json_result_t json_result;
 
@@ -417,7 +443,7 @@ swbt_ipc_server_serve_connection_once_internal(swbt_ipc_server_t *server,
         return SWBT_IPC_SERVER_ERROR_INVALID_ARGUMENT;
     }
 
-    read_result = swbt_ipc_read_line(&connection->socket, line, sizeof(line), &line_length);
+    read_result = swbt_ipc_read_line(connection, line, sizeof(line), &line_length, &line_complete);
     if (read_result == SWBT_IPC_SERVER_ERROR_DISCONNECTED ||
         read_result == SWBT_IPC_SERVER_ERROR_SOCKET) {
         (void)swbt_ipc_adapter_handle_disconnect(server->app, connection->client_id);
@@ -430,6 +456,9 @@ swbt_ipc_server_serve_connection_once_internal(swbt_ipc_server_t *server,
     }
     if (read_result != SWBT_IPC_SERVER_OK) {
         return read_result;
+    }
+    if (!line_complete) {
+        return SWBT_IPC_SERVER_OK;
     }
 
     (void)line_length;
@@ -500,6 +529,8 @@ void swbt_ipc_connection_close(swbt_ipc_connection_t *connection) {
     }
     swbt_ipc_socket_close(&connection->socket);
     connection->client_id = 0;
+    connection->line_buffer[0] = '\0';
+    connection->line_length = 0;
     connection->last_heartbeat_ms = 0;
     connection->heartbeat_timeout_ms = 0;
     connection->heartbeat_enabled = false;

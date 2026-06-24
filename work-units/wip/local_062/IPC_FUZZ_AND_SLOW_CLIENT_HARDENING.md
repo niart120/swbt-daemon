@@ -83,7 +83,7 @@ not applicable。
 |---|---|---|---|---|
 | refactor-skipped | malformed JSON corpus leaves application state unchanged | regression | unit | no |
 | refactor-skipped | oversized IPC line is rejected or closed without buffer overrun and with documented behavior | edge | integration | no |
-| todo | fragmented valid command is handled according to line framing contract | regression | integration | no |
+| refactor-skipped | fragmented valid command is handled according to line framing contract | regression | integration | no |
 | todo | invalid input followed by valid input has explicit recovery or close semantics | edge | integration | no |
 | todo | slow client does not block unrelated owner disconnect / heartbeat processing in the tested loopback model | characterization | integration | no |
 
@@ -120,6 +120,20 @@ TDD status:
   - green: `just build-debug` -> pass。
   - green: `$env:CTEST_ARGS='-R "ipc_server_test|daemon_ipc_runner_test"'; just test-debug` -> pass。
 - notes: message-too-long は typed JSON error response ではなく transport close として固定した。`spec/protocols/daemon-ipc-v1.md` に connection close と owner neutral 化を追記した。runner の `has_connection` も message-too-long 後に clear する。追加の構造変更は不要なため `refactor-skipped` とした。
+
+TDD status:
+
+- source: `spec/protocols/daemon-ipc-v1.md` の JSON Lines framing と、この record の fragmented input item。
+- use case: valid command が複数 fragment に分かれて届いても、newline 前には request として処理されず、newline 到着後に 1 request として処理される。
+- item: fragmented valid command is handled according to line framing contract。
+- state: refactor-skipped。
+- commands:
+  - red: `just build-debug` -> pass。
+  - red: `$env:CTEST_ARGS='-R ipc_server_test --timeout 2'; just test-debug` -> fail。partial line だけで `serve_connection_once` が newline 待ちになり timeout した。
+  - format: `just format` -> pass。
+  - green: `just build-debug` -> pass。
+  - green: `$env:CTEST_ARGS='-R "ipc_server_test|daemon_ipc_runner_test" --timeout 5'; just test-debug` -> pass。
+- notes: connection ごとの未完了 line buffer を追加し、complete line がない場合は response なしで `SWBT_IPC_SERVER_OK` を返す。`spec/protocols/daemon-ipc-v1.md` に partial line の保持と complete line 処理を追記した。green 後の追加構造変更は不要なため `refactor-skipped` とした。
 
 ## 11. 実機実行条件
 

@@ -130,6 +130,92 @@ static int oversized_line_closes_owner_connection(void) {
     return 0;
 }
 
+static int fragmented_valid_command_waits_for_newline(void) {
+    swbt_ipc_server_t server;
+    swbt_ipc_connection_t connection;
+    swbt_ipc_socket_t client;
+    uint16_t port = 0;
+    bool response_ready = true;
+    const char *first_fragment = "{\"v\":1,\"type\":\"hello\"";
+    char response[SWBT_IPC_JSON_RESPONSE_MAX];
+
+    if (swbt_ipc_server_init(&server) != SWBT_IPC_SERVER_OK) {
+        return 1;
+    }
+    if (swbt_ipc_server_listen(&server, (swbt_ipc_server_listen_options_t){
+                                            .host = "127.0.0.1",
+                                            .port = 0,
+                                            .backlog = 1,
+                                        }) != SWBT_IPC_SERVER_OK) {
+        swbt_ipc_server_close(&server);
+        return 2;
+    }
+    port = swbt_ipc_server_port(&server);
+
+    swbt_ipc_socket_init(&client);
+    if (swbt_ipc_socket_connect_loopback(&client, port) != SWBT_IPC_SERVER_OK) {
+        swbt_ipc_server_close(&server);
+        return 3;
+    }
+    if (swbt_ipc_server_accept(&server, &connection) != SWBT_IPC_SERVER_OK) {
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 4;
+    }
+
+    if (swbt_ipc_socket_send_all(&client, first_fragment, strlen(first_fragment)) !=
+        SWBT_IPC_SERVER_OK) {
+        swbt_ipc_connection_close(&connection);
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 5;
+    }
+    if (swbt_ipc_server_serve_connection_once(&server, &connection) != SWBT_IPC_SERVER_OK) {
+        swbt_ipc_connection_close(&connection);
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 6;
+    }
+    if (swbt_ipc_socket_can_receive(&client, &response_ready) != SWBT_IPC_SERVER_OK ||
+        response_ready) {
+        swbt_ipc_connection_close(&connection);
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 7;
+    }
+
+    if (send_line(&client, ",\"request_id\":\"h1\"}\n") != 0) {
+        swbt_ipc_connection_close(&connection);
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 8;
+    }
+    if (swbt_ipc_server_serve_connection_once(&server, &connection) != SWBT_IPC_SERVER_OK) {
+        swbt_ipc_connection_close(&connection);
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 9;
+    }
+    if (receive_response(&client, response, sizeof(response)) != 0) {
+        swbt_ipc_connection_close(&connection);
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 10;
+    }
+    if (expect_contains(response, "\"type\":\"hello_ok\"") ||
+        expect_contains(response, "\"request_id\":\"h1\"")) {
+        swbt_ipc_connection_close(&connection);
+        swbt_ipc_socket_close(&client);
+        swbt_ipc_server_close(&server);
+        return 11;
+    }
+
+    swbt_ipc_connection_close(&connection);
+    swbt_ipc_socket_close(&client);
+    swbt_ipc_server_close(&server);
+    return 0;
+}
+
 int main(void) {
     swbt_ipc_server_t server;
     swbt_ipc_server_t rejected_server;
@@ -179,6 +265,9 @@ int main(void) {
 
     if (oversized_line_closes_owner_connection() != 0) {
         return 38;
+    }
+    if (fragmented_valid_command_waits_for_newline() != 0) {
+        return 39;
     }
 
     if (send_line(&client, "{\"v\":1,\"type\":\"hello\",\"request_id\":\"h1\"}\n") != 0) {
