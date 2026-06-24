@@ -30,6 +30,7 @@ btstack_record_from_config(const swbt_btstack_hid_registration_config_t *config)
 
 static int expect_true(bool value, const char *label) {
     if (!value) {
+        // Test diagnostics write to stderr with no retained buffer.
         // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(stderr, "expected true: %s\n", label);
         return 1;
@@ -45,12 +46,14 @@ static int test_production_hid_service_buffer_fits_btstack_sdp_record(void) {
     const uint32_t service_record_handle = 0x10001u;
     uint32_t record_len = 0;
 
-    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
-    memset(scratch, 0, sizeof(scratch));
+    for (size_t index = 0; index < sizeof(scratch); ++index) {
+        scratch[index] = 0u;
+    }
     hid_create_sdp_record(scratch, service_record_handle, &btstack_record);
     record_len = de_get_len(scratch);
 
     if (record_len > SWBT_DAEMON_PRODUCTION_HID_SERVICE_BUFFER_SIZE) {
+        // Test diagnostics write to stderr with no retained buffer.
         // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(stderr, "production HID service buffer too small: required=%u capacity=%u\n",
                 (unsigned)record_len, (unsigned)SWBT_DAEMON_PRODUCTION_HID_SERVICE_BUFFER_SIZE);

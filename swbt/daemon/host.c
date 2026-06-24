@@ -57,7 +57,10 @@ static void swbt_daemon_host_on_output_report(void *context, uint16_t hid_cid,
 }
 
 static void swbt_daemon_host_store_neutral(swbt_daemon_host_t *host) {
-    (void)swbt_app_revoke(host->app, SWBT_APP_REVOKE_SHUTDOWN, 0u);
+    (void)swbt_app_revoke(host->app, (swbt_app_revoke_options_t){
+                                         .reason = SWBT_APP_REVOKE_SHUTDOWN,
+                                         .client_id = 0u,
+                                     });
 }
 
 swbt_daemon_host_result_t swbt_daemon_host_init(swbt_daemon_host_t *host,

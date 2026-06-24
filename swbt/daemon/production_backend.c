@@ -185,7 +185,7 @@ static void swbt_daemon_production_ipc_stop(void *context) {
     swbt_daemon_ipc_runner_stop(&backend->ipc_runner);
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+// NOLINTBEGIN(bugprone-easily-swappable-parameters): BTstack packet handler ABI.
 static void swbt_daemon_production_hid_packet_handler(uint8_t packet_type, uint16_t channel,
                                                       uint8_t *packet, uint16_t size) {
     swbt_daemon_production_backend_t *backend = g_active_backend;

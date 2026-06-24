@@ -43,17 +43,22 @@ typedef struct {
 
 typedef struct swbt_app swbt_app_t;
 
+typedef struct {
+    uint32_t client_id;
+    const swbt_state_t *state;
+    uint64_t sequence;
+} swbt_app_set_state_options_t;
+
+typedef struct {
+    swbt_app_revoke_reason_t reason;
+    uint32_t client_id;
+} swbt_app_revoke_options_t;
+
 swbt_app_t *swbt_app_create(void);
 void swbt_app_destroy(swbt_app_t *app);
 swbt_app_result_t swbt_app_acquire(swbt_app_t *app, uint32_t client_id);
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-swbt_app_result_t swbt_app_set_state(swbt_app_t *app, uint32_t client_id, const swbt_state_t *state,
-                                     uint64_t sequence);
-// NOLINTEND(bugprone-easily-swappable-parameters)
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-swbt_app_result_t swbt_app_revoke(swbt_app_t *app, swbt_app_revoke_reason_t reason,
-                                  uint32_t client_id);
-// NOLINTEND(bugprone-easily-swappable-parameters)
+swbt_app_result_t swbt_app_set_state(swbt_app_t *app, swbt_app_set_state_options_t options);
+swbt_app_result_t swbt_app_revoke(swbt_app_t *app, swbt_app_revoke_options_t options);
 swbt_app_result_t swbt_app_snapshot(const swbt_app_t *app, swbt_app_snapshot_t *out_snapshot);
 
 swbt_app_result_t swbt_app_set_daemon_status(swbt_app_t *app,

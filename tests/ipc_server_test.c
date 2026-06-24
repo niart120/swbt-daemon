@@ -42,8 +42,11 @@ int main(void) {
     if (swbt_ipc_server_init(&rejected_server) != SWBT_IPC_SERVER_OK) {
         return 1;
     }
-    if (swbt_ipc_server_listen(&rejected_server, "0.0.0.0", 0, 1) !=
-        SWBT_IPC_SERVER_ERROR_UNSUPPORTED_BIND) {
+    if (swbt_ipc_server_listen(&rejected_server, (swbt_ipc_server_listen_options_t){
+                                                     .host = "0.0.0.0",
+                                                     .port = 0,
+                                                     .backlog = 1,
+                                                 }) != SWBT_IPC_SERVER_ERROR_UNSUPPORTED_BIND) {
         return 2;
     }
     swbt_ipc_server_close(&rejected_server);
@@ -51,7 +54,11 @@ int main(void) {
     if (swbt_ipc_server_init(&server) != SWBT_IPC_SERVER_OK) {
         return 3;
     }
-    if (swbt_ipc_server_listen(&server, "127.0.0.1", 0, 1) != SWBT_IPC_SERVER_OK) {
+    if (swbt_ipc_server_listen(&server, (swbt_ipc_server_listen_options_t){
+                                            .host = "127.0.0.1",
+                                            .port = 0,
+                                            .backlog = 1,
+                                        }) != SWBT_IPC_SERVER_OK) {
         return 4;
     }
     port = swbt_ipc_server_port(&server);

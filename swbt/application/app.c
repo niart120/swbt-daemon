@@ -113,9 +113,11 @@ swbt_app_result_t swbt_app_acquire(swbt_app_t *app, uint32_t client_id) {
     return result;
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-swbt_app_result_t swbt_app_set_state(swbt_app_t *app, uint32_t client_id, const swbt_state_t *state,
-                                     uint64_t sequence) {
+swbt_app_result_t swbt_app_set_state(swbt_app_t *app, swbt_app_set_state_options_t options) {
+    const uint32_t client_id = options.client_id;
+    const swbt_state_t *state = options.state;
+    const uint64_t sequence = options.sequence;
+
     if (app == NULL || state == NULL) {
         return SWBT_APP_ERROR_INVALID_ARGUMENT;
     }
@@ -133,8 +135,12 @@ swbt_app_result_t swbt_app_set_state(swbt_app_t *app, uint32_t client_id, const 
         return SWBT_APP_ERROR_STALE_SEQUENCE;
     }
 
-    const swbt_app_result_t sequence_result = swbt_app_map_lease_result(
-        swbt_control_lease_accept_sequence(&app->lease, client_id, sequence));
+    const swbt_app_result_t sequence_result =
+        swbt_app_map_lease_result(swbt_control_lease_accept_sequence(
+            &app->lease, (swbt_control_lease_accept_sequence_options_t){
+                             .client_id = client_id,
+                             .sequence = sequence,
+                         }));
     if (sequence_result != SWBT_APP_OK) {
         swbt_app_record_state_update_rejected_locked(app);
         swbt_spin_lock_release(&app->lock);
@@ -146,11 +152,11 @@ swbt_app_result_t swbt_app_set_state(swbt_app_t *app, uint32_t client_id, const 
     swbt_spin_lock_release(&app->lock);
     return SWBT_APP_OK;
 }
-// NOLINTEND(bugprone-easily-swappable-parameters)
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-swbt_app_result_t swbt_app_revoke(swbt_app_t *app, swbt_app_revoke_reason_t reason,
-                                  uint32_t client_id) {
+swbt_app_result_t swbt_app_revoke(swbt_app_t *app, swbt_app_revoke_options_t options) {
+    const swbt_app_revoke_reason_t reason = options.reason;
+    const uint32_t client_id = options.client_id;
+
     if (app == NULL) {
         return SWBT_APP_ERROR_INVALID_ARGUMENT;
     }
@@ -181,7 +187,6 @@ swbt_app_result_t swbt_app_revoke(swbt_app_t *app, swbt_app_revoke_reason_t reas
     swbt_spin_lock_release(&app->lock);
     return SWBT_APP_ERROR_INVALID_ARGUMENT;
 }
-// NOLINTEND(bugprone-easily-swappable-parameters)
 
 swbt_app_result_t swbt_app_snapshot(const swbt_app_t *app, swbt_app_snapshot_t *out_snapshot) {
     if (app == NULL || out_snapshot == NULL) {
@@ -250,7 +255,10 @@ swbt_app_result_t swbt_app_record_report_tick(swbt_app_t *app, uint64_t now_us,
 
     swbt_spin_lock_acquire(&app->lock);
     const swbt_metrics_result_t result =
-        swbt_metrics_record_report_tick(&app->metrics, now_us, send_result);
+        swbt_metrics_record_report_tick(&app->metrics, (swbt_metrics_report_tick_options_t){
+                                                           .now_us = now_us,
+                                                           .send_result = send_result,
+                                                       });
     swbt_spin_lock_release(&app->lock);
     return result == SWBT_METRICS_OK ? SWBT_APP_OK : SWBT_APP_ERROR_INVALID_ARGUMENT;
 }

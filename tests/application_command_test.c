@@ -69,12 +69,23 @@ static int stale_sequence_does_not_update_state(void) {
 
     failed += expect_true(app != NULL);
     failed += expect_eq_int(swbt_app_acquire(app, 1001u), SWBT_APP_OK);
-    failed += expect_eq_int(swbt_app_set_state(app, 1001u, &state, 77u), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_set_state(app,
+                                               (swbt_app_set_state_options_t){
+                                                   .client_id = 1001u,
+                                                   .state = &state,
+                                                   .sequence = 77u,
+                                               }),
+                            SWBT_APP_OK);
 
     state.buttons = SWBT_BUTTON_B;
     state.lx = 3456u;
-    failed +=
-        expect_eq_int(swbt_app_set_state(app, 1001u, &state, 76u), SWBT_APP_ERROR_STALE_SEQUENCE);
+    failed += expect_eq_int(swbt_app_set_state(app,
+                                               (swbt_app_set_state_options_t){
+                                                   .client_id = 1001u,
+                                                   .state = &state,
+                                                   .sequence = 76u,
+                                               }),
+                            SWBT_APP_ERROR_STALE_SEQUENCE);
 
     failed += expect_eq_int(swbt_app_snapshot(app, &status), SWBT_APP_OK);
     failed += expect_eq_u32(status.state.buttons, SWBT_BUTTON_A);
@@ -95,10 +106,22 @@ static int sequential_updates_do_not_report_coalesced_state_updates(void) {
     failed += expect_eq_int(swbt_app_acquire(app, 1001u), SWBT_APP_OK);
 
     state.buttons = SWBT_BUTTON_A;
-    failed += expect_eq_int(swbt_app_set_state(app, 1001u, &state, 1u), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_set_state(app,
+                                               (swbt_app_set_state_options_t){
+                                                   .client_id = 1001u,
+                                                   .state = &state,
+                                                   .sequence = 1u,
+                                               }),
+                            SWBT_APP_OK);
 
     state.buttons = SWBT_BUTTON_B;
-    failed += expect_eq_int(swbt_app_set_state(app, 1001u, &state, 2u), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_set_state(app,
+                                               (swbt_app_set_state_options_t){
+                                                   .client_id = 1001u,
+                                                   .state = &state,
+                                                   .sequence = 2u,
+                                               }),
+                            SWBT_APP_OK);
 
     failed += expect_eq_int(swbt_app_snapshot(app, &status), SWBT_APP_OK);
     failed += expect_eq_u32(status.state.buttons, SWBT_BUTTON_B);
@@ -144,7 +167,13 @@ static int set_active_state(swbt_app_t *app) {
     state.buttons = SWBT_BUTTON_A;
     state.lx = 1234u;
     failed += expect_eq_int(swbt_app_acquire(app, 1001u), SWBT_APP_OK);
-    failed += expect_eq_int(swbt_app_set_state(app, 1001u, &state, 11u), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_set_state(app,
+                                               (swbt_app_set_state_options_t){
+                                                   .client_id = 1001u,
+                                                   .state = &state,
+                                                   .sequence = 11u,
+                                               }),
+                            SWBT_APP_OK);
     return failed;
 }
 
@@ -160,7 +189,11 @@ static int revoke_reasons_share_neutral_policy(void) {
 
     failed += expect_true(app != NULL);
     failed += set_active_state(app);
-    failed += expect_eq_int(swbt_app_revoke(app, SWBT_APP_REVOKE_RELEASE, 2002u),
+    failed += expect_eq_int(swbt_app_revoke(app,
+                                            (swbt_app_revoke_options_t){
+                                                .reason = SWBT_APP_REVOKE_RELEASE,
+                                                .client_id = 2002u,
+                                            }),
                             SWBT_APP_ERROR_NOT_OWNER);
     failed += expect_active_state(app, (expected_active_state_t){
                                            .owner_id = 1001u,
@@ -172,7 +205,12 @@ static int revoke_reasons_share_neutral_policy(void) {
         app = swbt_app_create();
         failed += expect_true(app != NULL);
         failed += set_active_state(app);
-        failed += expect_eq_int(swbt_app_revoke(app, reasons[index], 1001u), SWBT_APP_OK);
+        failed += expect_eq_int(swbt_app_revoke(app,
+                                                (swbt_app_revoke_options_t){
+                                                    .reason = reasons[index],
+                                                    .client_id = 1001u,
+                                                }),
+                                SWBT_APP_OK);
         failed += expect_neutral_state(app);
     }
 

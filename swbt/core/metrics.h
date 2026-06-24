@@ -41,13 +41,15 @@ typedef struct {
     bool has_last_report_tick;
 } swbt_metrics_t;
 
+typedef struct {
+    uint64_t now_us;
+    swbt_metrics_report_send_result_t send_result;
+} swbt_metrics_report_tick_options_t;
+
 swbt_metrics_result_t swbt_metrics_init(swbt_metrics_t *metrics);
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-swbt_metrics_result_t
-swbt_metrics_record_report_tick(swbt_metrics_t *metrics, uint64_t now_us,
-                                swbt_metrics_report_send_result_t send_result);
-// NOLINTEND(bugprone-easily-swappable-parameters)
+swbt_metrics_result_t swbt_metrics_record_report_tick(swbt_metrics_t *metrics,
+                                                      swbt_metrics_report_tick_options_t options);
 
 swbt_metrics_result_t swbt_metrics_record_state_update_accepted(swbt_metrics_t *metrics,
                                                                 uint64_t coalesced_updates);

@@ -17,10 +17,11 @@ swbt_metrics_result_t swbt_metrics_init(swbt_metrics_t *metrics) {
     return SWBT_METRICS_OK;
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-swbt_metrics_result_t
-swbt_metrics_record_report_tick(swbt_metrics_t *metrics, uint64_t now_us,
-                                swbt_metrics_report_send_result_t send_result) {
+swbt_metrics_result_t swbt_metrics_record_report_tick(swbt_metrics_t *metrics,
+                                                      swbt_metrics_report_tick_options_t options) {
+    const uint64_t now_us = options.now_us;
+    const swbt_metrics_report_send_result_t send_result = options.send_result;
+
     if (metrics == NULL || !swbt_metrics_send_result_is_valid(send_result)) {
         return SWBT_METRICS_ERROR_INVALID_ARGUMENT;
     }
@@ -50,7 +51,6 @@ swbt_metrics_record_report_tick(swbt_metrics_t *metrics, uint64_t now_us,
     metrics->has_last_report_tick = true;
     return SWBT_METRICS_OK;
 }
-// NOLINTEND(bugprone-easily-swappable-parameters)
 
 swbt_metrics_result_t swbt_metrics_record_state_update_accepted(swbt_metrics_t *metrics,
                                                                 uint64_t coalesced_updates) {

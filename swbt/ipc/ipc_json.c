@@ -28,6 +28,11 @@ static const uint32_t SWBT_DEFINED_BUTTON_MASK =
     SWBT_BUTTON_DOWN | SWBT_BUTTON_UP | SWBT_BUTTON_RIGHT | SWBT_BUTTON_LEFT | SWBT_BUTTON_SR_L |
     SWBT_BUTTON_SL_L | SWBT_BUTTON_L | SWBT_BUTTON_ZL;
 
+typedef struct {
+    const char *json;
+    const char *key;
+} swbt_json_key_lookup_t;
+
 static const char *swbt_json_skip_ws(const char *cursor) {
     while (*cursor != '\0' && isspace((unsigned char)*cursor)) {
         ++cursor;
@@ -93,14 +98,13 @@ static bool swbt_json_key_matches(const char *start, size_t length, const char *
     return strlen(key) == length && strncmp(start, key, length) == 0;
 }
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-static const char *swbt_json_find_key_value(const char *json, const char *key) {
+static const char *swbt_json_find_key_value(swbt_json_key_lookup_t lookup) {
     bool in_string = false;
     bool escaped = false;
     bool saw_root_object = false;
     int depth = 0;
 
-    for (const char *cursor = json; *cursor != '\0'; ++cursor) {
+    for (const char *cursor = lookup.json; *cursor != '\0'; ++cursor) {
         if (in_string) {
             if (escaped) {
                 escaped = false;
@@ -145,7 +149,7 @@ static const char *swbt_json_find_key_value(const char *json, const char *key) {
 
         const char *after_key = swbt_json_skip_ws(key_end + 1);
         if (*after_key == ':' &&
-            swbt_json_key_matches(key_start, (size_t)(key_end - key_start), key)) {
+            swbt_json_key_matches(key_start, (size_t)(key_end - key_start), lookup.key)) {
             return swbt_json_skip_ws(after_key + 1);
         }
 
@@ -210,11 +214,19 @@ static int swbt_json_read_i64(const char *value, int64_t *out) {
 }
 
 static int swbt_json_get_string(const char *json, const char *key, char *out, size_t out_size) {
-    return swbt_json_read_string(swbt_json_find_key_value(json, key), out, out_size);
+    return swbt_json_read_string(swbt_json_find_key_value((swbt_json_key_lookup_t){
+                                     .json = json,
+                                     .key = key,
+                                 }),
+                                 out, out_size);
 }
 
 static int swbt_json_get_i64(const char *json, const char *key, int64_t *out) {
-    return swbt_json_read_i64(swbt_json_find_key_value(json, key), out);
+    return swbt_json_read_i64(swbt_json_find_key_value((swbt_json_key_lookup_t){
+                                  .json = json,
+                                  .key = key,
+                              }),
+                              out);
 }
 
 static swbt_ipc_json_result_t swbt_json_write(char *response, size_t response_size,
@@ -224,6 +236,7 @@ static swbt_ipc_json_result_t swbt_json_write(char *response, size_t response_si
 
     va_start(args, format);
     // C11 Annex K formatting functions are not consistently available in the target toolchains.
+    // The response buffer size is checked against vsnprintf's return value.
     // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     written = vsnprintf(response, response_size, format, args);
     va_end(args);
@@ -337,7 +350,10 @@ static bool swbt_ipc_parse_state(const char *line, swbt_state_t *out_state,
                                  uint64_t *out_sequence) {
     int64_t buttons = 0;
     int64_t seq = 0;
-    const char *state_value = swbt_json_find_key_value(line, "state");
+    const char *state_value = swbt_json_find_key_value((swbt_json_key_lookup_t){
+        .json = line,
+        .key = "state",
+    });
     const char *state_json = state_value;
     swbt_state_t state = swbt_state_neutral();
 
@@ -424,6 +440,18 @@ static void swbt_ipc_json_copy_text(char *out, size_t out_size, const char *text
         out[index] = text[index];
     }
     out[index] = '\0';
+}
+
+static bool swbt_ipc_json_text_can_be_written_raw(const char *text) {
+    if (text == NULL) {
+        return false;
+    }
+    for (const char *cursor = text; *cursor != '\0'; ++cursor) {
+        if (*cursor == '"' || *cursor == '\\' || (unsigned char)*cursor < 0x20u) {
+            return false;
+        }
+    }
+    return true;
 }
 
 static void swbt_ipc_json_set_error(swbt_ipc_response_t *response, bool has_request_id,
@@ -624,6 +652,15 @@ swbt_ipc_json_result_t swbt_ipc_json_encode_response(const swbt_ipc_response_t *
     }
 
     response[0] = '\0';
+
+    if (typed_response->has_request_id &&
+        !swbt_ipc_json_text_can_be_written_raw(typed_response->request_id)) {
+        return SWBT_IPC_JSON_ERROR_INVALID_ARGUMENT;
+    }
+    if (typed_response->type == SWBT_IPC_RESPONSE_ERROR &&
+        !swbt_ipc_json_text_can_be_written_raw(typed_response->error_message)) {
+        return SWBT_IPC_JSON_ERROR_INVALID_ARGUMENT;
+    }
 
     switch (typed_response->type) {
     case SWBT_IPC_RESPONSE_NONE:

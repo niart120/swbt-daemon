@@ -102,6 +102,55 @@ static int large_status_response_fits_response_buffer(void) {
                : 1;
 }
 
+static int malformed_request_id_is_rejected_without_echo(void) {
+    swbt_ipc_command_t command;
+    swbt_ipc_response_t codec_error;
+
+    if (swbt_ipc_json_decode_command("{\"v\":1,\"type\":\"hello\",\"request_id\":\"bad\\\"id\"}\n",
+                                     &command, &codec_error) != SWBT_IPC_JSON_OK) {
+        return 1;
+    }
+
+    return command.type == SWBT_IPC_COMMAND_NONE && codec_error.type == SWBT_IPC_RESPONSE_ERROR &&
+                   !codec_error.has_request_id &&
+                   codec_error.error_code == SWBT_IPC_ERROR_CODE_INVALID_JSON
+               ? 0
+               : 1;
+}
+
+static int unsafe_response_text_is_rejected_before_formatting(void) {
+    swbt_ipc_response_t bad_request_id = {
+        .type = SWBT_IPC_RESPONSE_HELLO_OK,
+        .has_request_id = true,
+        .request_id = "bad\"id",
+        .client_id = 1001u,
+    };
+    swbt_ipc_response_t bad_error_message = {
+        .type = SWBT_IPC_RESPONSE_ERROR,
+        .has_request_id = true,
+        .request_id = "safe-id",
+        .error_code = SWBT_IPC_ERROR_CODE_INVALID_JSON,
+        .error_message = "bad\"message",
+    };
+    char response[64] = "stale";
+
+    if (swbt_ipc_json_encode_response(&bad_request_id, response, sizeof(response)) !=
+        SWBT_IPC_JSON_ERROR_INVALID_ARGUMENT) {
+        return 1;
+    }
+    if (response[0] != '\0') {
+        return 1;
+    }
+
+    response[0] = 's';
+    response[1] = '\0';
+    if (swbt_ipc_json_encode_response(&bad_error_message, response, sizeof(response)) !=
+        SWBT_IPC_JSON_ERROR_INVALID_ARGUMENT) {
+        return 1;
+    }
+    return response[0] == '\0' ? 0 : 1;
+}
+
 int main(void) {
     swbt_ipc_command_t command;
     swbt_ipc_response_t codec_error;
@@ -397,6 +446,12 @@ int main(void) {
 
     if (large_status_response_fits_response_buffer() != 0) {
         return 51;
+    }
+    if (malformed_request_id_is_rejected_without_echo() != 0) {
+        return 55;
+    }
+    if (unsafe_response_text_is_rejected_before_formatting() != 0) {
+        return 56;
     }
 
     swbt_app_destroy(app);
