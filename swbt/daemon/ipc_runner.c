@@ -162,7 +162,8 @@ swbt_daemon_ipc_runner_serve_connection_once(swbt_daemon_ipc_runner_t *runner) {
     }
 
     result = swbt_ipc_server_serve_connection_once(&runner->server, &runner->connection);
-    if (result == SWBT_IPC_SERVER_ERROR_DISCONNECTED) {
+    if (result == SWBT_IPC_SERVER_ERROR_DISCONNECTED ||
+        result == SWBT_IPC_SERVER_ERROR_MESSAGE_TOO_LONG) {
         swbt_ipc_connection_close(&runner->connection);
         runner->has_connection = false;
     }
@@ -181,7 +182,8 @@ swbt_daemon_ipc_runner_serve_connection_once_at(swbt_daemon_ipc_runner_t *runner
     }
 
     result = swbt_ipc_server_serve_connection_once_at(&runner->server, &runner->connection, now_ms);
-    if (result == SWBT_IPC_SERVER_ERROR_DISCONNECTED) {
+    if (result == SWBT_IPC_SERVER_ERROR_DISCONNECTED ||
+        result == SWBT_IPC_SERVER_ERROR_MESSAGE_TOO_LONG) {
         swbt_ipc_connection_close(&runner->connection);
         runner->has_connection = false;
     }

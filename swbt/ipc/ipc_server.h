@@ -27,6 +27,8 @@ typedef struct {
 typedef struct {
     swbt_ipc_socket_t socket;
     uint32_t client_id;
+    char line_buffer[SWBT_IPC_JSON_LINE_MAX + 1u];
+    size_t line_length;
     uint64_t last_heartbeat_ms;
     uint64_t heartbeat_timeout_ms;
     bool heartbeat_enabled;

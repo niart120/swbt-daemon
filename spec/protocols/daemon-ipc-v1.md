@@ -55,7 +55,11 @@ server は accepted connection ごとに internal `client_id` を割り当てる
 
 line は `\n` で終端する。server は newline まで読み、1 line を 1 request として処理する。
 
-message は `SWBT_IPC_JSON_LINE_MAX`、現行値 `8192` bytes に収まる必要がある。これを超える line は transport layer で message too long として扱う。
+newline 前の partial line は request として処理しない。server は connection ごとに未完了 line を保持し、response は complete line を処理した場合だけ返す。
+
+complete line がない connection は、request 処理なしで server loop に戻る。これにより、slow client の partial line は heartbeat timeout の確認を塞がない。
+
+message は `SWBT_IPC_JSON_LINE_MAX`、現行値 `8192` bytes に収まる必要がある。これを超える line は transport layer で message too long として扱い、server はその connection を閉じる。閉じる connection が active owner の場合、owner は解除され、latest state は neutral に戻る。
 
 response がある場合、server は 1 JSON object と trailing newline を返す。
 
@@ -379,6 +383,8 @@ current error codes:
 | `not_owner` | `owner_id` が送信元 connection と一致しない、または送信元が active owner ではない。 |
 | `invalid_state` | `state` が object ではない、必須 field がない、range が不正、未定義 button bit が立っている。 |
 | `internal_error` | application command mapping が内部 error を返した。 |
+
+`invalid_json` response を返せる complete line では、server は connection を継続し、次の valid line を同じ connection で処理する。`SWBT_IPC_JSON_LINE_MAX` を超える line は response を返さず、message too long として connection を閉じる。
 
 ### 4.12 Neutral Fail-Safe
 

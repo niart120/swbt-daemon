@@ -46,6 +46,7 @@ static bool swbt_json_is_complete_object(const char *line) {
     bool in_string = false;
     bool escaped = false;
     bool saw_object_end = false;
+    char last_significant = '\0';
     const char *cursor = swbt_json_skip_ws(line);
 
     if (*cursor != '{') {
@@ -71,9 +72,14 @@ static bool swbt_json_is_complete_object(const char *line) {
 
         if (*cursor == '"') {
             in_string = true;
+            last_significant = '"';
         } else if (*cursor == '{') {
             ++depth;
+            last_significant = '{';
         } else if (*cursor == '}') {
+            if (last_significant == ',') {
+                return false;
+            }
             --depth;
             if (depth < 0) {
                 return false;
@@ -83,6 +89,14 @@ static bool swbt_json_is_complete_object(const char *line) {
                 ++cursor;
                 break;
             }
+            last_significant = '}';
+        } else if (*cursor == ',') {
+            if (last_significant == ',' || last_significant == '{') {
+                return false;
+            }
+            last_significant = ',';
+        } else if (!isspace((unsigned char)*cursor)) {
+            last_significant = *cursor;
         }
     }
 
@@ -161,6 +175,7 @@ static const char *swbt_json_find_key_value(swbt_json_key_lookup_t lookup) {
 
 static int swbt_json_read_string(const char *value, char *out, size_t out_size) {
     size_t length = 0;
+    const char *after_value = NULL;
 
     if (value == NULL) {
         return 0;
@@ -183,6 +198,11 @@ static int swbt_json_read_string(const char *value, char *out, size_t out_size) 
     }
 
     if (*value != '"') {
+        return -1;
+    }
+
+    after_value = swbt_json_skip_ws(value + 1);
+    if (*after_value != ',' && *after_value != '}' && *after_value != ']' && *after_value != '\0') {
         return -1;
     }
 
