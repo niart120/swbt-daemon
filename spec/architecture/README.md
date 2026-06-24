@@ -8,4 +8,3 @@ upstream 調査や根拠の要約だけを置く場合は `spec/references/` を
 ## 現在の spec
 
 - [Daemon Architecture Cutover](daemon-architecture-cutover.md): daemon logical state、IPC、BTstack adapter、host composition、platform shutdown の current architecture policy。
-- [Bond Cache Persistence](bond-cache-persistence.md): BTstack Classic link key DB / TLV bond cache の内部運用境界、cleanup、外部契約化条件。

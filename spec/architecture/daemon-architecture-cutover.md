@@ -42,7 +42,7 @@ daemon の論理状態、IPC transport、BTstack adapter、host composition、pl
 
 採用する主要判断は次である。
 
-- 内部互換性は維持しない。公開 IPC wire format、Switch-facing bytes、ユーザが実行する CLI / environment variable、release 互換として格上げ済みの bond data、release artifact だけを外部契約として扱う。
+- 内部互換性は維持しない。公開 IPC wire format、Switch-facing bytes、ユーザが実行する CLI / environment variable、release 互換として明示的に格上げ済みの永続データ、release artifact だけを外部契約として扱う。
 - compatibility layer は既定で禁止する。外部契約保護に必要で、削除期限と削除 work unit が同時にある場合だけ例外にする。
 - controller state、control lease、rumble、SPI、player lights、logical link state、report scheduling policy は application だけが更新する。
 - IPC は transport、framing、codec、client identity に閉じる。
@@ -81,7 +81,7 @@ daemon の論理状態、IPC transport、BTstack adapter、host composition、pl
 - H1 artifact は `tmp/hardware/local_057/20260623-105416-architecture-cutover-h1`。HCI dump は line `953` Button A、line `954` trailing neutral、line `955` `hci_power_control: 0` の順を記録した。current connection の `invalid size` と `non-registered handle` は `0` 件である。
 - 2026-06-23 の `local_058` で、shutdown neutral の即時送信が pending になった後の `CAN_SEND_NOW` 再送失敗でも pending を解除し、power-off と run-loop exit へ進む failure cleanup 経路を固定した。この変更は Switch-facing bytes、report period、BTstack source selection を変更しない。
 - 2026-06-23 の `local_061` で、`swbt_btstack_production_adapter_t` は `ipc_pump`、`platform`、`hid`、`output_handler`、`report_timer`、`controller`、`clock`、`power`、`run_loop` の能力別 port group へ分割した。旧 production backend ops table は復活させていない。この変更は Switch-facing bytes、report period、BTstack source selection、timer scheduling を変更しないため、H1 は再実行していない。
-- 2026-06-24 の `local_065` 時点では、`swbt-bond-<local-bdaddr>.tlv` は swbt 内部の運用 cache であり、release 互換を約束する外部契約ではない。格上げ条件は `spec/architecture/bond-cache-persistence.md` を正とする。
+- 2026-06-25 の `local_065` cleanup 後、`swbt-bond-<local-bdaddr>.tlv` と TLV-backed Classic link key DB 経路は現行 tree から削除済みである。daemon restart / sleep-resume の実機観測では既存 bond reconnect ではなく再 pairing になったため、bond cache は release 互換を約束する外部契約に格上げしない。調査記録は `spec/archive/bond-cache-persistence.md` を参照する。
 - 「8. 採用した外部レビュー本文」内の未完了表記は、採用時点の作業指示として残す。現在の実装状態はこの章、`local_056`、`local_057`、`docs/status.md` を正とする。
 - 外部契約を破壊する必要が出た場合は、同じ PR に変更理由と migration note を含める。
 
@@ -168,7 +168,7 @@ daemon host
 - daemon が公開している IPC wire format
 - Switch へ送る wire bytes
 - ユーザーが実行する CLI / environment variable
-- 永続化済み bond data
+- release 互換として明示的に格上げ済みの永続データ
 - release artifact の名前と配置
 
 これらも絶対互換ではない。破壊する場合は、変更理由と migration note を一つの PR に含める。
@@ -989,7 +989,7 @@ temporary compatibility backend を追加
 | IPC wire format | 原則維持。変更するなら明示的に protocol version を上げる |
 | CLI / environment variable | 利用実績があるものだけ維持 |
 | Switch report bytes | 実機仕様として維持 |
-| bond data | `swbt-bond-<local-bdaddr>.tlv` は現時点では内部 cache。release 互換へ格上げする場合は `spec/architecture/bond-cache-persistence.md` の条件を満たす |
+| bond data | 現行 tree に release 互換の bond data contract はない。`local_065` の TLV-backed link key DB 経路は実機観測後に削除済みであり、調査記録は `spec/archive/bond-cache-persistence.md` に残す |
 | internal C API | 維持しない |
 | internal struct layout | 維持しない |
 | internal header path | 維持しない |
