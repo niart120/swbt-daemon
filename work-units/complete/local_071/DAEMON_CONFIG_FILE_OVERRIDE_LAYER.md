@@ -43,9 +43,9 @@ source から use case への変換:
 
 - 起動設定の合成順序を `default -> config file -> environment override` として固定する。
 - 設定ファイル format、key 名、型、unknown key の扱いを設計する。
-- 設定ファイル path の探索または明示指定方法を設計する。
-- `swbt/daemon/config.*` に設定ファイル入力と環境変数 override の合成 helper を追加する。
-- `apps/swbt-daemon/main.c` から値の解釈をさらに減らし、process env / file path の収集だけに寄せる。
+- 設定ファイル path の探索または CLI での明示指定方法は `local_073` へ送る。この work unit では `swbt/daemon/config.*` の explicit file source boundary を固定する。
+- `swbt/daemon/config.*` に設定ファイル入力を追加し、`swbt_daemon_config_apply_file()` 後に `swbt_daemon_config_apply_env()` を呼ぶ合成順序を test で固定する。
+- `apps/swbt-daemon/main.c` への config path 接続は `local_073` の CLI parser / launch mode work で扱う。この work unit では `main.c` の backend selection、hardware approval、diagnostic env の挙動を変えない。
 - runtime override の設定ファイル対応を実装する。
 - 設定ファイルの初期 schema は `ipc`、`report`、`device.profile` に絞る。
 - active reconnect 用の Switch address や reconnect policy は、この work unit では key を予約しない。`local_072` で必要な state / config boundary を決めてから扱う。
@@ -106,7 +106,6 @@ not applicable。
 
 ## 8. 対象ファイル
 
-- `apps/swbt-daemon/main.c`
 - `.gitmodules`
 - `CMakeLists.txt`
 - `CMakePresets.json`
@@ -124,7 +123,7 @@ not applicable。
 - `vendor/toml11`
 - `spec/operations/windows-native-preflight.md`
 - `spec/operations/windows-hardware-bringup-sequence.md`
-- `work-units/wip/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`
+- `work-units/complete/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`
 - `work-units/wip/local_073/DAEMON_CLI_LAUNCH_MODE.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
@@ -307,6 +306,12 @@ Refactor status:
 - verification: `just build-debug`, `just test-debug`
 - notes: 不正 env は `report_period_us=0` とし、他の env key が途中で parse されても commit されないことを確認した。
 
+Final verification:
+- `just verify`: pass。
+- 途中の `just verify`: fail。原因は `tests/daemon_config_file_test.c` の `fprintf` と同型連続引数に対する clang-tidy warning であり、production code ではない。
+- fix: test helper から `fprintf` を削除し、`write_ipc_host_config()` を構造体引数に変更した。
+- 実機: 未実行。設定ファイル parsing、validation、rollback、env override precedence は software unit / build gate で閉じるため、Bluetooth adapter open、Switch pairing、HID report loop は不要。
+
 ## 11. 実機実行条件
 
 この work unit の設定合成、validation、override precedence の実装では実機は不要である。
@@ -331,9 +336,9 @@ Refactor status:
 
 - [x] source を user request、`local_045`、`local_065`、`local_072`、`docs/status.md` から特定した。
 - [x] use case を config file base + environment override として定義した。
-- [ ] config file format と unknown key policy を決めた。
+- [x] config file format と unknown key policy を決めた。
 - [x] red test または characterization test を追加した。
-- [ ] config file layer を実装した。
-- [ ] environment override precedence を test で固定した。
-- [ ] docs / status を更新した。
-- [ ] 検証結果または未実行理由を記録した。
+- [x] config file layer を実装した。
+- [x] environment override precedence を test で固定した。
+- [x] docs / status を更新した。
+- [x] 検証結果または未実行理由を記録した。

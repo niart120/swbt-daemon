@@ -14,7 +14,7 @@ source:
 
 - user discussion, 2026-06-26: 実機承認 env はそろそろ外せるのではないか。診断出力 path は環境変数で有効化すると意図しない場所へファイルが作られ得るため、実行時引数の flag に寄せる案が出た。
 - user discussion, 2026-06-26: backend 指定は何かを確認した結果、現行の noop は test / smoke 用であり、daemon の通常起動は production を既定にして、test 時だけ明示的に noop を与える方針が妥当と判断した。
-- `work-units/wip/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`: 設定ファイル schema は `ipc`、`report`、`device.profile` に絞り、backend 起動モード、実機承認、診断出力 path はこの work unit へ切り出す。
+- `work-units/complete/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`: 設定ファイル schema は `ipc`、`report`、`device.profile` に絞り、backend 起動モード、実機承認、診断出力 path はこの work unit へ切り出す。
 - `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md`: 環境変数を backend selection、hardware safety gate、runtime override、diagnostic sink に分類した。
 - `docs/status.md`: 現行状態として、未指定では noop backend、`SWBT_DAEMON_BACKEND=production` で production backend、production には `SWBT_RUN_HARDWARE=1` と `SWBT_HARDWARE_APPROVED=1` が必要と記録している。
 
@@ -57,7 +57,7 @@ source から use case への変換:
 
 ## 5. 関連 spec / docs
 
-- `work-units/wip/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`
+- `work-units/complete/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`
 - `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md`
 - `docs/status.md`
 - `docs/hardware-test-log.md`
