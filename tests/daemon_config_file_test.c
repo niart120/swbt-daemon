@@ -173,11 +173,41 @@ static int ipc_host_from_toml_config_is_owned_by_config_value(void) {
     return failed;
 }
 
+static int unknown_toml_config_key_rejects_and_preserves_config(void) {
+    const char *path = "daemon-config-unknown-key.toml";
+    FILE *file = fopen(path, "wb");
+    if (file == NULL) {
+        return 1;
+    }
+    if (fputs("[report]\n"
+              "period_us = 16667\n"
+              "unexpected = true\n",
+              file) < 0 ||
+        fclose(file) != 0) {
+        (void)remove(path);
+        return 1;
+    }
+
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    const swbt_daemon_config_file_source_t source = {
+        .path = path,
+        .required = true,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_config_apply_file(&config, &source),
+                            SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_VALUE, "apply file");
+    failed += expect_default_runtime_config(&config);
+    failed += remove(path) == 0 ? 0 : 1;
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += missing_optional_config_file_keeps_defaults();
     failed += empty_toml_config_file_keeps_defaults();
     failed += valid_toml_config_file_applies_runtime_values();
     failed += ipc_host_from_toml_config_is_owned_by_config_value();
+    failed += unknown_toml_config_key_rejects_and_preserves_config();
     return failed == 0 ? 0 : 1;
 }

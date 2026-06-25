@@ -1,6 +1,7 @@
 #include "daemon/config.h"
 
 #include <cerrno>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <exception>
@@ -25,6 +26,56 @@ static bool swbt_toml_find_table(const toml::value &root, const char *key,
     }
     *out_table = &table;
     return true;
+}
+
+static bool swbt_toml_key_is_allowed(const toml::value::key_type &key,
+                                     const char *const *allowed_keys, std::size_t allowed_count) {
+    for (std::size_t index = 0; index < allowed_count; ++index) {
+        if (key == allowed_keys[index]) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool swbt_toml_table_contains_only_keys(const toml::value *table,
+                                               const char *const *allowed_keys,
+                                               std::size_t allowed_count) {
+    if (table == nullptr) {
+        return true;
+    }
+    for (const auto &entry : table->as_table()) {
+        if (!swbt_toml_key_is_allowed(entry.first, allowed_keys, allowed_count)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool swbt_toml_root_contains_only_known_sections(const toml::value &root) {
+    const char *const allowed_sections[] = {"report", "ipc", "device"};
+    for (const auto &entry : root.as_table()) {
+        if (!swbt_toml_key_is_allowed(entry.first, allowed_sections,
+                                      sizeof(allowed_sections) / sizeof(allowed_sections[0]))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool swbt_toml_tables_contain_only_known_keys(const toml::value *report,
+                                                     const toml::value *ipc,
+                                                     const toml::value *device) {
+    const char *const report_keys[] = {"period_us"};
+    const char *const ipc_keys[] = {"host", "port", "backlog", "heartbeat_timeout_ms"};
+    const char *const device_keys[] = {"profile"};
+
+    return swbt_toml_table_contains_only_keys(report, report_keys,
+                                              sizeof(report_keys) / sizeof(report_keys[0])) &&
+           swbt_toml_table_contains_only_keys(ipc, ipc_keys,
+                                              sizeof(ipc_keys) / sizeof(ipc_keys[0])) &&
+           swbt_toml_table_contains_only_keys(device, device_keys,
+                                              sizeof(device_keys) / sizeof(device_keys[0]));
 }
 
 static bool swbt_toml_apply_u32(const toml::value *table, const char *key, uint32_t *out_value) {
@@ -108,6 +159,10 @@ static swbt_daemon_config_file_result_t swbt_daemon_config_apply_toml(swbt_daemo
     if (!swbt_toml_find_table(parsed, "report", &report) ||
         !swbt_toml_find_table(parsed, "ipc", &ipc) ||
         !swbt_toml_find_table(parsed, "device", &device)) {
+        return SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_VALUE;
+    }
+    if (!swbt_toml_root_contains_only_known_sections(parsed) ||
+        !swbt_toml_tables_contain_only_known_keys(report, ipc, device)) {
         return SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_VALUE;
     }
 

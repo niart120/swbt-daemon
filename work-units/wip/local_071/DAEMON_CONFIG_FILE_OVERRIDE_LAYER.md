@@ -137,7 +137,7 @@ not applicable。
 | todo | environment override wins over config file for the same runtime key | new | unit | no |
 | todo | invalid config file value fails without partially mutating existing daemon config | edge | unit | no |
 | todo | invalid environment override still fails after a valid config file without partially mutating existing daemon config | edge | unit | no |
-| todo | unknown config file key is rejected or explicitly documented as ignored before implementation completes | edge | unit | no |
+| refactor-skipped | unknown config file key is rejected before applying any config file value | edge | unit | no |
 | refactor-skipped | C++ config-file implementation island builds behind a C config boundary and passes debug, tidy, ASan, and Windows cross build | characterization | build/unit | no |
 | refactor-skipped | TOML dependency is accepted only behind a C config boundary and passes debug, tidy, ASan, and Windows cross build | characterization | build/unit | no |
 | deferred | backend launch mode, noop selection, hardware approval env removal, and diagnostic output paths move to CLI launch mode work | behavior | design/integration | no |
@@ -241,6 +241,23 @@ Refactor status:
 - unchanged behavior: default host、env override の空文字 no-op、IPC runner の host pointer surface、TOML scalar apply 済みの数値 key は維持する。
 - verification: `just build-debug`, `just test-debug`
 - notes: 既存 test の直接 pointer assignment は `swbt_daemon_config_set_ipc_host()` 経由に置き換えた。
+
+TDD status:
+- source: unknown key を黙って無視すると、設定 typo が実機設定として反映されたと operator が誤解し得る。
+- use case: TOML file に未知 key が含まれる場合、既知 key が同じ file に含まれていても `SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_VALUE` で失敗し、既存 config を部分更新しない。
+- item: unknown config file key is rejected before applying any config file value。
+- state: refactor-skipped
+- commands:
+  - red: `just build-debug`; `just test-debug`
+  - green: `just build-debug`; `just test-debug`
+- notes: red は `[report] unexpected = true` を含む TOML file で、既存実装が unknown key を無視して `report.period_us` まで適用したため `daemon_config_file_test` だけ失敗した。green では root section を `report` / `ipc` / `device` に限定し、各 table の key も明示 allowlist で拒否する。
+
+Refactor status:
+- decision: refactor-skipped
+- change: allowlist helper は root section と table key の 2 段だけに閉じ、schema が増えるまでは追加 abstraction を入れない。
+- unchanged behavior: missing optional file、empty TOML、known scalar value apply、`ipc.host` ownership、env override は維持する。
+- verification: `just build-debug`, `just test-debug`
+- notes: unknown key policy は reject で固定した。将来 active reconnect key を追加する場合は、この allowlist と Test List を更新する。
 
 ## 11. 実機実行条件
 
