@@ -63,7 +63,7 @@ source から use case への変換:
 - `spec/operations/windows-hardware-bringup-sequence.md`
 - `docs/status.md`
 - `docs/hardware-test-log.md`
-- `work-units/wip/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`
+- `work-units/complete/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`
 - `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md`
 - `work-units/complete/local_053/BTSTACK_PORT_EVENT_BOUNDARY.md`
 
@@ -87,14 +87,14 @@ source から use case への変換:
 
 - active reconnect の最小保存状態は、raw link key ではなく Switch Bluetooth address 候補である。
 - Switch address は自動取得する。取得タイミングの候補は pairing complete 時点ではなく、少なくとも HID connection opened、できれば report smoke 成立後にする。理由は、単に address が見えただけの失敗 pairing を learned reconnect target として固定しないためである。
-- Switch address は設定ファイル layer に永続化する。`local_071` では、手書きの explicit address と daemon-managed learned address を同じ TOML file 内の別 key として扱う方針に寄せる。
+- Switch address は設定ファイル layer に永続化する。`local_071` は TOML 入力境界と初期 runtime schema を固定済みであり、手書きの explicit address と daemon-managed learned address の具体 key はこの work unit または後続の reconnect persistence work で追加する。
 - 削除境界は設定ファイル上の値の除去とする。起動時環境変数で reset path や reset flag を与える設計にはしない。
 - pairing で新しい Switch address を確認した場合、daemon-managed learned address は上書きしてよい。ただし手書きの explicit address を自動上書きするかは別扱いにし、初期案では上書きしない。
 - effective reconnect address の優先順位は、手書き explicit address、daemon-managed learned address、address なしの順にする。将来 address 用の環境変数 override を追加する場合は `local_071` の全体方針に従い、一時 override として最優先に置く。
 - Switch Bluetooth address は raw link key ではないが、実機固有情報である。trace log と hardware artifact では検証用に明示してよい。リポジトリへ残す `docs/hardware-test-log.md` や work unit record では必要に応じて scrub する。
 - active reconnect は既存 incoming pairing / advertising 経路を壊してはならない。address が不明または reconnect が失敗した場合は、現行の pairing-capable path に戻れる必要がある。
 - production adapter に直接 joycontrol 互換ロジックを混ぜ込まない。BTstack outbound connect、address source、operator intent、diagnostics を分ける。
-- 設定ファイルへの取り込みは、この work unit で Switch address / policy の boundary を決めてから `local_071` へ渡す。
+- 設定ファイルへの取り込みは、この work unit で Switch address / policy の boundary を決めてから、`local_071` で固定した TOML 入力境界に reconnect 用 key / writer を追加する形で扱う。
 - 実機 pass 条件は、L2CAP open だけでは足りない。Button A smoke または同等の input report 採用まで確認する。
 - failure は再 pairing と reconnect を分けて記録する。`pairing complete, status 00` が再度出る場合は active reconnect 成功として扱わない。
 
@@ -139,7 +139,7 @@ source から use case への変換:
 - user decision: 削除境界は設定ファイル上の値の除去とする。
 - user decision: trace log では検証用に address を明示してよい。リポジトリ上の記録では scrub する。
 - design decision: pairing / connection success で learned address を更新する。手書き explicit address と daemon-managed learned address は分ける。
-- design decision: 設定形式は `local_071` で確定する。現時点の第一候補は TOML である。
+- design decision: 設定形式は `local_071` で TOML に確定した。
 ## 11. 実機実行条件
 
 実機が必要である。ただし起票時点では実行しない。
@@ -164,8 +164,8 @@ source から use case への変換:
 ## 12. 先送り事項
 
 - 観測: Switch address は設定ファイル layer に永続化する方針としたが、key 名、同一ファイル更新時の atomic write、comment / unknown key preservation は未定義である。
-  先送り理由: これらは TOML parser / serializer の選定に依存する。active reconnect の意味はこの work unit で固定し、具体的な設定 layer 実装は `local_071` と接続する。
-  次の置き場: `work-units/wip/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md` への後続更新。
+  先送り理由: `local_071` は初期 runtime schema だけを完了した。active reconnect の意味はこの work unit で固定し、具体的な設定 layer 実装は reconnect 用 key / writer の追加時に扱う。
+  次の置き場: この work unit の TDD item、または後続の reconnect persistence work。
 - 観測: Switch 側 controller reconnect 操作が必須かどうかは未確認である。
   先送り理由: daemon restart active reconnect の最小 run を先に設計し、操作の要否を artifact で分ける。
   次の置き場: この work unit の hardware item。
