@@ -17,6 +17,7 @@ extern "C" {
 #define SWBT_DAEMON_DEFAULT_IPC_HEARTBEAT_TIMEOUT_MS 0u
 #define SWBT_DAEMON_DEFAULT_REPORT_PERIOD_US 8000u
 #define SWBT_DAEMON_CONFIG_IPC_HOST_SIZE 16u
+#define SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE 18u
 
 typedef struct {
     uint32_t report_period_us;
@@ -24,6 +25,8 @@ typedef struct {
     uint16_t ipc_port;
     int ipc_backlog;
     uint32_t ipc_heartbeat_timeout_ms;
+    char active_reconnect_explicit_switch_address[SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE];
+    char active_reconnect_learned_switch_address[SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE];
     swbt_switch_report_options_t report_options;
     swbt_switch_device_info_t device_info;
 } swbt_daemon_config_t;
@@ -53,6 +56,15 @@ typedef struct {
 swbt_daemon_config_t swbt_daemon_config_default(void);
 
 bool swbt_daemon_config_set_ipc_host(swbt_daemon_config_t *config, const char *host);
+
+bool swbt_daemon_config_set_active_reconnect_explicit_switch_address(swbt_daemon_config_t *config,
+                                                                     const char *address);
+
+bool swbt_daemon_config_set_active_reconnect_learned_switch_address(swbt_daemon_config_t *config,
+                                                                    const char *address);
+
+const char *
+swbt_daemon_config_effective_reconnect_switch_address(const swbt_daemon_config_t *config);
 
 swbt_daemon_config_file_result_t
 swbt_daemon_config_apply_file(swbt_daemon_config_t *config,

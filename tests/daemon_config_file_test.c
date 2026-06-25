@@ -35,6 +35,10 @@ static int expect_str_eq(const char *actual, const char *expected) {
     return 1;
 }
 
+static int expect_null(const void *actual) {
+    return actual == NULL ? 0 : 1;
+}
+
 static int expect_default_runtime_config(const swbt_daemon_config_t *config) {
     int failed = 0;
     failed += expect_eq_u32(config->report_period_us, SWBT_DAEMON_DEFAULT_REPORT_PERIOD_US,
@@ -44,6 +48,9 @@ static int expect_default_runtime_config(const swbt_daemon_config_t *config) {
     failed += expect_eq_int(config->ipc_backlog, SWBT_DAEMON_DEFAULT_IPC_BACKLOG, "ipc backlog");
     failed += expect_eq_u32(config->ipc_heartbeat_timeout_ms,
                             SWBT_DAEMON_DEFAULT_IPC_HEARTBEAT_TIMEOUT_MS, "heartbeat timeout");
+    failed += expect_str_eq(config->active_reconnect_explicit_switch_address, "");
+    failed += expect_str_eq(config->active_reconnect_learned_switch_address, "");
+    failed += expect_null(swbt_daemon_config_effective_reconnect_switch_address(config));
     return failed;
 }
 
@@ -188,6 +195,71 @@ static int ipc_host_from_toml_config_is_owned_by_config_value(void) {
 
     failed += remove(first_path) == 0 ? 0 : 1;
     failed += remove(second_path) == 0 ? 0 : 1;
+    return failed;
+}
+
+static int active_reconnect_addresses_from_toml_are_stored_separately(void) {
+    const char *path = "daemon-config-active-reconnect-address.toml";
+    FILE *file = fopen(path, "wb");
+    if (file == NULL) {
+        return 1;
+    }
+    if (fputs("[active_reconnect]\n"
+              "switch_address = \"01:23:45:67:89:ab\"\n"
+              "\n"
+              "[active_reconnect.learned]\n"
+              "switch_address = \"fe:dc:ba:98:76:54\"\n",
+              file) < 0 ||
+        fclose(file) != 0) {
+        (void)remove(path);
+        return 1;
+    }
+
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    const swbt_daemon_config_file_source_t source = {
+        .path = path,
+        .required = true,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_config_apply_file(&config, &source),
+                            SWBT_DAEMON_CONFIG_FILE_OK, "apply file");
+    failed += expect_str_eq(config.active_reconnect_explicit_switch_address, "01:23:45:67:89:AB");
+    failed += expect_str_eq(config.active_reconnect_learned_switch_address, "FE:DC:BA:98:76:54");
+    failed += expect_str_eq(swbt_daemon_config_effective_reconnect_switch_address(&config),
+                            "01:23:45:67:89:AB");
+    failed += remove(path) == 0 ? 0 : 1;
+    return failed;
+}
+
+static int active_reconnect_learned_address_is_effective_without_explicit(void) {
+    const char *path = "daemon-config-active-reconnect-learned-address.toml";
+    FILE *file = fopen(path, "wb");
+    if (file == NULL) {
+        return 1;
+    }
+    if (fputs("[active_reconnect.learned]\n"
+              "switch_address = \"fe:dc:ba:98:76:54\"\n",
+              file) < 0 ||
+        fclose(file) != 0) {
+        (void)remove(path);
+        return 1;
+    }
+
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    const swbt_daemon_config_file_source_t source = {
+        .path = path,
+        .required = true,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_config_apply_file(&config, &source),
+                            SWBT_DAEMON_CONFIG_FILE_OK, "apply file");
+    failed += expect_str_eq(config.active_reconnect_explicit_switch_address, "");
+    failed += expect_str_eq(config.active_reconnect_learned_switch_address, "FE:DC:BA:98:76:54");
+    failed += expect_str_eq(swbt_daemon_config_effective_reconnect_switch_address(&config),
+                            "FE:DC:BA:98:76:54");
+    failed += remove(path) == 0 ? 0 : 1;
     return failed;
 }
 
@@ -354,6 +426,8 @@ int main(void) {
     failed += empty_toml_config_file_keeps_defaults();
     failed += valid_toml_config_file_applies_runtime_values();
     failed += ipc_host_from_toml_config_is_owned_by_config_value();
+    failed += active_reconnect_addresses_from_toml_are_stored_separately();
+    failed += active_reconnect_learned_address_is_effective_without_explicit();
     failed += unknown_toml_config_key_rejects_and_preserves_config();
     failed += env_override_wins_over_config_file_value();
     failed += invalid_toml_config_value_rejects_and_preserves_config();
