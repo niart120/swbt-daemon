@@ -49,6 +49,18 @@ static int expect_default_runtime_config(const swbt_daemon_config_t *config) {
     return failed;
 }
 
+static int expect_runtime_config_eq(const swbt_daemon_config_t *actual,
+                                    const swbt_daemon_config_t *expected) {
+    int failed = 0;
+    failed += expect_eq_u32(actual->report_period_us, expected->report_period_us, "report period");
+    failed += expect_str_eq(actual->ipc_host, expected->ipc_host, "ipc host");
+    failed += expect_eq_u16(actual->ipc_port, expected->ipc_port, "ipc port");
+    failed += expect_eq_int(actual->ipc_backlog, expected->ipc_backlog, "ipc backlog");
+    failed += expect_eq_u32(actual->ipc_heartbeat_timeout_ms, expected->ipc_heartbeat_timeout_ms,
+                            "heartbeat timeout");
+    return failed;
+}
+
 static int missing_optional_config_file_keeps_defaults(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     const swbt_daemon_config_file_source_t source = {
@@ -286,6 +298,50 @@ static int invalid_toml_config_value_rejects_and_preserves_config(void) {
     return failed;
 }
 
+static int invalid_env_override_after_config_file_rejects_and_preserves_config(void) {
+    const char *path = "daemon-config-invalid-env-after-file.toml";
+    FILE *file = fopen(path, "wb");
+    if (file == NULL) {
+        return 1;
+    }
+    if (fputs("[report]\n"
+              "period_us = 16667\n"
+              "\n"
+              "[ipc]\n"
+              "host = \"0.0.0.0\"\n"
+              "port = 37637\n"
+              "backlog = 4\n"
+              "heartbeat_timeout_ms = 2500\n",
+              file) < 0 ||
+        fclose(file) != 0) {
+        (void)remove(path);
+        return 1;
+    }
+
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    const swbt_daemon_config_file_source_t source = {
+        .path = path,
+        .required = true,
+    };
+    const swbt_daemon_config_env_t env = {
+        .report_period_us = "0",
+        .ipc_host = "127.0.0.1",
+        .ipc_port = "44123",
+        .ipc_backlog = "8",
+        .ipc_heartbeat_timeout_ms = "1250",
+        .device_info_profile = NULL,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_config_apply_file(&config, &source),
+                            SWBT_DAEMON_CONFIG_FILE_OK, "apply file");
+    const swbt_daemon_config_t expected = config;
+    failed += expect_eq_int(swbt_daemon_config_apply_env(&config, &env), false, "apply env");
+    failed += expect_runtime_config_eq(&config, &expected);
+    failed += remove(path) == 0 ? 0 : 1;
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += missing_optional_config_file_keeps_defaults();
@@ -295,5 +351,6 @@ int main(void) {
     failed += unknown_toml_config_key_rejects_and_preserves_config();
     failed += env_override_wins_over_config_file_value();
     failed += invalid_toml_config_value_rejects_and_preserves_config();
+    failed += invalid_env_override_after_config_file_rejects_and_preserves_config();
     return failed == 0 ? 0 : 1;
 }

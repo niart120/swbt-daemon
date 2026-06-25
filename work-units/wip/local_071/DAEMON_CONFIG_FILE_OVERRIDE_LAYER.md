@@ -136,7 +136,7 @@ not applicable。
 | refactor-skipped | config file `ipc.host` can be applied without dangling pointer ownership | new | unit | no |
 | refactor-skipped | environment override wins over config file for the same runtime key | new | unit | no |
 | refactor-skipped | invalid config file value fails without partially mutating existing daemon config | edge | unit | no |
-| todo | invalid environment override still fails after a valid config file without partially mutating existing daemon config | edge | unit | no |
+| refactor-skipped | invalid environment override still fails after a valid config file without partially mutating existing daemon config | edge | unit | no |
 | refactor-skipped | unknown config file key is rejected before applying any config file value | edge | unit | no |
 | refactor-skipped | C++ config-file implementation island builds behind a C config boundary and passes debug, tidy, ASan, and Windows cross build | characterization | build/unit | no |
 | refactor-skipped | TOML dependency is accepted only behind a C config boundary and passes debug, tidy, ASan, and Windows cross build | characterization | build/unit | no |
@@ -290,6 +290,22 @@ Refactor status:
 - unchanged behavior: valid TOML、unknown key reject、env override precedence は維持する。
 - verification: `just build-debug`, `just test-debug`
 - notes: 不正値として `device.profile = "unknown"` を使い、先行する `report` / `ipc` 値が部分適用されないことを確認した。
+
+TDD status:
+- source: 環境変数は設定ファイルより強い一時 override だが、不正な override が設定ファイル由来の有効 config を壊してはならない。
+- use case: 有効な TOML file を適用した後、`report_period_us=0` を含む環境変数 override を適用すると `false` で失敗し、TOML file 適用後の config を維持する。
+- item: invalid environment override still fails after a valid config file without partially mutating existing daemon config。
+- state: refactor-skipped
+- commands:
+  - characterization: `just build-debug`; `just test-debug`
+- notes: 追加 test は現行実装で通った。`swbt_daemon_config_apply_env()` は `next = *config` に override を適用し、最後の validation が成功した場合だけ `*config = next` で commit する。
+
+Refactor status:
+- decision: refactor-skipped
+- change: test helper `expect_runtime_config_eq()` を追加した。production code は変更しない。
+- unchanged behavior: 設定ファイル値の適用、env precedence、不正 TOML rollback は維持する。
+- verification: `just build-debug`, `just test-debug`
+- notes: 不正 env は `report_period_us=0` とし、他の env key が途中で parse されても commit されないことを確認した。
 
 ## 11. 実機実行条件
 
