@@ -15,11 +15,12 @@ source:
 - `spec/archive/bond-cache-persistence.md`: passive bond cache は現行設計ではなく、active reconnect に必要な Switch address と outbound L2CAP 境界が未解決事項である。
 - `docs/status.md`: active reconnect は未実装である。
 - `work-units/complete/local_053/BTSTACK_PORT_EVENT_BOUNDARY.md`: bond store / reconnect 候補は BTstack port boundary の後続候補である。
+- user discussion, 2026-06-25: Switch address は自動取得し、設定ファイル layer に永続化する。削除は設定ファイル上の値の除去で扱う。trace log では検証用に address を明示してよいが、リポジトリに残す記録では scrub する。
 
 use case:
 
 - actor: hardware operator、production daemon、Switch。
-- 入力または状態: 初回 pairing または一度成功した接続で得た Switch Bluetooth address、daemon process restart、dedicated USB Bluetooth dongle、Switch が controller reconnect を受け付ける状態。
+- 入力または状態: 初回 pairing または一度成功した接続から自動取得した Switch Bluetooth address、設定ファイル layer に残る learned address、daemon process restart、dedicated USB Bluetooth dongle、Switch が controller reconnect を受け付ける状態。
 - 期待する観測結果:
   - daemon restart 後、Switch 側の再ペアリング操作なしで daemon が既知 Switch address へ active reconnect を試行する。
   - L2CAP PSM `0x11` / `0x13` が open し、既存の HID report loop と Button A smoke へ戻る。
@@ -84,7 +85,13 @@ source から use case への変換:
 
 ## 7. 設計メモ
 
-- active reconnect の最小保存状態は、raw link key ではなく Switch Bluetooth address 候補である。ただし address の取得元、表示、保存 root、削除手段は未決定である。
+- active reconnect の最小保存状態は、raw link key ではなく Switch Bluetooth address 候補である。
+- Switch address は自動取得する。取得タイミングの候補は pairing complete 時点ではなく、少なくとも HID connection opened、できれば report smoke 成立後にする。理由は、単に address が見えただけの失敗 pairing を learned reconnect target として固定しないためである。
+- Switch address は設定ファイル layer に永続化する。`local_071` では、手書きの explicit address と daemon-managed learned address を同じ TOML file 内の別 key として扱う方針に寄せる。
+- 削除境界は設定ファイル上の値の除去とする。起動時環境変数で reset path や reset flag を与える設計にはしない。
+- pairing で新しい Switch address を確認した場合、daemon-managed learned address は上書きしてよい。ただし手書きの explicit address を自動上書きするかは別扱いにし、初期案では上書きしない。
+- effective reconnect address の優先順位は、手書き explicit address、daemon-managed learned address、address なしの順にする。将来 address 用の環境変数 override を追加する場合は `local_071` の全体方針に従い、一時 override として最優先に置く。
+- Switch Bluetooth address は raw link key ではないが、実機固有情報である。trace log と hardware artifact では検証用に明示してよい。リポジトリへ残す `docs/hardware-test-log.md` や work unit record では必要に応じて scrub する。
 - active reconnect は既存 incoming pairing / advertising 経路を壊してはならない。address が不明または reconnect が失敗した場合は、現行の pairing-capable path に戻れる必要がある。
 - production adapter に直接 joycontrol 互換ロジックを混ぜ込まない。BTstack outbound connect、address source、operator intent、diagnostics を分ける。
 - 設定ファイルへの取り込みは、この work unit で Switch address / policy の boundary を決めてから `local_071` へ渡す。
@@ -111,6 +118,7 @@ source から use case への変換:
 | todo | source audit records joycontrol-style reconnect assumptions and BTstack outbound L2CAP / HID device connect boundaries | characterization | docs | no |
 | todo | daemon config/state can represent a known Switch Bluetooth address without raw link key storage | new | unit | no |
 | todo | production adapter exposes an active reconnect request boundary for HID control PSM `0x11` and interrupt PSM `0x13` | new | unit/integration | no |
+| todo | learned Switch address is captured from a successful pairing / connection path and persisted through the config layer without overwriting explicit address | new | integration | no |
 | todo | active reconnect failure paths report unavailable / failed states without breaking incoming pairing path | edge | integration | no |
 | todo | active reconnect hardware preflight defines initial address capture, daemon restart, active reconnect, optional Switch-side reconnect operation, and Button A smoke | characterization | docs | yes |
 | todo | daemon restart active reconnect reaches L2CAP open and Button A smoke without Change Grip / Order re-pairing, or records the exact unsupported boundary | characterization | hardware | yes |
@@ -125,6 +133,13 @@ source から use case への変換:
 - `rg -n "joycontrol|active reconnect|HID control|PSM 0x11|PSM 0x13|outbound L2CAP" spec docs work-units swbt tests`: local_065 / local_071 / docs/status の新方針と既存 joycontrol references を確認。
 - `rg -n "l2cap_create_channel|l2cap_disconnect|L2CAP_EVENT_CHANNEL_OPENED|PSM_HID" vendor\btstack\src\l2cap.h vendor\btstack\src\l2cap.c vendor\btstack\src\classic\hid_device.c vendor\btstack\src\classic\hid_host.c`: BTstack source-audit 起点を確認。
 
+2026-06-25 address persistence policy discussion:
+
+- user decision: Switch address は自動取得し、設定ファイル layer に永続化する。
+- user decision: 削除境界は設定ファイル上の値の除去とする。
+- user decision: trace log では検証用に address を明示してよい。リポジトリ上の記録では scrub する。
+- design decision: pairing / connection success で learned address を更新する。手書き explicit address と daemon-managed learned address は分ける。
+- design decision: 設定形式は `local_071` で確定する。現時点の第一候補は TOML である。
 ## 11. 実機実行条件
 
 実機が必要である。ただし起票時点では実行しない。
@@ -148,11 +163,8 @@ source から use case への変換:
 
 ## 12. 先送り事項
 
-- 観測: Switch address の永続化をどこに置くかは未定義である。
-  先送り理由: active reconnect の実装境界と failure behavior を決める前に保存形式だけを固定すると、`local_065` の bond cache path と同じく不要な契約になり得る。
-  次の置き場: この work unit の TDD item。
-- 観測: 設定ファイル key は未定義である。
-  先送り理由: `local_071` は設定 layer の work unit であり、reconnect state / policy の意味はこの work unit で決める必要がある。
+- 観測: Switch address は設定ファイル layer に永続化する方針としたが、key 名、同一ファイル更新時の atomic write、comment / unknown key preservation は未定義である。
+  先送り理由: これらは TOML parser / serializer の選定に依存する。active reconnect の意味はこの work unit で固定し、具体的な設定 layer 実装は `local_071` と接続する。
   次の置き場: `work-units/wip/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md` への後続更新。
 - 観測: Switch 側 controller reconnect 操作が必須かどうかは未確認である。
   先送り理由: daemon restart active reconnect の最小 run を先に設計し、操作の要否を artifact で分ける。
@@ -165,7 +177,7 @@ source から use case への変換:
 - [x] passive bond cache persistence を対象外にした。
 - [ ] joycontrol `-r` 型 reconnect の source audit を完了した。
 - [ ] BTstack outbound L2CAP / HID device connect boundary を source audit で固定した。
-- [ ] Switch address の取得 / 保存 / 削除 boundary を決めた。
+- [x] Switch address の取得 / 保存 / 削除 boundary を決めた。
 - [ ] red test または characterization test を追加した。
 - [ ] active reconnect boundary を実装した。
 - [ ] hardware preflight を作成した。

@@ -7,6 +7,10 @@
 #include "switch/switch_device_info.h"
 #include "switch/switch_report.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define SWBT_DAEMON_DEFAULT_IPC_HOST "127.0.0.1"
 #define SWBT_DAEMON_DEFAULT_IPC_PORT 0u
 #define SWBT_DAEMON_DEFAULT_IPC_BACKLOG 1
@@ -32,12 +36,33 @@ typedef struct {
     const char *device_info_profile;
 } swbt_daemon_config_env_t;
 
+typedef enum {
+    SWBT_DAEMON_CONFIG_FILE_OK = 0,
+    SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_ARGUMENT = -1,
+    SWBT_DAEMON_CONFIG_FILE_ERROR_IO = -2,
+    SWBT_DAEMON_CONFIG_FILE_ERROR_PARSE = -3,
+    SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_VALUE = -4,
+} swbt_daemon_config_file_result_t;
+
+typedef struct {
+    const char *path;
+    bool required;
+} swbt_daemon_config_file_source_t;
+
 swbt_daemon_config_t swbt_daemon_config_default(void);
+
+swbt_daemon_config_file_result_t
+swbt_daemon_config_apply_file(swbt_daemon_config_t *config,
+                              const swbt_daemon_config_file_source_t *source);
 
 bool swbt_daemon_config_apply_env(swbt_daemon_config_t *config,
                                   const swbt_daemon_config_env_t *env);
 
 bool swbt_daemon_config_apply_device_info_profile(swbt_daemon_config_t *config,
                                                   const char *profile);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -17,6 +17,8 @@ source:
 - `docs/status.md`: production 起動条件と実機実行時の推奨環境変数を状態表として記録している。
 - `work-units/complete/local_065/BONDED_RECONNECT_PERSISTENCE.md`: TLV-backed bond cache 経路は実機観測後に不採用として閉じた。設定ファイル移行では、この未採用 path を復活させない。
 - `work-units/wip/local_072/ACTIVE_SWITCH_RECONNECT.md`: reconnect 用の永続状態または設定が必要になった場合は、active reconnect 側で境界を決めてからこの work unit へ取り込む。
+- user discussion, 2026-06-25: active reconnect 用 Switch address は自動取得し、設定ファイル layer に永続化する。削除は設定ファイル上の値の除去で扱う。trace log では検証用に address を出してよいが、リポジトリ上の記録は scrub する。
+- user discussion, 2026-06-26: 同一 TOML file 更新を前提にするなら、TOML parser / serializer のために C++ 導入または部分的な C++ 化も検討する。
 
 use case:
 
@@ -85,13 +87,29 @@ not applicable。
 - production backend selection は設定ファイル化してよい候補だが、実機実行には別途 live approval が必要である。
 - diagnostic path は設定ファイル化してよい。未設定なら no-op、明示 path の open failure をどう扱うかは既存挙動と整合させる。
 - `local_065` の bond cache path は不採用のため、設定ファイル key として追加しない。active reconnect に必要な Switch address や policy は、保存対象、削除手段、raw 値の扱いを `local_072` で決めてから取り込む。
-- 設定ファイル format は実装前に確定する。新規 dependency を増やす場合は C build / cross build / license impact を確認する。依存を増やさないなら、限定 key-value format を採用し、escape や nested structure を後回しにする。
+- active reconnect address は設定ファイル layer の対象にする。手書きの explicit address と daemon-managed learned address は同じ TOML file 内で別 key として分ける。daemon は learned address の table だけを更新する。
+- active reconnect の削除境界は、設定ファイル上の explicit address または daemon-managed learned address の除去とする。起動時環境変数による reset は採用しない。
+- 設定ファイル format は実装前に確定する。現時点の第一候補は TOML である。理由は、table / scalar / array の範囲で十分で、YAML より暗黙型変換や alias / anchor の複雑さが少なく、daemon 設定としての可読性と可搬性を両立しやすいためである。
+- 同一ファイル更新を採るため、TOML parser は read だけでなく serializer / round-trip update の性質を確認する。特に comment、key order、unknown key、明示設定 table を壊さず `[active_reconnect.learned]` だけを書けるかを採用条件に含める。
+- 現時点の調査候補は `toml11` と `toml++` である。C++ dependency を入れる場合は C runtime surface に C++ 型を出さず、`swbt/daemon/config.*` からは C ABI 風の境界に閉じる。
+- C++ 化は全面移行ではなく、設定ファイル parser / writer の小さな implementation island として検討する。daemon core、BTstack bridge、public C ABI、tests の大半は C11 のまま維持する。
+- C++ island を採る場合は `project(... LANGUAGES C CXX)`、C++ standard、Windows MinGW cross build、clang-tidy 対象、sanitizer、third-party notice を local_071 の acceptance に含める。
+- C++ dependency を選ぶ場合でも、`swbt/daemon/config.h` は C++ 型、例外、STL container を公開しない。C 側からは status code と POD input/output だけを見る。
+- YAML は人間向け文書としては強いが、daemon 設定では parser dependency、暗黙型、複雑な構文 surface が重い。採用する場合は unknown key、型解釈、コメント保持、license impact を TOML より強く確認する。
+- 新規 dependency を増やす場合は C build / cross build / license impact を確認する。依存を増やさないなら、限定 key-value format を採用し、escape や nested structure を後回しにする。
 
 ## 8. 対象ファイル
 
 - `apps/swbt-daemon/main.c`
+- `CMakeLists.txt`
+- `CMakePresets.json`
+- `cmake/compiler_warnings.cmake`
+- `justfile`
+- `scripts/format.sh`
+- `scripts/check-format.sh`
 - `swbt/daemon/config.h`
 - `swbt/daemon/config.c`
+- `swbt/daemon/config_file.cpp`
 - `tests/daemon_runtime_test.c`
 - `tests/daemon_production_backend_test.c`
 - `docs/status.md`
@@ -103,7 +121,7 @@ not applicable。
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | missing config file uses built-in daemon defaults and preserves current no-op startup behavior | regression | unit | no |
+| refactor-skipped | missing config file uses built-in daemon defaults and preserves current no-op startup behavior | regression | unit | no |
 | todo | valid config file values are applied before environment overrides | new | unit | no |
 | todo | environment override wins over config file for the same runtime key | new | unit | no |
 | todo | invalid config file value fails without partially mutating existing daemon config | edge | unit | no |
@@ -111,18 +129,56 @@ not applicable。
 | todo | unknown config file key is rejected or explicitly documented as ignored before implementation completes | edge | unit | no |
 | todo | hardware approval cannot be granted by persistent config file alone | regression | integration | no |
 | todo | diagnostic paths can be supplied by config file and remain overrideable by environment variables | new | unit/integration | no |
+| refactor-skipped | C++ config-file implementation island builds behind a C config boundary and passes debug, tidy, ASan, and Windows cross build | characterization | build/unit | no |
+| todo | TOML dependency is accepted only behind a C config boundary and passes debug, tidy, ASan, and Windows cross build | characterization | build/unit | no |
 | deferred | active reconnect state / policy can be supplied through daemon config abstraction after `local_072` freezes the boundary | new | unit | no |
 | deferred | choose and freeze release-stable config file path / discovery policy | behavior | design | no |
 
 ## 10. 検証
 
-未実行。起票のみ。実装、software test、実機検証はまだ実行していない。
+software test を実行した。実機検証は不要であり、実行していない。
 
 起票時確認:
 
 - `git branch --show-current`: `docs/config-file-work-units`。
 - `git status --short`: `local_065` cleanup、`local_072` 起票、この record の更新を同じ branch 上で扱っている。
 - 既存 work unit 番号は `complete/local_070` まで存在するため、この record は `wip/local_071` とした。
+
+TDD status:
+- source: 設定ファイルがない clean checkout では現行 default と同じ値で起動設定が成立する。
+- use case: optional config file path が存在しない場合、daemon config は部分更新されず default を維持する。
+- item: missing config file uses built-in daemon defaults and preserves current no-op startup behavior。
+- state: refactor-skipped
+- commands:
+  - red: `just build-debug`
+  - green: `just build-debug`
+  - verification: `just test-debug`
+- notes: `tests/daemon_config_file_test.c` を追加した。red は期待通り `swbt_daemon_config_file_source_t`、`swbt_daemon_config_apply_file`、`SWBT_DAEMON_CONFIG_FILE_OK` 未定義で compile failure になった。green では `swbt_daemon_config_apply_file` を追加し、optional path が未指定または `ENOENT` の場合だけ no-op success にした。required path の IO failure、既存 file の parse、TOML parser / serializer は後続 item に残す。targeted `CTEST_ARGS="-R daemon_config_file_test" just test-debug` は Dev Container 起動前の `docker ps` error になったため、同じ build tree で full `just test-debug` を実行した。
+
+Refactor status:
+- decision: refactor-skipped
+- change: formatter 以外の構造変更は行わない。
+- unchanged behavior: 今回の item は config file layer の入口だけを追加し、既存 env override、hardware approval、diagnostic path、daemon main の起動順序は変更していない。
+- verification: `just build-debug`, `just test-debug`
+- notes: parser / writer の導入、同ファイル更新、unknown key policy は次 item 以降の behavior であり、この cycle には混ぜない。
+
+TDD status:
+- source: 同一 TOML file 更新を採る場合、設定ファイル parser / writer のために C++ implementation island を使う可能性がある。
+- use case: C caller は `swbt_daemon_config_apply_file()` を C boundary として呼び、実装側だけを C++ にできる。CMake / Just / tidy / sanitizer / Windows cross build は C++ 混在を標準 gate として扱う。
+- item: C++ config-file implementation island builds behind a C config boundary and passes debug, tidy, ASan, and Windows cross build。
+- state: refactor-skipped
+- commands:
+  - red: `just build-debug`
+  - green: `just build-debug`
+  - verification: `just test-debug`, `just format-check`, `just tidy`, `just asan`, `just windows-cross`
+- notes: red は `swbt/daemon/config_file.cpp` を CMake source に追加したが `project(... LANGUAGES C)` のままだったため、C test から `swbt_daemon_config_apply_file` が未解決になった。green では `project(... LANGUAGES C CXX)`、C++17、C / C++ 別 warning、`CXX_CLANG_TIDY`、`clang++` preset、MinGW CXX compiler、C++ source の format 対象を追加した。`swbt_daemon_config_apply_file` 実装は `swbt/daemon/config_file.cpp` に移し、`swbt/daemon/config.h` は `extern "C"` guard を持つ。TOML dependency はまだ追加していない。
+
+Refactor status:
+- decision: refactor-skipped
+- change: C++ build surface を固定するための構造変更であり、green 後の追加整理は行わない。
+- unchanged behavior: optional config file missing の no-op success、既存 env override、hardware approval、diagnostic path、daemon main の起動順序は変更していない。
+- verification: `just build-debug`, `just test-debug`, `just format-check`, `just tidy`, `just asan`, `just windows-cross`
+- notes: C++ 導入範囲は `swbt/daemon/config_file.cpp` に閉じている。C++ 型、例外、STL container は `swbt/daemon/config.h` に公開していない。
 
 ## 11. 実機実行条件
 
@@ -146,7 +202,7 @@ not applicable。
 - [x] source を user request、`local_045`、`local_065`、`local_072`、`docs/status.md` から特定した。
 - [x] use case を config file base + environment override として定義した。
 - [ ] config file format と unknown key policy を決めた。
-- [ ] red test または characterization test を追加した。
+- [x] red test または characterization test を追加した。
 - [ ] config file layer を実装した。
 - [ ] environment override precedence を test で固定した。
 - [ ] hardware safety gate が永続設定で緩まないことを確認した。

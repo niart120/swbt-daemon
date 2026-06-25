@@ -28,7 +28,7 @@ endif()
 project(swbt_daemon
     VERSION 0.1.0
     DESCRIPTION "Nintendo Switch Bluetooth controller daemon built on BTstack"
-    LANGUAGES C
+    LANGUAGES C CXX
 )
 
 option(SWBT_BUILD_TESTS "Build unit tests" ON)
@@ -43,6 +43,9 @@ set(SWBT_REPORT_PERIOD_US "8000" CACHE STRING "Default HID report period")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(cmake/compiler_warnings.cmake)
@@ -181,6 +184,7 @@ swbt_apply_sanitizers(swbt_btstack_adapter)
 
 add_library(swbt_daemon_host STATIC
     swbt/daemon/config.c
+    swbt/daemon/config_file.cpp
     swbt/daemon/ipc_runner.c
     swbt/daemon/production_backend.c
     swbt/daemon/host.c
@@ -563,6 +567,15 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(daemon_host_test)
 
     add_test(NAME daemon_host_test COMMAND daemon_host_test)
+
+    add_executable(daemon_config_file_test
+        tests/daemon_config_file_test.c
+    )
+    target_link_libraries(daemon_config_file_test PRIVATE swbt_daemon_host)
+    swbt_apply_common_warnings(daemon_config_file_test)
+    swbt_apply_sanitizers(daemon_config_file_test)
+
+    add_test(NAME daemon_config_file_test COMMAND daemon_config_file_test)
 
     add_executable(architecture_journey_test
         tests/architecture_journey_test.c
