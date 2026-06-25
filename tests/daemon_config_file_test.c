@@ -1,6 +1,7 @@
 #include "daemon/config.h"
 
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 static int expect_eq_int(int actual, int expected, const char *label) {
@@ -18,6 +19,20 @@ static int expect_eq_u32(uint32_t actual, uint32_t expected, const char *label) 
     return actual == expected ? 0 : 1;
 }
 
+static int expect_default_runtime_config(const swbt_daemon_config_t *config) {
+    int failed = 0;
+    failed += expect_eq_u32(config->report_period_us, SWBT_DAEMON_DEFAULT_REPORT_PERIOD_US,
+                            "report period");
+    failed +=
+        config->ipc_host != NULL && strcmp(config->ipc_host, SWBT_DAEMON_DEFAULT_IPC_HOST) == 0 ? 0
+                                                                                                : 1;
+    failed += expect_eq_u16(config->ipc_port, SWBT_DAEMON_DEFAULT_IPC_PORT, "ipc port");
+    failed += expect_eq_int(config->ipc_backlog, SWBT_DAEMON_DEFAULT_IPC_BACKLOG, "ipc backlog");
+    failed += expect_eq_u32(config->ipc_heartbeat_timeout_ms,
+                            SWBT_DAEMON_DEFAULT_IPC_HEARTBEAT_TIMEOUT_MS, "heartbeat timeout");
+    return failed;
+}
+
 static int missing_optional_config_file_keeps_defaults(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     const swbt_daemon_config_file_source_t source = {
@@ -28,20 +43,38 @@ static int missing_optional_config_file_keeps_defaults(void) {
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_config_apply_file(&config, &source),
                             SWBT_DAEMON_CONFIG_FILE_OK, "apply file");
-    failed += expect_eq_u32(config.report_period_us, SWBT_DAEMON_DEFAULT_REPORT_PERIOD_US,
-                            "report period");
-    failed += config.ipc_host != NULL && strcmp(config.ipc_host, SWBT_DAEMON_DEFAULT_IPC_HOST) == 0
-                  ? 0
-                  : 1;
-    failed += expect_eq_u16(config.ipc_port, SWBT_DAEMON_DEFAULT_IPC_PORT, "ipc port");
-    failed += expect_eq_int(config.ipc_backlog, SWBT_DAEMON_DEFAULT_IPC_BACKLOG, "ipc backlog");
-    failed += expect_eq_u32(config.ipc_heartbeat_timeout_ms,
-                            SWBT_DAEMON_DEFAULT_IPC_HEARTBEAT_TIMEOUT_MS, "heartbeat timeout");
+    failed += expect_default_runtime_config(&config);
+    return failed;
+}
+
+static int empty_toml_config_file_keeps_defaults(void) {
+    const char *path = "daemon-config-empty.toml";
+    FILE *file = fopen(path, "wb");
+    if (file == NULL) {
+        return 1;
+    }
+    if (fclose(file) != 0) {
+        (void)remove(path);
+        return 1;
+    }
+
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    const swbt_daemon_config_file_source_t source = {
+        .path = path,
+        .required = true,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_config_apply_file(&config, &source),
+                            SWBT_DAEMON_CONFIG_FILE_OK, "apply file");
+    failed += expect_default_runtime_config(&config);
+    failed += remove(path) == 0 ? 0 : 1;
     return failed;
 }
 
 int main(void) {
     int failed = 0;
     failed += missing_optional_config_file_keeps_defaults();
+    failed += empty_toml_config_file_keeps_defaults();
     return failed == 0 ? 0 : 1;
 }

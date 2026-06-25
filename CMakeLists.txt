@@ -53,6 +53,21 @@ include(cmake/sanitizers.cmake)
 include(cmake/btstack_sources.cmake)
 include(cmake/module_public_includes.cmake)
 
+set(SWBT_TOML11_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/toml11" CACHE PATH "toml11 source directory")
+if(EXISTS "${SWBT_TOML11_DIR}/LICENSE")
+    message(STATUS "toml11 source: ${SWBT_TOML11_DIR}")
+else()
+    message(WARNING "toml11 submodule not found at ${SWBT_TOML11_DIR}. Run: git submodule update --init --recursive")
+endif()
+
+add_library(swbt_toml11 INTERFACE)
+target_include_directories(swbt_toml11
+    SYSTEM
+    INTERFACE
+        "${SWBT_TOML11_DIR}/include"
+)
+target_compile_features(swbt_toml11 INTERFACE cxx_std_17)
+
 set(SWBT_BTSTACK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/btstack" CACHE PATH "BTstack source directory")
 if(EXISTS "${SWBT_BTSTACK_DIR}/LICENSE")
     message(STATUS "BTstack source: ${SWBT_BTSTACK_DIR}")
@@ -190,7 +205,15 @@ add_library(swbt_daemon_host STATIC
     swbt/daemon/host.c
 )
 swbt_configure_module_public_includes(swbt_daemon_host MODULES daemon)
-target_link_libraries(swbt_daemon_host PUBLIC swbt_ipc swbt_btstack_adapter swbt_application swbt_support)
+target_link_libraries(swbt_daemon_host
+    PUBLIC
+        swbt_ipc
+        swbt_btstack_adapter
+        swbt_application
+        swbt_support
+    PRIVATE
+        swbt_toml11
+)
 swbt_apply_common_warnings(swbt_daemon_host)
 swbt_apply_sanitizers(swbt_daemon_host)
 

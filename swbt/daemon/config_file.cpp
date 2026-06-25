@@ -2,6 +2,9 @@
 
 #include <cerrno>
 #include <cstdio>
+#include <exception>
+
+#include <toml.hpp>
 
 extern "C" swbt_daemon_config_file_result_t
 swbt_daemon_config_apply_file(swbt_daemon_config_t *config,
@@ -25,5 +28,13 @@ swbt_daemon_config_apply_file(swbt_daemon_config_t *config,
         return SWBT_DAEMON_CONFIG_FILE_ERROR_IO;
     }
     (void)std::fclose(file);
-    return SWBT_DAEMON_CONFIG_FILE_ERROR_PARSE;
+
+    try {
+        const auto parsed = toml::parse(source->path, toml::spec::v(1, 0, 0));
+        (void)parsed;
+    } catch (const std::exception &) {
+        return SWBT_DAEMON_CONFIG_FILE_ERROR_PARSE;
+    }
+
+    return SWBT_DAEMON_CONFIG_FILE_OK;
 }
