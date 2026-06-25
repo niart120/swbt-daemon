@@ -1127,12 +1127,12 @@ static int report_period_and_ipc_config_are_exposed(void) {
     swbt_daemon_ipc_runner_config_t ipc_config;
 
     config.report_period_us = 8333u;
-    config.ipc_host = "127.0.0.1";
     config.ipc_port = 34567u;
     config.ipc_backlog = 2;
     config.ipc_heartbeat_timeout_ms = 1234u;
 
     int failed = 0;
+    failed += expect_true(swbt_daemon_config_set_ipc_host(&config, "127.0.0.1"), "ipc host set");
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     ipc_config = swbt_daemon_production_backend_ipc_config(&backend);

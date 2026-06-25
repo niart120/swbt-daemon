@@ -16,10 +16,11 @@ extern "C" {
 #define SWBT_DAEMON_DEFAULT_IPC_BACKLOG 1
 #define SWBT_DAEMON_DEFAULT_IPC_HEARTBEAT_TIMEOUT_MS 0u
 #define SWBT_DAEMON_DEFAULT_REPORT_PERIOD_US 8000u
+#define SWBT_DAEMON_CONFIG_IPC_HOST_SIZE 16u
 
 typedef struct {
     uint32_t report_period_us;
-    const char *ipc_host;
+    char ipc_host[SWBT_DAEMON_CONFIG_IPC_HOST_SIZE];
     uint16_t ipc_port;
     int ipc_backlog;
     uint32_t ipc_heartbeat_timeout_ms;
@@ -50,6 +51,8 @@ typedef struct {
 } swbt_daemon_config_file_source_t;
 
 swbt_daemon_config_t swbt_daemon_config_default(void);
+
+bool swbt_daemon_config_set_ipc_host(swbt_daemon_config_t *config, const char *host);
 
 swbt_daemon_config_file_result_t
 swbt_daemon_config_apply_file(swbt_daemon_config_t *config,

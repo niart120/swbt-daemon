@@ -86,6 +86,18 @@ static bool swbt_toml_apply_device_profile(const toml::value *table, swbt_daemon
     return swbt_daemon_config_apply_device_info_profile(config, profile_name.c_str());
 }
 
+static bool swbt_toml_apply_ipc_host(const toml::value *table, swbt_daemon_config_t *config) {
+    if (table == nullptr || !table->contains("host")) {
+        return true;
+    }
+    const toml::value &host = table->at("host");
+    if (!host.is_string()) {
+        return false;
+    }
+    const std::string &host_name = host.as_string();
+    return swbt_daemon_config_set_ipc_host(config, host_name.c_str());
+}
+
 static swbt_daemon_config_file_result_t swbt_daemon_config_apply_toml(swbt_daemon_config_t *config,
                                                                       const toml::value &parsed) {
     const toml::value *report = nullptr;
@@ -103,6 +115,9 @@ static swbt_daemon_config_file_result_t swbt_daemon_config_apply_toml(swbt_daemo
         return SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_VALUE;
     }
     if (!swbt_toml_apply_u16(ipc, "port", &next.ipc_port)) {
+        return SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_VALUE;
+    }
+    if (!swbt_toml_apply_ipc_host(ipc, &next)) {
         return SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_VALUE;
     }
     if (!swbt_toml_apply_int(ipc, "backlog", &next.ipc_backlog)) {

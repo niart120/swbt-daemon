@@ -133,7 +133,7 @@ not applicable。
 |---|---|---|---|---|
 | refactor-skipped | missing config file uses built-in daemon defaults and preserves current no-op startup behavior | regression | unit | no |
 | refactor-skipped | valid config file scalar values are applied before environment overrides | new | unit | no |
-| todo | config file `ipc.host` can be applied without dangling pointer ownership | new | unit | no |
+| refactor-skipped | config file `ipc.host` can be applied without dangling pointer ownership | new | unit | no |
 | todo | environment override wins over config file for the same runtime key | new | unit | no |
 | todo | invalid config file value fails without partially mutating existing daemon config | edge | unit | no |
 | todo | invalid environment override still fails after a valid config file without partially mutating existing daemon config | edge | unit | no |
@@ -224,6 +224,23 @@ Refactor status:
 - unchanged behavior: optional missing file、empty TOML file、既存 env override、daemon main の起動順序は変更していない。
 - verification: `just build-debug`, `just test-debug`
 - notes: test helper は失敗時に label と actual / expected を stderr へ出すようにした。これは red 原因の確認と今後の regression 診断に効くが、daemon runtime behavior は変えない。
+
+TDD status:
+- source: `ipc.host` は TOML の string value であり、parse tree や temporary string への pointer を `swbt_daemon_config_t` に残すと、config copy や後続 apply で dangling / aliasing を起こし得る。
+- use case: TOML file に指定した `ipc.host` が config に反映され、`swbt_daemon_config_t` を copy した後に元 config へ別の host を適用しても、copy 側の host 値は変わらない。
+- item: config file `ipc.host` can be applied without dangling pointer ownership。
+- state: refactor-skipped
+- commands:
+  - red: `just build-debug`; `just test-debug`
+  - green: `just build-debug`; `just test-debug`
+- notes: red は TOML `ipc.host` を適用しても default `127.0.0.1` のままで `daemon_config_file_test` だけ失敗した。green では `swbt_daemon_config_t` の `ipc_host` を owned char array にし、`swbt_daemon_config_set_ipc_host()` で env / TOML の両方を copy する。array copy により `swbt_daemon_config_t copied = config` 後も host 値は独立する。host 長は既存 `SWBT_DAEMON_IPC_ENDPOINT_HOST_SIZE` と同じ 16 byte に揃えた。
+
+Refactor status:
+- decision: refactor-skipped
+- change: `ipc.host` ownership は behavior change 本体であり、green 後に追加の構造変更は行わない。
+- unchanged behavior: default host、env override の空文字 no-op、IPC runner の host pointer surface、TOML scalar apply 済みの数値 key は維持する。
+- verification: `just build-debug`, `just test-debug`
+- notes: 既存 test の直接 pointer assignment は `swbt_daemon_config_set_ipc_host()` 経由に置き換えた。
 
 ## 11. 実機実行条件
 
