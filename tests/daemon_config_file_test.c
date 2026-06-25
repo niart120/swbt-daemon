@@ -263,6 +263,37 @@ static int active_reconnect_learned_address_is_effective_without_explicit(void) 
     return failed;
 }
 
+static int invalid_active_reconnect_address_rejects_and_preserves_config(void) {
+    const char *path = "daemon-config-invalid-active-reconnect-address.toml";
+    FILE *file = fopen(path, "wb");
+    if (file == NULL) {
+        return 1;
+    }
+    if (fputs("[report]\n"
+              "period_us = 16667\n"
+              "\n"
+              "[active_reconnect]\n"
+              "switch_address = \"not-an-address\"\n",
+              file) < 0 ||
+        fclose(file) != 0) {
+        (void)remove(path);
+        return 1;
+    }
+
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    const swbt_daemon_config_file_source_t source = {
+        .path = path,
+        .required = true,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_config_apply_file(&config, &source),
+                            SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_VALUE, "apply file");
+    failed += expect_default_runtime_config(&config);
+    failed += remove(path) == 0 ? 0 : 1;
+    return failed;
+}
+
 static int unknown_toml_config_key_rejects_and_preserves_config(void) {
     const char *path = "daemon-config-unknown-key.toml";
     FILE *file = fopen(path, "wb");
@@ -428,6 +459,7 @@ int main(void) {
     failed += ipc_host_from_toml_config_is_owned_by_config_value();
     failed += active_reconnect_addresses_from_toml_are_stored_separately();
     failed += active_reconnect_learned_address_is_effective_without_explicit();
+    failed += invalid_active_reconnect_address_rejects_and_preserves_config();
     failed += unknown_toml_config_key_rejects_and_preserves_config();
     failed += env_override_wins_over_config_file_value();
     failed += invalid_toml_config_value_rejects_and_preserves_config();

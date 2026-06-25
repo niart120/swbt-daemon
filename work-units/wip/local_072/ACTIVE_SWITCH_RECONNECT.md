@@ -119,7 +119,7 @@ source から use case への変換:
 | refactor-done | daemon config/state can represent explicit and learned Switch Bluetooth addresses from TOML without raw link key storage | new | unit | no |
 | todo | production adapter exposes an active reconnect request boundary for HID control PSM `0x11` and interrupt PSM `0x13` | new | unit/integration | no |
 | todo | learned Switch address is captured from a successful pairing / connection path and persisted through the config layer without overwriting explicit address | new | integration | no |
-| todo | invalid active reconnect Switch address in TOML is rejected without partially mutating config | edge | unit | no |
+| refactor-skipped | invalid active reconnect Switch address in TOML is rejected without partially mutating config | edge | unit | no |
 | todo | active reconnect failure paths report unavailable / failed states without breaking incoming pairing path | edge | integration | no |
 | todo | active reconnect hardware preflight defines initial address capture, daemon restart, active reconnect, optional Switch-side reconnect operation, and Button A smoke | characterization | docs | yes |
 | todo | daemon restart active reconnect reaches L2CAP open and Button A smoke without Change Grip / Order re-pairing, or records the exact unsupported boundary | characterization | hardware | yes |
@@ -158,6 +158,22 @@ Refactor status:
 - unchanged behavior: 既存 `report`、`ipc`、`device` TOML key、unknown key reject、environment override precedence、daemon main の起動順序は変更しない。
 - verification: `just build-debug`, `just test-debug`
 - notes: address の自動取得、同一 TOML file への learned address 書き戻し、invalid address rollback は後続 item に残す。
+
+TDD status:
+- source: Switch address は設定ファイル layer に永続化するが、typo や不正形式を有効な reconnect target として保存してはならない。
+- use case: TOML file に有効な runtime key と不正な `[active_reconnect] switch_address` が混在する場合、`SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_VALUE` で失敗し、既存 config を部分更新しない。
+- item: invalid active reconnect Switch address in TOML is rejected without partially mutating config。
+- state: refactor-skipped
+- commands:
+  - characterization: `just build-debug`; `just test-debug`; `just format`
+- notes: 追加 test は現行実装で通った。address validation は前 item の setter に閉じており、config file apply は `next = *config` へ適用してから成功時だけ commit するため、先行する `report.period_us` も部分反映されない。実機は不要。
+
+Refactor status:
+- decision: refactor-skipped
+- change: test だけを追加した。production code は変更しない。
+- unchanged behavior: active reconnect address の正常 TOML 読み取り、explicit 優先、learned fallback、既存 runtime config は維持する。
+- verification: `just build-debug`, `just test-debug`
+- notes: invalid learned address の個別 test は未追加。次に書き戻し境界を扱うとき、learned 側の rollback を追加で固定する余地がある。
 ## 11. 実機実行条件
 
 実機が必要である。ただし起票時点では実行しない。
