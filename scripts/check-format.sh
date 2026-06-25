@@ -12,7 +12,7 @@ fi
 set --
 for path in $(git ls-files --cached --others --exclude-standard -- api apps swbt tests); do
     case "$path" in
-        *.c | *.h)
+        *.c | *.cc | *.cpp | *.cxx | *.h | *.hh | *.hpp | *.hxx)
             set -- "$@" "$path"
             ;;
     esac

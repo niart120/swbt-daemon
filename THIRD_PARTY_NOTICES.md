@@ -36,3 +36,26 @@ Upstream:
 ```text
 https://github.com/bluekitchen/btstack
 ```
+
+## toml11
+
+toml11 is expected to be checked out as a Git submodule at:
+
+```text
+vendor/toml11
+```
+
+This project pins toml11 at tag `v4.4.0` for daemon configuration file
+parsing and serialization work. toml11 is distributed under the MIT License.
+
+Keep this file available with source and binary distributions:
+
+```text
+vendor/toml11/LICENSE
+```
+
+Upstream:
+
+```text
+https://github.com/ToruNiina/toml11
+```

@@ -166,7 +166,7 @@ _tidy-in-container: _prepare-workspace-in-container
     cmake --build --preset linux-clang-tidy
 
 _asan-in-container: _prepare-workspace-in-container
-    cmake --fresh --preset linux-asan -DCMAKE_C_COMPILER=clang
+    cmake --fresh --preset linux-asan -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
     cmake --build --preset linux-asan
     ctest --preset linux-asan --output-on-failure ${CTEST_ARGS:-}
 

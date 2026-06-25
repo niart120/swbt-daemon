@@ -17,6 +17,7 @@
 | report period comparison | `8000 / 8333 / 15000 / 16667 us` は画面遷移までの粗い受理確認を通過した。 | `docs/hardware-test-log.md`, `spec/references/btstack-periodic-input-report-core.md` |
 | neutral fail-safe | owner disconnect、heartbeat timeout、shutdown で neutral report へ戻ることを観測した。architecture cutover 後の H1 でも owner disconnect neutral と shutdown trailing neutral を確認した。shutdown neutral pending 後の `CAN_SEND_NOW` 再送失敗は software fake で power-off と run-loop exit まで確認した。 | `docs/hardware-test-log.md`, `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md`, `work-units/complete/local_057/ARCHITECTURE_CUTOVER_H1.md`, `work-units/complete/local_058/SHUTDOWN_NEUTRAL_RETRY_FAILURE.md` |
 | 環境変数依存の限定 smoke | `local_045` 完了後の `8000us` Button A + release smoke は同じ構成で pass。 | `docs/hardware-test-log.md`, `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md` |
+| 設定ファイル入力境界 | `swbt_daemon_config_apply_file()` は TOML v1.0 の `report.period_us`、`ipc.host`、`ipc.port`、`ipc.backlog`、`ipc.heartbeat_timeout_ms`、`device.profile` を受け付ける。未知 key と不正値は失敗し、既存 config を部分更新しない。設定ファイル適用後に `swbt_daemon_config_apply_env()` を呼ぶと環境変数が override する。 | `swbt/daemon/config.h`, `swbt/daemon/config_file.cpp`, `tests/daemon_config_file_test.c`, `work-units/complete/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md` |
 | architecture cutover | daemon logical state は `swbt_app_t`、lifecycle / cleanup は `swbt_daemon_host_t`、production BTstack 操作は能力別 port group を持つ `swbt_btstack_production_adapter_t` を経由する。旧 session、mailbox、runtime、production backend ops、`swbt_core` は source / tests / build graph から削除済み。H1 は dedicated adapter で pass。shutdown pending failure cleanup は `local_058` で固定済み。 | `spec/architecture/daemon-architecture-cutover.md`, `work-units/complete/local_056/ARCHITECTURE_CUTOVER.md`, `work-units/complete/local_057/ARCHITECTURE_CUTOVER_H1.md`, `work-units/complete/local_058/SHUTDOWN_NEUTRAL_RETRY_FAILURE.md`, `work-units/complete/local_061/PRODUCTION_ADAPTER_TABLE_DECOMPOSITION.md`, `CMakeLists.txt` |
 | bonded reconnect boundary | `local_065` で TLV-backed link key DB 経路を実装して実機確認したが、Switch2 `22.1.0` は bonding を要求せず、HCI dump は `Remote not bonding, dropping local flag` を記録した。daemon restart と Switch sleep / resume では L2CAP open と Button A smoke は成立したが、どちらも再接続時に `pairing complete, status 00` が出たため、既存 bond reconnect ではなく再 pairing と扱う。この経路は現行 tree から削除済みである。 | `docs/hardware-test-log.md`, `work-units/complete/local_065/BONDED_RECONNECT_PERSISTENCE.md`, `spec/archive/bond-cache-persistence.md` |
 
@@ -28,6 +29,7 @@
 | 他のUSBドングル | CSR8510 A10 以外の Bluetooth ドングルでの WinUSB / libusb 挙動。 | VID/PID、driver、BTstack backend、HCI dump を含む実機ログ。 |
 | Linux実機経路 | Linux + libusb backend での adapter open、pairing、HID report loop。 | Linux host、libusb device、udev / permission、HCI dump を含む実機ログ。 |
 | active reconnect | Switch address を既知状態として扱い、daemon 側から HID control PSM `0x11` / interrupt PSM `0x13` を開きに行く joycontrol `-r` 型の reconnect は未実装。 | `work-units/wip/local_072/ACTIVE_SWITCH_RECONNECT.md`、BTstack outbound L2CAP API の根拠監査、Switch address の取得 / 保存境界、実機ログ。 |
+| daemon 起動時の config path | daemon process がどの設定ファイル path を読むか、また CLI で明示 path をどう渡すかは未確定。 | `work-units/wip/local_073/DAEMON_CLI_LAUNCH_MODE.md`、後続の設定ファイル運用 spec。 |
 | 厳密な遅延・jitter・取りこぼし率 | input report の実送信周期、Switch 側入力遅延、取りこぼし率。 | timestamp 付き計測、サンプル数、解析方法、測定誤差の記録。 |
 
 ## 未実装
@@ -44,6 +46,8 @@
 ## production 起動条件
 
 `apps/swbt-daemon/main.c` は `SWBT_DAEMON_BACKEND=production` のときだけ production backend を選ぶ。production backend は `SWBT_RUN_HARDWARE=1` と `SWBT_HARDWARE_APPROVED=1` がそろわない場合、実機経路を開始しない。
+
+runtime config の reusable boundary は `default -> TOML config file -> environment override` の優先順位で test されている。ただし現行 `apps/swbt-daemon/main.c` はまだ設定ファイル path を収集しない。CLI parser、`--config` 相当の明示 path、production / noop 起動モードの反転は `local_073` で扱う。
 
 | 区分 | 環境変数 | 値 | 備考 |
 |---|---|---|---|

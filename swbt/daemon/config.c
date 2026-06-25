@@ -4,6 +4,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+bool swbt_daemon_config_set_ipc_host(swbt_daemon_config_t *config, const char *host) {
+    size_t index = 0;
+
+    if (config == NULL || host == NULL || host[0] == '\0') {
+        return false;
+    }
+    for (; index + 1u < SWBT_DAEMON_CONFIG_IPC_HOST_SIZE && host[index] != '\0'; ++index) {
+        config->ipc_host[index] = host[index];
+    }
+    config->ipc_host[index] = '\0';
+    return host[index] == '\0';
+}
+
 static bool swbt_daemon_parse_u32(const char *value, uint32_t *out_value) {
     char *end = NULL;
     unsigned long parsed;
@@ -67,8 +80,9 @@ bool swbt_daemon_config_apply_env(swbt_daemon_config_t *config,
         !swbt_daemon_parse_u32(env->report_period_us, &next.report_period_us)) {
         return false;
     }
-    if (env->ipc_host != NULL && env->ipc_host[0] != '\0') {
-        next.ipc_host = env->ipc_host;
+    if (env->ipc_host != NULL && env->ipc_host[0] != '\0' &&
+        !swbt_daemon_config_set_ipc_host(&next, env->ipc_host)) {
+        return false;
     }
     if (env->ipc_port != NULL && !swbt_daemon_parse_u16(env->ipc_port, &next.ipc_port)) {
         return false;

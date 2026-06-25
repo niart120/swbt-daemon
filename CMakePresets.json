@@ -29,6 +29,7 @@
       "binaryDir": "${sourceDir}/build/linux-clang-tidy",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
         "SWBT_ENABLE_CLANG_TIDY": "ON"
       }
     },

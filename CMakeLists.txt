@@ -28,7 +28,7 @@ endif()
 project(swbt_daemon
     VERSION 0.1.0
     DESCRIPTION "Nintendo Switch Bluetooth controller daemon built on BTstack"
-    LANGUAGES C
+    LANGUAGES C CXX
 )
 
 option(SWBT_BUILD_TESTS "Build unit tests" ON)
@@ -43,12 +43,30 @@ set(SWBT_REPORT_PERIOD_US "8000" CACHE STRING "Default HID report period")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(cmake/compiler_warnings.cmake)
 include(cmake/sanitizers.cmake)
 include(cmake/btstack_sources.cmake)
 include(cmake/module_public_includes.cmake)
+
+set(SWBT_TOML11_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/toml11" CACHE PATH "toml11 source directory")
+if(EXISTS "${SWBT_TOML11_DIR}/LICENSE")
+    message(STATUS "toml11 source: ${SWBT_TOML11_DIR}")
+else()
+    message(WARNING "toml11 submodule not found at ${SWBT_TOML11_DIR}. Run: git submodule update --init --recursive")
+endif()
+
+add_library(swbt_toml11 INTERFACE)
+target_include_directories(swbt_toml11
+    SYSTEM
+    INTERFACE
+        "${SWBT_TOML11_DIR}/include"
+)
+target_compile_features(swbt_toml11 INTERFACE cxx_std_17)
 
 set(SWBT_BTSTACK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/btstack" CACHE PATH "BTstack source directory")
 if(EXISTS "${SWBT_BTSTACK_DIR}/LICENSE")
@@ -181,12 +199,21 @@ swbt_apply_sanitizers(swbt_btstack_adapter)
 
 add_library(swbt_daemon_host STATIC
     swbt/daemon/config.c
+    swbt/daemon/config_file.cpp
     swbt/daemon/ipc_runner.c
     swbt/daemon/production_backend.c
     swbt/daemon/host.c
 )
 swbt_configure_module_public_includes(swbt_daemon_host MODULES daemon)
-target_link_libraries(swbt_daemon_host PUBLIC swbt_ipc swbt_btstack_adapter swbt_application swbt_support)
+target_link_libraries(swbt_daemon_host
+    PUBLIC
+        swbt_ipc
+        swbt_btstack_adapter
+        swbt_application
+        swbt_support
+    PRIVATE
+        swbt_toml11
+)
 swbt_apply_common_warnings(swbt_daemon_host)
 swbt_apply_sanitizers(swbt_daemon_host)
 
@@ -563,6 +590,15 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(daemon_host_test)
 
     add_test(NAME daemon_host_test COMMAND daemon_host_test)
+
+    add_executable(daemon_config_file_test
+        tests/daemon_config_file_test.c
+    )
+    target_link_libraries(daemon_config_file_test PRIVATE swbt_daemon_host)
+    swbt_apply_common_warnings(daemon_config_file_test)
+    swbt_apply_sanitizers(daemon_config_file_test)
+
+    add_test(NAME daemon_config_file_test COMMAND daemon_config_file_test)
 
     add_executable(architecture_journey_test
         tests/architecture_journey_test.c
