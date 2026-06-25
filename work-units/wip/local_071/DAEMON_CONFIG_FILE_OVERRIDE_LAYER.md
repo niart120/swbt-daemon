@@ -134,7 +134,7 @@ not applicable。
 | refactor-skipped | missing config file uses built-in daemon defaults and preserves current no-op startup behavior | regression | unit | no |
 | refactor-skipped | valid config file scalar values are applied before environment overrides | new | unit | no |
 | refactor-skipped | config file `ipc.host` can be applied without dangling pointer ownership | new | unit | no |
-| todo | environment override wins over config file for the same runtime key | new | unit | no |
+| refactor-skipped | environment override wins over config file for the same runtime key | new | unit | no |
 | todo | invalid config file value fails without partially mutating existing daemon config | edge | unit | no |
 | todo | invalid environment override still fails after a valid config file without partially mutating existing daemon config | edge | unit | no |
 | refactor-skipped | unknown config file key is rejected before applying any config file value | edge | unit | no |
@@ -258,6 +258,22 @@ Refactor status:
 - unchanged behavior: missing optional file、empty TOML、known scalar value apply、`ipc.host` ownership、env override は維持する。
 - verification: `just build-debug`, `just test-debug`
 - notes: unknown key policy は reject で固定した。将来 active reconnect key を追加する場合は、この allowlist と Test List を更新する。
+
+TDD status:
+- source: 設定ファイルは基本値であり、環境変数は一時 override として最後に適用する。
+- use case: TOML file と環境変数が同じ runtime key を指定した場合、最終 daemon config は環境変数側の値を採用する。
+- item: environment override wins over config file for the same runtime key。
+- state: refactor-skipped
+- commands:
+  - characterization: `just build-debug`; `just test-debug`
+- notes: 追加 test は現行実装で通った。`swbt_daemon_config_apply_file()` で設定ファイル値を入れた後、`swbt_daemon_config_apply_env()` を呼ぶ順序で `report.period_us`、`ipc.host`、`ipc.port`、`ipc.backlog`、`ipc.heartbeat_timeout_ms` が環境変数値に置き換わる。
+
+Refactor status:
+- decision: refactor-skipped
+- change: test だけを追加した。合成順序は既存 public boundary の `apply_file -> apply_env` で表現できるため、新しい helper は追加しない。
+- unchanged behavior: 設定ファイル単独の適用、unknown key reject、env validation の rollback は維持する。
+- verification: `just build-debug`, `just test-debug`
+- notes: CLI 起動時引数や config path discovery はこの cycle に混ぜない。
 
 ## 11. 実機実行条件
 

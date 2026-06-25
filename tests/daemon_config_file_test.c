@@ -202,6 +202,53 @@ static int unknown_toml_config_key_rejects_and_preserves_config(void) {
     return failed;
 }
 
+static int env_override_wins_over_config_file_value(void) {
+    const char *path = "daemon-config-env-override.toml";
+    FILE *file = fopen(path, "wb");
+    if (file == NULL) {
+        return 1;
+    }
+    if (fputs("[report]\n"
+              "period_us = 16667\n"
+              "\n"
+              "[ipc]\n"
+              "host = \"0.0.0.0\"\n"
+              "port = 37637\n"
+              "backlog = 4\n"
+              "heartbeat_timeout_ms = 2500\n",
+              file) < 0 ||
+        fclose(file) != 0) {
+        (void)remove(path);
+        return 1;
+    }
+
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    const swbt_daemon_config_file_source_t source = {
+        .path = path,
+        .required = true,
+    };
+    const swbt_daemon_config_env_t env = {
+        .report_period_us = "3333",
+        .ipc_host = "127.0.0.1",
+        .ipc_port = "44123",
+        .ipc_backlog = "8",
+        .ipc_heartbeat_timeout_ms = "1250",
+        .device_info_profile = NULL,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_config_apply_file(&config, &source),
+                            SWBT_DAEMON_CONFIG_FILE_OK, "apply file");
+    failed += expect_eq_int(swbt_daemon_config_apply_env(&config, &env), true, "apply env");
+    failed += expect_eq_u32(config.report_period_us, 3333u, "report period");
+    failed += expect_str_eq(config.ipc_host, "127.0.0.1", "ipc host");
+    failed += expect_eq_u16(config.ipc_port, 44123u, "ipc port");
+    failed += expect_eq_int(config.ipc_backlog, 8, "ipc backlog");
+    failed += expect_eq_u32(config.ipc_heartbeat_timeout_ms, 1250u, "heartbeat timeout");
+    failed += remove(path) == 0 ? 0 : 1;
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += missing_optional_config_file_keeps_defaults();
@@ -209,5 +256,6 @@ int main(void) {
     failed += valid_toml_config_file_applies_runtime_values();
     failed += ipc_host_from_toml_config_is_owned_by_config_value();
     failed += unknown_toml_config_key_rejects_and_preserves_config();
+    failed += env_override_wins_over_config_file_value();
     return failed == 0 ? 0 : 1;
 }
