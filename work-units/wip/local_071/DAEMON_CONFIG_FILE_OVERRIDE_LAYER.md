@@ -132,7 +132,8 @@ not applicable。
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | refactor-skipped | missing config file uses built-in daemon defaults and preserves current no-op startup behavior | regression | unit | no |
-| todo | valid config file values are applied before environment overrides | new | unit | no |
+| refactor-skipped | valid config file scalar values are applied before environment overrides | new | unit | no |
+| todo | config file `ipc.host` can be applied without dangling pointer ownership | new | unit | no |
 | todo | environment override wins over config file for the same runtime key | new | unit | no |
 | todo | invalid config file value fails without partially mutating existing daemon config | edge | unit | no |
 | todo | invalid environment override still fails after a valid config file without partially mutating existing daemon config | edge | unit | no |
@@ -206,6 +207,23 @@ Refactor status:
 - unchanged behavior: optional missing file の no-op success、env override、hardware approval、diagnostic path、daemon main の起動順序は変更していない。
 - verification: `just build-debug`, `just test-debug`, `just format-check`, `just tidy`, `just asan`, `just windows-cross`
 - notes: TOML dependency は `swbt/daemon/config_file.cpp` の implementation detail に閉じる。`swbt/daemon/config.h` には TOML 型、STL 型、C++ exception を出さない。
+
+TDD status:
+- source: 設定ファイル schema の初期対象は `report`、`ipc`、`device.profile` であり、backend 起動モード、実機承認、診断出力 path は `local_073` に切り出した。
+- use case: TOML file に指定した `report.period_us`、`ipc.port`、`ipc.backlog`、`ipc.heartbeat_timeout_ms`、`device.profile` が `swbt_daemon_config_t` に反映され、未指定 key は built-in default を維持する。
+- item: valid config file scalar values are applied before environment overrides。
+- state: refactor-skipped
+- commands:
+  - red: `just build-debug`; `$env:CTEST_ARGS='-R daemon_config_file_test'; just test-debug`; `just test-debug`
+  - green: `just build-debug`; `just test-debug`
+- notes: red は valid TOML test を追加し、既存実装が TOML を parse するだけで値を適用しないため `daemon_config_file_test` だけ失敗した。targeted `CTEST_ARGS` 実行は Dev Container 起動前の `docker ps` error になったため、full `just test-debug` で red / green を確認した。green では `report` / `ipc` / `device` table の既知 scalar key だけを型・範囲検証し、一時 `next` config に適用してから commit する。`ipc.host` は `const char *` の所有権を決める必要があるため、別 item に分けた。
+
+Refactor status:
+- decision: refactor-skipped
+- change: 今回の cycle で追加した TOML helper は、known table lookup、integer range validation、device profile application に分かれており、次 item の `ipc.host` ownership を始める前に追加抽象化しない。
+- unchanged behavior: optional missing file、empty TOML file、既存 env override、daemon main の起動順序は変更していない。
+- verification: `just build-debug`, `just test-debug`
+- notes: test helper は失敗時に label と actual / expected を stderr へ出すようにした。これは red 原因の確認と今後の regression 診断に効くが、daemon runtime behavior は変えない。
 
 ## 11. 実機実行条件
 
