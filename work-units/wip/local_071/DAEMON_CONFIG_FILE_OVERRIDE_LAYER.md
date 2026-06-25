@@ -135,7 +135,7 @@ not applicable。
 | refactor-skipped | valid config file scalar values are applied before environment overrides | new | unit | no |
 | refactor-skipped | config file `ipc.host` can be applied without dangling pointer ownership | new | unit | no |
 | refactor-skipped | environment override wins over config file for the same runtime key | new | unit | no |
-| todo | invalid config file value fails without partially mutating existing daemon config | edge | unit | no |
+| refactor-skipped | invalid config file value fails without partially mutating existing daemon config | edge | unit | no |
 | todo | invalid environment override still fails after a valid config file without partially mutating existing daemon config | edge | unit | no |
 | refactor-skipped | unknown config file key is rejected before applying any config file value | edge | unit | no |
 | refactor-skipped | C++ config-file implementation island builds behind a C config boundary and passes debug, tidy, ASan, and Windows cross build | characterization | build/unit | no |
@@ -274,6 +274,22 @@ Refactor status:
 - unchanged behavior: 設定ファイル単独の適用、unknown key reject、env validation の rollback は維持する。
 - verification: `just build-debug`, `just test-debug`
 - notes: CLI 起動時引数や config path discovery はこの cycle に混ぜない。
+
+TDD status:
+- source: 設定ファイルに不正値がある場合、daemon は startup config failure にし、途中まで読めた値を config に反映しない。
+- use case: TOML file に有効な runtime key と不正な `device.profile` が混在する場合、`SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_VALUE` で失敗し、既存 config を維持する。
+- item: invalid config file value fails without partially mutating existing daemon config。
+- state: refactor-skipped
+- commands:
+  - characterization: `just build-debug`; `just test-debug`
+- notes: 追加 test は現行実装で通った。`swbt_daemon_config_apply_file()` は `next = *config` に設定ファイル値を適用し、すべての validation が成功した場合だけ `*config = next` で commit する。
+
+Refactor status:
+- decision: refactor-skipped
+- change: test だけを追加した。rollback 用の新しい abstraction は追加しない。
+- unchanged behavior: valid TOML、unknown key reject、env override precedence は維持する。
+- verification: `just build-debug`, `just test-debug`
+- notes: 不正値として `device.profile = "unknown"` を使い、先行する `report` / `ipc` 値が部分適用されないことを確認した。
 
 ## 11. 実機実行条件
 
