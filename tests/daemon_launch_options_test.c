@@ -72,6 +72,49 @@ static int config_path_equals_argument_is_accepted(void) {
     return failed;
 }
 
+static int experimental_link_key_db_path_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--experimental-link-key-db", "tmp/swbt-bond.tlv"};
+    swbt_daemon_launch_options_t options = {0};
+    swbt_daemon_launch_config_t launch_config = {0};
+    const swbt_daemon_config_env_t env = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 3, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed += expect_str_eq(options.experimental_link_key_db_path, "tmp/swbt-bond.tlv",
+                            "link key db path");
+    failed +=
+        expect_true(swbt_daemon_launch_config_prepare(&launch_config, &options, &env), "prepare");
+    failed +=
+        expect_true(launch_config.experimental_link_key_db_configured, "link key db configured");
+    failed += expect_str_eq(launch_config.experimental_link_key_db_path, "tmp/swbt-bond.tlv",
+                            "launch config link key db path");
+    return failed;
+}
+
+static int experimental_link_key_db_equals_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--experimental-link-key-db=tmp/swbt-bond.tlv"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 2, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed += expect_str_eq(options.experimental_link_key_db_path, "tmp/swbt-bond.tlv",
+                            "link key db path");
+    return failed;
+}
+
+static int missing_experimental_link_key_db_path_is_rejected(void) {
+    const char *argv[] = {"swbt-daemon", "--experimental-link-key-db"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 2, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE, "parse");
+    failed += expect_null(options.experimental_link_key_db_path, "link key db path");
+    return failed;
+}
+
 static int missing_config_path_is_rejected(void) {
     const char *argv[] = {"swbt-daemon", "--config"};
     swbt_daemon_launch_options_t options = {0};
@@ -102,6 +145,7 @@ static int no_options_keeps_config_path_unset(void) {
     failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 1, argv),
                             (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
     failed += expect_null(options.config_path, "config path");
+    failed += expect_null(options.experimental_link_key_db_path, "link key db path");
     return failed;
 }
 
@@ -160,6 +204,9 @@ int main(void) {
     int failed = 0;
     failed += config_path_separate_argument_is_accepted();
     failed += config_path_equals_argument_is_accepted();
+    failed += experimental_link_key_db_path_is_accepted();
+    failed += experimental_link_key_db_equals_argument_is_accepted();
+    failed += missing_experimental_link_key_db_path_is_rejected();
     failed += missing_config_path_is_rejected();
     failed += unknown_option_is_rejected();
     failed += no_options_keeps_config_path_unset();

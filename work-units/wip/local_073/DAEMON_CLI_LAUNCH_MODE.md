@@ -16,6 +16,7 @@ source:
 - user discussion, 2026-06-26: backend 指定は何かを確認した結果、現行の noop は test / smoke 用であり、daemon の通常起動は production を既定にして、test 時だけ明示的に noop を与える方針が妥当と判断した。
 - user discussion, 2026-06-26: CLI parser を入れて backend / 実機承認 / 診断出力を反転させる話は、設定ファイル work unit に混ぜず、別 work unit として record 執筆に留める。実装は設定ファイル方針の反映を優先した後で再開する。
 - user discussion, 2026-06-26: 実機 reconnect 検証へ進む。現行 `main` は設定ファイル path と learned address target を production backend へ渡さないため、実機を開く前に `--config` 相当の起動契約を最小実装する。
+- user discussion, 2026-06-26: active reconnect manual rerun で daemon initiated HID transport は成功したが、`have link key db: 0` と `pairing complete, status 00` が出た。HCI event `0x18` により link key notification は観測できたため、実験用 link key DB を指定起動だけで接続し、active outgoing path で保存と pairing-free reconnect が成立するか検証する。
 - `work-units/complete/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`: 設定ファイル schema は `ipc`、`report`、`device.profile` に絞り、backend 起動モード、実機承認、診断出力 path はこの work unit へ切り出す。
 - `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md`: 環境変数を backend selection、hardware safety gate、runtime override、diagnostic sink に分類した。
 - `docs/status.md`: 現行状態として、未指定では noop backend、`SWBT_DAEMON_BACKEND=production` で production backend、production には `SWBT_RUN_HARDWARE=1` と `SWBT_HARDWARE_APPROVED=1` が必要と記録している。
@@ -72,11 +73,15 @@ source から use case への変換:
 
 ## 6. 根拠監査
 
-not applicable for source-audit。
+source-audit required for BTstack source selection。
 
-この work unit は CLI 起動指定、環境変数削除、診断出力 path の扱いを変更する。Switch HID report bytes、subcommand、SPI、rumble、report period 採用値、BTstack source selection は追加または変更しない。
+この work unit は CLI 起動指定、環境変数削除、診断出力 path の扱いを主対象にする。Switch HID report bytes、subcommand、SPI、rumble、report period 採用値は追加または変更しない。
 
-ただし production 既定化は Bluetooth adapter open に直結するため、実機実行や docs の表現では `hardware-harness` を使う。
+ただし実験用 link key DB を `production_btstack` に接続するため、BTstack platform TLV source selection を変更した。根拠は BTstack port 実装であり、`vendor/btstack/port/libusb/main.c`、`vendor/btstack/port/windows-winusb/main.c`、`vendor/btstack/port/windows-h4/main.c` は `btstack_tlv_*_init_instance()`、`btstack_tlv_set_instance()`、`btstack_link_key_db_tlv_get_instance()`、`hci_set_link_key_db()` の順に Classic link key DB を接続している。
+
+swbt 側では `vendor/btstack` を編集せず、`CMakeLists.txt` の backend 別 link source に `platform/posix/btstack_tlv_posix.c` と `platform/windows/btstack_tlv_windows.c` を追加した。`tests/cmake/btstack_sources_test.cmake` で source selection に TLV source が含まれることを固定し、`just windows-cross` で Windows MinGW executable link まで確認した。
+
+production 既定化は Bluetooth adapter open に直結するため、実機実行や docs の表現では `hardware-harness` を使う。
 
 ## 7. 設計メモ
 
@@ -85,6 +90,7 @@ not applicable for source-audit。
 - `--config` で指定した TOML file は読み込み元であり、learned Switch address の書き戻し先でもある。削除境界は設定ファイル上の値の除去とする。
 - CLI flag は永続設定より優先する。ただし `backend` と診断出力 path は `local_071` の設定ファイル schema には入れない。
 - `--config` による file 値は、`default -> TOML config file -> environment override` の優先順位を保つ。環境変数による runtime override は現行互換として残す。
+- `--experimental-link-key-db <path>` は恒久設定ではなく、active reconnect の link key 保存可否を切り分ける実験入口である。設定ファイル schema には入れず、指定された起動だけ BTstack TLV-backed Classic link key DB を接続する。
 - `swbt-daemon` 引数なしを production にする場合、unit / smoke / CI で daemon binary を直接起動する箇所は `--backend noop` へ移す。
 - `SWBT_RUN_HARDWARE` / `SWBT_HARDWARE_APPROVED` は code-level double gate としては削除候補である。エージェント運用上の実機承認は別物として残す。
 - この record の起票時点では CLI parser 実装を開始しない。未マージの試作実装は採用済み状態として扱わず、再開時は `main` 上の現行挙動から TDD Test List の先頭 item を選ぶ。
@@ -117,6 +123,10 @@ not applicable for source-audit。
 |---|---|---|---|---|
 | refactor-skipped | CLI parser accepts `--config <path>` / `--config=<path>` and rejects missing or unknown options before adapter open | new | unit | no |
 | refactor-skipped | daemon main applies config file before environment override and passes the same config path as learned address target to production backend | new | integration | no |
+| refactor-skipped | CLI parser accepts `--experimental-link-key-db <path>` / `--experimental-link-key-db=<path>` and stores it outside persistent config | characterization | unit | no |
+| refactor-skipped | production BTstack platform start connects an explicitly configured experimental TLV-backed Classic link key DB and closes it on platform stop | characterization | integration | no |
+| todo | active outgoing reconnect with experimental link key DB records whether link key notification is persisted to a non-empty TLV file | characterization | hardware | yes |
+| todo | daemon restart after experimental link key DB persistence reaches HID channel open without a new `pairing complete, status 00` | characterization | hardware | yes |
 | todo | CLI parser defaults to production backend when no backend flag is supplied | new | unit | no |
 | todo | `--backend noop` selects noop backend and does not require production hardware approval state | new | unit/integration | no |
 | todo | invalid backend value fails before adapter open | edge | unit/integration | no |
@@ -129,7 +139,7 @@ not applicable for source-audit。
 
 ## 10. 検証
 
-起票のみ。実装、software test、実機検証はまだ実行していない。
+初期起票時点では、実装、software test、実機検証はまだ実行していなかった。
 
 2026-06-26 の方針確認では、CLI parser 実装は設定ファイル work unit に混ぜず、この record を後続 work unit の source として残す判断にした。この時点では `CMakeLists.txt`、`apps/swbt-daemon/main.c`、`swbt/daemon/*`、`tests/daemon_*` の挙動は変更しない。元々の設定ファイル方針の反映を優先し、CLI parser、production 既定化、diagnostic flag 化は後続で再開する。
 
@@ -176,6 +186,38 @@ Refactor status:
 - unchanged behavior: `SWBT_DAEMON_BACKEND=production`、`SWBT_RUN_HARDWARE=1`、`SWBT_HARDWARE_APPROVED=1`、diagnostic env は現行互換のまま残す。
 - verification: `just build-debug`、`$env:CTEST_ARGS='-R daemon_launch_options_test'; just test-debug`、`just test-debug`
 - notes: backend 既定化、hardware approval env 削除、diagnostic CLI flag 化は後続 item のままにする。
+
+TDD status:
+- source: user discussion, 2026-06-26: active reconnect manual rerun は daemon initiated HID transport に成功したが、`have link key db: 0` と `pairing complete, status 00` が残った。link key notification は観測できるため、実験用 link key DB で保存可否を切り分ける。
+- use case: hardware operator は `--experimental-link-key-db <path>` を指定した起動だけで BTstack TLV-backed Classic link key DB を接続し、通常の設定ファイル schema には恒久保存しない。
+- item: CLI parser accepts `--experimental-link-key-db <path>` / `--experimental-link-key-db=<path>` and stores it outside persistent config。
+- state: refactor-skipped
+- commands:
+  - red: `just build-debug`
+  - green: `$env:CTEST_ARGS='-R daemon_launch_options_test'; just test-debug`
+  - green: `$env:CTEST_ARGS='-R "btstack_sources_cmake_test|daemon_launch_options_test|btstack_production_hci_dump_test"'; just test-debug`
+- notes: red は launch option / launch config に experimental path field が未実装で compile が失敗した。green では `--experimental-link-key-db <path>` と `--experimental-link-key-db=<path>` を受け付け、missing value を拒否する。prepared launch config には path と configured flag だけを保持し、TOML config schema へは書かない。
+
+TDD status:
+- source: user discussion, 2026-06-26: link key notification が観測できるため、BTstack の Classic link key DB を production 経路に接続して保存と pairing-free reconnect を検証する。
+- use case: hardware operator は事前に用意した artifact directory 配下の TLV path を指定し、その起動だけ BTstack の link key DB を有効化できる。親 directory の自動作成は行わない。
+- item: production BTstack platform start connects an explicitly configured experimental TLV-backed Classic link key DB and closes it on platform stop。
+- state: refactor-skipped
+- commands:
+  - red: `just windows-cross`
+  - green: `just build-debug`
+  - green: `$env:CTEST_ARGS='-R "btstack_sources_cmake_test|daemon_launch_options_test|btstack_production_hci_dump_test"'; just test-debug`
+  - green: `just test-debug`
+  - green: `just windows-cross`
+  - green: `just format-check`
+- notes: `swbt_btstack_production_experimental_link_key_db_configure()` を追加し、production platform start で `btstack_tlv_*_init_instance()`、`btstack_tlv_set_instance()`、`btstack_link_key_db_tlv_get_instance()`、`hci_set_link_key_db()` を呼ぶ。最初の Windows cross build は `btstack_tlv_windows_init_instance` / `btstack_tlv_windows_deinit` の unresolved symbol で失敗したため、backend 別 link source に `btstack_tlv_posix.c` / `btstack_tlv_windows.c` を明示追加した。`hci_close()` 後に `hci_set_link_key_db(NULL)` を呼ぶと `hci_stack` 解放後参照で segfault するため、stop 側は BTstack TLV singleton と TLV context の後始末に限定した。
+
+Refactor status:
+- decision: refactor-skipped
+- change: none
+- unchanged behavior: `--experimental-link-key-db` 未指定時は link key DB を接続しない。`SWBT_DAEMON_BACKEND=production`、hardware approval env、diagnostic env は現行互換のまま残す。
+- verification: `just build-debug`、`$env:CTEST_ARGS='-R "btstack_sources_cmake_test|daemon_launch_options_test|btstack_production_hci_dump_test"'; just test-debug`、`just test-debug`、`just windows-cross`、`just format-check`
+- notes: 保存された link key によって pairing-free reconnect が成立するかは実機未検証であり、hardware item として残す。
 
 実機前 software verification:
 

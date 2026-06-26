@@ -138,6 +138,13 @@ static int swbt_daemon_run_production(const swbt_daemon_launch_config_t *launch_
     const swbt_daemon_hardware_approval_t approval =
         swbt_daemon_hardware_approval_from_process_env();
 
+    if (swbt_btstack_production_experimental_link_key_db_configure(
+            launch_config->experimental_link_key_db_configured
+                ? launch_config->experimental_link_key_db_path
+                : NULL) != 0) {
+        swbt_diagnostic_trace("production: experimental link key db path invalid");
+        return 1;
+    }
     swbt_diagnostic_trace("production: backend init");
     if (swbt_daemon_production_backend_init(&backend, &launch_config->config,
                                             swbt_btstack_production_adapter(),

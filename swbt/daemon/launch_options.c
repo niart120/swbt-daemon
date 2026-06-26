@@ -24,6 +24,7 @@ swbt_daemon_launch_options_parse(swbt_daemon_launch_options_t *options, int argc
     for (int index = 1; index < argc; ++index) {
         const char *argument = argv[index];
         const char *config_value = NULL;
+        const char *experimental_link_key_db_value = NULL;
 
         if (argument == NULL) {
             return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_INVALID_ARGUMENT;
@@ -43,6 +44,25 @@ swbt_daemon_launch_options_parse(swbt_daemon_launch_options_t *options, int argc
                 return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE;
             }
             options->config_path = config_value;
+            continue;
+        }
+
+        if (strcmp(argument, "--experimental-link-key-db") == 0) {
+            if (index + 1 >= argc || argv[index + 1] == NULL || argv[index + 1][0] == '\0') {
+                return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE;
+            }
+            options->experimental_link_key_db_path = argv[index + 1];
+            ++index;
+            continue;
+        }
+
+        experimental_link_key_db_value =
+            swbt_daemon_launch_options_value_after_equals(argument, "--experimental-link-key-db=");
+        if (experimental_link_key_db_value != NULL) {
+            if (experimental_link_key_db_value[0] == '\0') {
+                return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE;
+            }
+            options->experimental_link_key_db_path = experimental_link_key_db_value;
             continue;
         }
 
@@ -78,6 +98,11 @@ bool swbt_daemon_launch_config_prepare(swbt_daemon_launch_config_t *launch_confi
         launch_config->learned_switch_address_target =
             (swbt_daemon_config_file_target_t){.path = options->config_path};
         launch_config->learned_switch_address_target_configured = true;
+    }
+
+    if (options->experimental_link_key_db_path != NULL) {
+        launch_config->experimental_link_key_db_path = options->experimental_link_key_db_path;
+        launch_config->experimental_link_key_db_configured = true;
     }
 
     if (!swbt_daemon_config_apply_env(&launch_config->config, env)) {

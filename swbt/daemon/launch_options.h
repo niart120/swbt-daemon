@@ -18,12 +18,15 @@ typedef enum {
 
 typedef struct {
     const char *config_path;
+    const char *experimental_link_key_db_path;
 } swbt_daemon_launch_options_t;
 
 typedef struct {
     swbt_daemon_config_t config;
     swbt_daemon_config_file_target_t learned_switch_address_target;
     bool learned_switch_address_target_configured;
+    const char *experimental_link_key_db_path;
+    bool experimental_link_key_db_configured;
 } swbt_daemon_launch_config_t;
 
 swbt_daemon_launch_options_result_t

@@ -94,6 +94,7 @@ if(SWBT_BACKEND STREQUAL "libusb")
     list(APPEND swbt_btstack_link_sources
         "${SWBT_BTSTACK_DIR}/platform/libusb/hci_transport_h2_libusb.c"
         "${SWBT_BTSTACK_DIR}/platform/posix/btstack_run_loop_posix.c"
+        "${SWBT_BTSTACK_DIR}/platform/posix/btstack_tlv_posix.c"
     )
     find_path(swbt_libusb_include_dir NAMES libusb.h PATH_SUFFIXES libusb-1.0)
     if(swbt_libusb_include_dir)
@@ -108,6 +109,7 @@ elseif(SWBT_BACKEND STREQUAL "windows-winusb")
     list(APPEND swbt_btstack_link_sources
         "${SWBT_BTSTACK_DIR}/platform/windows/hci_transport_h2_winusb.c"
         "${SWBT_BTSTACK_DIR}/platform/windows/btstack_run_loop_windows.c"
+        "${SWBT_BTSTACK_DIR}/platform/windows/btstack_tlv_windows.c"
     )
     if(MINGW)
         list(APPEND swbt_btstack_link_include_dirs
