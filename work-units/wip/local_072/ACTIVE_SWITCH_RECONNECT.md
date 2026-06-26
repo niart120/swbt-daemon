@@ -69,19 +69,35 @@ source から use case への変換:
 
 ## 6. 根拠監査
 
-未実施。実装前に必須。
+実施中。
 
 この work unit は BTstack outbound L2CAP、HID device reconnect、Switch controller reconnect 操作、実機 HCI event を扱う。Switch-facing report bytes そのものを変える予定はないが、connection lifecycle と実機挙動に触れるため `source-audit` と `hardware-harness` を使う。
 
-初期 source-audit 起点:
+source-audit 結果:
 
 | 項目 | 値 | 根拠 | source | status |
 |---|---:|---|---|---|
-| HID control PSM | `0x11` | BTstack source fact | `vendor/btstack/src/l2cap.h:463`, `vendor/btstack/src/classic/hid_device.c:855-856` | audit seed |
-| HID interrupt PSM | `0x13` | BTstack source fact | `vendor/btstack/src/l2cap.h:464`, `vendor/btstack/src/classic/hid_device.c:855-856` | audit seed |
-| Classic outbound L2CAP API | `l2cap_create_channel(...)` | BTstack source fact | `vendor/btstack/src/l2cap.h:507`, `vendor/btstack/src/l2cap.c:2569-2577` | audit seed |
-| BTstack HID device outbound connect precedent | control PSM を開き、control open 後に interrupt PSM を開く | BTstack source fact | `vendor/btstack/src/classic/hid_device.c:721-722`, `:960-962` | audit seed |
-| local_065 hardware boundary | passive link key DB では link key material が保存されなかった | hardware observation | `docs/hardware-test-log.md`, `work-units/complete/local_065/BONDED_RECONNECT_PERSISTENCE.md` | source for new design |
+| BTstack submodule | `075a0780f0fad7ff67d58ac19f46e8953656a752` | repository fact | `git ls-tree HEAD vendor/btstack` | recorded |
+| HID control PSM | `0x11` | BTstack source fact | `vendor/btstack/src/l2cap.h:463`, `vendor/btstack/src/classic/hid_device.c:855-856` | stable source fact |
+| HID interrupt PSM | `0x13` | BTstack source fact | `vendor/btstack/src/l2cap.h:464`, `vendor/btstack/src/classic/hid_device.c:855-856` | stable source fact |
+| Classic outbound L2CAP API | `l2cap_create_channel(...)` | BTstack source fact | `vendor/btstack/src/l2cap.h:507`, `vendor/btstack/src/l2cap.c:2569-2577` | stable source fact |
+| BTstack HID device outbound connect precedent | `hid_device_connect()` は HID control PSM を開く | BTstack source fact | `vendor/btstack/src/classic/hid_device.c:949-963` | implementation candidate |
+| BTstack HID outbound channel order | outgoing control channel open 後に interrupt PSM を開く | BTstack source fact | `vendor/btstack/src/classic/hid_device.c:720-722` | implementation candidate |
+| BTstack incoming channel handling | incoming control / interrupt connection は `L2CAP_EVENT_INCOMING_CONNECTION` で accept される | BTstack source fact | `vendor/btstack/src/classic/hid_device.c:651-681` | current incoming path precedent |
+| joycontrol commit | `18a09da1a04306534ff9e1df8a1a69c0192a3244` | upstream source fact | `https://github.com/mart1nro/joycontrol/commits/master/`, `spec/references/switch-hid-initial-source-audit.md` | recorded |
+| joycontrol `-r` input | `--reconnect_bt_addr` is a Switch console Bluetooth address for reconnecting as an already paired controller | upstream implementation fact | `https://github.com/mart1nro/joycontrol/blob/18a09da1a04306534ff9e1df8a1a69c0192a3244/run_controller_cli.py` | implementation precedent |
+| joycontrol reconnect PSM values | control `17`, interrupt `19` | upstream implementation fact | `https://github.com/mart1nro/joycontrol/blob/18a09da1a04306534ff9e1df8a1a69c0192a3244/run_controller_cli.py` | matches BTstack PSM values |
+| joycontrol reconnect behavior | with reconnect address, create control / interrupt L2CAP sockets and `connect()` to the address / PSM pairs | upstream implementation fact | `https://github.com/mart1nro/joycontrol/blob/18a09da1a04306534ff9e1df8a1a69c0192a3244/joycontrol/server.py` | implementation precedent |
+| joycontrol initial pairing behavior | without reconnect address, start HID server, advertise, and wait for Switch in Change Grip / Order | upstream implementation fact | `https://github.com/mart1nro/joycontrol/blob/18a09da1a04306534ff9e1df8a1a69c0192a3244/joycontrol/server.py` | contrast with reconnect path |
+| joycontrol reconnect startup behavior | after reconnect sockets are established, send empty input reports until the Switch replies | upstream implementation fact | `https://github.com/mart1nro/joycontrol/blob/18a09da1a04306534ff9e1df8a1a69c0192a3244/joycontrol/server.py` | implementation precedent, not yet swbt policy |
+| joycontrol README reconnect note | already connected controller can use reconnect option with Switch Bluetooth MAC, without opening Change Grip / Order | upstream documentation fact | `https://github.com/mart1nro/joycontrol/blob/18a09da1a04306534ff9e1df8a1a69c0192a3244/README.md` | user-facing precedent |
+| local_065 hardware boundary | passive link key DB では link key material が保存されなかった | hardware observation | `docs/hardware-test-log.md`, `work-units/complete/local_065/BONDED_RECONNECT_PERSISTENCE.md`, `spec/archive/bond-cache-persistence.md` | source for active reconnect design |
+
+未解決事項:
+
+- `hid_device_connect()` をそのまま使うか、swbt 側で control / interrupt L2CAP open を明示 port 化するかは未決定である。次の production adapter boundary item で固定する。
+- joycontrol の empty input report 送信は reconnect startup precedent だが、swbt で必要かは未検証である。採用する場合は hardware item の観測対象に含める。
+- BTstack outbound connect が Switch2 `22.1.0` / CSR8510 A10 / WinUSB の今回条件で Change Grip / Order なしに成立するかは未実機検証である。
 
 ## 7. 設計メモ
 
@@ -115,7 +131,7 @@ source から use case への変換:
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | source audit records joycontrol-style reconnect assumptions and BTstack outbound L2CAP / HID device connect boundaries | characterization | docs | no |
+| refactor-skipped | source audit records joycontrol-style reconnect assumptions and BTstack outbound L2CAP / HID device connect boundaries | characterization | docs | no |
 | refactor-done | daemon config/state can represent explicit and learned Switch Bluetooth addresses from TOML without raw link key storage | new | unit | no |
 | todo | production adapter exposes an active reconnect request boundary for HID control PSM `0x11` and interrupt PSM `0x13` | new | unit/integration | no |
 | todo | learned Switch address is captured from a successful pairing / connection path and persisted through the config layer without overwriting explicit address | new | integration | no |
@@ -132,6 +148,25 @@ source から use case への変換:
 
 - `rg -n "joycontrol|active reconnect|HID control|PSM 0x11|PSM 0x13|outbound L2CAP" spec docs work-units swbt tests`: local_065 / local_071 / docs/status の新方針と既存 joycontrol references を確認。
 - `rg -n "l2cap_create_channel|l2cap_disconnect|L2CAP_EVENT_CHANNEL_OPENED|PSM_HID" vendor\btstack\src\l2cap.h vendor\btstack\src\l2cap.c vendor\btstack\src\classic\hid_device.c vendor\btstack\src\classic\hid_host.c`: BTstack source-audit 起点を確認。
+
+TDD status:
+- source: joycontrol `-r` 型 reconnect は、既知 Switch Bluetooth address へ daemon 側から HID control / interrupt L2CAP channel を開きに行く設計候補である。BTstack には Classic outbound L2CAP と HID device outbound connect precedent がある。
+- use case: 実装前に、必要な address、PSM、channel open 順、incoming pairing path との差分、local_065 の passive bond cache 不採用理由を work unit record の根拠監査として分類する。
+- item: source audit records joycontrol-style reconnect assumptions and BTstack outbound L2CAP / HID device connect boundaries。
+- state: refactor-skipped
+- commands:
+  - `rg -n "l2cap_create_channel|PSM_HID|L2CAP_EVENT_CHANNEL_OPENED|reconnect" vendor\btstack\src\classic\hid_device.c vendor\btstack\src\l2cap.h vendor\btstack\src\l2cap.c`
+  - `git ls-tree HEAD vendor/btstack`
+  - `rg -n "remote not bonding|pairing complete|bond|daemon restart|sleep|local_065|swbt-bond" docs\hardware-test-log.md work-units\complete\local_065\BONDED_RECONNECT_PERSISTENCE.md spec\archive\bond-cache-persistence.md`
+  - upstream joycontrol source review: `mart1nro/joycontrol` `run_controller_cli.py`, `joycontrol/server.py`, README。
+- notes: `git -C vendor\btstack rev-parse HEAD` は Windows sandbox user と submodule owner が異なるため `safe.directory` error になった。submodule commit は parent repository の gitlink から `075a0780f0fad7ff67d58ac19f46e8953656a752` と確認した。実機は不要。
+
+Refactor status:
+- decision: refactor-skipped
+- change: work unit record の根拠監査だけを更新した。production code と test は変更しない。
+- unchanged behavior: active reconnect address config、daemon runtime、BTstack bridge、実機挙動は変更しない。
+- verification: `git diff --check`
+- notes: source facts は implementation candidate であり、outbound connect の swbt 実装方針と実機 pass 条件は後続 item に残す。
 
 2026-06-25 address persistence policy discussion:
 
@@ -209,8 +244,8 @@ Refactor status:
 - [x] source を user discussion、`local_065`、`docs/status.md` から特定した。
 - [x] use case を active reconnect として定義した。
 - [x] passive bond cache persistence を対象外にした。
-- [ ] joycontrol `-r` 型 reconnect の source audit を完了した。
-- [ ] BTstack outbound L2CAP / HID device connect boundary を source audit で固定した。
+- [x] joycontrol `-r` 型 reconnect の source audit を完了した。
+- [x] BTstack outbound L2CAP / HID device connect boundary を source audit で固定した。
 - [x] Switch address の取得 / 保存 / 削除 boundary を決めた。
 - [x] red test または characterization test を追加した。
 - [ ] active reconnect boundary を実装した。
