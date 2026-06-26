@@ -918,3 +918,25 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: `tmp/hardware/local_065/20260625-000432-sleep-resume-reconnect`
 - cleanup: pass by trace。daemon exit code `0`、forced stop `false`、crash dump なし。trace は `btstack: bond cache configured`、`production: hid connection closed`、`btstack: hci power off`、`btstack: bond cache close` を記録した
 - notes: raw TLV content と link key value は表示、転記していない。この entry は `CSR8510 A10` / WinUSB / Switch2 firmware `22.1.0` / swbt commit `6633b1b` の hardware observation であり、別 firmware や別 adapter の一般結果ではない
+
+## 2026-06-26: local_073 active reconnect request boundary on Switch2
+
+- OS: Microsoft Windows NT `10.0.26200.0`
+- environment: Windows native PowerShell、swbt branch `work/local-073-config-path-reconnect`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Class `USBDevice`、Service `WinUSB`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: git HEAD `d3f2b9cc6b4adf5de2acf252f94f0ca743707bed` plus uncommitted `CMakeLists.txt` MinGW static link fix (`add_link_options(-static)`)。artifact 生成後、この差分は branch に残した
+- Switch firmware: Switch2 `22.1.0`。既存実機環境の継続値であり、今回の artifact では本体画面を再読していない
+- approval scope: ユーザ承認済み。CSR8510 A10、WinUSB、adapter open、initial pairing、learned Switch address の TOML config 書き戻し、daemon restart、保存済み address からの active reconnect request、Switch 側の再接続操作、Button A smoke、HCI dump / diagnostic trace 保存、cleanup 確認
+- environment variables: daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`。daemon argument は `--config tmp/hardware/local_073/20260626-171348-active-reconnect/swbt-daemon.toml`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: 初回起動前に `just windows-cross` を実行したが、Windows host 起動時に `libgcc_s_seh-1.dll` 不在が露出したため、MinGW build に `add_link_options(-static)` を追加して `just windows-cross` を再実行した。`swbt-daemon.exe --definitely-invalid-option` が exit code `1` で即終了することを確認した後、空の TOML config を作成し、`swbt-daemon.exe --config <config>` を production env 付きで起動した。初回 run は Switch 側 pairing、learned address 保存、Button A smoke を実行した。その後 daemon を停止し、同じ config で restart run を起動した。restart run では Switch 側の pairing 操作をせず、daemon power on 直後の active reconnect request と、ユーザによる Switch 側の登録済み controller 再接続操作を観測した
+- result: learned address config writeback は成功した。初回 run の HCI dump は `pairing complete, status 00` `1` 件、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件を記録し、trace は `production: learned switch address save ok` を `1` 件記録した。最初の restart run は trace に `production: active reconnect request ok` を `1` 件記録したが、HCI dump は outgoing connection で `Connection_complete (status=8)` `1` 件、control PSM `0x11` の `L2CAP_EVENT_CHANNEL_OPENED status 0x8` `1` 件を記録した。ユーザの Switch 側再接続操作後は incoming connection が発生し、`pairing complete, status 00` `2` 件、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `4` 件を記録したため、この操作は active reconnect 成功ではなく incoming pairing path と扱う。後続の manual rerun `tmp/hardware/local_073/manual-20260626-174907-active-reconnect` では、Switch 側操作前に daemon 起点の outgoing connection が `Connection_complete (status=0)`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0`、trace の `production: hid connection opened` まで到達した。`Connection_incoming`、`Connection_complete (status=8)`、`L2CAP_EVENT_CHANNEL_OPENED status 0x8` は記録されなかった。HCI dump は `a1 30` input report `9532` 件、Switch 側 `a2 01` output report `17` 件、`a1 21` reply `17` 件を記録した。一方、同じ manual rerun でも `have link key db: 0`、`pairing started, ssp 1, initiator 1`、`pairing complete, status 00` `1` 件が出たため、これは daemon initiated active reconnect transport の成功であり、保存済み link key による pairing-free reconnect ではない
+- daemon log: daemon stdout / stderr log は空。`initial2-trace.txt`、`initial2-hci-dump.txt`、`restart-trace.txt`、`restart-hci-dump.txt`、manual rerun の `restart-trace.txt`、`restart-hci-dump.txt` を正本にする
+- artifact root: `tmp/hardware/local_073/20260626-171348-active-reconnect`, `tmp/hardware/local_073/manual-20260626-174907-active-reconnect`
+- cleanup: pass by trace。最初の restart run は停止前に `swbt-debug-client.exe --port 37637 --seq 3 --hold-ms 100` で neutral state を accepted させた。`GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT)` は `sent=True`、`still_running=false` を記録した。manual rerun は trace で `production: shutdown neutral send ok`、`btstack: hci power off`、`production: run loop returned`、`btstack: hci close done`、`btstack: run loop deinit done`、`btstack: hci dump close done`、`production: host stop done` まで到達した。crash dump は作成されなかった
+- notes: config file 上の raw Switch address は表示、転記していない。この entry は `CSR8510 A10` / WinUSB / Switch2 firmware `22.1.0` / swbt commit `d3f2b9c` plus MinGW static link diff の hardware observation であり、別 firmware や別 adapter の一般結果ではない

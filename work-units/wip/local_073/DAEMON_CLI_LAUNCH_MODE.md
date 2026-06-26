@@ -181,6 +181,34 @@ Refactor status:
 
 - `just windows-cross`: pass。Windows MinGW debug build で `swbt-daemon.exe` と関連 tests の link まで確認した。
 
+実機前追加 build fix:
+
+- 観測: C++ / TOML code path が入った後の Windows MinGW executable は host 側起動時に `libgcc_s_seh-1.dll` を要求し、実機 daemon 起動前に失敗した。
+- 対応: `CMakeLists.txt` の `MINGW` 条件で `add_link_options(-static)` を追加し、cross-built Windows executable が host 側 MinGW runtime DLL 配置に依存しないようにした。
+- verification: `just windows-cross`: pass。`build/windows-mingw-debug/swbt-daemon.exe --definitely-invalid-option`: exit code `1`。起動前 DLL error は解消した。
+
+実機 reconnect verification:
+
+- date: 2026-06-26
+- approval: user approved CSR8510 A10 / WinUSB adapter open、initial pairing、learned address config writeback、daemon restart、active reconnect request、Switch 側再接続操作、Button A smoke、HCI dump / diagnostic trace 保存、cleanup 確認。
+- artifact: `tmp/hardware/local_073/20260626-171348-active-reconnect`
+- environment: Windows native PowerShell、CSR8510 A10 `USB\VID_0A12&PID_0001\9&12127A34&0&1`、Service `WinUSB`、backend `windows-winusb`、BTstack `075a0780f0fad7ff67d58ac19f46e8953656a752`、Switch2 firmware `22.1.0`。
+- swbt: git HEAD `d3f2b9cc6b4adf5de2acf252f94f0ca743707bed` plus uncommitted `CMakeLists.txt` MinGW static link fix at experiment time。
+- procedure: empty TOML config を `--config` で指定して initial pairing を実行し、learned Switch address を同じ file へ保存した。Button A smoke は IPC status `state.buttons=8` と exit code `0` を返した。その後 daemon を停止し、同じ config で restart run を実行した。
+- result: learned address config writeback は pass。restart run は `production: active reconnect request ok` を `1` 件記録したが、HCI は outgoing connection `Connection_complete (status=8)` `1` 件と control PSM `0x11` の `L2CAP_EVENT_CHANNEL_OPENED status 0x8` `1` 件を記録した。active reconnect 成功は未達。
+- Switch-side reconnect operation: ユーザ操作後、HCI は incoming connection、`pairing complete, status 00` `2` 件、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `4` 件を記録した。これは active reconnect 成功ではなく incoming pairing path と扱う。
+- cleanup: stop 前に neutral state を accepted させた。`GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT)` は `sent=True`、process は終了した。trace は HCI power off、HCI close、run loop deinit、HCI dump close、host stop done まで到達した。connection closed 後のため shutdown neutral send は failed。
+- log: `docs/hardware-test-log.md` に raw Switch address を転記せず記録した。
+
+実機 reconnect manual rerun:
+
+- date: 2026-06-26
+- artifact: `tmp/hardware/local_073/manual-20260626-174907-active-reconnect`
+- procedure: 保存済み `--config` を使い、Switch 側操作前に daemon 起点の active reconnect request を手動 run で再確認した。
+- result: trace は `production: active reconnect request ok` と `production: hid connection opened` を記録した。HCI は `Create outgoing HID Control`、`Connection_complete (status=0)`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` を記録し、`Connection_incoming`、`Connection_complete (status=8)`、`L2CAP_EVENT_CHANNEL_OPENED status 0x8` は記録しなかった。`a1 30` input report は `9532` 件、Switch 側 `a2 01` output report は `17` 件、`a1 21` reply は `17` 件だった。
+- boundary: 同じ run で `have link key db: 0`、`pairing started, ssp 1, initiator 1`、`pairing complete, status 00` `1` 件も記録した。したがって daemon initiated active reconnect transport は成功したが、保存済み link key による pairing-free reconnect は未確認のまま残す。
+- cleanup: trace は `production: shutdown neutral send ok`、HCI power off、HCI close、run loop deinit、HCI dump close、host stop done まで到達した。`swbt-daemon.exe` process は残っていない。
+
 ## 11. 実機実行条件
 
 この work unit は production 既定化と hardware approval env の削除候補を含むため、最終確認では実機が必要になる可能性が高い。
@@ -215,9 +243,9 @@ software-only で確認できる範囲:
 - [x] use case を production default、explicit noop、CLI diagnostic flag として定義した。
 - [x] 設定ファイル schema とは別 work unit に分離した。
 - [x] CLI parser の test list を実装前に再確認した。
-- [ ] red test または characterization test を追加した。
+- [x] red test または characterization test を追加した。
 - [ ] production default / noop explicit behavior を実装した。
 - [ ] diagnostic CLI flag を実装した。
 - [ ] hardware approval env の削除または互換期間を決めた。
-- [ ] docs / status を更新した。
-- [ ] software verification と実機未実行理由または実機結果を記録した。
+- [x] docs / status を更新した。
+- [x] software verification と実機未実行理由または実機結果を記録した。
