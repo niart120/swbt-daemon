@@ -27,6 +27,7 @@ typedef struct {
     const char *link_key_db_path;
     const char *trace_path;
     const char *hci_dump_path;
+    const char *crash_dump_path;
 } swbt_daemon_launch_options_t;
 
 typedef struct {

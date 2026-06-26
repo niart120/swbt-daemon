@@ -169,6 +169,30 @@ static int hci_dump_path_equals_argument_is_accepted(void) {
     return failed;
 }
 
+static int crash_dump_path_separate_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--crash-dump-path", "tmp/swbt-daemon-crash.dmp"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 3, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed +=
+        expect_str_eq(options.crash_dump_path, "tmp/swbt-daemon-crash.dmp", "crash dump path");
+    return failed;
+}
+
+static int crash_dump_path_equals_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--crash-dump-path=tmp/swbt-daemon-crash.dmp"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 2, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed +=
+        expect_str_eq(options.crash_dump_path, "tmp/swbt-daemon-crash.dmp", "crash dump path");
+    return failed;
+}
+
 static int missing_link_key_db_path_is_rejected(void) {
     const char *argv[] = {"swbt-daemon", "--link-key-db"};
     swbt_daemon_launch_options_t options = {0};
@@ -309,6 +333,8 @@ int main(void) {
     failed += trace_path_equals_argument_is_accepted();
     failed += hci_dump_path_separate_argument_is_accepted();
     failed += hci_dump_path_equals_argument_is_accepted();
+    failed += crash_dump_path_separate_argument_is_accepted();
+    failed += crash_dump_path_equals_argument_is_accepted();
     failed += missing_link_key_db_path_is_rejected();
     failed += missing_config_path_is_rejected();
     failed += unknown_option_is_rejected();

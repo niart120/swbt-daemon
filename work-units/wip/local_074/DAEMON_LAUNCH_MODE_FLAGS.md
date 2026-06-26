@@ -106,7 +106,7 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 | green | production backend no longer requires `SWBT_RUN_HARDWARE` and `SWBT_HARDWARE_APPROVED` as code-level gates, while hardware execution remains documented as human-approved | behavior | unit/integration | no |
 | green | diagnostic trace path is enabled only by CLI flag and not by persistent config file | regression | unit/integration | no |
 | green | HCI dump path is enabled only by CLI flag and fails before production run loop when the path cannot be opened | edge | unit/integration | no |
-| todo | crash dump path CLI behavior is fixed for Windows and non-Windows builds | edge | unit/build | no |
+| green | crash dump path CLI behavior is fixed for Windows and non-Windows builds | edge | unit/build | no |
 | todo | test / smoke entrypoints that need no hardware pass `--backend noop` explicitly | regression | integration | no |
 | deferred | adapter selector or dedicated dongle identity guard is designed if production default leaves adapter selection ambiguous | behavior | design/hardware | yes |
 
@@ -194,6 +194,20 @@ TDD status:
   - green: `rg -n "SWBT_HCI_DUMP_TRACE_PATH" apps swbt tests` は implementation 側 no match、test helper の env ignored 確認だけ match。
   - green: `just format-check` pass。
 - notes: `main.c` は production 起動前に `launch_config.hci_dump_path` を `swbt_btstack_production_hci_dump_configure` へ渡す。BTstack platform start は configured path だけを使う。実 Bluetooth adapter は開いていない。
+
+TDD status:
+- source: user discussion, 2026-06-26。crash dump path は環境変数ではなく、その起動の CLI flag として明示する。
+- use case: `--crash-dump-path` を指定した起動だけ Windows minidump handler の出力先を設定し、非 Windows build では flag を受け付けた上で no-op とする。`SWBT_CRASH_DUMP_PATH` だけでは crash dump path を設定しない。
+- item: crash dump path CLI behavior is fixed for Windows and non-Windows builds。
+- state: green。
+- commands:
+  - red: `just build-debug` fail。`swbt_daemon_launch_options_t` に `crash_dump_path` member がなく、parser test の build が fail。
+  - green: `just build-debug` pass。
+  - green: `CTEST_ARGS='-R daemon_launch_options_test --output-on-failure' just test-debug` pass。
+  - green: `just windows-cross` pass。
+  - green: `rg -n "SWBT_CRASH_DUMP_PATH" apps swbt tests` no match。
+  - green: `just format-check` pass。
+- notes: `main.c` は CLI parse 後に `launch_options.crash_dump_path` を crash dump handler へ渡す。Windows では minidump handler の出力先として使い、非 Windows では flag を受け付けて破棄する。実 crash は発生させていないため、minidump ファイル生成は未検証である。
 
 ## 11. 実機実行条件
 

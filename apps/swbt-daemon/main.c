@@ -59,8 +59,8 @@ static LONG WINAPI swbt_daemon_vectored_exception_handler(EXCEPTION_POINTERS *ex
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
-static void swbt_daemon_install_crash_dump_handler(void) {
-    g_swbt_daemon_crash_dump_path = getenv("SWBT_CRASH_DUMP_PATH");
+static void swbt_daemon_install_crash_dump_handler(const char *path) {
+    g_swbt_daemon_crash_dump_path = path;
     if (swbt_diagnostic_path_is_enabled(g_swbt_daemon_crash_dump_path)) {
         (void)AddVectoredExceptionHandler(1, swbt_daemon_vectored_exception_handler);
         SetUnhandledExceptionFilter(swbt_daemon_unhandled_exception_filter);
@@ -105,7 +105,9 @@ static const swbt_daemon_shutdown_listener_t *swbt_daemon_process_shutdown_liste
     return &listener;
 }
 #else
-static void swbt_daemon_install_crash_dump_handler(void) {}
+static void swbt_daemon_install_crash_dump_handler(const char *path) {
+    (void)path;
+}
 
 static const swbt_daemon_shutdown_listener_t *swbt_daemon_process_shutdown_listener(void) {
     return NULL;
@@ -163,13 +165,13 @@ int main(int argc, char **argv) {
 
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
-    swbt_daemon_install_crash_dump_handler();
     swbt_diagnostic_trace("main: entered");
     if (swbt_daemon_launch_options_parse(&launch_options, argc, (const char *const *)argv) !=
         SWBT_DAEMON_LAUNCH_OPTIONS_OK) {
         swbt_diagnostic_trace("main: invalid CLI options");
         return 1;
     }
+    swbt_daemon_install_crash_dump_handler(launch_options.crash_dump_path);
     swbt_diagnostic_trace_set_path(launch_options.trace_path);
     if (!swbt_daemon_launch_config_prepare(&launch_config, &launch_options, &config_env)) {
         swbt_diagnostic_trace("main: invalid launch config");
