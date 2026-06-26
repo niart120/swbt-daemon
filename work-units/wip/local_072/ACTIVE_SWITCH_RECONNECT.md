@@ -146,7 +146,7 @@ source-audit 結果:
 | refactor-skipped | learned Switch address is captured from a successful pairing / connection path and handed to config persistence after the chosen success boundary | new | integration | no |
 | refactor-skipped | invalid active reconnect Switch address in TOML is rejected without partially mutating config | edge | unit | no |
 | refactor-done | active reconnect failure paths report unavailable / failed states without breaking incoming pairing path | edge | integration | no |
-| todo | active reconnect hardware preflight defines initial address capture, daemon restart, active reconnect, optional Switch-side reconnect operation, and Button A smoke | characterization | docs | yes |
+| refactor-skipped | active reconnect hardware preflight defines initial address capture, daemon restart, active reconnect, optional Switch-side reconnect operation, and Button A smoke | characterization | docs | yes |
 | todo | daemon restart active reconnect reaches L2CAP open and Button A smoke without Change Grip / Order re-pairing, or records the exact unsupported boundary | characterization | hardware | yes |
 
 ## 10. 検証
@@ -307,6 +307,15 @@ Refactor status:
 - unchanged behavior: active reconnect address がない場合は channel state を `unavailable` のままにする。request failure でも run loop は継続し、incoming pairing / advertising path、hardware approval gate、report timer lifecycle は維持する。
 - verification: `just build-debug`, `just test-debug`, `just format-check`, `just tidy`, `git diff --check`
 - notes: `failed` は request failure の診断状態であり、L2CAP open / Button A smoke の成功状態は実機 item に残す。
+
+TDD status:
+- source: 実機 run は daemon restart、Switch sleep / resume、Switch 側 controller reconnect 操作を分けて、active reconnect と re-pairing を混同しない必要がある。
+- use case: hardware operator は専用 Bluetooth dongle、WinUSB driver、Switch firmware、artifact path、config file 上の learned address、trace / HCI dump path、cleanup を確認してから、初回 address capture、daemon restart active reconnect、Switch sleep / resume、必要な場合の Switch 側 reconnect 操作、Button A smoke を順に実施できる。
+- item: active reconnect hardware preflight defines initial address capture, daemon restart, active reconnect, optional Switch-side reconnect operation, and Button A smoke。
+- state: refactor-skipped
+- commands:
+  - characterization: `git diff --check`
+- notes: preflight は section 11 に記録した。現時点の daemon main は config path と learned address target を収集しないため、この手順は実行禁止条件付きである。実機は未実行。
 ## 11. 実機実行条件
 
 実機が必要である。ただし起票時点では実行しない。
@@ -321,12 +330,22 @@ Refactor status:
 - `docs/hardware-test-log.md` へ OS、dongle VID/PID、driver、BTstack commit、swbt commit、Switch firmware、結果を記録する。
 - raw link key value は記録しない。
 
+現時点の実行禁止条件:
+
+- `apps/swbt-daemon/main.c` は設定ファイル path を収集せず、`swbt_daemon_config_apply_file()` と learned address 保存 target を production backend へ渡さない。
+- そのため、daemon binary だけで設定ファイル上の `active_reconnect.switch_address` / `active_reconnect.learned.switch_address` を active reconnect 入力として使う実機 run はまだ実行しない。
+- 実機 run を再開する条件は、後続の起動契約 work で config path と learned address target が daemon main へ接続され、実行コマンドが record できる状態になることである。
+
 想定 hardware run:
 
-- initial connection or address capture run: Switch Bluetooth address を取得し、保存または明示入力の候補として記録する。
-- daemon restart active reconnect run: daemon を restart し、Switch 側の再ペアリング画面を使わず active reconnect を試す。
-- Switch-side reconnect operation run: 必要な場合だけ Switch 側 controller reconnect 操作を行い、re-pairing と active reconnect を区別する。
-- smoke: L2CAP PSM `0x11` / `0x13` open 後、Button A または同等の input report が Switch UI に反映されることを確認する。
+1. artifact root を `tmp/hardware/local_072/<timestamp>-active-reconnect` に作り、local trace、HCI dump、local config、operator memo を置く。リポジトリへ転記する address は scrub する。
+2. initial connection or address capture run: Change Grip / Order を使う初回 pairing だけを許可し、`HID_SUBEVENT_CONNECTION_OPENED` の `status == 0` と remote address の保存を確認する。ここで得た Switch address は local config の `[active_reconnect.learned] switch_address` に残す。
+3. daemon restart active reconnect run: daemon を停止し、同じ config file で再起動する。Switch 側では Change Grip / Order を開かない。`pairing complete, status 00` が再度出た場合は active reconnect 成功ではなく re-pairing として記録する。
+4. reconnect 判定: HCI / trace で HID control PSM `0x11` と interrupt PSM `0x13` の open を確認する。open failure は `switch_connection_state` / `hid_channel_state` の `failed` と対応付ける。
+5. smoke: L2CAP open 後に Button A または同等の input report を送り、Switch UI に反映されることを確認する。L2CAP open だけでは pass としない。
+6. Switch sleep / resume run: Switch を sleep から resume し、daemon restart run と同じ判定で active reconnect と re-pairing を分ける。
+7. Switch-side reconnect operation run: daemon 側だけで復帰しない場合に限り、Switch 側の controller reconnect 操作を行う。Change Grip / Order での再登録とは別に記録する。
+8. cleanup: daemon を停止し、neutral state を送れる範囲で確認する。local config、trace、HCI dump から raw address を scrub した要約だけを `docs/hardware-test-log.md` へ転記する。
 
 ## 12. 先送り事項
 
@@ -352,5 +371,5 @@ Refactor status:
 - [x] learned Switch address の同一 TOML file 書き戻し boundary を実装した。
 - [x] HID connection opened 成功 event から learned address を config persistence target へ渡す boundary を実装した。
 - [x] active reconnect boundary を実装した。
-- [ ] hardware preflight を作成した。
+- [x] hardware preflight を作成した。
 - [ ] 実機結果または未実行理由を記録した。
