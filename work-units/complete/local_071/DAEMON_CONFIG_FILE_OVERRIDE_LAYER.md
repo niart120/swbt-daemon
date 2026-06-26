@@ -53,9 +53,9 @@ source から use case への変換:
 
 ## 4. 対象外
 
-- `SWBT_RUN_HARDWARE` / `SWBT_HARDWARE_APPROVED` を削除または緩和すること。これは `local_073` で扱う。
-- `SWBT_DAEMON_BACKEND` の削除、CLI 化、production 既定化、noop 明示化。これは `local_073` で扱う。
-- 診断出力 path を設定ファイル key にすること。診断出力は `local_073` で CLI flag として扱う。
+- `SWBT_RUN_HARDWARE` / `SWBT_HARDWARE_APPROVED` を削除または緩和すること。これは `local_074` で扱う。
+- `SWBT_DAEMON_BACKEND` の削除、CLI 化、production 既定化、noop 明示化。これは `local_074` で扱う。
+- 診断出力 path を設定ファイル key にすること。診断出力は `local_074` で CLI flag として扱う。
 - CMake / Dev Container / hook / `just` の development tooling 環境変数を daemon config file へ移すこと。
 - Switch protocol byte、report period の既定値、device info payload の変更。
 - bond cache persistence の復活。`local_065` で削除した TLV-backed link key DB / bond cache path は設定ファイル key にしない。
@@ -86,9 +86,9 @@ not applicable。
 - 設定ファイルがないことは通常起動の失敗にしない。
 - 明示された設定ファイルが読めない、構文不正、不正値を含む場合は startup config failure とする。
 - unknown key は初期実装では failure 候補とする。typo を黙って無視すると実機設定で危険な誤解を生むためである。
-- hardware approval は設定ファイル key にしない。削除または緩和の是非は `local_073` で、CLI 起動モードと合わせて扱う。
-- production backend selection は設定ファイル key にしない。daemon の実行モードであり、`local_073` で CLI flag として設計する。
-- diagnostic path は設定ファイル key にしない。診断出力は永続設定ではなく、その起動だけの観測指定として CLI flag に寄せる。既存環境変数の扱いは `local_073` で互換性と削除方針を決める。
+- hardware approval は設定ファイル key にしない。削除または緩和の是非は `local_074` で、CLI 起動モードと合わせて扱う。
+- production backend selection は設定ファイル key にしない。daemon の実行モードであり、`local_074` で CLI flag として設計する。
+- diagnostic path は設定ファイル key にしない。診断出力は永続設定ではなく、その起動だけの観測指定として CLI flag に寄せる。既存環境変数の扱いは `local_074` で互換性と削除方針を決める。
 - `local_065` の bond cache path は不採用のため、設定ファイル key として追加しない。active reconnect に必要な Switch address や policy は、保存対象、削除手段、raw 値の扱いを `local_072` で決めてから取り込む。
 - active reconnect address は将来の設定ファイル layer 対象にする。手書きの explicit address と daemon-managed learned address は同じ TOML file 内で別 key として分ける案を維持するが、この work unit の初期 schema には入れない。
 - active reconnect の削除境界は、設定ファイル上の explicit address または daemon-managed learned address の除去とする。起動時環境変数による reset は採用しない。
@@ -124,7 +124,7 @@ not applicable。
 - `spec/operations/windows-native-preflight.md`
 - `spec/operations/windows-hardware-bringup-sequence.md`
 - `work-units/complete/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`
-- `work-units/wip/local_073/DAEMON_CLI_LAUNCH_MODE.md`
+- `work-units/complete/local_073/DAEMON_CONFIG_LINK_KEY_RECONNECT.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
@@ -208,7 +208,7 @@ Refactor status:
 - notes: TOML dependency は `swbt/daemon/config_file.cpp` の implementation detail に閉じる。`swbt/daemon/config.h` には TOML 型、STL 型、C++ exception を出さない。
 
 TDD status:
-- source: 設定ファイル schema の初期対象は `report`、`ipc`、`device.profile` であり、backend 起動モード、実機承認、診断出力 path は `local_073` に切り出した。
+- source: 設定ファイル schema の初期対象は `report`、`ipc`、`device.profile` であり、backend 起動モード、実機承認、診断出力 path は `local_074` に切り出した。
 - use case: TOML file に指定した `report.period_us`、`ipc.port`、`ipc.backlog`、`ipc.heartbeat_timeout_ms`、`device.profile` が `swbt_daemon_config_t` に反映され、未指定 key は built-in default を維持する。
 - item: valid config file scalar values are applied before environment overrides。
 - state: refactor-skipped
@@ -316,7 +316,7 @@ Final verification:
 
 この work unit の設定合成、validation、override precedence の実装では実機は不要である。
 
-理由: Bluetooth adapter open、Switch pairing、HID advertising、report loop を実行しない。backend 起動モード、実機承認、診断出力 path の変更は `local_073` で扱う。
+理由: Bluetooth adapter open、Switch pairing、HID advertising、report loop を実行しない。backend 起動モード、実機承認、診断出力 path の変更は `local_074` で扱う。
 
 実機が必要になるのは、設定ファイル移行と同時に production backend の既定化、report period 既定値変更、device info payload 変更、active reconnect 実装を行う場合である。その場合は別 work unit または `local_072` の実機実行条件に従う。
 
@@ -330,7 +330,7 @@ Final verification:
   次の置き場: 後続 work unit。
 - 観測: backend selection、noop 明示指定、hardware approval env の削除、診断出力 path は、設定ファイルではなく daemon 起動時引数として扱う方がよい。
   先送り理由: これらは永続設定ではなく「今回の起動でどの経路を使い、どこへ証跡を書くか」の指定であり、CLI parser と一緒に設計する必要がある。
-  次の置き場: `work-units/wip/local_073/DAEMON_CLI_LAUNCH_MODE.md`。
+  次の置き場: `work-units/wip/local_074/DAEMON_LAUNCH_MODE_FLAGS.md`。
 
 ## 13. チェックリスト
 

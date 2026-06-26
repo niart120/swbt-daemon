@@ -1,12 +1,10 @@
-# Daemon CLI Launch Mode
+# Daemon Launch Mode Flags
 
 ## 1. 概要
 
 daemon の起動モードと一時診断出力を、環境変数中心の指定から CLI flag へ移す work unit。
 
-現行の `SWBT_DAEMON_BACKEND=production` は、daemon host の noop 経路と production BTstack 経路を切り替える。noop は Bluetooth adapter を開かない test / smoke 用の退避経路であり、production が実際の daemon 経路である。この work unit では、その意味に合わせて既定を production に寄せ、test / smoke 時だけ `--backend noop` のように明示する設計へ移行する。
-
-診断出力 path は永続設定ではなく、その起動だけの観測指定として扱う。`SWBT_DIAGNOSTIC_TRACE_PATH`、`SWBT_HCI_DUMP_TRACE_PATH`、`SWBT_CRASH_DUMP_PATH` は CLI flag への移行対象にする。
+`local_073` では、実機 reconnect 検証に必要だった `--config` と `--link-key-db` を先に実装した。この record は、そこで分離した残タスクである production / noop 起動モード、実機承認 env の扱い、diagnostic path の CLI flag 化を扱う。
 
 ## 2. 起点 / ユースケース
 
@@ -14,31 +12,29 @@ source:
 
 - user discussion, 2026-06-26: 実機承認 env はそろそろ外せるのではないか。診断出力 path は環境変数で有効化すると意図しない場所へファイルが作られ得るため、実行時引数の flag に寄せる案が出た。
 - user discussion, 2026-06-26: backend 指定は何かを確認した結果、現行の noop は test / smoke 用であり、daemon の通常起動は production を既定にして、test 時だけ明示的に noop を与える方針が妥当と判断した。
-- user discussion, 2026-06-26: CLI parser を入れて backend / 実機承認 / 診断出力を反転させる話は、設定ファイル work unit に混ぜず、別 work unit として record 執筆に留める。実装は設定ファイル方針の反映を優先した後で再開する。
-- `work-units/complete/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`: 設定ファイル schema は `ipc`、`report`、`device.profile` に絞り、backend 起動モード、実機承認、診断出力 path はこの work unit へ切り出す。
+- `work-units/complete/local_073/DAEMON_CONFIG_LINK_KEY_RECONNECT.md`: `--config`、learned Switch address target、`--link-key-db`、pairing-free active reconnect までを先に実装した。production 既定化、`--backend noop`、diagnostic CLI flag 化、hardware approval env 整理はこの work unit に分離する。
+- `work-units/complete/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`: 設定ファイル schema は `ipc`、`report`、`device.profile` に絞り、backend 起動モード、実機承認、診断出力 path は別 work unit へ切り出した。
 - `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md`: 環境変数を backend selection、hardware safety gate、runtime override、diagnostic sink に分類した。
-- `docs/status.md`: 現行状態として、未指定では noop backend、`SWBT_DAEMON_BACKEND=production` で production backend、production には `SWBT_RUN_HARDWARE=1` と `SWBT_HARDWARE_APPROVED=1` が必要と記録している。
 
 use case:
 
-- actor: hardware operator、maintainer、unit / integration test。
+- actor: maintainer、hardware operator、unit / integration test。
 - 入力または状態: daemon を引数なしで起動する通常運用、Bluetooth adapter を開かず host lifecycle だけを通したい test / smoke、実機検証時だけ trace / HCI dump / crash dump を保存したい起動。
 - 期待する観測結果:
-  - `swbt-daemon` は production backend を選ぶ。
+  - `swbt-daemon` は既定で production backend を選ぶ。
   - `swbt-daemon --backend noop` は Bluetooth adapter を開かず、現行 noop host 経路を選ぶ。
   - 不正な `--backend` 値は adapter open 前に失敗する。
   - 診断出力 path は CLI flag を指定した起動だけで有効になる。
-  - 診断出力 path が不正な場合は、可能な限り adapter open 前に失敗し、意図しない場所へ黙って書き込まない。
-  - test / CI / smoke は必要に応じて `--backend noop` を明示する。
+  - 診断出力 path が不正な場合は、adapter open 前に失敗する。
+  - 実機承認 env を code-level gate として残すか、互換期間を置いて撤去するかを決める。
 - 制約: エージェント運用上の実機コマンド承認は残す。Bluetooth adapter open、Switch pairing、HID advertising、report loop は `hardware-harness` の承認境界に従う。
 
 source から use case への変換:
 
-`local_071` は永続設定の対象を runtime 値へ絞る。backend selection と診断出力 path は永続設定よりも起動コマンドに現れている方が事故を減らせるため、CLI parser の導入と同時に扱う。
+`local_071` は永続設定の対象を runtime 値へ絞った。backend selection と診断出力 path は永続設定よりも起動コマンドに現れている方が事故を減らせるため、CLI parser の起動モードとして扱う。
 
 ## 3. 対象範囲
 
-- `swbt-daemon` 用の testable CLI parser を追加する。
 - `--backend production|noop` を設計し、既定を production にする。
 - `SWBT_DAEMON_BACKEND` の削除または互換期間を決める。
 - `SWBT_RUN_HARDWARE` / `SWBT_HARDWARE_APPROVED` を production backend の code gate から削除するか、互換期間を決める。
@@ -50,6 +46,8 @@ source から use case への変換:
 
 ## 4. 対象外
 
+- `--config`、TOML config file 読み込み、learned Switch address target。`local_073` で扱う。
+- `--link-key-db` と TLV-backed Classic link key DB。`local_073` で扱う。
 - `local_071` の設定ファイル schema、TOML parser / serializer、環境変数 runtime override precedence。
 - active reconnect、Switch address の取得 / 保存 / 削除。
 - adapter selector、VID/PID selector、複数 Bluetooth adapter の選択 policy。
@@ -58,50 +56,44 @@ source から use case への変換:
 
 ## 5. 関連 spec / docs
 
+- `work-units/complete/local_073/DAEMON_CONFIG_LINK_KEY_RECONNECT.md`
 - `work-units/complete/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`
 - `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md`
 - `docs/status.md`
-- `docs/hardware-test-log.md`
 - `spec/operations/windows-native-preflight.md`
 - `spec/operations/windows-hardware-bringup-sequence.md`
 - `spec/architecture/daemon-architecture-cutover.md`
 
 ## 6. 根拠監査
 
-not applicable for source-audit。
+not applicable for the initial record。Switch protocol bytes、BTstack source selection、report timing、WinUSB/libusb の採用値はこの work unit の主対象ではない。
 
-この work unit は CLI 起動指定、環境変数削除、診断出力 path の扱いを変更する。Switch HID report bytes、subcommand、SPI、rumble、report period 採用値、BTstack source selection は追加または変更しない。
-
-ただし production 既定化は Bluetooth adapter open に直結するため、実機実行や docs の表現では `hardware-harness` を使う。
+production 既定化は Bluetooth adapter open に直結するため、実機実行や docs の表現では `hardware-harness` を使う。
 
 ## 7. 設計メモ
 
 - `backend` は adapter 種別ではなく daemon host backend の選択である。`production` は BTstack USB transport、HID registration、discoverable 化、HCI power on、run loop を使う。`noop` は Bluetooth adapter を開かない test / smoke 用である。
 - CLI flag は永続設定より優先する。ただし `backend` と診断出力 path は `local_071` の設定ファイル schema には入れない。
-- `swbt-daemon` 引数なしを production にする場合、unit / smoke / CI で daemon binary を直接起動する箇所は `--backend noop` へ移す。
 - `SWBT_RUN_HARDWARE` / `SWBT_HARDWARE_APPROVED` は code-level double gate としては削除候補である。エージェント運用上の実機承認は別物として残す。
-- この record の起票時点では CLI parser 実装を開始しない。未マージの試作実装は採用済み状態として扱わず、再開時は `main` 上の現行挙動から TDD Test List の先頭 item を選ぶ。
 - 診断出力 path は、明示 flag がある起動だけで有効化する。設定ファイルや残留環境変数から暗黙にファイルを書き始める設計にはしない。
 - 診断出力 path の open failure は失敗として扱う方向で検討する。operator が明示した観測対象が作れないまま実機へ進むと、失敗時に根拠が残らないためである。
 - 親ディレクトリの自動作成は初期案では行わない。意図しない path への作成範囲を広げないためである。
 - crash dump は Windows 専用挙動を含むため、非 Windows では flag の扱いを no-op にするか、unsupported として失敗させるかを test で固定する。
-- adapter selector はこの work unit の対象外だが、production 既定化後に残る安全上の違和感である。専用 WinUSB ドングル運用は docs で維持し、selector が必要なら後続 work unit に切り出す。
 
 ## 8. 対象ファイル
 
 - `apps/swbt-daemon/main.c`
+- `swbt/daemon/launch_options.*`
 - `swbt/daemon/production_backend.*`
 - `swbt/daemon/host.*`
 - `swbt/core/diagnostics.*`
 - `swbt/btstack_bridge/production_btstack.*`
 - `tests/daemon_*`
 - `tests/diagnostics_test.c`
-- `tests/btstack_production_hci_dump_test.c`
 - `docs/status.md`
-- `docs/hardware-test-log.md`
 - `spec/operations/windows-native-preflight.md`
 - `spec/operations/windows-hardware-bringup-sequence.md`
-- `work-units/wip/local_073/DAEMON_CLI_LAUNCH_MODE.md`
+- `work-units/wip/local_074/DAEMON_LAUNCH_MODE_FLAGS.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
@@ -119,20 +111,11 @@ not applicable for source-audit。
 
 ## 10. 検証
 
-起票のみ。実装、software test、実機検証はまだ実行していない。
-
-2026-06-26 の方針確認では、CLI parser 実装は設定ファイル work unit に混ぜず、この record を後続 work unit の source として残す判断にした。この時点では `CMakeLists.txt`、`apps/swbt-daemon/main.c`、`swbt/daemon/*`、`tests/daemon_*` の挙動は変更しない。元々の設定ファイル方針の反映を優先し、CLI parser、production 既定化、diagnostic flag 化は後続で再開する。
-
-起票時確認:
-
-- `apps/swbt-daemon/main.c` は `main(void)` で CLI 引数を受け取らず、`SWBT_DAEMON_BACKEND=production` のときだけ production backend を選ぶ。
-- `swbt/daemon/host.c` の noop backend は Bluetooth adapter を開かない dummy port set である。
-- `swbt/daemon/production_backend.c` は `SWBT_RUN_HARDWARE` と `SWBT_HARDWARE_APPROVED` 由来の approval がない場合に production main を拒否する。
-- `swbt/core/diagnostics.c`、`swbt/btstack_bridge/production_btstack.c`、`apps/swbt-daemon/main.c` は診断出力 path を環境変数から読む。
+not run。新規分離 record であり、実装はまだ開始していない。
 
 ## 11. 実機実行条件
 
-この work unit は production 既定化と hardware approval env の削除候補を含むため、最終確認では実機が必要になる可能性が高い。
+production 既定化と hardware approval env の削除候補を含むため、最終確認では実機が必要になる可能性が高い。
 
 実機実行前条件:
 
@@ -160,10 +143,10 @@ software-only で確認できる範囲:
 
 ## 13. チェックリスト
 
-- [x] source を user discussion、`local_071`、`local_045`、`docs/status.md` から特定した。
+- [x] source を user discussion、`local_073`、`local_071`、`local_045` から特定した。
 - [x] use case を production default、explicit noop、CLI diagnostic flag として定義した。
-- [x] 設定ファイル schema とは別 work unit に分離した。
-- [x] CLI parser の test list を実装前に再確認した。
+- [x] 設定ファイル schema と link key DB reconnect とは別 work unit に分離した。
+- [ ] CLI parser の test list を実装前に再確認した。
 - [ ] red test または characterization test を追加した。
 - [ ] production default / noop explicit behavior を実装した。
 - [ ] diagnostic CLI flag を実装した。

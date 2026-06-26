@@ -13,6 +13,7 @@
 #include "core/diagnostics.h"
 #include "daemon/config.h"
 #include "daemon/host.h"
+#include "daemon/launch_options.h"
 #include "daemon/production_backend.h"
 
 #if defined(_WIN32)
@@ -112,8 +113,8 @@ static const swbt_daemon_shutdown_listener_t *swbt_daemon_process_shutdown_liste
 }
 #endif
 
-static bool swbt_daemon_apply_env_config(swbt_daemon_config_t *config) {
-    const swbt_daemon_config_env_t env = {
+static swbt_daemon_config_env_t swbt_daemon_config_env_from_process_env(void) {
+    return (swbt_daemon_config_env_t){
         .report_period_us = getenv("SWBT_REPORT_PERIOD_US"),
         .ipc_host = getenv("SWBT_IPC_HOST"),
         .ipc_port = getenv("SWBT_IPC_PORT"),
@@ -121,8 +122,6 @@ static bool swbt_daemon_apply_env_config(swbt_daemon_config_t *config) {
         .ipc_heartbeat_timeout_ms = getenv("SWBT_IPC_HEARTBEAT_TIMEOUT_MS"),
         .device_info_profile = getenv("SWBT_DEVICE_INFO_PROFILE"),
     };
-
-    return swbt_daemon_config_apply_env(config, &env);
 }
 
 static swbt_daemon_hardware_approval_t swbt_daemon_hardware_approval_from_process_env(void) {
@@ -134,15 +133,27 @@ static swbt_daemon_hardware_approval_t swbt_daemon_hardware_approval_from_proces
     return swbt_daemon_hardware_approval_from_env(&env);
 }
 
-static int swbt_daemon_run_production(const swbt_daemon_config_t *config) {
+static int swbt_daemon_run_production(const swbt_daemon_launch_config_t *launch_config) {
     swbt_daemon_production_backend_t backend;
     const swbt_daemon_hardware_approval_t approval =
         swbt_daemon_hardware_approval_from_process_env();
 
+    if (swbt_btstack_production_link_key_db_configure(
+            launch_config->link_key_db_configured ? launch_config->link_key_db_path : NULL) != 0) {
+        swbt_diagnostic_trace("production: link key db path invalid");
+        return 1;
+    }
     swbt_diagnostic_trace("production: backend init");
-    if (swbt_daemon_production_backend_init(&backend, config, swbt_btstack_production_adapter(),
+    if (swbt_daemon_production_backend_init(&backend, &launch_config->config,
+                                            swbt_btstack_production_adapter(),
                                             NULL) != SWBT_DAEMON_PRODUCTION_OK) {
         swbt_diagnostic_trace("production: backend init failed");
+        return 1;
+    }
+    if (launch_config->learned_switch_address_target_configured &&
+        !swbt_daemon_production_backend_set_learned_switch_address_target(
+            &backend, &launch_config->learned_switch_address_target)) {
+        swbt_diagnostic_trace("production: learned switch address target invalid");
         return 1;
     }
     swbt_diagnostic_trace("production: enter main");
@@ -153,22 +164,30 @@ static int swbt_daemon_run_production(const swbt_daemon_config_t *config) {
                : 1;
 }
 
-int main(void) {
-    swbt_daemon_config_t config = swbt_daemon_config_default();
+int main(int argc, char **argv) {
+    swbt_daemon_launch_config_t launch_config;
+    swbt_daemon_launch_options_t launch_options;
+    const swbt_daemon_config_env_t config_env = swbt_daemon_config_env_from_process_env();
     const char *backend = getenv("SWBT_DAEMON_BACKEND");
 
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
     swbt_daemon_install_crash_dump_handler();
     swbt_diagnostic_trace("main: entered");
-    if (!swbt_daemon_apply_env_config(&config)) {
-        swbt_diagnostic_trace("main: invalid env config");
+    if (swbt_daemon_launch_options_parse(&launch_options, argc, (const char *const *)argv) !=
+        SWBT_DAEMON_LAUNCH_OPTIONS_OK) {
+        swbt_diagnostic_trace("main: invalid CLI options");
+        return 1;
+    }
+    if (!swbt_daemon_launch_config_prepare(&launch_config, &launch_options, &config_env)) {
+        swbt_diagnostic_trace("main: invalid launch config");
         return 1;
     }
     if (backend != NULL && strcmp(backend, "production") == 0) {
         swbt_diagnostic_trace("main: selected production backend");
-        return swbt_daemon_run_production(&config);
+        return swbt_daemon_run_production(&launch_config);
     }
     swbt_diagnostic_trace("main: selected noop backend");
-    return swbt_daemon_main_with_host_backend(&config, swbt_daemon_host_noop_backend(), NULL);
+    return swbt_daemon_main_with_host_backend(&launch_config.config,
+                                              swbt_daemon_host_noop_backend(), NULL);
 }

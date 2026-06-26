@@ -48,6 +48,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+if(MINGW)
+    add_link_options(-static)
+endif()
+
 include(cmake/compiler_warnings.cmake)
 include(cmake/sanitizers.cmake)
 include(cmake/btstack_sources.cmake)
@@ -90,6 +94,7 @@ if(SWBT_BACKEND STREQUAL "libusb")
     list(APPEND swbt_btstack_link_sources
         "${SWBT_BTSTACK_DIR}/platform/libusb/hci_transport_h2_libusb.c"
         "${SWBT_BTSTACK_DIR}/platform/posix/btstack_run_loop_posix.c"
+        "${SWBT_BTSTACK_DIR}/platform/posix/btstack_tlv_posix.c"
     )
     find_path(swbt_libusb_include_dir NAMES libusb.h PATH_SUFFIXES libusb-1.0)
     if(swbt_libusb_include_dir)
@@ -104,6 +109,7 @@ elseif(SWBT_BACKEND STREQUAL "windows-winusb")
     list(APPEND swbt_btstack_link_sources
         "${SWBT_BTSTACK_DIR}/platform/windows/hci_transport_h2_winusb.c"
         "${SWBT_BTSTACK_DIR}/platform/windows/btstack_run_loop_windows.c"
+        "${SWBT_BTSTACK_DIR}/platform/windows/btstack_tlv_windows.c"
     )
     if(MINGW)
         list(APPEND swbt_btstack_link_include_dirs
@@ -201,6 +207,7 @@ add_library(swbt_daemon_host STATIC
     swbt/daemon/config.c
     swbt/daemon/config_file.cpp
     swbt/daemon/ipc_runner.c
+    swbt/daemon/launch_options.c
     swbt/daemon/production_backend.c
     swbt/daemon/host.c
 )
@@ -599,6 +606,15 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(daemon_config_file_test)
 
     add_test(NAME daemon_config_file_test COMMAND daemon_config_file_test)
+
+    add_executable(daemon_launch_options_test
+        tests/daemon_launch_options_test.c
+    )
+    target_link_libraries(daemon_launch_options_test PRIVATE swbt_daemon_host)
+    swbt_apply_common_warnings(daemon_launch_options_test)
+    swbt_apply_sanitizers(daemon_launch_options_test)
+
+    add_test(NAME daemon_launch_options_test COMMAND daemon_launch_options_test)
 
     add_executable(architecture_journey_test
         tests/architecture_journey_test.c

@@ -1,6 +1,7 @@
 #include "btstack_bridge/production_btstack.h"
 
 #include <stddef.h>
+#include <string.h>
 
 #include "btstack_bridge/classic_discovery.h"
 #include "btstack_bridge/classic_discovery_btstack_adapter.h"
@@ -10,6 +11,9 @@
 #include "btstack_bridge/output_report_callbacks.h"
 #include "btstack_memory.h"
 #include "btstack_run_loop.h"
+#include "btstack_tlv.h"
+#include "btstack_util.h"
+#include "classic/btstack_link_key_db_tlv.h"
 #include "classic/hid_device.h"
 #include "core/diagnostics.h"
 #include "gap.h"
@@ -22,13 +26,24 @@
 
 #if defined(_WIN32)
 #include "btstack_run_loop_windows.h"
+#include "btstack_tlv_windows.h"
 #else
 #include "btstack_run_loop_posix.h"
+#include "btstack_tlv_posix.h"
 #endif
 
 #define SWBT_BTSTACK_IPC_PUMP_PERIOD_MS 1u
 
 static bool g_swbt_btstack_production_hci_dump_open;
+static const char *g_link_key_db_path;
+static bool g_link_key_db_open;
+static bool g_link_key_event_handler_registered;
+static btstack_packet_callback_registration_t g_link_key_event_registration;
+#if defined(_WIN32)
+static btstack_tlv_windows_t g_link_key_tlv_context;
+#else
+static btstack_tlv_posix_t g_link_key_tlv_context;
+#endif
 static swbt_btstack_production_ipc_pump_t g_swbt_btstack_production_ipc_pump;
 static bool g_swbt_btstack_production_ipc_pump_started;
 static btstack_timer_source_t g_swbt_btstack_production_ipc_pump_timer;
@@ -135,6 +150,104 @@ static void swbt_btstack_production_hci_dump_stop(void) {
     swbt_diagnostic_trace("btstack: hci dump close done");
 }
 
+int swbt_btstack_production_link_key_db_configure(const char *path) {
+    if (path != NULL && path[0] == '\0') {
+        return -1;
+    }
+    g_link_key_db_path = path;
+    return 0;
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): BTstack packet handler ABI.
+static void link_key_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet,
+                                    uint16_t size) {
+    bd_addr_t addr;
+    link_key_t link_key;
+    link_key_type_t link_key_type;
+    (void)channel;
+
+    if (!g_link_key_db_open || packet_type != HCI_EVENT_PACKET || packet == NULL || size < 25u ||
+        packet[0] != HCI_EVENT_LINK_KEY_NOTIFICATION) {
+        return;
+    }
+    if (btstack_is_null(&packet[8], sizeof(link_key))) {
+        swbt_diagnostic_trace("btstack: link key db ignored null notification");
+        return;
+    }
+
+    for (size_t index = 0u; index < sizeof(addr); ++index) {
+        addr[index] = packet[7u - index];
+    }
+    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+    (void)memcpy(link_key, &packet[8], sizeof(link_key));
+    link_key_type = (link_key_type_t)packet[24];
+    gap_store_link_key_for_bd_addr(addr, link_key, link_key_type);
+    swbt_diagnostic_trace("btstack: link key db stored notification");
+}
+
+static void link_key_events_start(void) {
+    if (g_link_key_event_handler_registered) {
+        return;
+    }
+
+    g_link_key_event_registration.callback = link_key_packet_handler;
+    hci_add_event_handler(&g_link_key_event_registration);
+    g_link_key_event_handler_registered = true;
+}
+
+static void link_key_events_stop(void) {
+    if (!g_link_key_event_handler_registered) {
+        return;
+    }
+
+    hci_remove_event_handler(&g_link_key_event_registration);
+    g_link_key_event_handler_registered = false;
+    g_link_key_event_registration = (btstack_packet_callback_registration_t){0};
+}
+
+static int link_key_db_start(void) {
+    const btstack_tlv_t *tlv = NULL;
+    const char *path = g_link_key_db_path;
+
+    if (!swbt_diagnostic_path_is_enabled(path)) {
+        return 0;
+    }
+
+    swbt_diagnostic_trace("btstack: link key db open");
+#if defined(_WIN32)
+    tlv = btstack_tlv_windows_init_instance(&g_link_key_tlv_context, path);
+#else
+    tlv = btstack_tlv_posix_init_instance(&g_link_key_tlv_context, path);
+#endif
+    if (tlv == NULL) {
+        swbt_diagnostic_trace("btstack: link key db open failed");
+        return -1;
+    }
+
+    btstack_tlv_set_instance(tlv, &g_link_key_tlv_context);
+    hci_set_link_key_db(btstack_link_key_db_tlv_get_instance(tlv, &g_link_key_tlv_context));
+    link_key_events_start();
+    g_link_key_db_open = true;
+    swbt_diagnostic_trace("btstack: link key db open ok");
+    return 0;
+}
+
+static void link_key_db_stop(void) {
+    if (!g_link_key_db_open) {
+        return;
+    }
+
+    swbt_diagnostic_trace("btstack: link key db close");
+    btstack_tlv_set_instance(NULL, NULL);
+#if defined(_WIN32)
+    btstack_tlv_windows_deinit(&g_link_key_tlv_context);
+#else
+    btstack_tlv_posix_deinit(&g_link_key_tlv_context);
+#endif
+    g_link_key_db_open = false;
+    swbt_diagnostic_trace("btstack: link key db close done");
+}
+
 static int swbt_btstack_production_platform_start(void *context) {
     swbt_btstack_classic_discovery_result_t discovery_result;
     swbt_btstack_classic_discovery_config_t discovery_config;
@@ -153,12 +266,18 @@ static int swbt_btstack_production_platform_start(void *context) {
 #endif
     swbt_diagnostic_trace("btstack: hci init usb transport");
     hci_init(hci_transport_usb_instance(), NULL);
+    if (link_key_db_start() != 0) {
+        swbt_btstack_production_hci_dump_stop();
+        return -1;
+    }
     swbt_diagnostic_trace("btstack: classic discovery configure");
     discovery_config = swbt_btstack_production_discovery_config();
     discovery_result = swbt_btstack_classic_discovery_configure(
         swbt_btstack_classic_discovery_backend_btstack(), NULL, &discovery_config);
     if (discovery_result != SWBT_BTSTACK_CLASSIC_DISCOVERY_OK) {
         swbt_diagnostic_trace("btstack: classic discovery configure failed");
+        link_key_events_stop();
+        link_key_db_stop();
         swbt_btstack_production_hci_dump_stop();
         return -1;
     }
@@ -174,9 +293,11 @@ static void swbt_btstack_production_platform_stop(void *context) {
     swbt_diagnostic_trace("btstack: ipc pump stop");
     swbt_btstack_production_ipc_pump_stop(NULL);
     swbt_diagnostic_trace("btstack: ipc pump stop done");
+    link_key_events_stop();
     swbt_diagnostic_trace("btstack: hci close");
     hci_close();
     swbt_diagnostic_trace("btstack: hci close done");
+    link_key_db_stop();
     swbt_diagnostic_trace("btstack: run loop deinit");
     btstack_run_loop_deinit();
     swbt_diagnostic_trace("btstack: run loop deinit done");
