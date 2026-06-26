@@ -177,6 +177,10 @@ Refactor status:
 - verification: `just build-debug`、`$env:CTEST_ARGS='-R daemon_launch_options_test'; just test-debug`、`just test-debug`
 - notes: backend 既定化、hardware approval env 削除、diagnostic CLI flag 化は後続 item のままにする。
 
+実機前 software verification:
+
+- `just windows-cross`: pass。Windows MinGW debug build で `swbt-daemon.exe` と関連 tests の link まで確認した。
+
 ## 11. 実機実行条件
 
 この work unit は production 既定化と hardware approval env の削除候補を含むため、最終確認では実機が必要になる可能性が高い。
