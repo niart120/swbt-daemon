@@ -595,7 +595,7 @@ static int expect_steps(const fake_ops_t *fake, const int *expected, size_t expe
     return failed;
 }
 
-static int missing_hardware_approval_rejects_before_backend_start(void) {
+static int production_backend_starts_without_code_level_hardware_approval_gate(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_ops_t fake = {0};
     const swbt_btstack_production_adapter_t adapter = fake_backend_adapter();
@@ -604,16 +604,19 @@ static int missing_hardware_approval_rejects_before_backend_start(void) {
         .run_hardware = false,
         .hardware_approved = true,
     };
+    const int expected[] = {
+        STEP_IPC_START,  STEP_PLATFORM_START, STEP_HID_REGISTER,     STEP_OUTPUT_START,
+        STEP_TIMER_INIT, STEP_POWER_ON,       STEP_RUN_LOOP_EXECUTE, STEP_POWER_OFF,
+        STEP_TIMER_STOP, STEP_OUTPUT_STOP,    STEP_HID_STOP,         STEP_PLATFORM_STOP,
+        STEP_IPC_STOP,
+    };
 
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
-    failed +=
-        expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
-                      SWBT_DAEMON_PRODUCTION_ERROR_HARDWARE_APPROVAL_REQUIRED, "approval result");
-    failed += expect_eq_int(fake.ipc_start_calls, 0, "ipc not started");
-    failed += expect_eq_int(fake.platform_start_calls, 0, "platform not started");
-    failed += expect_eq_int(fake.hid_register_calls, 0, "hid not registered");
+    failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
+                            SWBT_DAEMON_PRODUCTION_OK, "main result");
+    failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
     return failed;
 }
 
@@ -1175,7 +1178,7 @@ static int pending_stop_request_finishes_after_failed_can_send_event(void) {
     return failed;
 }
 
-static int shutdown_listener_is_not_installed_when_hardware_approval_is_missing(void) {
+static int shutdown_listener_is_installed_without_code_level_hardware_approval_gate(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_ops_t fake = {0};
     const swbt_btstack_production_adapter_t adapter = fake_backend_adapter();
@@ -1188,17 +1191,36 @@ static int shutdown_listener_is_not_installed_when_hardware_approval_is_missing(
         .run_hardware = false,
         .hardware_approved = true,
     };
+    const int expected[] = {
+        STEP_IPC_START,
+        STEP_PLATFORM_START,
+        STEP_HID_REGISTER,
+        STEP_OUTPUT_START,
+        STEP_TIMER_INIT,
+        STEP_POWER_ON,
+        STEP_SHUTDOWN_INSTALL,
+        STEP_RUN_LOOP_EXECUTE,
+        STEP_RUN_LOOP_EXECUTE_ON_MAIN_THREAD,
+        STEP_TIMER_SEND_NEUTRAL_NOW,
+        STEP_POWER_OFF,
+        STEP_RUN_LOOP_TRIGGER_EXIT,
+        STEP_SHUTDOWN_UNINSTALL,
+        STEP_TIMER_STOP,
+        STEP_OUTPUT_STOP,
+        STEP_HID_STOP,
+        STEP_PLATFORM_STOP,
+        STEP_IPC_STOP,
+    };
 
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
-    failed +=
-        expect_eq_int(swbt_daemon_production_main_with_backend_and_shutdown(&backend, &approval,
-                                                                            &shutdown, &fake),
-                      SWBT_DAEMON_PRODUCTION_ERROR_HARDWARE_APPROVAL_REQUIRED, "approval result");
-    failed += expect_eq_int((int)fake.step_count, 0, "no backend steps");
-    failed += expect_eq_int(fake.power_off_calls, 0, "power off calls");
-    failed += expect_eq_int(fake.run_loop_trigger_exit_calls, 0, "trigger exit calls");
+    failed += expect_eq_int(swbt_daemon_production_main_with_backend_and_shutdown(
+                                &backend, &approval, &shutdown, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "main result");
+    failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
+    failed += expect_eq_int(fake.power_off_calls, 1, "power off calls");
+    failed += expect_eq_int(fake.run_loop_trigger_exit_calls, 1, "trigger exit calls");
     return failed;
 }
 
@@ -1383,7 +1405,7 @@ static int hid_packet_handler_confirms_ssp_user_confirmation(void) {
 
 int main(void) {
     int failed = 0;
-    failed += missing_hardware_approval_rejects_before_backend_start();
+    failed += production_backend_starts_without_code_level_hardware_approval_gate();
     failed += ipc_pump_port_starts_without_unrelated_btstack_abilities();
     failed += hardware_approval_env_requires_both_flags();
     failed += approved_backend_starts_hardware_and_cleans_up_in_order();
@@ -1399,7 +1421,7 @@ int main(void) {
     failed += shutdown_after_json_state_sends_trailing_neutral_before_power_off();
     failed += pending_stop_request_finishes_after_can_send_event();
     failed += pending_stop_request_finishes_after_failed_can_send_event();
-    failed += shutdown_listener_is_not_installed_when_hardware_approval_is_missing();
+    failed += shutdown_listener_is_installed_without_code_level_hardware_approval_gate();
     failed += repeated_stop_request_does_not_power_off_twice();
     failed += report_period_and_ipc_config_are_exposed();
     failed += hid_packet_handler_starts_sends_and_stops_timer();

@@ -103,7 +103,7 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 | refactor-skipped | CLI parser accepts `--backend noop` and `--backend=noop` | new | unit | no |
 | green | `--backend noop` selects noop backend and does not require production hardware approval state | new | integration | no |
 | green | invalid backend value fails before adapter open | edge | unit/integration | no |
-| todo | production backend no longer requires `SWBT_RUN_HARDWARE` and `SWBT_HARDWARE_APPROVED` as code-level gates, while hardware execution remains documented as human-approved | behavior | unit/integration | no |
+| green | production backend no longer requires `SWBT_RUN_HARDWARE` and `SWBT_HARDWARE_APPROVED` as code-level gates, while hardware execution remains documented as human-approved | behavior | unit/integration | no |
 | todo | diagnostic trace path is enabled only by CLI flag and not by persistent config file | regression | unit/integration | no |
 | todo | HCI dump path is enabled only by CLI flag and fails before production run loop when the path cannot be opened | edge | unit/integration | no |
 | todo | crash dump path CLI behavior is fixed for Windows and non-Windows builds | edge | unit/build | no |
@@ -155,6 +155,19 @@ TDD status:
   - green: `scripts/check-format.sh` pass。
   - green: `just build-debug` pass。
 - notes: `main.c` の backend 分岐を process env から `launch_options.backend` の switch へ移した。`SWBT_DAEMON_LAUNCH_BACKEND_NOOP` case は noop host backend を直接呼ぶため、production hardware approval env を参照しない。実機コマンド、pairing、advertising、report loop は実行していない。
+
+TDD status:
+- source: user discussion, 2026-06-26。実機承認 env は code-level gate ではなく、エージェント運用上の承認境界として扱う。
+- use case: production backend は CLI で選ばれたら起動経路へ入り、`SWBT_RUN_HARDWARE` / `SWBT_HARDWARE_APPROVED` の有無では分岐しない。
+- item: production backend no longer requires `SWBT_RUN_HARDWARE` and `SWBT_HARDWARE_APPROVED` as code-level gates, while hardware execution remains documented as human-approved。
+- state: green。
+- commands:
+  - red: `just build-debug` pass 後、`CTEST_ARGS='-R daemon_production_backend_test --output-on-failure' just test-debug` fail。`main result: expected 0, got -3`、`step count: expected 13, got 0`。
+  - green: `just build-debug` pass。
+  - green: `CTEST_ARGS='-R daemon_production_backend_test --output-on-failure' just test-debug` pass。
+  - green: `rg -n "SWBT_RUN_HARDWARE|SWBT_HARDWARE_APPROVED|hardware_approval_from_process_env" apps/swbt-daemon/main.c` no match。
+  - green: `scripts/check-format.sh` pass。
+- notes: `hardware-harness` を読んだ。実機向けコマンド、Bluetooth adapter open、pairing、HID advertising、report loop は実行していない。実機実行は引き続き人間の明示承認と専用 USB Bluetooth dongle の確認を必要とする。
 
 ## 11. 実機実行条件
 

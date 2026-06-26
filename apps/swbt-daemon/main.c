@@ -123,19 +123,8 @@ static swbt_daemon_config_env_t swbt_daemon_config_env_from_process_env(void) {
     };
 }
 
-static swbt_daemon_hardware_approval_t swbt_daemon_hardware_approval_from_process_env(void) {
-    const swbt_daemon_hardware_approval_env_t env = {
-        .run_hardware = getenv("SWBT_RUN_HARDWARE"),
-        .hardware_approved = getenv("SWBT_HARDWARE_APPROVED"),
-    };
-
-    return swbt_daemon_hardware_approval_from_env(&env);
-}
-
 static int swbt_daemon_run_production(const swbt_daemon_launch_config_t *launch_config) {
     swbt_daemon_production_backend_t backend;
-    const swbt_daemon_hardware_approval_t approval =
-        swbt_daemon_hardware_approval_from_process_env();
 
     if (swbt_btstack_production_link_key_db_configure(
             launch_config->link_key_db_configured ? launch_config->link_key_db_path : NULL) != 0) {
@@ -157,7 +146,7 @@ static int swbt_daemon_run_production(const swbt_daemon_launch_config_t *launch_
     }
     swbt_diagnostic_trace("production: enter main");
     return swbt_daemon_production_main_with_backend_and_shutdown(
-               &backend, &approval, swbt_daemon_process_shutdown_listener(), NULL) ==
+               &backend, NULL, swbt_daemon_process_shutdown_listener(), NULL) ==
                    SWBT_DAEMON_PRODUCTION_OK
                ? 0
                : 1;
