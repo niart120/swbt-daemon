@@ -128,6 +128,17 @@ static int expect_eq_u8(uint8_t actual, uint8_t expected, const char *label) {
     return 0;
 }
 
+static int expect_str_eq(const char *actual, const char *expected, const char *label) {
+    if (actual == NULL || expected == NULL || strcmp(actual, expected) != 0) {
+        // Test diagnostics write to stderr with no retained buffer.
+        // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+        fprintf(stderr, "%s: expected %s, got %s\n", label, expected == NULL ? "<null>" : expected,
+                actual == NULL ? "<null>" : actual);
+        return 1;
+    }
+    return 0;
+}
+
 static int fake_ipc_pump_start(void *context, const swbt_btstack_production_ipc_pump_t *pump) {
     fake_ops_t *fake = context;
     fake->ipc_start_calls += 1;
@@ -1251,6 +1262,49 @@ static int hid_packet_handler_starts_sends_and_stops_timer(void) {
     return failed;
 }
 
+static int hid_connection_opened_persists_learned_switch_address_to_config_target(void) {
+    const char *path = "daemon-production-learned-switch-address.toml";
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {0};
+    const swbt_btstack_production_adapter_t adapter = fake_backend_adapter();
+    swbt_daemon_production_backend_t backend;
+    swbt_daemon_host_t host;
+    const swbt_daemon_config_file_target_t target = {
+        .path = path,
+    };
+    const swbt_daemon_config_file_source_t source = {
+        .path = path,
+        .required = true,
+    };
+    uint8_t opened_event[] = {0xefu, 13u,   0x02u, 0x42u, 0x00u, 0x00u, 0xabu, 0x89u,
+                              0x67u, 0x45u, 0x23u, 0x01u, 0u,    0u,    1u};
+
+    (void)remove(path);
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += expect_true(
+        swbt_daemon_production_backend_set_learned_switch_address_target(&backend, &target),
+        "set learned address target");
+    failed += expect_eq_int(
+        swbt_daemon_host_init(&host, &config, swbt_daemon_production_host_backend(), &backend),
+        SWBT_DAEMON_HOST_OK, "host init");
+    failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK, "host start");
+    fake.captured_hid_config.packet_handler(0x04u, 0x0042u, opened_event, sizeof(opened_event));
+
+    swbt_daemon_config_t reloaded = swbt_daemon_config_default();
+    failed += expect_eq_int(swbt_daemon_config_apply_file(&reloaded, &source),
+                            SWBT_DAEMON_CONFIG_FILE_OK, "reload file");
+    failed += expect_str_eq(reloaded.active_reconnect_learned_switch_address, "01:23:45:67:89:AB",
+                            "learned address");
+    failed += expect_eq_int(fake.timer_start_calls, 1, "timer start");
+
+    swbt_daemon_host_destroy(&host);
+    failed += remove(path) == 0 ? 0 : 1;
+    return failed;
+}
+
 static int hid_packet_handler_confirms_ssp_user_confirmation(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_ops_t fake = {0};
@@ -1302,6 +1356,7 @@ int main(void) {
     failed += repeated_stop_request_does_not_power_off_twice();
     failed += report_period_and_ipc_config_are_exposed();
     failed += hid_packet_handler_starts_sends_and_stops_timer();
+    failed += hid_connection_opened_persists_learned_switch_address_to_config_target();
     failed += hid_packet_handler_confirms_ssp_user_confirmation();
     return failed == 0 ? 0 : 1;
 }

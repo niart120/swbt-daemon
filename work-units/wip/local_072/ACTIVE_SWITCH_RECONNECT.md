@@ -115,6 +115,8 @@ source-audit 結果:
 - `swbt_btstack_hid_event_decode()` は `HID_SUBEVENT_CONNECTION_OPENED` から remote Bluetooth address を decode する。これは learned address capture の入力境界であり、保存の成否や成功判定はまだ扱わない。
 - learned address 書き戻しは `swbt_daemon_config_save_active_reconnect_learned_switch_address()` が同一 TOML file を読み、現行 schema で検証してから `[active_reconnect.learned] switch_address` だけを追加または更新する。手書き explicit address は上書きしない。
 - learned address 書き戻し API は、設定ファイルが存在しない場合に最小 TOML file を作る。親ディレクトリの自動作成、atomic replace、format / comment preservation の保証はまだ持たない。
+- learned address capture の software 成功境界は `HID_SUBEVENT_CONNECTION_OPENED` の `status == 0` とし、report timer が初期化済みの production host 上でだけ保存へ進む。Switch UI が input report を採用したかは software だけでは確認できないため、Button A smoke は実機 item に残す。
+- production backend は保存先 target が設定されている場合だけ learned address を同一 TOML file へ渡す。daemon main が config path を収集して target を注入する入口は `local_073` の起動引数 / config path 契約へ残す。
 - 設定ファイルへの取り込みは、`local_071` で固定した TOML 入力境界に reconnect 用 key / writer を追加する形で扱う。daemon 起動時の config path 収集は `local_073` へ送る。
 - 実機 pass 条件は、L2CAP open だけでは足りない。Button A smoke または同等の input report 採用まで確認する。
 - failure は再 pairing と reconnect を分けて記録する。`pairing complete, status 00` が再度出る場合は active reconnect 成功として扱わない。
@@ -141,7 +143,7 @@ source-audit 結果:
 | refactor-done | production adapter exposes an active reconnect request boundary for HID control PSM `0x11` and interrupt PSM `0x13` | new | unit/integration | no |
 | refactor-done | learned Switch address can be persisted to the same TOML config file without overwriting explicit address | new | unit | no |
 | refactor-done | HID connection opened event exposes remote Bluetooth address for learned Switch address capture | new | unit | no |
-| todo | learned Switch address is captured from a successful pairing / connection path and handed to config persistence after the chosen success boundary | new | integration | no |
+| refactor-skipped | learned Switch address is captured from a successful pairing / connection path and handed to config persistence after the chosen success boundary | new | integration | no |
 | refactor-skipped | invalid active reconnect Switch address in TOML is rejected without partially mutating config | edge | unit | no |
 | todo | active reconnect failure paths report unavailable / failed states without breaking incoming pairing path | edge | integration | no |
 | todo | active reconnect hardware preflight defines initial address capture, daemon restart, active reconnect, optional Switch-side reconnect operation, and Button A smoke | characterization | docs | yes |
@@ -149,7 +151,7 @@ source-audit 結果:
 
 ## 10. 検証
 
-一部 software 実装を開始した。active reconnect address の TOML 読み取り、learned address 書き戻し boundary、production adapter の active reconnect request boundary、HID connection opened event からの remote address decode は実装済みである。実機 reconnect、pairing / connection からの address 自動保存、request failure の状態分類はまだ実装していない。
+一部 software 実装を開始した。active reconnect address の TOML 読み取り、learned address 書き戻し boundary、production adapter の active reconnect request boundary、HID connection opened event からの remote address decode、connection opened 成功 event から保存先 target への learned address 永続化呼び出しは実装済みである。daemon main からの config path 注入、実機 reconnect、request failure の状態分類はまだ実装していない。
 
 起票時確認:
 
@@ -270,6 +272,23 @@ Refactor status:
 - unchanged behavior: user confirmation request decode、connection opened の `hid_cid` / `status` decode、connection closed / can-send decode は維持する。
 - verification: `just build-debug`, `just test-debug`, `just format-check`, `just tidy`
 - notes: address を設定ファイルへ保存する trigger と保存先 path はまだ実装していない。daemon 起動時の config path discovery は `local_073` に切り出したままにする。
+
+TDD status:
+- source: Switch address は自動取得し、設定ファイル layer に永続化する。単に address が見えただけの失敗 pairing を learned reconnect target として固定しないため、少なくとも HID connection opened 成功後に保存へ渡す。
+- use case: production backend が保存先 target を持つ状態で `HID_SUBEVENT_CONNECTION_OPENED` の `status == 0` を受け取った場合、event の remote Bluetooth address を `AA:BB:CC:DD:EE:FF` 形式へ変換し、同一 TOML file の `[active_reconnect.learned] switch_address` へ渡す。target 未設定時は保存しない。
+- item: learned Switch address is captured from a successful pairing / connection path and handed to config persistence after the chosen success boundary。
+- state: refactor-skipped
+- commands:
+  - red: `just build-debug`
+  - green: `just build-debug`; `just test-debug`; `just format`; `just build-debug`; `just test-debug`; `just format-check`; `just tidy`; `git diff --check`
+- notes: red は最初に test helper 不足も検出したため helper を追加し、最終的に `swbt_daemon_production_backend_set_learned_switch_address_target()` 未定義の compile failure に絞った。green では production backend に保存先 target setter を追加し、connection opened 成功 event で `swbt_daemon_config_save_active_reconnect_learned_switch_address()` を呼ぶようにした。`$env:CTEST_ARGS='-R daemon_production_backend_test'; just test-debug` は Dev Container 起動前の `docker ps` で失敗したため test result として扱わず、通常の `just test-debug` で 40/40 pass を確認した。実機は不要。
+
+Refactor status:
+- decision: refactor-skipped
+- change: none
+- unchanged behavior: target 未設定時の connection opened、active reconnect request、hardware approval gate、incoming pairing / advertising、report timer start / stop は維持する。
+- verification: `just build-debug`, `just test-debug`, `just format-check`, `just tidy`, `git diff --check`
+- notes: config path の収集、CLI / service 起動契約、保存失敗時の operator-facing 状態分類はこの cycle に混ぜず後続 item に残す。
 ## 11. 実機実行条件
 
 実機が必要である。ただし起票時点では実行しない。
@@ -313,6 +332,7 @@ Refactor status:
 - [x] Switch address の取得 / 保存 / 削除 boundary を決めた。
 - [x] red test または characterization test を追加した。
 - [x] learned Switch address の同一 TOML file 書き戻し boundary を実装した。
+- [x] HID connection opened 成功 event から learned address を config persistence target へ渡す boundary を実装した。
 - [x] active reconnect boundary を実装した。
 - [ ] hardware preflight を作成した。
 - [ ] 実機結果または未実行理由を記録した。

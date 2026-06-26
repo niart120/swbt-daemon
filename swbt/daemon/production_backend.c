@@ -130,6 +130,44 @@ static bool swbt_daemon_production_parse_switch_address(const char *text, uint8_
     return text[SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE - 1u] == '\0';
 }
 
+static char swbt_daemon_production_hex_digit_upper(uint8_t value) {
+    return (char)(value < 10u ? (uint8_t)'0' + value : (uint8_t)'A' + (uint8_t)(value - 10u));
+}
+
+static void
+swbt_daemon_production_format_switch_address(const uint8_t address[6],
+                                             char text[SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE]) {
+    for (size_t index = 0u; index < 6u; ++index) {
+        const size_t offset = index * 3u;
+        text[offset] = swbt_daemon_production_hex_digit_upper((uint8_t)(address[index] >> 4u));
+        text[offset + 1u] =
+            swbt_daemon_production_hex_digit_upper((uint8_t)(address[index] & 0x0Fu));
+        if (index < 5u) {
+            text[offset + 2u] = ':';
+        }
+    }
+    text[SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE - 1u] = '\0';
+}
+
+static void
+swbt_daemon_production_persist_learned_switch_address(swbt_daemon_production_backend_t *backend,
+                                                      const uint8_t address[6]) {
+    char address_text[SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE];
+    swbt_daemon_config_file_result_t result;
+
+    if (backend == NULL || address == NULL || !backend->learned_switch_address_target_configured) {
+        return;
+    }
+
+    swbt_daemon_production_format_switch_address(address, address_text);
+    swbt_diagnostic_trace("production: learned switch address save");
+    result = swbt_daemon_config_save_active_reconnect_learned_switch_address(
+        &backend->config, &backend->learned_switch_address_target, address_text);
+    swbt_diagnostic_trace(result == SWBT_DAEMON_CONFIG_FILE_OK
+                              ? "production: learned switch address save ok"
+                              : "production: learned switch address save failed");
+}
+
 static swbt_btstack_input_report_timer_adapter_config_t
 swbt_daemon_production_timer_config(swbt_daemon_production_backend_t *backend,
                                     swbt_daemon_host_state_provider_t state_provider,
@@ -191,6 +229,16 @@ swbt_daemon_production_result_t swbt_daemon_production_backend_init(
     backend->ipc_runner.config = swbt_daemon_ipc_runner_config_from_daemon_config(config);
     backend->initialized = true;
     return SWBT_DAEMON_PRODUCTION_OK;
+}
+
+bool swbt_daemon_production_backend_set_learned_switch_address_target(
+    swbt_daemon_production_backend_t *backend, const swbt_daemon_config_file_target_t *target) {
+    if (backend == NULL || target == NULL || target->path == NULL || target->path[0] == '\0') {
+        return false;
+    }
+    backend->learned_switch_address_target = *target;
+    backend->learned_switch_address_target_configured = true;
+    return true;
 }
 
 static bool swbt_daemon_production_ipc_runner_is_running(void *context) {
@@ -256,6 +304,7 @@ static void swbt_daemon_production_hid_packet_handler(uint8_t packet_type, uint1
             return;
         }
         swbt_diagnostic_trace("production: hid connection opened");
+        swbt_daemon_production_persist_learned_switch_address(backend, event.address);
         (void)backend->adapter->report_timer.start(
             backend->adapter_context, &backend->report_timer,
             (swbt_btstack_input_report_timer_start_options_t){
