@@ -142,6 +142,7 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 | refactor-skipped | active outgoing reconnect with experimental link key DB records whether link key notification is persisted to a non-empty TLV file | characterization | hardware | yes |
 | refactor-skipped | daemon restart after experimental link key DB persistence reaches HID channel open but still records incoming SSP pairing | characterization | hardware | yes |
 | refactor-skipped | sleep/resume after experimental link key DB persistence issues active reconnect but does not reach controller connection complete | characterization | hardware | yes |
+| refactor-skipped | sleep/resume rerun after experimental link key DB persistence reaches HID open with saved link key DB and no incoming pairing | characterization | hardware | yes |
 | deferred | daemon restart after experimental link key DB persistence reaches HID channel open without a new `pairing complete, status 00` | characterization | hardware | yes |
 | todo | CLI parser defaults to production backend when no backend flag is supplied | new | unit | no |
 | todo | `--backend noop` selects noop backend and does not require production hardware approval state | new | unit/integration | no |
@@ -348,6 +349,29 @@ TDD status:
 - commands:
   - hardware: `powershell -NoProfile -ExecutionPolicy Bypass -File .\tmp\hardware\local_073\run-link-key-db-sleep-resume-existing.ps1`
 - notes: `active reconnect request ok` は出たが、HCI は `Create_connection` 後に `Connection_complete` へ進まなかった。pairing-free reconnect 成功条件は未達であり、今回の観測は connection establishment failure として扱う。
+
+実機 sleep/resume existing TLV reconnect rerun:
+
+- date: 2026-06-26
+- approval: user approved rerun of the same CSR8510 A10 / WinUSB adapter open、保存済み TOML config / experimental TLV-backed Classic link key DB の再利用、Switch HOME から sleep / resume 済み状態での active reconnect request、Button A smoke、HCI dump / diagnostic trace 保存、cleanup 確認。
+- artifact: `tmp/hardware/local_073/20260626-202005-link-key-db-sleep-resume-existing`
+- source artifact: `tmp/hardware/local_073/20260626-195716-link-key-db-reconnect-retest`
+- environment: Windows native PowerShell、CSR8510 A10 `USB\VID_0A12&PID_0001\9&12127A34&0&1`、Service `WinUSB`、backend `windows-winusb`、BTstack `075a0780f0fad7ff67d58ac19f46e8953656a752`、Switch2 firmware `22.1.0`。
+- swbt: git HEAD `8bc2218`。
+- procedure: source artifact の `swbt-daemon.toml` と `swbt-link-key.tlv` を新 artifact へコピーした。`tmp/hardware/local_073/run-link-key-db-sleep-resume-existing.ps1` で daemon を起動し、Switch 側を操作せず `production: hid connection opened` を待った。HID open 後に Button A smoke と neutral cleanup を実行した。
+- result: trace は `btstack: experimental link key db open ok`、`production: active reconnect request ok`、`production: hid connection opened`、`production: shutdown neutral send ok` を各 1 件記録した。HCI dump は outgoing connection の `Connection_complete (status=0)` 1 件、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` 2 件、`responding to link key request` 1 件、`have link key db: 1` 1 件を記録した。`Connection_incoming`、`Connection_complete (status=8)`、`pairing started`、`pairing complete, status 00`、`L2CAP_EVENT_CHANNEL_OPENED status 0x8` は 0 件だった。Button A smoke は exit code 0。TLV file は before / after とも 88 bytes で、追加の link key notification 保存はなかった。
+- boundary: 保存済み experimental link key DB を使った outgoing reconnect が、新規 pairing なしで HID open まで到達した。直前の failed run は `Create_connection` 後に `Connection_complete` がなく、本体が sleep または Bluetooth 接続受付前だった可能性と整合する。ただし artifact は本体の電源状態を直接記録していないため、原因は未確定である。
+- cleanup: pass。Button A smoke 後に neutral state を accepted させ、daemon は `CTRL_BREAK_EVENT` で exit code 0、forced stop false、crash dump なしで終了した。
+- log: raw Switch address と raw link key value は転記しない。`swbt-daemon.toml`、TLV file、HCI dump は scrub 対象である。
+
+TDD status:
+- source: user discussion, 2026-06-26: 直前の failed run は本体が sleep していた可能性があるため、同じ条件でもう一度試す。
+- use case: hardware operator は initial pairing 済みの config / TLV を再利用し、Switch 側再登録画面を開かずに active reconnect request、saved link key DB response、HID open、Button A smoke を観測する。
+- item: sleep/resume rerun after experimental link key DB persistence reaches HID open with saved link key DB and no incoming pairing。
+- state: refactor-skipped
+- commands:
+  - hardware: `powershell -NoProfile -ExecutionPolicy Bypass -File .\tmp\hardware\local_073\run-link-key-db-sleep-resume-existing.ps1`
+- notes: `responding to link key request` と `have link key db: 1` が出て、`pairing complete, status 00` と `Connection_incoming` は出なかった。これにより、保存済み link key DB による pairing-free outgoing reconnect 成功を実機で観測した。
 
 ## 11. 実機実行条件
 
