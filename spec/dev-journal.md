@@ -32,3 +32,17 @@ PR #1 のローカル確認は Dev Container 外で実行され、`cmake` / `nin
 
 次の work unit で、Dev Container 起動確認、必須 toolchain の presence check、`scripts/check-format.sh` までを一括確認する smoke command を追加する。
 host build opt-in は残すが、PR 前の完全検証は Dev Container または CI を正本にする。
+
+## 2026-06-27: BTstack source selection のビルド負荷観測
+
+### 現状
+
+`cmake/btstack_sources.cmake` はバックエンドごとに `vendor/btstack` の source を広く選ぶ。`local_076` は debug gate の build target を test executable に絞ったが、BTstack source selection は変更していない。
+
+### 観測
+
+既存ビルド出力の `compile_commands.json` では、linux-debug / linux-asan が 254 コンパイル項目中 170 項目、windows-mingw-debug が 253 項目中 169 項目を `vendor/btstack` に使っていた。`.ninja_log` の直近コンパイル処理時間の合計では、`vendor/btstack` が linux-debug 90.72s / 136.18s、linux-asan 91.10s / 138.35s、windows-mingw-debug 93.38s / 142.95s を占めた。これは並列ビルドの実経過時間ではない。
+
+### 判断
+
+BTstack source selection 削減は `local_076` の後続 work unit にしない。次に扱う条件は、clean build の実経過時間で `swbt_btstack` が主要因だと確認でき、Classic HID / libusb / windows-winusb に必要な source を根拠監査できる場合とする。

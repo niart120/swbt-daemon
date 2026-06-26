@@ -93,7 +93,7 @@ not applicable。
 
 ## 12. 先送り事項
 
-- BTstack source selection の削減は別 work unit の候補とする。これは build 時間への影響が大きい可能性があるが、BTstack source selection の根拠監査が必要になるため、この work unit では扱わない。
+none。
 
 ## 13. チェックリスト
 
