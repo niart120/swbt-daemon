@@ -201,6 +201,7 @@ add_library(swbt_daemon_host STATIC
     swbt/daemon/config.c
     swbt/daemon/config_file.cpp
     swbt/daemon/ipc_runner.c
+    swbt/daemon/launch_options.c
     swbt/daemon/production_backend.c
     swbt/daemon/host.c
 )
@@ -599,6 +600,15 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(daemon_config_file_test)
 
     add_test(NAME daemon_config_file_test COMMAND daemon_config_file_test)
+
+    add_executable(daemon_launch_options_test
+        tests/daemon_launch_options_test.c
+    )
+    target_link_libraries(daemon_launch_options_test PRIVATE swbt_daemon_host)
+    swbt_apply_common_warnings(daemon_launch_options_test)
+    swbt_apply_sanitizers(daemon_launch_options_test)
+
+    add_test(NAME daemon_launch_options_test COMMAND daemon_launch_options_test)
 
     add_executable(architecture_journey_test
         tests/architecture_journey_test.c

@@ -15,6 +15,7 @@ source:
 - user discussion, 2026-06-26: 実機承認 env はそろそろ外せるのではないか。診断出力 path は環境変数で有効化すると意図しない場所へファイルが作られ得るため、実行時引数の flag に寄せる案が出た。
 - user discussion, 2026-06-26: backend 指定は何かを確認した結果、現行の noop は test / smoke 用であり、daemon の通常起動は production を既定にして、test 時だけ明示的に noop を与える方針が妥当と判断した。
 - user discussion, 2026-06-26: CLI parser を入れて backend / 実機承認 / 診断出力を反転させる話は、設定ファイル work unit に混ぜず、別 work unit として record 執筆に留める。実装は設定ファイル方針の反映を優先した後で再開する。
+- user discussion, 2026-06-26: 実機 reconnect 検証へ進む。現行 `main` は設定ファイル path と learned address target を production backend へ渡さないため、実機を開く前に `--config` 相当の起動契約を最小実装する。
 - `work-units/complete/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`: 設定ファイル schema は `ipc`、`report`、`device.profile` に絞り、backend 起動モード、実機承認、診断出力 path はこの work unit へ切り出す。
 - `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md`: 環境変数を backend selection、hardware safety gate、runtime override、diagnostic sink に分類した。
 - `docs/status.md`: 現行状態として、未指定では noop backend、`SWBT_DAEMON_BACKEND=production` で production backend、production には `SWBT_RUN_HARDWARE=1` と `SWBT_HARDWARE_APPROVED=1` が必要と記録している。
@@ -29,6 +30,8 @@ use case:
   - 不正な `--backend` 値は adapter open 前に失敗する。
   - 診断出力 path は CLI flag を指定した起動だけで有効になる。
   - 診断出力 path が不正な場合は、可能な限り adapter open 前に失敗し、意図しない場所へ黙って書き込まない。
+  - `--config <path>` を指定した production daemon は、default config に TOML file を適用し、その後に環境変数 override を適用する。
+  - `--config <path>` で読み込んだ同じ TOML file を learned Switch address の書き戻し先として production backend に渡す。
   - test / CI / smoke は必要に応じて `--backend noop` を明示する。
 - 制約: エージェント運用上の実機コマンド承認は残す。Bluetooth adapter open、Switch pairing、HID advertising、report loop は `hardware-harness` の承認境界に従う。
 
@@ -39,6 +42,7 @@ source から use case への変換:
 ## 3. 対象範囲
 
 - `swbt-daemon` 用の testable CLI parser を追加する。
+- `--config <path>` を設計し、daemon config file 読み込みと learned address target を production backend へ接続する。
 - `--backend production|noop` を設計し、既定を production にする。
 - `SWBT_DAEMON_BACKEND` の削除または互換期間を決める。
 - `SWBT_RUN_HARDWARE` / `SWBT_HARDWARE_APPROVED` を production backend の code gate から削除するか、互換期間を決める。
@@ -77,7 +81,10 @@ not applicable for source-audit。
 ## 7. 設計メモ
 
 - `backend` は adapter 種別ではなく daemon host backend の選択である。`production` は BTstack USB transport、HID registration、discoverable 化、HCI power on、run loop を使う。`noop` は Bluetooth adapter を開かない test / smoke 用である。
+- `--config` は reconnect 実機検証の前提である。backend 既定化、実機承認 env の削除、診断 flag 化より先に実装してよい。
+- `--config` で指定した TOML file は読み込み元であり、learned Switch address の書き戻し先でもある。削除境界は設定ファイル上の値の除去とする。
 - CLI flag は永続設定より優先する。ただし `backend` と診断出力 path は `local_071` の設定ファイル schema には入れない。
+- `--config` による file 値は、`default -> TOML config file -> environment override` の優先順位を保つ。環境変数による runtime override は現行互換として残す。
 - `swbt-daemon` 引数なしを production にする場合、unit / smoke / CI で daemon binary を直接起動する箇所は `--backend noop` へ移す。
 - `SWBT_RUN_HARDWARE` / `SWBT_HARDWARE_APPROVED` は code-level double gate としては削除候補である。エージェント運用上の実機承認は別物として残す。
 - この record の起票時点では CLI parser 実装を開始しない。未マージの試作実装は採用済み状態として扱わず、再開時は `main` 上の現行挙動から TDD Test List の先頭 item を選ぶ。
@@ -90,6 +97,7 @@ not applicable for source-audit。
 ## 8. 対象ファイル
 
 - `apps/swbt-daemon/main.c`
+- `swbt/daemon/launch_options.*`
 - `swbt/daemon/production_backend.*`
 - `swbt/daemon/host.*`
 - `swbt/core/diagnostics.*`
@@ -107,6 +115,8 @@ not applicable for source-audit。
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
+| refactor-skipped | CLI parser accepts `--config <path>` / `--config=<path>` and rejects missing or unknown options before adapter open | new | unit | no |
+| todo | daemon main applies config file before environment override and passes the same config path as learned address target to production backend | new | integration | no |
 | todo | CLI parser defaults to production backend when no backend flag is supplied | new | unit | no |
 | todo | `--backend noop` selects noop backend and does not require production hardware approval state | new | unit/integration | no |
 | todo | invalid backend value fails before adapter open | edge | unit/integration | no |
@@ -129,6 +139,24 @@ not applicable for source-audit。
 - `swbt/daemon/host.c` の noop backend は Bluetooth adapter を開かない dummy port set である。
 - `swbt/daemon/production_backend.c` は `SWBT_RUN_HARDWARE` と `SWBT_HARDWARE_APPROVED` 由来の approval がない場合に production main を拒否する。
 - `swbt/core/diagnostics.c`、`swbt/btstack_bridge/production_btstack.c`、`apps/swbt-daemon/main.c` は診断出力 path を環境変数から読む。
+
+TDD status:
+- source: user discussion, 2026-06-26: 実機 reconnect 検証へ進む前に `--config` 起動契約が必要である。
+- use case: hardware operator は daemon binary に config file path を明示し、adapter open 前に CLI 引数 validation の失敗を観測できる。
+- item: CLI parser accepts `--config <path>` / `--config=<path>` and rejects missing or unknown options before adapter open。
+- state: refactor-skipped
+- commands:
+  - red: `just build-debug`
+  - green: `just build-debug`
+  - green: `$env:CTEST_ARGS='-R daemon_launch_options_test'; just test-debug`
+- notes: red は `swbt/daemon/launch_options.c` と `daemon/launch_options.h` が未実装のため CMake regenerate が失敗した。green では `swbt_daemon_launch_options_parse()` を追加し、`--config <path>`、`--config=<path>`、missing value、unknown option、no option を unit test で固定した。refactor-after-green は見直したが、parser は独立 module と test に閉じており追加構造変更は不要と判断した。
+
+Refactor status:
+- decision: refactor-skipped
+- change: none
+- unchanged behavior: daemon main の backend selection、hardware approval、config file 読み込み、diagnostic env はまだ変更しない。
+- verification: `just build-debug`、`$env:CTEST_ARGS='-R daemon_launch_options_test'; just test-debug`
+- notes: 次 cycle で parser result を `apps/swbt-daemon/main.c` に接続し、config file apply と learned address target を production backend へ渡す。
 
 ## 11. 実機実行条件
 
