@@ -62,6 +62,11 @@ swbt_daemon_production_power_port_is_valid(const swbt_btstack_production_power_p
     return port != NULL && port->on != NULL && port->off != NULL;
 }
 
+static bool swbt_daemon_production_active_reconnect_port_is_valid(
+    const swbt_btstack_production_active_reconnect_port_t *port) {
+    return port != NULL && port->connect != NULL;
+}
+
 static bool
 swbt_daemon_production_run_loop_port_is_valid(const swbt_btstack_production_run_loop_port_t *port) {
     return port != NULL && port->execute != NULL && port->execute_on_main_thread != NULL &&
@@ -78,7 +83,51 @@ swbt_daemon_production_adapter_is_valid(const swbt_btstack_production_adapter_t 
            swbt_daemon_production_controller_port_is_valid(&adapter->controller) &&
            swbt_daemon_production_clock_port_is_valid(&adapter->clock) &&
            swbt_daemon_production_power_port_is_valid(&adapter->power) &&
+           swbt_daemon_production_active_reconnect_port_is_valid(&adapter->active_reconnect) &&
            swbt_daemon_production_run_loop_port_is_valid(&adapter->run_loop);
+}
+
+static bool swbt_daemon_production_hex_nibble(char value, uint8_t *out_nibble) {
+    if (out_nibble == NULL) {
+        return false;
+    }
+    if (value >= '0' && value <= '9') {
+        *out_nibble = (uint8_t)(value - '0');
+        return true;
+    }
+    if (value >= 'a' && value <= 'f') {
+        *out_nibble = (uint8_t)(value - 'a' + 10);
+        return true;
+    }
+    if (value >= 'A' && value <= 'F') {
+        *out_nibble = (uint8_t)(value - 'A' + 10);
+        return true;
+    }
+    return false;
+}
+
+static bool swbt_daemon_production_parse_switch_address(const char *text, uint8_t address[6]) {
+    if (text == NULL || address == NULL) {
+        return false;
+    }
+    if (strlen(text) != SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE - 1u) {
+        return false;
+    }
+
+    for (size_t index = 0u; index < 6u; ++index) {
+        const size_t offset = index * 3u;
+        uint8_t high = 0u;
+        uint8_t low = 0u;
+        if (!swbt_daemon_production_hex_nibble(text[offset], &high) ||
+            !swbt_daemon_production_hex_nibble(text[offset + 1u], &low)) {
+            return false;
+        }
+        if (index < 5u && text[offset + 2u] != ':') {
+            return false;
+        }
+        address[index] = (uint8_t)((uint8_t)(high << 4u) | low);
+    }
+    return text[SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE - 1u] == '\0';
 }
 
 static swbt_btstack_input_report_timer_adapter_config_t
@@ -470,6 +519,36 @@ static void swbt_daemon_production_power_off(swbt_daemon_production_backend_t *b
     }
 }
 
+static void
+swbt_daemon_production_request_active_reconnect(swbt_daemon_production_backend_t *backend) {
+    const char *switch_address = NULL;
+    swbt_btstack_production_active_reconnect_request_t request = {
+        .control_psm = SWBT_BTSTACK_PRODUCTION_HID_CONTROL_PSM,
+        .interrupt_psm = SWBT_BTSTACK_PRODUCTION_HID_INTERRUPT_PSM,
+    };
+    uint16_t hid_cid = 0u;
+    int result;
+
+    if (backend == NULL) {
+        return;
+    }
+
+    switch_address = swbt_daemon_config_effective_reconnect_switch_address(&backend->config);
+    if (switch_address == NULL) {
+        return;
+    }
+    if (!swbt_daemon_production_parse_switch_address(switch_address, request.address)) {
+        swbt_diagnostic_trace("production: active reconnect address invalid");
+        return;
+    }
+
+    swbt_diagnostic_trace("production: active reconnect request");
+    result =
+        backend->adapter->active_reconnect.connect(backend->adapter_context, &request, &hid_cid);
+    swbt_diagnostic_trace(result == 0 ? "production: active reconnect request ok"
+                                      : "production: active reconnect request failed");
+}
+
 static void swbt_daemon_production_finish_shutdown(swbt_daemon_production_backend_t *backend) {
     if (backend == NULL || !backend->initialized) {
         return;
@@ -569,6 +648,7 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_backend_and_shu
     swbt_diagnostic_trace("production: power on");
     result = swbt_daemon_production_power_on(backend);
     if (result == SWBT_DAEMON_PRODUCTION_OK) {
+        swbt_daemon_production_request_active_reconnect(backend);
         atomic_store(&backend->shutdown_requested, false);
         backend->shutdown_neutral_pending = false;
         if (shutdown_listener != NULL) {

@@ -321,6 +321,29 @@ static void swbt_btstack_production_power_off(void *context) {
     (void)hci_power_control(HCI_POWER_OFF);
 }
 
+static int swbt_btstack_production_active_reconnect_connect(
+    void *context, const swbt_btstack_production_active_reconnect_request_t *request,
+    uint16_t *out_hid_cid) {
+    uint8_t address[6];
+    uint8_t status;
+    (void)context;
+
+    if (request == NULL || out_hid_cid == NULL ||
+        request->control_psm != SWBT_BTSTACK_PRODUCTION_HID_CONTROL_PSM ||
+        request->interrupt_psm != SWBT_BTSTACK_PRODUCTION_HID_INTERRUPT_PSM) {
+        return -1;
+    }
+
+    for (size_t index = 0u; index < sizeof(address); ++index) {
+        address[index] = request->address[index];
+    }
+    swbt_diagnostic_trace("btstack: hid active reconnect connect");
+    status = hid_device_connect(address, out_hid_cid);
+    swbt_diagnostic_trace(status == 0u ? "btstack: hid active reconnect connect ok"
+                                       : "btstack: hid active reconnect connect failed");
+    return status == 0u ? 0 : -1;
+}
+
 static void swbt_btstack_production_run_loop_execute(void *context) {
     (void)context;
     btstack_run_loop_execute();
@@ -382,6 +405,10 @@ const swbt_btstack_production_adapter_t *swbt_btstack_production_adapter(void) {
             {
                 .on = swbt_btstack_production_power_on,
                 .off = swbt_btstack_production_power_off,
+            },
+        .active_reconnect =
+            {
+                .connect = swbt_btstack_production_active_reconnect_connect,
             },
         .run_loop =
             {

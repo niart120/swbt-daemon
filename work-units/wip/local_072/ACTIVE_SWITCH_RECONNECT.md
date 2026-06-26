@@ -96,7 +96,6 @@ source-audit 結果:
 
 未解決事項:
 
-- `hid_device_connect()` をそのまま使うか、swbt 側で control / interrupt L2CAP open を明示 port 化するかは未決定である。次の production adapter boundary item で固定する。
 - joycontrol の empty input report 送信は reconnect startup precedent だが、swbt で必要かは未検証である。採用する場合は hardware item の観測対象に含める。
 - BTstack outbound connect が Switch2 `22.1.0` / CSR8510 A10 / WinUSB の今回条件で Change Grip / Order なしに成立するかは未実機検証である。
 
@@ -111,6 +110,7 @@ source-audit 結果:
 - Switch Bluetooth address は raw link key ではないが、実機固有情報である。trace log と hardware artifact では検証用に明示してよい。リポジトリへ残す `docs/hardware-test-log.md` や work unit record では必要に応じて scrub する。
 - active reconnect は既存 incoming pairing / advertising 経路を壊してはならない。address が不明または reconnect が失敗した場合は、現行の pairing-capable path に戻れる必要がある。
 - production adapter に直接 joycontrol 互換ロジックを混ぜ込まない。BTstack outbound connect、address source、operator intent、diagnostics を分ける。
+- production active reconnect boundary は `swbt_btstack_production_active_reconnect_request_t` で Switch address、HID control PSM、HID interrupt PSM を表す。production backend は effective reconnect address がある場合だけ power on 後にこの request を出す。現時点では request failure は trace に記録して run loop へ進み、既存 incoming pairing path を止めない。
 - learned address 書き戻しは `swbt_daemon_config_save_active_reconnect_learned_switch_address()` が同一 TOML file を読み、現行 schema で検証してから `[active_reconnect.learned] switch_address` だけを追加または更新する。手書き explicit address は上書きしない。
 - learned address 書き戻し API は、設定ファイルが存在しない場合に最小 TOML file を作る。親ディレクトリの自動作成、atomic replace、format / comment preservation の保証はまだ持たない。
 - 設定ファイルへの取り込みは、`local_071` で固定した TOML 入力境界に reconnect 用 key / writer を追加する形で扱う。daemon 起動時の config path 収集は `local_073` へ送る。
@@ -136,7 +136,7 @@ source-audit 結果:
 |---|---|---|---|---|
 | refactor-skipped | source audit records joycontrol-style reconnect assumptions and BTstack outbound L2CAP / HID device connect boundaries | characterization | docs | no |
 | refactor-done | daemon config/state can represent explicit and learned Switch Bluetooth addresses from TOML without raw link key storage | new | unit | no |
-| todo | production adapter exposes an active reconnect request boundary for HID control PSM `0x11` and interrupt PSM `0x13` | new | unit/integration | no |
+| refactor-done | production adapter exposes an active reconnect request boundary for HID control PSM `0x11` and interrupt PSM `0x13` | new | unit/integration | no |
 | refactor-done | learned Switch address can be persisted to the same TOML config file without overwriting explicit address | new | unit | no |
 | todo | learned Switch address is captured from a successful pairing / connection path and handed to config persistence after the chosen success boundary | new | integration | no |
 | refactor-skipped | invalid active reconnect Switch address in TOML is rejected without partially mutating config | edge | unit | no |
@@ -146,7 +146,7 @@ source-audit 結果:
 
 ## 10. 検証
 
-一部 software 実装を開始した。active reconnect address の TOML 読み取りと learned address 書き戻し boundary は実装済みである。active reconnect の outbound L2CAP、実機 reconnect、pairing / connection からの address 自動取得はまだ実装していない。
+一部 software 実装を開始した。active reconnect address の TOML 読み取り、learned address 書き戻し boundary、production adapter の active reconnect request boundary は実装済みである。実機 reconnect、pairing / connection からの address 自動取得、request failure の状態分類はまだ実装していない。
 
 起票時確認:
 
@@ -231,6 +231,24 @@ Refactor status:
 - unchanged behavior: daemon main の起動順序、config path discovery、environment override precedence、backend selection、hardware approval、diagnostic env、BTstack reconnect は変更しない。
 - verification: `just build-debug`, `just test-debug`, `just format-check`, `just tidy`
 - notes: writer は同一 path への direct rewrite であり、atomic replace、parent directory auto-create、format / comment preservation guarantee はまだ持たない。
+
+TDD status:
+- source: joycontrol `-r` 型 reconnect と BTstack `hid_device_connect()` precedent から、既知 Switch address がある場合に daemon 側から HID reconnect を要求する境界が必要である。
+- use case: effective reconnect address が設定されている production daemon は、hardware approval 後に既存 host / HID setup を壊さず、power on 後に Switch address、HID control PSM `0x11`、HID interrupt PSM `0x13` を production adapter の active reconnect port へ渡す。
+- item: production adapter exposes an active reconnect request boundary for HID control PSM `0x11` and interrupt PSM `0x13`。
+- state: refactor-done
+- commands:
+  - red: `just build-debug`
+  - green: `just build-debug`; `just test-debug`
+  - refactor: `just format`; `just build-debug`; `just test-debug`; `just format-check`; `just tidy`; `git diff --check`
+- notes: red は `swbt_btstack_production_active_reconnect_request_t`、`swbt_btstack_production_active_reconnect_port_t`、adapter field、PSM 定数が未定義だったため `daemon_production_backend_test` の compile failure になった。green では production adapter に active reconnect port を追加し、production backend が effective address を byte array に変換して power on 後に request するようにした。BTstack 実装は `hid_device_connect()` を使う。実機は不要。
+
+Refactor status:
+- decision: refactor-done
+- change: active reconnect address parser に長さ確認を追加し、短い文字列で byte parser が範囲外を読まないようにした。BTstack wrapper の fixed-size address copy は `memcpy` ではなく for copy にし、clang-tidy の insecureAPI warning を避けた。
+- unchanged behavior: address 未設定時の production startup、hardware approval gate、incoming pairing / advertising setup、report timer lifecycle、shutdown neutral path は変更しない。active reconnect request failure は現時点では fatal にせず、trace 後に run loop へ進む。
+- verification: `just build-debug`, `just test-debug`, `just format-check`, `just tidy`
+- notes: active reconnect の実機成功、failure state の IPC / diagnostics 反映、pairing / connection success からの learned address capture は後続 item に残す。
 ## 11. 実機実行条件
 
 実機が必要である。ただし起票時点では実行しない。
@@ -274,6 +292,6 @@ Refactor status:
 - [x] Switch address の取得 / 保存 / 削除 boundary を決めた。
 - [x] red test または characterization test を追加した。
 - [x] learned Switch address の同一 TOML file 書き戻し boundary を実装した。
-- [ ] active reconnect boundary を実装した。
+- [x] active reconnect boundary を実装した。
 - [ ] hardware preflight を作成した。
 - [ ] 実機結果または未実行理由を記録した。
