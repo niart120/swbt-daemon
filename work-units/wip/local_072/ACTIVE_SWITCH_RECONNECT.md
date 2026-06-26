@@ -210,14 +210,14 @@ TDD status:
 - state: refactor-skipped
 - commands:
   - characterization: `just build-debug`; `just test-debug`; `just format`
-- notes: 追加 test は現行実装で通った。address validation は前 item の setter に閉じており、config file apply は `next = *config` へ適用してから成功時だけ commit するため、先行する `report.period_us` も部分反映されない。実機は不要。
+- notes: explicit address と learned address の不正値 test は現行実装で通った。address validation は各 setter に閉じており、config file apply は `next = *config` へ適用してから成功時だけ commit するため、先行する `report.period_us` も部分反映されない。実機は不要。
 
 Refactor status:
 - decision: refactor-skipped
 - change: test だけを追加した。production code は変更しない。
 - unchanged behavior: active reconnect address の正常 TOML 読み取り、explicit 優先、learned fallback、既存 runtime config は維持する。
 - verification: `just build-debug`, `just test-debug`
-- notes: invalid learned address の個別 test は未追加。次に書き戻し境界を扱うとき、learned 側の rollback を追加で固定する余地がある。
+- notes: learned 側の不正値 rollback も characterization test で固定した。production code は変更していない。
 
 TDD status:
 - source: 取得した Switch address は同一設定ファイルに daemon-managed learned address として永続化し、手書き explicit address は operator の明示設定として残す。
