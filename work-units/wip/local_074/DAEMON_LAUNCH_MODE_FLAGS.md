@@ -255,10 +255,10 @@ software-only で確認できる範囲:
 
 - 観測: production 既定化後も、BTstack USB transport がどの adapter を開くかは swbt 側で明示 selector を持たない。
   先送り理由: backend 起動モードと CLI parser の整理とは別の問題であり、VID/PID selector や driver state 確認を含めると scope が広がる。
-  次の置き場: 後続 work unit。必要なら `spec/operations/windows-native-preflight.md` と接続する。
+  次の置き場: `work-units/wip/local_077/ADAPTER_SELECTOR_GUARD.md`。必要なら `spec/operations/windows-native-preflight.md` と接続する。
 - 観測: `show-config` / `validate-config` / reconnect state cleanup などの CLI subcommand は有用である。
   先送り理由: この work unit は daemon 起動引数に絞る。管理 command surface は active reconnect と設定ファイル運用が固まった後に扱う。
-  次の置き場: 後続 work unit。
+  次の置き場: `work-units/wip/local_078/DAEMON_CLI_MANAGEMENT_SURFACE.md`。
 
 ## 13. チェックリスト
 
