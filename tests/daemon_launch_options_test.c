@@ -10,6 +10,7 @@ static int expect_eq_int(int actual, int expected, const char *label) {
     return actual == expected ? 0 : 1;
 }
 
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): test helper names arguments at call sites.
 static int expect_str_eq(const char *actual, const char *expected, const char *label) {
     (void)label;
     if (actual == NULL || expected == NULL) {
@@ -38,6 +39,7 @@ static int expect_eq_u32(uint32_t actual, uint32_t expected, const char *label) 
     return actual == expected ? 0 : 1;
 }
 
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): test fixture helper names arguments.
 static int write_text_file(const char *path, const char *contents) {
     FILE *file = fopen(path, "wb");
     if (file == NULL) {

@@ -158,6 +158,7 @@ int swbt_btstack_production_link_key_db_configure(const char *path) {
     return 0;
 }
 
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): BTstack packet handler ABI.
 static void link_key_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet,
                                     uint16_t size) {
     bd_addr_t addr;
@@ -177,6 +178,7 @@ static void link_key_packet_handler(uint8_t packet_type, uint16_t channel, uint8
     for (size_t index = 0u; index < sizeof(addr); ++index) {
         addr[index] = packet[7u - index];
     }
+    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     (void)memcpy(link_key, &packet[8], sizeof(link_key));
     link_key_type = (link_key_type_t)packet[24];
     gap_store_link_key_for_bd_addr(addr, link_key, link_key_type);
