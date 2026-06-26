@@ -1,6 +1,8 @@
 #include "daemon/launch_options.h"
 
 #include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 static int expect_eq_int(int actual, int expected, const char *label) {
@@ -19,6 +21,33 @@ static int expect_str_eq(const char *actual, const char *expected, const char *l
 static int expect_null(const void *actual, const char *label) {
     (void)label;
     return actual == NULL ? 0 : 1;
+}
+
+static int expect_false(int actual, const char *label) {
+    (void)label;
+    return actual == 0 ? 0 : 1;
+}
+
+static int expect_true(int actual, const char *label) {
+    (void)label;
+    return actual != 0 ? 0 : 1;
+}
+
+static int expect_eq_u32(uint32_t actual, uint32_t expected, const char *label) {
+    (void)label;
+    return actual == expected ? 0 : 1;
+}
+
+static int write_text_file(const char *path, const char *contents) {
+    FILE *file = fopen(path, "wb");
+    if (file == NULL) {
+        return 1;
+    }
+    if (fputs(contents, file) < 0 || fclose(file) != 0) {
+        (void)remove(path);
+        return 1;
+    }
+    return 0;
 }
 
 static int config_path_separate_argument_is_accepted(void) {
@@ -76,6 +105,57 @@ static int no_options_keeps_config_path_unset(void) {
     return failed;
 }
 
+static int launch_config_applies_file_before_env_and_sets_learned_target(void) {
+    const char *path = "daemon-launch-options-config.toml";
+    const char *argv[] = {"swbt-daemon", "--config", path};
+    const swbt_daemon_config_env_t env = {
+        .report_period_us = "15000",
+    };
+    swbt_daemon_launch_options_t options = {0};
+    swbt_daemon_launch_config_t launch_config = {0};
+
+    if (write_text_file(path, "[report]\n"
+                              "period_us = 8000\n"
+                              "\n"
+                              "[active_reconnect]\n"
+                              "switch_address = \"AA:BB:CC:DD:EE:FF\"\n") != 0) {
+        return 1;
+    }
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 3, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed +=
+        expect_true(swbt_daemon_launch_config_prepare(&launch_config, &options, &env), "prepare");
+    failed += expect_eq_u32(launch_config.config.report_period_us, 15000u, "env override");
+    failed +=
+        expect_str_eq(swbt_daemon_config_effective_reconnect_switch_address(&launch_config.config),
+                      "AA:BB:CC:DD:EE:FF", "effective address");
+    failed += expect_true(launch_config.learned_switch_address_target_configured, "target");
+    failed += expect_str_eq(launch_config.learned_switch_address_target.path, path, "target path");
+    failed += remove(path) == 0 ? 0 : 1;
+    return failed;
+}
+
+static int launch_config_without_config_path_keeps_learned_target_unset(void) {
+    const char *argv[] = {"swbt-daemon"};
+    const swbt_daemon_config_env_t env = {
+        .report_period_us = "15000",
+    };
+    swbt_daemon_launch_options_t options = {0};
+    swbt_daemon_launch_config_t launch_config = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 1, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed +=
+        expect_true(swbt_daemon_launch_config_prepare(&launch_config, &options, &env), "prepare");
+    failed += expect_eq_u32(launch_config.config.report_period_us, 15000u, "env override");
+    failed += expect_false(launch_config.learned_switch_address_target_configured, "target");
+    failed += expect_null(launch_config.learned_switch_address_target.path, "target path");
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += config_path_separate_argument_is_accepted();
@@ -83,5 +163,7 @@ int main(void) {
     failed += missing_config_path_is_rejected();
     failed += unknown_option_is_rejected();
     failed += no_options_keeps_config_path_unset();
+    failed += launch_config_applies_file_before_env_and_sets_learned_target();
+    failed += launch_config_without_config_path_keeps_learned_target_unset();
     return failed == 0 ? 0 : 1;
 }

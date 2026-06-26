@@ -1,5 +1,6 @@
 #include "daemon/launch_options.h"
 
+#include <stdbool.h>
 #include <string.h>
 
 static const char *swbt_daemon_launch_options_value_after_equals(const char *argument,
@@ -49,4 +50,40 @@ swbt_daemon_launch_options_parse(swbt_daemon_launch_options_t *options, int argc
     }
 
     return SWBT_DAEMON_LAUNCH_OPTIONS_OK;
+}
+
+bool swbt_daemon_launch_config_prepare(swbt_daemon_launch_config_t *launch_config,
+                                       const swbt_daemon_launch_options_t *options,
+                                       const swbt_daemon_config_env_t *env) {
+    swbt_daemon_config_file_result_t file_result;
+
+    if (launch_config == NULL || options == NULL || env == NULL) {
+        return false;
+    }
+
+    *launch_config = (swbt_daemon_launch_config_t){
+        .config = swbt_daemon_config_default(),
+    };
+
+    if (options->config_path != NULL) {
+        const swbt_daemon_config_file_source_t source = {
+            .path = options->config_path,
+            .required = true,
+        };
+        file_result = swbt_daemon_config_apply_file(&launch_config->config, &source);
+        if (file_result != SWBT_DAEMON_CONFIG_FILE_OK) {
+            *launch_config = (swbt_daemon_launch_config_t){0};
+            return false;
+        }
+        launch_config->learned_switch_address_target =
+            (swbt_daemon_config_file_target_t){.path = options->config_path};
+        launch_config->learned_switch_address_target_configured = true;
+    }
+
+    if (!swbt_daemon_config_apply_env(&launch_config->config, env)) {
+        *launch_config = (swbt_daemon_launch_config_t){0};
+        return false;
+    }
+
+    return true;
 }

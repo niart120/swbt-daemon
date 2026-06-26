@@ -116,7 +116,7 @@ not applicable for source-audit。
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | refactor-skipped | CLI parser accepts `--config <path>` / `--config=<path>` and rejects missing or unknown options before adapter open | new | unit | no |
-| todo | daemon main applies config file before environment override and passes the same config path as learned address target to production backend | new | integration | no |
+| refactor-skipped | daemon main applies config file before environment override and passes the same config path as learned address target to production backend | new | integration | no |
 | todo | CLI parser defaults to production backend when no backend flag is supplied | new | unit | no |
 | todo | `--backend noop` selects noop backend and does not require production hardware approval state | new | unit/integration | no |
 | todo | invalid backend value fails before adapter open | edge | unit/integration | no |
@@ -157,6 +157,25 @@ Refactor status:
 - unchanged behavior: daemon main の backend selection、hardware approval、config file 読み込み、diagnostic env はまだ変更しない。
 - verification: `just build-debug`、`$env:CTEST_ARGS='-R daemon_launch_options_test'; just test-debug`
 - notes: 次 cycle で parser result を `apps/swbt-daemon/main.c` に接続し、config file apply と learned address target を production backend へ渡す。
+
+TDD status:
+- source: user discussion, 2026-06-26: 実機 reconnect 検証へ進む前に `--config` の読み込み元と learned address target を production backend に接続する必要がある。
+- use case: hardware operator は `--config <path>` で TOML file を指定し、file 値を読んだ後に環境変数 override を適用し、同じ file へ learned Switch address を書き戻せる。
+- item: daemon main applies config file before environment override and passes the same config path as learned address target to production backend。
+- state: refactor-skipped
+- commands:
+  - red: `just build-debug`
+  - green: `just build-debug`
+  - green: `$env:CTEST_ARGS='-R daemon_launch_options_test'; just test-debug`
+  - green: `just test-debug`
+- notes: red は `swbt_daemon_launch_config_t`、`swbt_daemon_launch_config_prepare()`、`swbt_daemon_config_env_t` の include 境界が未実装で、`daemon_launch_options_test` の compile が失敗した。green では launch config helper が default config に required TOML file を適用し、その後に env override を適用する。`apps/swbt-daemon/main.c` は `--config` を parse し、config path がある場合だけ同じ path を learned address target として production backend へ渡す。backend selection、hardware approval env、diagnostic env は現行互換のまま残した。refactor-after-green は見直したが、reconnect 実機前提の最小接続に閉じるため追加構造変更は行わない。
+
+Refactor status:
+- decision: refactor-skipped
+- change: none
+- unchanged behavior: `SWBT_DAEMON_BACKEND=production`、`SWBT_RUN_HARDWARE=1`、`SWBT_HARDWARE_APPROVED=1`、diagnostic env は現行互換のまま残す。
+- verification: `just build-debug`、`$env:CTEST_ARGS='-R daemon_launch_options_test'; just test-debug`、`just test-debug`
+- notes: backend 既定化、hardware approval env 削除、diagnostic CLI flag 化は後続 item のままにする。
 
 ## 11. 実機実行条件
 

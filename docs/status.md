@@ -28,8 +28,8 @@
 | 初代Switch各モデル | 初代Switch、Switch Lite、Switch OLED での pairing、subcommand sequence、input 反映。 | firmware、adapter、driver、report period を記録した実機ログ。 |
 | 他のUSBドングル | CSR8510 A10 以外の Bluetooth ドングルでの WinUSB / libusb 挙動。 | VID/PID、driver、BTstack backend、HCI dump を含む実機ログ。 |
 | Linux実機経路 | Linux + libusb backend での adapter open、pairing、HID report loop。 | Linux host、libusb device、udev / permission、HCI dump を含む実機ログ。 |
-| active reconnect | Switch address を既知状態として扱う reconnect request boundary は production adapter に追加済み。設定ファイル上の effective Switch address がある場合、daemon は power on 後に HID control PSM `0x11` / interrupt PSM `0x13` 付きの request を出し、BTstack 実装では `hid_device_connect()` を使う。request failure は IPC status の `switch_connection_state` / `hid_channel_state` で `failed` として見えるが、daemon は run loop を継続して incoming pairing path を残す。`HID_SUBEVENT_CONNECTION_OPENED` 成功 event から learned address を保存先 target へ渡す production backend boundary も追加済み。ただし daemon main が config path を収集して保存先 target を渡す入口と、実機 reconnect は未実装 / 未検証。 | `swbt/btstack_bridge/production_adapter.h`, `swbt/btstack_bridge/production_btstack.c`, `swbt/daemon/production_backend.c`, `tests/daemon_production_backend_test.c`, `work-units/complete/local_072/ACTIVE_SWITCH_RECONNECT.md`。 |
-| daemon 起動時の config path | daemon process がどの設定ファイル path を読むか、また CLI で明示 path をどう渡すかは未確定。 | `work-units/wip/local_073/DAEMON_CLI_LAUNCH_MODE.md`、後続の設定ファイル運用 spec。 |
+| active reconnect | Switch address を既知状態として扱う reconnect request boundary は production adapter に追加済み。`--config <path>` で設定ファイル上の effective Switch address がある場合、daemon は power on 後に HID control PSM `0x11` / interrupt PSM `0x13` 付きの request を出し、BTstack 実装では `hid_device_connect()` を使う。request failure は IPC status の `switch_connection_state` / `hid_channel_state` で `failed` として見えるが、daemon は run loop を継続して incoming pairing path を残す。`HID_SUBEVENT_CONNECTION_OPENED` 成功 event から learned address を同じ config path の保存先 target へ渡す production backend boundary も追加済み。ただし実機 reconnect は未検証。 | `swbt/btstack_bridge/production_adapter.h`, `swbt/btstack_bridge/production_btstack.c`, `swbt/daemon/production_backend.c`, `swbt/daemon/launch_options.c`, `apps/swbt-daemon/main.c`, `tests/daemon_production_backend_test.c`, `tests/daemon_launch_options_test.c`, `work-units/complete/local_072/ACTIVE_SWITCH_RECONNECT.md`, `work-units/wip/local_073/DAEMON_CLI_LAUNCH_MODE.md`。 |
+| daemon 起動時の config path | `swbt-daemon --config <path>` または `--config=<path>` で TOML config file を明示できる。daemon は `default -> TOML config file -> environment override` の順で runtime config を作る。production backend では同じ config path を learned Switch address の書き戻し先 target として使う。 | `apps/swbt-daemon/main.c`, `swbt/daemon/launch_options.c`, `tests/daemon_launch_options_test.c`, `work-units/wip/local_073/DAEMON_CLI_LAUNCH_MODE.md`。 |
 | 厳密な遅延・jitter・取りこぼし率 | input report の実送信周期、Switch 側入力遅延、取りこぼし率。 | timestamp 付き計測、サンプル数、解析方法、測定誤差の記録。 |
 
 ## 未実装
@@ -47,7 +47,7 @@
 
 `apps/swbt-daemon/main.c` は `SWBT_DAEMON_BACKEND=production` のときだけ production backend を選ぶ。production backend は `SWBT_RUN_HARDWARE=1` と `SWBT_HARDWARE_APPROVED=1` がそろわない場合、実機経路を開始しない。
 
-runtime config の reusable boundary は `default -> TOML config file -> environment override` の優先順位で test されている。ただし現行 `apps/swbt-daemon/main.c` はまだ設定ファイル path を収集しない。CLI parser、`--config` 相当の明示 path、production / noop 起動モードの反転は `local_073` で扱う。
+runtime config の reusable boundary は `default -> TOML config file -> environment override` の優先順位で test されている。現行 `apps/swbt-daemon/main.c` は `--config <path>` / `--config=<path>` を受け取り、同じ path を learned Switch address の書き戻し先 target として production backend へ渡す。production / noop 起動モードの反転、実機承認 env の整理、diagnostic path の CLI flag 化は `local_073` の後続 item として残る。
 
 | 区分 | 環境変数 | 値 | 備考 |
 |---|---|---|---|
