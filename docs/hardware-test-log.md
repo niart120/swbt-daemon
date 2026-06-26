@@ -1029,3 +1029,25 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: `tmp/hardware/local_073/20260626-202005-link-key-db-sleep-resume-existing`
 - cleanup: pass。Button A smoke 後に neutral state を accepted させ、`CTRL_BREAK_EVENT` で daemon は exit code `0`、forced stop `false`、crash dump なしで終了した。trace は shutdown neutral send ok、HCI power off、HCI close、experimental link key DB close、run loop deinit、HCI dump close、host stop done まで到達した
 - notes: config file 上の raw Switch address、HCI dump 上の raw address、raw link key value は表示、転記していない。この rerun は、保存済み experimental link key DB を使った outgoing reconnect が新規 pairing なしで HID open へ到達した hardware observation である。直前の失敗 run は `Create_connection` 後に `Connection_complete` がなく、本体が sleep または Bluetooth 接続受付前だった可能性と整合する。ただし artifact 自体は本体の電源状態を直接記録していないため、原因は未確定として扱う
+
+## 2026-06-26: local_073 link key DB reconnect rerun after naming cleanup on Switch2
+
+- OS: Microsoft Windows 11 Pro、Version `10.0.26200`、Build `26200`、64-bit
+- environment: Windows native PowerShell、swbt branch `work/local-073-config-path-reconnect`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Class `USBDevice`、Service `WinUSB`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: git HEAD `f77d8a58ecedd4a4a25b9fd27706168e020f26c3`
+- Switch firmware: Switch2 `22.1.0`。既存実機環境の継続値であり、今回の artifact では本体画面を再読していない
+- approval scope: ユーザ承認済み。CSR8510 A10、WinUSB、adapter open、保存済み TOML config / TLV-backed Classic link key DB の再利用、Switch HOME から sleep / resume 済み状態での active reconnect request、Button A smoke、HCI dump / diagnostic trace 保存、cleanup 確認。Switch 側の Change Grip/Order 操作は含めない
+- environment variables: daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`。daemon argument は `--config <artifact>/swbt-daemon.toml --link-key-db <artifact>/swbt-link-key.tlv`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: `tmp/hardware/local_073/20260626-195716-link-key-db-reconnect-retest` から `swbt-daemon.toml` と `swbt-link-key.tlv` を新 artifact へコピーした。`tmp/hardware/local_073/run-link-key-db-sleep-resume-existing.ps1` で daemon を起動し、Switch 側を操作せず `production: hid connection opened` を待った。HID open 後に Button A smoke と neutral cleanup を実行した
+- result: reconnect は pass。trace は `btstack: link key db open ok`、`production: active reconnect request ok`、`production: hid connection opened`、`production: shutdown neutral send ok` を各 `1` 件記録した。HCI dump は outgoing connection の `Connection_complete (status=0)` `1` 件、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件、`responding to link key request` `1` 件、`have link key db: 1` `1` 件を記録した。`Connection_incoming`、`Connection_complete (status=8)`、`pairing started`、`pairing complete, status 00`、`L2CAP_EVENT_CHANNEL_OPENED status 0x8` は `0` 件だった。Button A smoke は exit code `0`。TLV file は before / after とも `88` bytes で、追加の link key notification 保存はなかった。`a1 30` input report は `105` 件だった
+- daemon log: daemon stdout / stderr log は空。`sleep-resume-existing/sleep-resume-reconnect-trace.txt`、`sleep-resume-existing/sleep-resume-reconnect-hci-dump.txt`、artifact root の `summary.json` を正本にする
+- artifact root: `tmp/hardware/local_073/20260626-205341-link-key-db-sleep-resume-existing`
+- cleanup: pass。Button A smoke 後に neutral state を accepted させ、`CTRL_BREAK_EVENT` で daemon は exit code `0`、forced stop `false`、crash dump なしで終了した
+- notes: config file 上の raw Switch address、HCI dump 上の raw address、raw link key value は表示、転記していない。この rerun は、`experimental` 名称撤去後も保存済み link key DB を使った outgoing reconnect が新規 pairing なしで HID open へ到達することを確認した hardware observation である

@@ -1,12 +1,12 @@
-# Daemon CLI Launch Mode
+# Daemon Config Path And Link Key Reconnect
 
 ## 1. 概要
 
-daemon の起動モードと一時診断出力を、環境変数中心の指定から CLI flag へ移す work unit。
+daemon の実機 reconnect 検証に必要な `--config` と `--link-key-db` の起動契約を追加する work unit。
 
-現行の `SWBT_DAEMON_BACKEND=production` は、daemon host の noop 経路と production BTstack 経路を切り替える。noop は Bluetooth adapter を開かない test / smoke 用の退避経路であり、production が実際の daemon 経路である。この work unit では、その意味に合わせて既定を production に寄せ、test / smoke 時だけ `--backend noop` のように明示する設計へ移行する。
+`--config <path>` は TOML config file の読み込み元であり、production backend では learned Switch address の書き戻し先でもある。`--link-key-db <path>` は起動単位で TLV-backed Classic link key DB を接続し、HCI link key notification を raw key を trace に出さず保存する。
 
-診断出力 path は永続設定ではなく、その起動だけの観測指定として扱う。`SWBT_DIAGNOSTIC_TRACE_PATH`、`SWBT_HCI_DUMP_TRACE_PATH`、`SWBT_CRASH_DUMP_PATH` は CLI flag への移行対象にする。
+保存済み config と link key DB により、Switch 側の再登録操作なしで daemon initiated outgoing reconnect が HID open と Button A smoke まで到達することを実機で確認する。production / noop 起動モード、実機承認 env、diagnostic path の CLI flag 化は `work-units/wip/local_074/DAEMON_LAUNCH_MODE_FLAGS.md` に分離する。
 
 ## 2. 起点 / ユースケース
 
@@ -19,6 +19,7 @@ source:
 - user discussion, 2026-06-26: active reconnect manual rerun で daemon initiated HID transport は成功したが、`have link key db: 0` と `pairing complete, status 00` が出た。HCI event `0x18` により link key notification は観測できたため、link key DB を指定起動だけで接続し、active outgoing path で保存と pairing-free reconnect が成立するか検証する。
 - user discussion, 2026-06-26: link key DB 起動では DB open 自体は成功したが、TLV file は `8` bytes の header だけに留まり、BTstack log は `Remote not bonding, dropping local flag` を記録した。BTstack の bonding policy と DB persistence を切り分けるため、HCI link key notification を swbt 側で明示的に DB へ保存する経路を作る。
 - user discussion, 2026-06-26: 保存済み link key DB を使った outgoing reconnect が、新規 `pairing complete, status 00` なしで HID open と Button A smoke まで到達した。実験用と銘打っていた実装名を撤去し、余計な接頭辞・接尾辞を避けて通常の link key DB 経路として整理する。
+- user discussion, 2026-06-26: 通常名へ整理した後に再試験し、その後 local_073 を `--config` / `--link-key-db` / reconnect の範囲に分離する。production / noop 起動モード、実機承認 env 整理、diagnostic CLI flag 化は後続 work unit に移す。
 - `work-units/complete/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`: 設定ファイル schema は `ipc`、`report`、`device.profile` に絞り、backend 起動モード、実機承認、診断出力 path はこの work unit へ切り出す。
 - `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md`: 環境変数を backend selection、hardware safety gate、runtime override、diagnostic sink に分類した。
 - `docs/status.md`: 現行状態として、未指定では noop backend、`SWBT_DAEMON_BACKEND=production` で production backend、production には `SWBT_RUN_HARDWARE=1` と `SWBT_HARDWARE_APPROVED=1` が必要と記録している。
@@ -26,41 +27,31 @@ source:
 use case:
 
 - actor: hardware operator、maintainer、unit / integration test。
-- 入力または状態: daemon を引数なしで起動する通常運用、Bluetooth adapter を開かず host lifecycle だけを通したい test / smoke、実機検証時だけ trace / HCI dump / crash dump を保存したい起動。
+- 入力または状態: daemon に config file path と link key DB path を明示し、保存済み learned Switch address と保存済み Classic link key を再利用する起動。
 - 期待する観測結果:
-  - `swbt-daemon` は production backend を選ぶ。
-  - `swbt-daemon --backend noop` は Bluetooth adapter を開かず、現行 noop host 経路を選ぶ。
-  - 不正な `--backend` 値は adapter open 前に失敗する。
-  - 診断出力 path は CLI flag を指定した起動だけで有効になる。
-  - 診断出力 path が不正な場合は、可能な限り adapter open 前に失敗し、意図しない場所へ黙って書き込まない。
   - `--config <path>` を指定した production daemon は、default config に TOML file を適用し、その後に環境変数 override を適用する。
   - `--config <path>` で読み込んだ同じ TOML file を learned Switch address の書き戻し先として production backend に渡す。
   - `--link-key-db <path>` を指定した起動では、HCI link key notification から raw key を trace に出さず、TLV DB に保存する。
-  - test / CI / smoke は必要に応じて `--backend noop` を明示する。
+  - 保存済み config と link key DB により、Switch 側の再登録操作なしで active reconnect request、saved link key DB response、HID open、Button A smoke へ到達する。
 - 制約: エージェント運用上の実機コマンド承認は残す。Bluetooth adapter open、Switch pairing、HID advertising、report loop は `hardware-harness` の承認境界に従う。
 
 source から use case への変換:
 
-`local_071` は永続設定の対象を runtime 値へ絞る。backend selection と診断出力 path は永続設定よりも起動コマンドに現れている方が事故を減らせるため、CLI parser の導入と同時に扱う。
+`local_071` は永続設定の対象を runtime 値へ絞る。実機 reconnect 検証では config path と link key DB path が先に必要になったため、この work unit ではその起動契約だけを先に実装し、daemon 起動モード全体の反転は `local_074` に送る。
 
 ## 3. 対象範囲
 
 - `swbt-daemon` 用の testable CLI parser を追加する。
 - `--config <path>` を設計し、daemon config file 読み込みと learned address target を production backend へ接続する。
-- `--backend production|noop` を設計し、既定を production にする。
-- `SWBT_DAEMON_BACKEND` の削除または互換期間を決める。
-- `SWBT_RUN_HARDWARE` / `SWBT_HARDWARE_APPROVED` を production backend の code gate から削除するか、互換期間を決める。
-- `--trace-path`、`--hci-dump-path`、`--crash-dump-path` を設計する。
-- `SWBT_DIAGNOSTIC_TRACE_PATH`、`SWBT_HCI_DUMP_TRACE_PATH`、`SWBT_CRASH_DUMP_PATH` の削除または互換期間を決める。
-- 診断出力 path の open failure policy を決める。
 - link key DB 指定時だけ、HCI link key notification を BTstack TLV-backed Classic link key DB へ明示保存する経路を追加する。
-- test / CI / smoke entrypoint が Bluetooth adapter を開かない場合は `--backend noop` を明示するよう更新する。
-- `docs/status.md` と関連 operations docs に、新しい起動モードと実機承認境界を記録する。
+- `--link-key-db <path>` を通常名の起動契約として整える。
+- 保存済み config / link key DB による pairing-free active reconnect を実機で確認する。
+- `docs/status.md`、`docs/hardware-test-log.md`、この record に検証結果を記録する。
 
 ## 4. 対象外
 
 - `local_071` の設定ファイル schema、TOML parser / serializer、環境変数 runtime override precedence。
-- active reconnect、Switch address の取得 / 保存 / 削除。
+- production / noop 起動モードの反転、`--backend noop`、実機承認 env 整理、diagnostic path の CLI flag 化。`work-units/wip/local_074/DAEMON_LAUNCH_MODE_FLAGS.md` で扱う。
 - adapter selector、VID/PID selector、複数 Bluetooth adapter の選択 policy。
 - Switch protocol byte、device info payload、report period の既定値変更。
 - service manager、installer、Windows registry、binary release。
@@ -74,12 +65,13 @@ source から use case への変換:
 - `spec/operations/windows-native-preflight.md`
 - `spec/operations/windows-hardware-bringup-sequence.md`
 - `spec/architecture/daemon-architecture-cutover.md`
+- `work-units/wip/local_074/DAEMON_LAUNCH_MODE_FLAGS.md`
 
 ## 6. 根拠監査
 
 source-audit required for BTstack source selection。
 
-この work unit は CLI 起動指定、環境変数削除、診断出力 path の扱いを主対象にする。Switch HID report bytes、subcommand、SPI、rumble、report period 採用値は追加または変更しない。
+この work unit は `--config`、`--link-key-db`、BTstack TLV-backed Classic link key DB 接続、保存済み link key DB による reconnect 観測を主対象にする。Switch HID report bytes、subcommand、SPI、rumble、report period 採用値は追加または変更しない。
 
 ただし link key DB を `production_btstack` に接続するため、BTstack platform TLV source selection を変更した。根拠は BTstack port 実装であり、`vendor/btstack/port/libusb/main.c`、`vendor/btstack/port/windows-winusb/main.c`、`vendor/btstack/port/windows-h4/main.c` は `btstack_tlv_*_init_instance()`、`btstack_tlv_set_instance()`、`btstack_link_key_db_tlv_get_instance()`、`hci_set_link_key_db()` の順に Classic link key DB を接続している。
 
@@ -94,42 +86,28 @@ link key notification 保存経路の根拠:
 - source fact: `vendor/btstack/src/classic/btstack_link_key_db.h:88-96` と `vendor/btstack/src/classic/btstack_link_key_db_tlv.c:88-180` は `get_link_key` / `put_link_key` と TLV 永続化の実装である。
 - source fact: `vendor/btstack/src/btstack_defines.h:378` は `HCI_EVENT_LINK_KEY_NOTIFICATION` を `0x18` と定義する。event の address bytes は `vendor/btstack/src/btstack_event.h:715-716` の generated accessor と同じ向きへ swbt 側で変換する。
 
-production 既定化は Bluetooth adapter open に直結するため、実機実行や docs の表現では `hardware-harness` を使う。
+production backend の実機実行は Bluetooth adapter open に直結するため、実機実行や docs の表現では `hardware-harness` を使う。
 
 ## 7. 設計メモ
 
-- `backend` は adapter 種別ではなく daemon host backend の選択である。`production` は BTstack USB transport、HID registration、discoverable 化、HCI power on、run loop を使う。`noop` は Bluetooth adapter を開かない test / smoke 用である。
 - `--config` は reconnect 実機検証の前提である。backend 既定化、実機承認 env の削除、診断 flag 化より先に実装してよい。
 - `--config` で指定した TOML file は読み込み元であり、learned Switch address の書き戻し先でもある。削除境界は設定ファイル上の値の除去とする。
 - CLI flag は永続設定より優先する。ただし `backend` と診断出力 path は `local_071` の設定ファイル schema には入れない。
 - `--config` による file 値は、`default -> TOML config file -> environment override` の優先順位を保つ。環境変数による runtime override は現行互換として残す。
 - `--link-key-db <path>` は恒久設定ではなく、active reconnect の link key 保存可否を起動単位で切り分ける入口である。設定ファイル schema には入れず、指定された起動だけ BTstack TLV-backed Classic link key DB を接続する。
 - BTstack TLV DB を接続するだけでは、Switch 側が bonding しない条件で link key が保存されない。`--link-key-db` 指定時は HCI event handler を登録し、`HCI_EVENT_LINK_KEY_NOTIFICATION` の非 null key を `gap_store_link_key_for_bd_addr()` で明示保存する。raw address と raw key は trace に出さない。
-- `swbt-daemon` 引数なしを production にする場合、unit / smoke / CI で daemon binary を直接起動する箇所は `--backend noop` へ移す。
-- `SWBT_RUN_HARDWARE` / `SWBT_HARDWARE_APPROVED` は code-level double gate としては削除候補である。エージェント運用上の実機承認は別物として残す。
-- この record の起票時点では CLI parser 実装を開始しない。未マージの試作実装は採用済み状態として扱わず、再開時は `main` 上の現行挙動から TDD Test List の先頭 item を選ぶ。
-- 診断出力 path は、明示 flag がある起動だけで有効化する。設定ファイルや残留環境変数から暗黙にファイルを書き始める設計にはしない。
-- 診断出力 path の open failure は失敗として扱う方向で検討する。operator が明示した観測対象が作れないまま実機へ進むと、失敗時に根拠が残らないためである。
-- 親ディレクトリの自動作成は初期案では行わない。意図しない path への作成範囲を広げないためである。
-- crash dump は Windows 専用挙動を含むため、非 Windows では flag の扱いを no-op にするか、unsupported として失敗させるかを test で固定する。
-- adapter selector はこの work unit の対象外だが、production 既定化後に残る安全上の違和感である。専用 WinUSB ドングル運用は docs で維持し、selector が必要なら後続 work unit に切り出す。
+- production / noop 起動モードの反転、実機承認 env 整理、diagnostic path の CLI flag 化は `local_074` に分離した。
 
 ## 8. 対象ファイル
 
 - `apps/swbt-daemon/main.c`
 - `swbt/daemon/launch_options.*`
-- `swbt/daemon/production_backend.*`
-- `swbt/daemon/host.*`
-- `swbt/core/diagnostics.*`
 - `swbt/btstack_bridge/production_btstack.*`
-- `tests/daemon_*`
-- `tests/diagnostics_test.c`
+- `tests/daemon_launch_options_test.c`
 - `tests/btstack_production_hci_dump_test.c`
 - `docs/status.md`
 - `docs/hardware-test-log.md`
-- `spec/operations/windows-native-preflight.md`
-- `spec/operations/windows-hardware-bringup-sequence.md`
-- `work-units/wip/local_073/DAEMON_CLI_LAUNCH_MODE.md`
+- `work-units/complete/local_073/DAEMON_CONFIG_LINK_KEY_RECONNECT.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
@@ -145,22 +123,13 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 | refactor-skipped | sleep/resume after link key DB persistence issues active reconnect but does not reach controller connection complete | characterization | hardware | yes |
 | refactor-skipped | sleep/resume rerun after link key DB persistence reaches HID open with saved link key DB and no incoming pairing | characterization | hardware | yes |
 | refactor-skipped | link key DB implementation and CLI names drop the experimental prefix after pairing-free reconnect is observed | refactor | unit/integration | no |
-| deferred | daemon restart after link key DB persistence reaches HID channel open without a new `pairing complete, status 00` | characterization | hardware | yes |
-| todo | CLI parser defaults to production backend when no backend flag is supplied | new | unit | no |
-| todo | `--backend noop` selects noop backend and does not require production hardware approval state | new | unit/integration | no |
-| todo | invalid backend value fails before adapter open | edge | unit/integration | no |
-| todo | production backend no longer requires `SWBT_RUN_HARDWARE` and `SWBT_HARDWARE_APPROVED` as code-level gates, while hardware execution remains documented as human-approved | behavior | unit/integration | no |
-| todo | diagnostic trace path is enabled only by CLI flag and not by persistent config file | regression | unit/integration | no |
-| todo | HCI dump path is enabled only by CLI flag and fails before production run loop when the path cannot be opened | edge | unit/integration | no |
-| todo | crash dump path CLI behavior is fixed for Windows and non-Windows builds | edge | unit/build | no |
-| todo | test / smoke entrypoints that need no hardware pass `--backend noop` explicitly | regression | integration | no |
-| deferred | adapter selector or dedicated dongle identity guard is designed if production default leaves adapter selection ambiguous | behavior | design/hardware | yes |
+| refactor-skipped | post-refactor sleep/resume rerun reaches HID open with `--link-key-db`, saved link key DB, and no incoming pairing | regression | hardware | yes |
 
 ## 10. 検証
 
 初期起票時点では、実装、software test、実機検証はまだ実行していなかった。
 
-2026-06-26 の方針確認では、CLI parser 実装は設定ファイル work unit に混ぜず、この record を後続 work unit の source として残す判断にした。この時点では `CMakeLists.txt`、`apps/swbt-daemon/main.c`、`swbt/daemon/*`、`tests/daemon_*` の挙動は変更しない。元々の設定ファイル方針の反映を優先し、CLI parser、production 既定化、diagnostic flag 化は後続で再開する。
+2026-06-26 の方針確認では、CLI parser 実装は設定ファイル work unit に混ぜず、この record を後続 work unit の source として残す判断にした。その後、実機 reconnect 検証に必要な `--config` と `--link-key-db` だけをこの record の範囲として実装し、production 既定化、diagnostic flag 化、実機承認 env 整理は `local_074` へ分離した。
 
 起票時確認:
 
@@ -388,43 +357,55 @@ Refactor status:
 - verification: `just format`、`just build-debug`、`$env:CTEST_ARGS='-R "daemon_launch_options_test|btstack_production_hci_dump_test"'; just test-debug`、`just test-debug`、`just format-check`、`just windows-cross`、`just asan`
 - notes: 実機再実行はこの refactor では行っていない。変更は CLI 名と trace 名を含むため、次に実機 script を使う場合は新しい `--link-key-db` と `btstack: link key db ...` trace を正本にする。
 
+実機 post-refactor sleep/resume existing TLV reconnect rerun:
+
+- date: 2026-06-26
+- approval: user approved CSR8510 A10 / WinUSB adapter open、保存済み TOML config / TLV-backed Classic link key DB の再利用、Switch HOME から sleep / resume 済み状態での active reconnect request、Button A smoke、HCI dump / diagnostic trace 保存、cleanup 確認。Switch 側の Change Grip/Order 操作は含めない。
+- artifact: `tmp/hardware/local_073/20260626-205341-link-key-db-sleep-resume-existing`
+- source artifact: `tmp/hardware/local_073/20260626-195716-link-key-db-reconnect-retest`
+- environment: Windows native PowerShell、CSR8510 A10 `USB\VID_0A12&PID_0001\9&12127A34&0&1`、Service `WinUSB`、backend `windows-winusb`、BTstack `075a0780f0fad7ff67d58ac19f46e8953656a752`、Switch2 firmware `22.1.0`。
+- swbt: git HEAD `f77d8a58ecedd4a4a25b9fd27706168e020f26c3`。
+- procedure: source artifact の `swbt-daemon.toml` と `swbt-link-key.tlv` を新 artifact へコピーした。`tmp/hardware/local_073/run-link-key-db-sleep-resume-existing.ps1` で daemon を `--config <artifact>/swbt-daemon.toml --link-key-db <artifact>/swbt-link-key.tlv` として起動し、Switch 側を操作せず `production: hid connection opened` を待った。HID open 後に Button A smoke と neutral cleanup を実行した。
+- result: reconnect は pass。trace は `btstack: link key db open ok`、`production: active reconnect request ok`、`production: hid connection opened`、`production: shutdown neutral send ok` を各 1 件記録した。HCI dump は outgoing connection の `Connection_complete (status=0)` 1 件、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` 2 件、`responding to link key request` 1 件、`have link key db: 1` 1 件を記録した。`Connection_incoming`、`Connection_complete (status=8)`、`pairing started`、`pairing complete, status 00`、`L2CAP_EVENT_CHANNEL_OPENED status 0x8` は 0 件だった。Button A smoke は exit code 0。TLV file は before / after とも 88 bytes で、追加の link key notification 保存はなかった。
+- cleanup: pass。Button A smoke 後に neutral state を accepted させ、daemon は `CTRL_BREAK_EVENT` で exit code 0、forced stop false、crash dump なしで終了した。
+- log: raw Switch address と raw link key value は転記しない。`swbt-daemon.toml`、TLV file、HCI dump は scrub 対象である。
+
+TDD status:
+- source: user discussion, 2026-06-26: 通常名へ整理した後に、同じ保存済み config / TLV で pairing-free reconnect が維持されるか再試験する。
+- use case: hardware operator は `--link-key-db` の通常名経路で保存済み link key DB を使い、Switch 側再登録画面を開かずに active reconnect request、saved link key DB response、HID open、Button A smoke を観測する。
+- item: post-refactor sleep/resume rerun reaches HID open with `--link-key-db`, saved link key DB, and no incoming pairing。
+- state: refactor-skipped
+- commands:
+  - hardware: `powershell -NoProfile -ExecutionPolicy Bypass -File .\tmp\hardware\local_073\run-link-key-db-sleep-resume-existing.ps1`
+- notes: `--link-key-db` と trace `btstack: link key db open ok` の通常名経路で、`responding to link key request` と `have link key db: 1` が出た。`pairing complete, status 00` と `Connection_incoming` は出なかった。これにより、命名整理後も保存済み link key DB による pairing-free outgoing reconnect が維持されることを実機で観測した。
+
 ## 11. 実機実行条件
 
-この work unit は production 既定化と hardware approval env の削除候補を含むため、最終確認では実機が必要になる可能性が高い。
+この work unit の実機実行は完了した。
 
-実機実行前条件:
+実行済み範囲:
 
-- `hardware-harness` を読む。
-- 人間の明示承認を得る。
-- 専用 USB Bluetooth dongle と WinUSB driver assignment を確認する。
-- 実行範囲を adapter open、HID advertising、pairing、report loop、diagnostic output のどこまで含むか明示する。
-- `docs/hardware-test-log.md` へ OS、dongle VID/PID、driver、BTstack commit、swbt commit、Switch firmware、結果、cleanup を記録する。
-
-software-only で確認できる範囲:
-
-- CLI parser の既定値と validation。
-- noop 明示指定が adapter port を呼ばないこと。
-- invalid backend / invalid diagnostic path が production run loop 前に失敗すること。
-- 環境変数依存削除または互換期間の挙動。
+- CSR8510 A10 / WinUSB adapter open。
+- initial pairing と HCI link key notification の TLV 保存。
+- 保存済み TOML config / TLV-backed Classic link key DB の再利用。
+- Switch HOME から sleep / resume 済み状態での active reconnect request。
+- saved link key DB response、HID open、Button A smoke。
+- neutral cleanup、HCI dump / diagnostic trace 保存、crash dump absence 確認。
 
 ## 12. 先送り事項
 
-- 観測: production 既定化後も、BTstack USB transport がどの adapter を開くかは swbt 側で明示 selector を持たない。
-  先送り理由: backend 起動モードと CLI parser の整理とは別の問題であり、VID/PID selector や driver state 確認を含めると scope が広がる。
-  次の置き場: 後続 work unit。必要なら `spec/operations/windows-native-preflight.md` と接続する。
-- 観測: `show-config` / `validate-config` / reconnect state cleanup などの CLI subcommand は有用である。
-  先送り理由: この work unit は daemon 起動引数に絞る。管理 command surface は active reconnect と設定ファイル運用が固まった後に扱う。
-  次の置き場: 後続 work unit。
+none for this work unit。
+
+production / noop 起動モード、実機承認 env 整理、diagnostic path の CLI flag 化、adapter selector の設計候補は `work-units/wip/local_074/DAEMON_LAUNCH_MODE_FLAGS.md` に分離した。
 
 ## 13. チェックリスト
 
 - [x] source を user discussion、`local_071`、`local_045`、`docs/status.md` から特定した。
-- [x] use case を production default、explicit noop、CLI diagnostic flag として定義した。
+- [x] use case を `--config`、learned Switch address target、`--link-key-db`、pairing-free reconnect として定義した。
 - [x] 設定ファイル schema とは別 work unit に分離した。
 - [x] CLI parser の test list を実装前に再確認した。
 - [x] red test または characterization test を追加した。
-- [ ] production default / noop explicit behavior を実装した。
-- [ ] diagnostic CLI flag を実装した。
-- [ ] hardware approval env の削除または互換期間を決めた。
+- [x] production default / noop explicit behavior、diagnostic CLI flag、hardware approval env 整理を `local_074` に分離した。
+- [x] 通常名の `--link-key-db` 経路で実機再試験した。
 - [x] docs / status を更新した。
 - [x] software verification と実機未実行理由または実機結果を記録した。
