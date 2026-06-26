@@ -20,6 +20,7 @@ typedef enum {
 
 typedef enum {
     SWBT_APP_HARDWARE_CHANNEL_UNAVAILABLE = 0,
+    SWBT_APP_HARDWARE_CHANNEL_FAILED = 1,
 } swbt_app_hardware_channel_state_t;
 
 typedef struct {

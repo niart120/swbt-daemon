@@ -30,6 +30,7 @@ enum {
     STEP_TIMER_SEND_NEUTRAL_NOW = 17,
     STEP_RUN_LOOP_EXECUTE_ON_MAIN_THREAD = 18,
     STEP_TIMER_CAN_SEND_NOW = 19,
+    STEP_ACTIVE_RECONNECT_CONNECT = 20,
 };
 
 typedef struct {
@@ -53,6 +54,8 @@ typedef struct {
     int injected_json_result;
     int hid_send_calls;
     int power_off_calls;
+    int active_reconnect_connect_calls;
+    int active_reconnect_connect_result;
     int read_controller_address_calls;
     int ssp_confirmation_calls;
     int run_loop_trigger_exit_calls;
@@ -65,6 +68,7 @@ typedef struct {
     uint8_t hid_send_button_bytes[8];
     uint8_t controller_address[6];
     uint8_t ssp_confirmation_address[6];
+    swbt_btstack_production_active_reconnect_request_t captured_active_reconnect_request;
     const swbt_daemon_ipc_runner_t *ipc_runner;
     swbt_ipc_status_t status_during_run_loop;
     int status_during_run_loop_result;
@@ -119,6 +123,17 @@ static int expect_eq_u8(uint8_t actual, uint8_t expected, const char *label) {
         // Test diagnostics write to stderr with no retained buffer.
         // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(stderr, "%s: expected %u, got %u\n", label, (unsigned)expected, (unsigned)actual);
+        return 1;
+    }
+    return 0;
+}
+
+static int expect_str_eq(const char *actual, const char *expected, const char *label) {
+    if (actual == NULL || expected == NULL || strcmp(actual, expected) != 0) {
+        // Test diagnostics write to stderr with no retained buffer.
+        // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+        fprintf(stderr, "%s: expected %s, got %s\n", label, expected == NULL ? "<null>" : expected,
+                actual == NULL ? "<null>" : actual);
         return 1;
     }
     return 0;
@@ -461,6 +476,22 @@ static void fake_shutdown_uninstall(void *context) {
     record_step((fake_ops_t *)context, STEP_SHUTDOWN_UNINSTALL);
 }
 
+static int
+fake_active_reconnect_connect(void *context,
+                              const swbt_btstack_production_active_reconnect_request_t *request,
+                              uint16_t *out_hid_cid) {
+    fake_ops_t *fake = context;
+    fake->active_reconnect_connect_calls += 1;
+    if (request != NULL) {
+        fake->captured_active_reconnect_request = *request;
+    }
+    if (out_hid_cid != NULL) {
+        *out_hid_cid = 0x0042u;
+    }
+    record_step(fake, STEP_ACTIVE_RECONNECT_CONNECT);
+    return fake->active_reconnect_connect_result;
+}
+
 static swbt_btstack_production_ipc_pump_port_t fake_ipc_pump_port(void) {
     return (swbt_btstack_production_ipc_pump_port_t){
         .start = fake_ipc_pump_start,
@@ -520,6 +551,12 @@ static swbt_btstack_production_power_port_t fake_power_port(void) {
     };
 }
 
+static swbt_btstack_production_active_reconnect_port_t fake_active_reconnect_port(void) {
+    return (swbt_btstack_production_active_reconnect_port_t){
+        .connect = fake_active_reconnect_connect,
+    };
+}
+
 static swbt_btstack_production_run_loop_port_t fake_run_loop_port(void) {
     return (swbt_btstack_production_run_loop_port_t){
         .execute = fake_run_loop_execute,
@@ -544,6 +581,7 @@ static swbt_btstack_production_adapter_t fake_backend_adapter(void) {
         .controller = fake_controller_port(),
         .clock = fake_clock_port(),
         .power = fake_power_port(),
+        .active_reconnect = fake_active_reconnect_port(),
         .run_loop = fake_run_loop_port(),
     };
 }
@@ -668,6 +706,100 @@ static int approved_backend_starts_hardware_and_cleans_up_in_order(void) {
                     "hid descriptor");
     failed += expect_eq_int((int)fake.captured_hid_config.hid_descriptor_size,
                             (int)swbt_switch_hid_descriptor_size(), "hid descriptor size");
+    return failed;
+}
+
+static int approved_backend_requests_active_reconnect_when_switch_address_is_configured(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {0};
+    const swbt_btstack_production_adapter_t adapter = fake_backend_adapter();
+    swbt_daemon_production_backend_t backend;
+    const swbt_daemon_hardware_approval_t approval = {
+        .run_hardware = true,
+        .hardware_approved = true,
+    };
+    const uint8_t expected_address[] = {0x01u, 0x23u, 0x45u, 0x67u, 0x89u, 0xabu};
+    const int expected[] = {
+        STEP_IPC_START,
+        STEP_PLATFORM_START,
+        STEP_HID_REGISTER,
+        STEP_OUTPUT_START,
+        STEP_TIMER_INIT,
+        STEP_POWER_ON,
+        STEP_ACTIVE_RECONNECT_CONNECT,
+        STEP_RUN_LOOP_EXECUTE,
+        STEP_POWER_OFF,
+        STEP_TIMER_STOP,
+        STEP_OUTPUT_STOP,
+        STEP_HID_STOP,
+        STEP_PLATFORM_STOP,
+        STEP_IPC_STOP,
+    };
+
+    int failed = 0;
+    failed += expect_true(swbt_daemon_config_set_active_reconnect_learned_switch_address(
+                              &config, "01:23:45:67:89:ab"),
+                          "set learned address");
+    failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
+                            SWBT_DAEMON_PRODUCTION_OK, "main result");
+    failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
+    failed += expect_eq_int(fake.active_reconnect_connect_calls, 1, "active reconnect calls");
+    failed += expect_eq_u16(fake.captured_active_reconnect_request.control_psm,
+                            SWBT_BTSTACK_PRODUCTION_HID_CONTROL_PSM, "control psm");
+    failed += expect_eq_u16(fake.captured_active_reconnect_request.interrupt_psm,
+                            SWBT_BTSTACK_PRODUCTION_HID_INTERRUPT_PSM, "interrupt psm");
+    for (size_t index = 0; index < sizeof(expected_address); ++index) {
+        failed += expect_eq_u8(fake.captured_active_reconnect_request.address[index],
+                               expected_address[index], "active reconnect address");
+    }
+    return failed;
+}
+
+static int active_reconnect_failure_reports_failed_state_without_stopping_run_loop(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {
+        .active_reconnect_connect_result = -7,
+    };
+    const swbt_btstack_production_adapter_t adapter = fake_backend_adapter();
+    swbt_daemon_production_backend_t backend;
+    const swbt_daemon_hardware_approval_t approval = {
+        .run_hardware = true,
+        .hardware_approved = true,
+    };
+    const int expected[] = {
+        STEP_IPC_START,
+        STEP_PLATFORM_START,
+        STEP_HID_REGISTER,
+        STEP_OUTPUT_START,
+        STEP_TIMER_INIT,
+        STEP_POWER_ON,
+        STEP_ACTIVE_RECONNECT_CONNECT,
+        STEP_RUN_LOOP_EXECUTE,
+        STEP_POWER_OFF,
+        STEP_TIMER_STOP,
+        STEP_OUTPUT_STOP,
+        STEP_HID_STOP,
+        STEP_PLATFORM_STOP,
+        STEP_IPC_STOP,
+    };
+
+    int failed = 0;
+    failed += expect_true(swbt_daemon_config_set_active_reconnect_learned_switch_address(
+                              &config, "01:23:45:67:89:ab"),
+                          "set learned address");
+    failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
+                            SWBT_DAEMON_PRODUCTION_OK, "main result");
+    failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
+    failed += expect_eq_int(fake.status_during_run_loop_result, SWBT_IPC_OK, "status read");
+    failed +=
+        expect_eq_int((int)fake.status_during_run_loop.hardware.switch_connection_state,
+                      (int)SWBT_IPC_HARDWARE_CHANNEL_FAILED, "switch connection failed state");
+    failed += expect_eq_int((int)fake.status_during_run_loop.hardware.hid_channel_state,
+                            (int)SWBT_IPC_HARDWARE_CHANNEL_FAILED, "hid failed state");
     return failed;
 }
 
@@ -1176,6 +1308,49 @@ static int hid_packet_handler_starts_sends_and_stops_timer(void) {
     return failed;
 }
 
+static int hid_connection_opened_persists_learned_switch_address_to_config_target(void) {
+    const char *path = "daemon-production-learned-switch-address.toml";
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {0};
+    const swbt_btstack_production_adapter_t adapter = fake_backend_adapter();
+    swbt_daemon_production_backend_t backend;
+    swbt_daemon_host_t host;
+    const swbt_daemon_config_file_target_t target = {
+        .path = path,
+    };
+    const swbt_daemon_config_file_source_t source = {
+        .path = path,
+        .required = true,
+    };
+    uint8_t opened_event[] = {0xefu, 13u,   0x02u, 0x42u, 0x00u, 0x00u, 0xabu, 0x89u,
+                              0x67u, 0x45u, 0x23u, 0x01u, 0u,    0u,    1u};
+
+    (void)remove(path);
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += expect_true(
+        swbt_daemon_production_backend_set_learned_switch_address_target(&backend, &target),
+        "set learned address target");
+    failed += expect_eq_int(
+        swbt_daemon_host_init(&host, &config, swbt_daemon_production_host_backend(), &backend),
+        SWBT_DAEMON_HOST_OK, "host init");
+    failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK, "host start");
+    fake.captured_hid_config.packet_handler(0x04u, 0x0042u, opened_event, sizeof(opened_event));
+
+    swbt_daemon_config_t reloaded = swbt_daemon_config_default();
+    failed += expect_eq_int(swbt_daemon_config_apply_file(&reloaded, &source),
+                            SWBT_DAEMON_CONFIG_FILE_OK, "reload file");
+    failed += expect_str_eq(reloaded.active_reconnect_learned_switch_address, "01:23:45:67:89:AB",
+                            "learned address");
+    failed += expect_eq_int(fake.timer_start_calls, 1, "timer start");
+
+    swbt_daemon_host_destroy(&host);
+    failed += remove(path) == 0 ? 0 : 1;
+    return failed;
+}
+
 static int hid_packet_handler_confirms_ssp_user_confirmation(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_ops_t fake = {0};
@@ -1212,6 +1387,8 @@ int main(void) {
     failed += ipc_pump_port_starts_without_unrelated_btstack_abilities();
     failed += hardware_approval_env_requires_both_flags();
     failed += approved_backend_starts_hardware_and_cleans_up_in_order();
+    failed += approved_backend_requests_active_reconnect_when_switch_address_is_configured();
+    failed += active_reconnect_failure_reports_failed_state_without_stopping_run_loop();
     failed += run_loop_json_state_reaches_fake_hid_send();
     failed += production_report_success_updates_status_metrics_without_hardware_measurement();
     failed += production_report_failure_updates_send_failure_metrics_and_cleans_up();
@@ -1226,6 +1403,7 @@ int main(void) {
     failed += repeated_stop_request_does_not_power_off_twice();
     failed += report_period_and_ipc_config_are_exposed();
     failed += hid_packet_handler_starts_sends_and_stops_timer();
+    failed += hid_connection_opened_persists_learned_switch_address_to_config_target();
     failed += hid_packet_handler_confirms_ssp_user_confirmation();
     return failed == 0 ? 0 : 1;
 }

@@ -21,8 +21,9 @@ static int expect_eq_event_type(swbt_btstack_hid_event_type_t actual,
 }
 
 static int connection_opened_packet_decodes_to_typed_event(void) {
-    const uint8_t packet[] = {0xefu, 13u, 0x02u, 0x42u, 0x00u, 0x00u, 0u, 0u,
-                              0u,    0u,  0u,    0u,    0u,    0u,    1u};
+    const uint8_t packet[] = {0xefu, 13u,   0x02u, 0x42u, 0x00u, 0x00u, 0xabu, 0x89u,
+                              0x67u, 0x45u, 0x23u, 0x01u, 0x34u, 0x12u, 1u};
+    const uint8_t expected_address[] = {0x01u, 0x23u, 0x45u, 0x67u, 0x89u, 0xabu};
     swbt_btstack_hid_event_t event;
 
     const swbt_btstack_hid_event_result_t result =
@@ -33,6 +34,9 @@ static int connection_opened_packet_decodes_to_typed_event(void) {
     failed += expect_eq_event_type(event.type, SWBT_BTSTACK_HID_EVENT_CONNECTION_OPENED);
     failed += expect_eq_u16(event.hid_cid, 0x0042u);
     failed += expect_eq_u8(event.status, 0u);
+    for (size_t index = 0; index < sizeof(expected_address); ++index) {
+        failed += expect_eq_u8(event.address[index], expected_address[index]);
+    }
     return failed;
 }
 

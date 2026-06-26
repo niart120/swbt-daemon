@@ -50,8 +50,8 @@ daemon restart のたびに Switch 側で再ペアリングが必要になる状
 ## 6. 関連 work units
 
 - `work-units/complete/local_065/BONDED_RECONNECT_PERSISTENCE.md`
-- `work-units/wip/local_072/ACTIVE_SWITCH_RECONNECT.md`
-- `work-units/wip/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`
+- `work-units/complete/local_072/ACTIVE_SWITCH_RECONNECT.md`
+- `work-units/complete/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`
 - `work-units/complete/local_053/BTSTACK_PORT_EVENT_BOUNDARY.md`
 - `work-units/complete/local_057/ARCHITECTURE_CUTOVER_H1.md`
 

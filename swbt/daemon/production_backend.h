@@ -41,6 +41,7 @@ typedef struct {
 
 typedef struct {
     swbt_daemon_config_t config;
+    swbt_daemon_config_file_target_t learned_switch_address_target;
     swbt_daemon_ipc_runner_t ipc_runner;
     swbt_btstack_input_report_timer_adapter_t report_timer;
     const swbt_btstack_production_adapter_t *adapter;
@@ -52,6 +53,7 @@ typedef struct {
     bool hid_registered;
     bool report_timer_initialized;
     bool shutdown_neutral_pending;
+    bool learned_switch_address_target_configured;
     btstack_context_callback_registration_t shutdown_callback;
     atomic_bool hardware_powered;
     atomic_bool shutdown_requested;
@@ -60,6 +62,9 @@ typedef struct {
 swbt_daemon_production_result_t swbt_daemon_production_backend_init(
     swbt_daemon_production_backend_t *backend, const swbt_daemon_config_t *config,
     const swbt_btstack_production_adapter_t *adapter, void *adapter_context);
+
+bool swbt_daemon_production_backend_set_learned_switch_address_target(
+    swbt_daemon_production_backend_t *backend, const swbt_daemon_config_file_target_t *target);
 
 const swbt_daemon_host_backend_t *swbt_daemon_production_host_backend(void);
 
