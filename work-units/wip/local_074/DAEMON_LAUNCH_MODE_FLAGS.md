@@ -101,7 +101,7 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 |---|---|---|---|---|
 | refactor-skipped | CLI parser defaults to production backend when no backend flag is supplied | new | unit | no |
 | refactor-skipped | CLI parser accepts `--backend noop` and `--backend=noop` | new | unit | no |
-| todo | `--backend noop` selects noop backend and does not require production hardware approval state | new | integration | no |
+| green | `--backend noop` selects noop backend and does not require production hardware approval state | new | integration | no |
 | green | invalid backend value fails before adapter open | edge | unit/integration | no |
 | todo | production backend no longer requires `SWBT_RUN_HARDWARE` and `SWBT_HARDWARE_APPROVED` as code-level gates, while hardware execution remains documented as human-approved | behavior | unit/integration | no |
 | todo | diagnostic trace path is enabled only by CLI flag and not by persistent config file | regression | unit/integration | no |
@@ -143,6 +143,18 @@ TDD status:
   - characterization: `just build-debug` pass。
   - characterization: `CTEST_ARGS='-R daemon_launch_options_test --output-on-failure' just test-debug` pass。
 - notes: 前 cycle の `swbt_daemon_launch_options_parse_backend` が invalid value と missing value をすでに reject していたため、追加 test は red にならなかった。adapter open 前の前提は parser unit test で確認した。main 分岐で adapter を開かないことは後続 integration item で確認する。
+
+TDD status:
+- source: `local_073` から分離した backend 起動モード整理。
+- use case: `swbt-daemon --backend noop` は Bluetooth adapter と production hardware approval gate を通らず、noop host backend を選ぶ。
+- item: `--backend noop` selects noop backend and does not require production hardware approval state。
+- state: green。
+- commands:
+  - red: `rg -n "SWBT_DAEMON_BACKEND" apps/swbt-daemon/main.c` found `getenv("SWBT_DAEMON_BACKEND")`。最初の複合 regex は構文誤りのため red として扱わない。
+  - green: `rg -n "SWBT_DAEMON_BACKEND" apps/swbt-daemon/main.c` no match。
+  - green: `scripts/check-format.sh` pass。
+  - green: `just build-debug` pass。
+- notes: `main.c` の backend 分岐を process env から `launch_options.backend` の switch へ移した。`SWBT_DAEMON_LAUNCH_BACKEND_NOOP` case は noop host backend を直接呼ぶため、production hardware approval env を参照しない。実機コマンド、pairing、advertising、report loop は実行していない。
 
 ## 11. 実機実行条件
 

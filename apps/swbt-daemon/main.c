@@ -2,7 +2,6 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -168,7 +167,6 @@ int main(int argc, char **argv) {
     swbt_daemon_launch_config_t launch_config;
     swbt_daemon_launch_options_t launch_options;
     const swbt_daemon_config_env_t config_env = swbt_daemon_config_env_from_process_env();
-    const char *backend = getenv("SWBT_DAEMON_BACKEND");
 
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
@@ -183,11 +181,15 @@ int main(int argc, char **argv) {
         swbt_diagnostic_trace("main: invalid launch config");
         return 1;
     }
-    if (backend != NULL && strcmp(backend, "production") == 0) {
+    switch (launch_options.backend) {
+    case SWBT_DAEMON_LAUNCH_BACKEND_PRODUCTION:
         swbt_diagnostic_trace("main: selected production backend");
         return swbt_daemon_run_production(&launch_config);
+    case SWBT_DAEMON_LAUNCH_BACKEND_NOOP:
+        swbt_diagnostic_trace("main: selected noop backend");
+        return swbt_daemon_main_with_host_backend(&launch_config.config,
+                                                  swbt_daemon_host_noop_backend(), NULL);
     }
-    swbt_diagnostic_trace("main: selected noop backend");
-    return swbt_daemon_main_with_host_backend(&launch_config.config,
-                                              swbt_daemon_host_noop_backend(), NULL);
+    swbt_diagnostic_trace("main: unknown backend");
+    return 1;
 }
