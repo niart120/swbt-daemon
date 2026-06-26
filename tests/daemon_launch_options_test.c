@@ -103,6 +103,96 @@ static int link_key_db_equals_argument_is_accepted(void) {
     return failed;
 }
 
+static int backend_noop_separate_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--backend", "noop"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 3, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed += expect_eq_int((int)options.backend, (int)SWBT_DAEMON_LAUNCH_BACKEND_NOOP, "backend");
+    return failed;
+}
+
+static int backend_noop_equals_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--backend=noop"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 2, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed += expect_eq_int((int)options.backend, (int)SWBT_DAEMON_LAUNCH_BACKEND_NOOP, "backend");
+    return failed;
+}
+
+static int trace_path_separate_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--trace-path", "tmp/startup-trace.txt"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 3, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed += expect_str_eq(options.trace_path, "tmp/startup-trace.txt", "trace path");
+    return failed;
+}
+
+static int trace_path_equals_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--trace-path=tmp/startup-trace.txt"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 2, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed += expect_str_eq(options.trace_path, "tmp/startup-trace.txt", "trace path");
+    return failed;
+}
+
+static int hci_dump_path_separate_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--hci-dump-path", "tmp/hci-dump.txt"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 3, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed += expect_str_eq(options.hci_dump_path, "tmp/hci-dump.txt", "hci dump path");
+    return failed;
+}
+
+static int hci_dump_path_equals_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--hci-dump-path=tmp/hci-dump.txt"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 2, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed += expect_str_eq(options.hci_dump_path, "tmp/hci-dump.txt", "hci dump path");
+    return failed;
+}
+
+static int crash_dump_path_separate_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--crash-dump-path", "tmp/swbt-daemon-crash.dmp"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 3, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed +=
+        expect_str_eq(options.crash_dump_path, "tmp/swbt-daemon-crash.dmp", "crash dump path");
+    return failed;
+}
+
+static int crash_dump_path_equals_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--crash-dump-path=tmp/swbt-daemon-crash.dmp"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 2, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed +=
+        expect_str_eq(options.crash_dump_path, "tmp/swbt-daemon-crash.dmp", "crash dump path");
+    return failed;
+}
+
 static int missing_link_key_db_path_is_rejected(void) {
     const char *argv[] = {"swbt-daemon", "--link-key-db"};
     swbt_daemon_launch_options_t options = {0};
@@ -136,6 +226,26 @@ static int unknown_option_is_rejected(void) {
     return failed;
 }
 
+static int invalid_backend_value_is_rejected(void) {
+    const char *argv[] = {"swbt-daemon", "--backend", "dry-run"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 3, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_INVALID_ARGUMENT, "parse");
+    return failed;
+}
+
+static int missing_backend_value_is_rejected(void) {
+    const char *argv[] = {"swbt-daemon", "--backend"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 2, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE, "parse");
+    return failed;
+}
+
 static int no_options_keeps_config_path_unset(void) {
     const char *argv[] = {"swbt-daemon"};
     swbt_daemon_launch_options_t options = {0};
@@ -145,6 +255,18 @@ static int no_options_keeps_config_path_unset(void) {
                             (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
     failed += expect_null(options.config_path, "config path");
     failed += expect_null(options.link_key_db_path, "link key db path");
+    return failed;
+}
+
+static int no_options_defaults_to_production_backend(void) {
+    const char *argv[] = {"swbt-daemon"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 1, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed +=
+        expect_eq_int((int)options.backend, (int)SWBT_DAEMON_LAUNCH_BACKEND_PRODUCTION, "backend");
     return failed;
 }
 
@@ -205,10 +327,21 @@ int main(void) {
     failed += config_path_equals_argument_is_accepted();
     failed += link_key_db_path_is_accepted();
     failed += link_key_db_equals_argument_is_accepted();
+    failed += backend_noop_separate_argument_is_accepted();
+    failed += backend_noop_equals_argument_is_accepted();
+    failed += trace_path_separate_argument_is_accepted();
+    failed += trace_path_equals_argument_is_accepted();
+    failed += hci_dump_path_separate_argument_is_accepted();
+    failed += hci_dump_path_equals_argument_is_accepted();
+    failed += crash_dump_path_separate_argument_is_accepted();
+    failed += crash_dump_path_equals_argument_is_accepted();
     failed += missing_link_key_db_path_is_rejected();
     failed += missing_config_path_is_rejected();
     failed += unknown_option_is_rejected();
+    failed += invalid_backend_value_is_rejected();
+    failed += missing_backend_value_is_rejected();
     failed += no_options_keeps_config_path_unset();
+    failed += no_options_defaults_to_production_backend();
     failed += launch_config_applies_file_before_env_and_sets_learned_target();
     failed += launch_config_without_config_path_keeps_learned_target_unset();
     return failed == 0 ? 0 : 1;

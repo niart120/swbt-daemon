@@ -5,6 +5,8 @@
 
 bool swbt_diagnostic_path_is_enabled(const char *path);
 
+void swbt_diagnostic_trace_set_path(const char *path);
+
 void swbt_diagnostic_trace_to_path(const char *path, const char *message);
 
 void swbt_diagnostic_trace(const char *message);

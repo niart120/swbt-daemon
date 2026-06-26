@@ -683,9 +683,7 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_backend_and_shu
         !swbt_daemon_shutdown_listener_is_valid(shutdown_listener)) {
         return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
     }
-    if (!swbt_daemon_hardware_approval_is_granted(approval)) {
-        return SWBT_DAEMON_PRODUCTION_ERROR_HARDWARE_APPROVAL_REQUIRED;
-    }
+    (void)approval;
     if (!swbt_daemon_production_adapter_is_valid(backend->adapter)) {
         return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
     }

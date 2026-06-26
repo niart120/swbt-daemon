@@ -6,9 +6,9 @@
 
 | 項目 | 確認済みの範囲 | 根拠 |
 |---|---|---|
-| 既定起動 | `SWBT_DAEMON_BACKEND` 未指定では noop backend を選び、Bluetooth アダプターを開かない。 | `apps/swbt-daemon/main.c` |
-| production backend opt-in | `SWBT_DAEMON_BACKEND=production` のときだけ production backend を選ぶ。 | `apps/swbt-daemon/main.c` |
-| 実機承認条件 | production backend は `SWBT_RUN_HARDWARE=1` と `SWBT_HARDWARE_APPROVED=1` がない場合、adapter open 前に失敗する。 | `swbt/daemon/production_backend.c`, `tests/daemon_production_backend_test.c` |
+| 既定起動 | `swbt-daemon` は既定で production backend を選ぶ。Bluetooth アダプターを開かない test / smoke は `--backend noop` を明示する。 | `apps/swbt-daemon/main.c`, `CMakeLists.txt`, `work-units/complete/local_074/DAEMON_LAUNCH_MODE_FLAGS.md` |
+| noop backend opt-in | `swbt-daemon --backend noop` または `--backend=noop` は noop backend を選び、Bluetooth アダプターを開かない。 | `apps/swbt-daemon/main.c`, `swbt/daemon/launch_options.c`, `tests/daemon_launch_options_test.c` |
+| 実機承認条件 | production backend の実装上の環境変数分岐は削除済み。実機操作は引き続き人間の明示承認、専用 USB Bluetooth ドングル、driver state 記録を必要とする。 | `apps/swbt-daemon/main.c`, `spec/operations/windows-native-preflight.md`, `work-units/complete/local_074/DAEMON_LAUNCH_MODE_FLAGS.md` |
 | 既知の対応構成 | Windows native、CSR8510 A10、WinUSB、Switch 2 firmware `22.1.0`（実機ログ表記は Switch2）、production backend。 | `docs/hardware-test-log.md`, `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` |
 | Switch pairing / HID L2CAP | 上記構成で SSP pairing status `0x00` と PSM `0x11` / `0x13` の L2CAP open status `0x0` を観測した。 | `docs/hardware-test-log.md` |
 | Switch output subcommand reply | `0x02`, `0x08`, `0x10`, `0x03`, `0x04`, `0x40`, `0x48`, `0x21`, `0x30` を含む reply sequence を観測した。 | `docs/hardware-test-log.md` |
@@ -46,28 +46,28 @@
 
 ## production 起動条件
 
-`apps/swbt-daemon/main.c` は `SWBT_DAEMON_BACKEND=production` のときだけ production backend を選ぶ。production backend は `SWBT_RUN_HARDWARE=1` と `SWBT_HARDWARE_APPROVED=1` がそろわない場合、実機経路を開始しない。
+`apps/swbt-daemon/main.c` は引数なしで production backend を選ぶ。Bluetooth アダプターを開かない test / smoke は `--backend noop` または `--backend=noop` を明示する。不正な backend 値は adapter open 前の CLI validation で失敗する。
 
-runtime config の reusable boundary は `default -> TOML config file -> environment override` の優先順位で test されている。現行 `apps/swbt-daemon/main.c` は `--config <path>` / `--config=<path>` を受け取り、同じ path を learned Switch address の書き戻し先 target として production backend へ渡す。`--link-key-db <path>` / `--link-key-db=<path>` を指定した起動では、production BTstack が TLV-backed Classic link key DB を接続し、HCI link key notification を同じ DB へ保存する。production / noop 起動モードの反転、実機承認 env の整理、diagnostic path の CLI flag 化は `work-units/wip/local_074/DAEMON_LAUNCH_MODE_FLAGS.md` に分離した。
+runtime config の reusable boundary は `default -> TOML config file -> environment override` の優先順位で test されている。現行 `apps/swbt-daemon/main.c` は `--config <path>` / `--config=<path>` を受け取り、同じ path を learned Switch address の書き戻し先 target として production backend へ渡す。`--link-key-db <path>` / `--link-key-db=<path>` を指定した起動では、production BTstack が TLV-backed Classic link key DB を接続し、HCI link key notification を同じ DB へ保存する。診断出力 path は `--trace-path`、`--hci-dump-path`、`--crash-dump-path` を指定した起動だけで有効になる。`SWBT_DAEMON_BACKEND`、`SWBT_RUN_HARDWARE`、`SWBT_HARDWARE_APPROVED`、`SWBT_DIAGNOSTIC_TRACE_PATH`、`SWBT_HCI_DUMP_TRACE_PATH`、`SWBT_CRASH_DUMP_PATH` は current implementation の起動 mode / 診断 path selector ではない。
 
-| 区分 | 環境変数 | 値 | 備考 |
+| 区分 | 指定 | 値 | 備考 |
 |---|---|---|---|
-| 必須 | `SWBT_DAEMON_BACKEND` | `production` | 未指定時は noop backend。 |
-| 必須 | `SWBT_RUN_HARDWARE` | `1` | 実機実行の意図を明示する。 |
-| 必須 | `SWBT_HARDWARE_APPROVED` | `1` | 人間が対象 adapter と実行範囲を承認済みであることを明示する。 |
+| 起動 mode | なし | production | 既定。実機操作には下記の人間承認が別途必要。 |
+| 起動 mode | `--backend noop` | noop | test / smoke 用。Bluetooth アダプターを開かない。 |
+| 診断 | `--trace-path <path>` | trace 出力先 | startup / cleanup trace を残す。 |
+| 診断 | `--hci-dump-path <path>` | HCI dump text 出力先 | pairing、L2CAP、HID report の証跡を残す。path が開けない場合は production run loop 前に失敗する。 |
+| 診断 | `--crash-dump-path <path>` | dump 出力先 | Windows crash dump 出力先。非 Windows build では flag を受け付けるが no-op。 |
 | 実機実行で推奨 | `SWBT_IPC_HOST` | `127.0.0.1` | 既定値と同じ。 |
 | 実機実行で推奨 | `SWBT_IPC_PORT` | `37637` | 実機ログで使った固定 port。未指定時の既定は `0`。 |
 | 実機実行で推奨 | `SWBT_REPORT_PERIOD_US` | `8000` | 既定値と同じ。比較実行では `8333 / 15000 / 16667` も使用。 |
 | 任意 profile selector | `SWBT_DEVICE_INFO_PROFILE` | `swbt-pro` | 未指定時も `swbt-pro`。`mizuyoukanao-pro` は削除済み。 |
-| 任意診断 | `SWBT_DIAGNOSTIC_TRACE_PATH` | trace 出力先 | startup / cleanup trace を残す。 |
-| 任意診断 | `SWBT_HCI_DUMP_TRACE_PATH` | HCI dump text 出力先 | pairing、L2CAP、HID report の証跡を残す。 |
-| 任意診断 | `SWBT_CRASH_DUMP_PATH` | dump 出力先 | Windows crash dump 出力先。 |
 | 任意 fail-safe | `SWBT_IPC_HEARTBEAT_TIMEOUT_MS` | 例: `1000` | 既定値は `0`。heartbeat timeout neutral 実行で使用。 |
 
 実機前の安全確認:
 
 - 専用 USB Bluetooth ドングルを使う。
 - 内蔵 Bluetooth と普段使いのドングルを対象にしない。
+- ユーザが Bluetooth adapter open、Switch pairing、HID advertising、report loop、IPC input、cleanup confirmation のどこまで許可するかを明示する。
 - Windows native では対象ドングルの driver が WinUSB に割り当たっていることを記録する。
 - Switch firmware、dongle VID/PID、driver、BTstack commit、swbt commit、report period、artifact path を `docs/hardware-test-log.md` に記録する。
 
@@ -81,7 +81,7 @@ runtime config の reusable boundary は `default -> TOML config file -> environ
 | `work-units/complete/local_046/DOC_IMPLEMENTATION_STATE_ALIGNMENT.md` | README / spec の直近整合更新記録。 |
 | `work-units/complete/local_057/ARCHITECTURE_CUTOVER_H1.md` | architecture cutover 後の Hardware Gate H1 実行記録。 |
 | `work-units/complete/local_058/SHUTDOWN_NEUTRAL_RETRY_FAILURE.md` | shutdown neutral pending 後の再送失敗でも power-off と run-loop exit へ進む software failure cleanup の完了記録。 |
-| `apps/swbt-daemon/main.c` | backend selection と起動時 environment config の実装根拠。 |
+| `apps/swbt-daemon/main.c` | backend selection と起動時 config / CLI diagnostic path の実装根拠。 |
 | `swbt/daemon/host.c` | application、IPC、BTstack adapter、report timer、shutdown cleanup ordering の実装根拠。 |
-| `swbt/daemon/production_backend.c` | 実機承認条件と production lifecycle の実装根拠。 |
+| `swbt/daemon/production_backend.c` | production lifecycle の実装根拠。 |
 | `swbt/btstack_bridge/production_btstack.c` | pinned BTstack へ接続する production adapter の実装根拠。 |
