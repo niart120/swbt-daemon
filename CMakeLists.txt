@@ -690,4 +690,45 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(diagnostics_test)
 
     add_test(NAME diagnostics_test COMMAND diagnostics_test)
+
+    add_custom_target(swbt_unit_tests
+        DEPENDS
+            swbt_smoke_test
+            switch_report_test
+            switch_hid_descriptor_test
+            switch_subcommand_test
+            switch_subcommand_reply_test
+            switch_subcommand_dispatcher_test
+            switch_spi_test
+            switch_spi_seed_test
+            switch_rumble_test
+            switch_player_lights_test
+            application_control_lease_test
+            application_command_test
+            ipc_json_test
+            ipc_server_test
+            debug_ipc_client_test
+            btstack_hid_device_registration_test
+            btstack_hid_device_btstack_adapter_test
+            btstack_hid_event_test
+            btstack_hid_port_test
+            btstack_timer_port_test
+            btstack_classic_discovery_test
+            btstack_hci_dump_text_test
+            btstack_production_hci_dump_test
+            btstack_output_report_handler_test
+            btstack_output_report_callbacks_test
+            btstack_subcommand_reply_queue_test
+            btstack_input_report_timer_adapter_test
+            btstack_input_report_scheduler_test
+            daemon_host_test
+            daemon_config_file_test
+            daemon_launch_options_test
+            architecture_journey_test
+            daemon_ipc_runner_test
+            daemon_production_backend_test
+            daemon_production_hid_sdp_record_test
+            report_metrics_test
+            diagnostics_test
+    )
 endif()

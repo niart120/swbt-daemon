@@ -123,13 +123,19 @@ Switch protocol、BTstack source selection、report timing、HID descriptor、su
 
 ## テストと検証
 
-通常の debug build/test:
+通常の debug configure / test target build / test:
 
 ```console
 just debug
 ```
 
-`just debug` は `format-check` と `clang-tidy` を実行しない。
+`just debug` は linux-debug の unit test executable target を build して CTest を実行する。`format-check` と `clang-tidy` は実行しない。
+
+test executable だけの build:
+
+```console
+just build-tests-debug
+```
 
 sanitizer:
 
@@ -149,7 +155,7 @@ just windows-cross
 just verify
 ```
 
-`just verify` は `format-check`、`clang-tidy`、debug build/test、ASan、Windows cross build を実行する。
+`just verify` は `format-check`、`clang-tidy`、fresh configure からの debug test target build/test、ASan、Windows cross build を実行する。
 
 CMake / Ninja 生成物の削除:
 
@@ -196,8 +202,8 @@ just clean
 - Git hooks は `.githooks/` を正本とし、clone 後は `sh scripts/install-git-hooks.sh` または `scripts/install-git-hooks.ps1` で有効化する。
 - `pre-commit` は staged diff の whitespace、`just` 経由の CMake presets の読み取り、staged C source がある場合の format を確認する。
 - `commit-msg` は Conventional Commits の形式と subject 末尾句点なしを確認する。
-- `pre-push` は `just verify` を実行する。`format-check`、`clang-tidy`、debug build/test、ASan、Windows cross build を含む。host からは `justfile` が Dev Container CLI へ委譲する。
-- `pre-push` は `SWBT_FAST_PRE_PUSH=1` のとき `just debug` だけを実行する。これは build/test only で、`format-check` と `clang-tidy` は含まない。
+- `pre-push` は `just verify` を実行する。`format-check`、`clang-tidy`、fresh configure からの debug test target build/test、ASan、Windows cross build を含む。host からは `justfile` が Dev Container CLI へ委譲する。
+- `pre-push` は `SWBT_FAST_PRE_PUSH=1` のとき `just debug` だけを実行する。これは test target の build/test だけを行い、`format-check` と `clang-tidy` は含まない。
 - `SWBT_SKIP_HOOKS=1` は hook 全体を明示的にスキップする。
 - PR では `.github/PULL_REQUEST_TEMPLATE.md` に従い、テスト、実機、根拠監査、BTstack / License impact を明記する。
 
