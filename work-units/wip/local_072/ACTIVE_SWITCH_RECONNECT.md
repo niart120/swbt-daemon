@@ -85,6 +85,7 @@ source-audit 結果:
 | BTstack HID device outbound connect precedent | `hid_device_connect()` は HID control PSM を開く | BTstack source fact | `vendor/btstack/src/classic/hid_device.c:949-963` | implementation candidate |
 | BTstack HID outbound channel order | outgoing control channel open 後に interrupt PSM を開く | BTstack source fact | `vendor/btstack/src/classic/hid_device.c:720-722` | implementation candidate |
 | BTstack incoming channel handling | incoming control / interrupt connection は `L2CAP_EVENT_INCOMING_CONNECTION` で accept される | BTstack source fact | `vendor/btstack/src/classic/hid_device.c:651-681` | current incoming path precedent |
+| BTstack HID connection opened event address | `HID_SUBEVENT_CONNECTION_OPENED` は `bd_addr` を含み、BTstack accessor は event offset `6` から reverse して取得する | BTstack source fact | `vendor/btstack/src/btstack_defines.h:4198-4203`, `vendor/btstack/src/btstack_event.h:15090-15095`, `vendor/btstack/src/classic/hid_device.c:329-334` | stable source fact |
 | joycontrol commit | `18a09da1a04306534ff9e1df8a1a69c0192a3244` | upstream source fact | `https://github.com/mart1nro/joycontrol/commits/master/`, `spec/references/switch-hid-initial-source-audit.md` | recorded |
 | joycontrol `-r` input | `--reconnect_bt_addr` is a Switch console Bluetooth address for reconnecting as an already paired controller | upstream implementation fact | `https://github.com/mart1nro/joycontrol/blob/18a09da1a04306534ff9e1df8a1a69c0192a3244/run_controller_cli.py` | implementation precedent |
 | joycontrol reconnect PSM values | control `17`, interrupt `19` | upstream implementation fact | `https://github.com/mart1nro/joycontrol/blob/18a09da1a04306534ff9e1df8a1a69c0192a3244/run_controller_cli.py` | matches BTstack PSM values |
@@ -111,6 +112,7 @@ source-audit 結果:
 - active reconnect は既存 incoming pairing / advertising 経路を壊してはならない。address が不明または reconnect が失敗した場合は、現行の pairing-capable path に戻れる必要がある。
 - production adapter に直接 joycontrol 互換ロジックを混ぜ込まない。BTstack outbound connect、address source、operator intent、diagnostics を分ける。
 - production active reconnect boundary は `swbt_btstack_production_active_reconnect_request_t` で Switch address、HID control PSM、HID interrupt PSM を表す。production backend は effective reconnect address がある場合だけ power on 後にこの request を出す。現時点では request failure は trace に記録して run loop へ進み、既存 incoming pairing path を止めない。
+- `swbt_btstack_hid_event_decode()` は `HID_SUBEVENT_CONNECTION_OPENED` から remote Bluetooth address を decode する。これは learned address capture の入力境界であり、保存の成否や成功判定はまだ扱わない。
 - learned address 書き戻しは `swbt_daemon_config_save_active_reconnect_learned_switch_address()` が同一 TOML file を読み、現行 schema で検証してから `[active_reconnect.learned] switch_address` だけを追加または更新する。手書き explicit address は上書きしない。
 - learned address 書き戻し API は、設定ファイルが存在しない場合に最小 TOML file を作る。親ディレクトリの自動作成、atomic replace、format / comment preservation の保証はまだ持たない。
 - 設定ファイルへの取り込みは、`local_071` で固定した TOML 入力境界に reconnect 用 key / writer を追加する形で扱う。daemon 起動時の config path 収集は `local_073` へ送る。
@@ -138,6 +140,7 @@ source-audit 結果:
 | refactor-done | daemon config/state can represent explicit and learned Switch Bluetooth addresses from TOML without raw link key storage | new | unit | no |
 | refactor-done | production adapter exposes an active reconnect request boundary for HID control PSM `0x11` and interrupt PSM `0x13` | new | unit/integration | no |
 | refactor-done | learned Switch address can be persisted to the same TOML config file without overwriting explicit address | new | unit | no |
+| refactor-done | HID connection opened event exposes remote Bluetooth address for learned Switch address capture | new | unit | no |
 | todo | learned Switch address is captured from a successful pairing / connection path and handed to config persistence after the chosen success boundary | new | integration | no |
 | refactor-skipped | invalid active reconnect Switch address in TOML is rejected without partially mutating config | edge | unit | no |
 | todo | active reconnect failure paths report unavailable / failed states without breaking incoming pairing path | edge | integration | no |
@@ -146,7 +149,7 @@ source-audit 結果:
 
 ## 10. 検証
 
-一部 software 実装を開始した。active reconnect address の TOML 読み取り、learned address 書き戻し boundary、production adapter の active reconnect request boundary は実装済みである。実機 reconnect、pairing / connection からの address 自動取得、request failure の状態分類はまだ実装していない。
+一部 software 実装を開始した。active reconnect address の TOML 読み取り、learned address 書き戻し boundary、production adapter の active reconnect request boundary、HID connection opened event からの remote address decode は実装済みである。実機 reconnect、pairing / connection からの address 自動保存、request failure の状態分類はまだ実装していない。
 
 起票時確認:
 
@@ -249,6 +252,24 @@ Refactor status:
 - unchanged behavior: address 未設定時の production startup、hardware approval gate、incoming pairing / advertising setup、report timer lifecycle、shutdown neutral path は変更しない。active reconnect request failure は現時点では fatal にせず、trace 後に run loop へ進む。
 - verification: `just build-debug`, `just test-debug`, `just format-check`, `just tidy`
 - notes: active reconnect の実機成功、failure state の IPC / diagnostics 反映、pairing / connection success からの learned address capture は後続 item に残す。
+
+TDD status:
+- source: BTstack `HID_SUBEVENT_CONNECTION_OPENED` には remote `bd_addr` が含まれる。learned Switch address capture は、この event から address を取れることを前提にする。
+- use case: HID connection opened event を decode した typed event は、`hid_cid` と `status` だけでなく、BTstack event 内の remote Bluetooth address を human-order byte array として保持する。
+- item: HID connection opened event exposes remote Bluetooth address for learned Switch address capture。
+- state: refactor-done
+- commands:
+  - red: `just build-debug`; `just test-debug`
+  - green: `just build-debug`; `just test-debug`
+  - refactor: `just format`; `just build-debug`; `just test-debug`; `just format-check`; `just tidy`
+- notes: red は `btstack_hid_event_test` の connection opened address assertion だけが失敗した。green では reversed address copy helper を source offset 指定で使える形にし、user confirmation request と connection opened の両方で同じ helper を使うようにした。実機は不要。
+
+Refactor status:
+- decision: refactor-done
+- change: user confirmation request 専用だった reversed address copy helper を、address byte sequence の先頭を受け取る helper に整理した。
+- unchanged behavior: user confirmation request decode、connection opened の `hid_cid` / `status` decode、connection closed / can-send decode は維持する。
+- verification: `just build-debug`, `just test-debug`, `just format-check`, `just tidy`
+- notes: address を設定ファイルへ保存する trigger と保存先 path はまだ実装していない。daemon 起動時の config path discovery は `local_073` に切り出したままにする。
 ## 11. 実機実行条件
 
 実機が必要である。ただし起票時点では実行しない。

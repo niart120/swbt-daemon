@@ -21,14 +21,14 @@ static uint16_t swbt_btstack_hid_event_read_u16_le(const uint8_t *data) {
     return (uint16_t)((uint16_t)data[0] | ((uint16_t)data[1] << 8u));
 }
 
-static void swbt_btstack_hid_event_copy_reversed_address(const uint8_t *packet,
+static void swbt_btstack_hid_event_copy_reversed_address(const uint8_t *address_source,
                                                          uint8_t address[6]) {
-    address[0] = packet[7];
-    address[1] = packet[6];
-    address[2] = packet[5];
-    address[3] = packet[4];
-    address[4] = packet[3];
-    address[5] = packet[2];
+    address[0] = address_source[5];
+    address[1] = address_source[4];
+    address[2] = address_source[3];
+    address[3] = address_source[2];
+    address[4] = address_source[1];
+    address[5] = address_source[0];
 }
 
 swbt_btstack_hid_event_result_t swbt_btstack_hid_event_decode(uint8_t packet_type,
@@ -50,7 +50,7 @@ swbt_btstack_hid_event_result_t swbt_btstack_hid_event_decode(uint8_t packet_typ
             return SWBT_BTSTACK_HID_EVENT_IGNORED;
         }
         out_event->type = SWBT_BTSTACK_HID_EVENT_USER_CONFIRMATION_REQUEST;
-        swbt_btstack_hid_event_copy_reversed_address(packet, out_event->address);
+        swbt_btstack_hid_event_copy_reversed_address(&packet[2], out_event->address);
         return SWBT_BTSTACK_HID_EVENT_OK;
     }
 
@@ -66,6 +66,7 @@ swbt_btstack_hid_event_result_t swbt_btstack_hid_event_decode(uint8_t packet_typ
         out_event->type = SWBT_BTSTACK_HID_EVENT_CONNECTION_OPENED;
         out_event->hid_cid = swbt_btstack_hid_event_read_u16_le(&packet[3]);
         out_event->status = packet[5];
+        swbt_btstack_hid_event_copy_reversed_address(&packet[6], out_event->address);
         return SWBT_BTSTACK_HID_EVENT_OK;
     case HID_SUBEVENT_CONNECTION_CLOSED:
         if (packet_size < 5u) {
