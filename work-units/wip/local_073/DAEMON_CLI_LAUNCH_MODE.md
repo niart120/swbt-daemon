@@ -121,7 +121,7 @@ not applicable for source-audit。
 
 起票のみ。実装、software test、実機検証はまだ実行していない。
 
-2026-06-26 の方針確認で、CLI parser 実装は設定ファイル work unit に混ぜず、この record を後続 work unit の source として残す判断にした。この時点では `CMakeLists.txt`、`apps/swbt-daemon/main.c`、`swbt/daemon/*`、`tests/daemon_*` の挙動は変更しない。
+2026-06-26 の方針確認では、CLI parser 実装は設定ファイル work unit に混ぜず、この record を後続 work unit の source として残す判断にした。この時点では `CMakeLists.txt`、`apps/swbt-daemon/main.c`、`swbt/daemon/*`、`tests/daemon_*` の挙動は変更しない。元々の設定ファイル方針の反映を優先し、CLI parser、production 既定化、diagnostic flag 化は後続で再開する。
 
 起票時確認:
 
