@@ -29,6 +29,9 @@ jobs:
           key: ${{ runner.os }}-ccache-${{ hashFiles('.devcontainer/Dockerfile', 'CMakeLists.txt', 'CMakePresets.json', 'cmake/**/*.cmake', 'api/**', 'apps/**', 'swbt/**', 'tests/**') }}
           restore-keys: |
             ${{ runner.os }}-ccache-
+      - name: Login to GHCR
+        if: github.event_name == 'push'
+        run: echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Verify in Dev Container
         uses: devcontainers/ci@v0.3
         with:

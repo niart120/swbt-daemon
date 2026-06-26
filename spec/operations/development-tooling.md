@@ -113,7 +113,7 @@ hook 全体を明示的にスキップする場合は `SWBT_SKIP_HOOKS=1` を使
 
 CI では Dev Container 内で `just verify-ci` を実行する。
 CI job は `SWBT_RUN_HARDWARE=0` と `SWBT_HARDWARE_APPROVED=0` を明示し、実機承認を必要とする処理を既定で開始しない。
-CI は `devcontainers/ci` の `imageName` / `cacheFrom` を使い、`main` への push で Dev Container image を GHCR に push する。pull request では同じ image を build cache として参照し、push はしない。
+CI は `devcontainers/ci` の `imageName` / `cacheFrom` を使い、`main` への push で Dev Container image を GHCR に push する。pull request では同じ image を build cache として参照し、push はしない。`main` への push では、`devcontainers/ci` の前に `GITHUB_TOKEN` で GHCR に Docker login する。
 CI は `ccache` を compiler launcher として使える場合に有効化し、`.ccache` を GitHub Actions cache へ保存する。`ccache` が見つからないローカル環境では CMake configure は失敗せず、compiler launcher なしで続行する。
 
 `devcontainers/ci` へ渡す `CCACHE_DIR` は container 内の workspace path である `/workspaces/swbt-daemon/.ccache` とする。GitHub Actions の host path である `${{ github.workspace }}` は container 内では同じ場所を指さないため、container へ渡さない。
