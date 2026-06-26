@@ -57,6 +57,14 @@ configure-debug:
 build-debug:
     @just --justfile "{{justfile()}}" _run-or-delegate build-debug
 
+# Build the swbt-daemon executable on linux-debug.
+build-daemon-debug:
+    @just --justfile "{{justfile()}}" _run-or-delegate build-daemon-debug
+
+# Build the swbt-debug-client executable on linux-debug.
+build-debug-client:
+    @just --justfile "{{justfile()}}" _run-or-delegate build-debug-client
+
 # Test linux-debug. Pass CTEST_ARGS through the environment when needed.
 test-debug:
     @just --justfile "{{justfile()}}" _run-or-delegate test-debug
@@ -120,10 +128,10 @@ _devcontainer-run-unix target:
         exit 127; \
     fi; \
     "$cli" up --workspace-folder "$workspace" ${DEVCONTAINER_UP_FLAGS:-}; \
-    "$cli" exec --workspace-folder "$workspace" env SWBT_DEVCONTAINER=1 CTEST_ARGS="${CTEST_ARGS:-}" just --justfile justfile "{{target}}"
+    "$cli" exec --workspace-folder "$workspace" env SWBT_DEVCONTAINER=1 CTEST_ARGS="${CTEST_ARGS:-}" SWBT_CTEST_PARALLEL_LEVEL="${SWBT_CTEST_PARALLEL_LEVEL:-8}" SWBT_BUILD_PARALLEL_LEVEL="${SWBT_BUILD_PARALLEL_LEVEL:-}" just --justfile justfile "{{target}}"
 
 _devcontainer-run-windows target:
-    @$cli = if ($env:DEVCONTAINER_CLI) { $env:DEVCONTAINER_CLI } else { 'devcontainer' }; $workspace = if ($env:DEVCONTAINER_WORKSPACE) { $env:DEVCONTAINER_WORKSPACE } else { '{{justfile_directory()}}' }; if (-not (Get-Command $cli -ErrorAction SilentlyContinue)) { [Console]::Error.WriteLine('devcontainer CLI was not found. Install the Dev Containers CLI or open this repository in the Dev Container.'); exit 127 }; $upFlags = @(); if ($env:DEVCONTAINER_UP_FLAGS) { $upFlags = $env:DEVCONTAINER_UP_FLAGS -split ' ' }; & $cli up --workspace-folder $workspace @upFlags; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & $cli exec --workspace-folder $workspace env SWBT_DEVCONTAINER=1 "CTEST_ARGS=$($env:CTEST_ARGS)" just --justfile justfile "{{target}}"; exit $LASTEXITCODE
+    @$cli = if ($env:DEVCONTAINER_CLI) { $env:DEVCONTAINER_CLI } else { 'devcontainer' }; $workspace = if ($env:DEVCONTAINER_WORKSPACE) { $env:DEVCONTAINER_WORKSPACE } else { '{{justfile_directory()}}' }; if (-not (Get-Command $cli -ErrorAction SilentlyContinue)) { [Console]::Error.WriteLine('devcontainer CLI was not found. Install the Dev Containers CLI or open this repository in the Dev Container.'); exit 127 }; $upFlags = @(); if ($env:DEVCONTAINER_UP_FLAGS) { $upFlags = $env:DEVCONTAINER_UP_FLAGS -split ' ' }; $ctestParallel = if ($env:SWBT_CTEST_PARALLEL_LEVEL) { $env:SWBT_CTEST_PARALLEL_LEVEL } else { '8' }; & $cli up --workspace-folder $workspace @upFlags; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & $cli exec --workspace-folder $workspace env SWBT_DEVCONTAINER=1 "CTEST_ARGS=$($env:CTEST_ARGS)" "SWBT_CTEST_PARALLEL_LEVEL=$ctestParallel" "SWBT_BUILD_PARALLEL_LEVEL=$($env:SWBT_BUILD_PARALLEL_LEVEL)" just --justfile justfile "{{target}}"; exit $LASTEXITCODE
 
 _require-devcontainer:
     @case "${SWBT_DEVCONTAINER:-}" in \
@@ -142,16 +150,32 @@ _list-presets-in-container: _prepare-workspace-in-container
     cmake --list-presets >/dev/null
 
 _configure-debug-in-container: _prepare-workspace-in-container
+    cmake --preset linux-debug
+
+_configure-debug-fresh-in-container: _prepare-workspace-in-container
     cmake --fresh --preset linux-debug
 
 _build-debug-in-container: _prepare-workspace-in-container
-    cmake --build --preset linux-debug
+    @parallel="${SWBT_BUILD_PARALLEL_LEVEL:-}"; if [ -n "$parallel" ]; then cmake --build --preset linux-debug --parallel "$parallel"; else cmake --build --preset linux-debug; fi
+
+_build-daemon-debug-in-container: _prepare-workspace-in-container
+    just --justfile "{{justfile()}}" _configure-debug-in-container
+    @parallel="${SWBT_BUILD_PARALLEL_LEVEL:-}"; if [ -n "$parallel" ]; then cmake --build --preset linux-debug --target swbt-daemon --parallel "$parallel"; else cmake --build --preset linux-debug --target swbt-daemon; fi
+
+_build-debug-client-in-container: _prepare-workspace-in-container
+    just --justfile "{{justfile()}}" _configure-debug-in-container
+    @parallel="${SWBT_BUILD_PARALLEL_LEVEL:-}"; if [ -n "$parallel" ]; then cmake --build --preset linux-debug --target swbt-debug-client --parallel "$parallel"; else cmake --build --preset linux-debug --target swbt-debug-client; fi
 
 _test-debug-in-container: _prepare-workspace-in-container
-    ctest --preset linux-debug --output-on-failure ${CTEST_ARGS:-}
+    ctest --preset linux-debug --parallel "${SWBT_CTEST_PARALLEL_LEVEL:-8}" --output-on-failure ${CTEST_ARGS:-}
 
 _debug-in-container: _prepare-workspace-in-container
     just --justfile "{{justfile()}}" _configure-debug-in-container
+    just --justfile "{{justfile()}}" _build-debug-in-container
+    just --justfile "{{justfile()}}" _test-debug-in-container
+
+_debug-fresh-in-container: _prepare-workspace-in-container
+    just --justfile "{{justfile()}}" _configure-debug-fresh-in-container
     just --justfile "{{justfile()}}" _build-debug-in-container
     just --justfile "{{justfile()}}" _test-debug-in-container
 
@@ -167,8 +191,8 @@ _tidy-in-container: _prepare-workspace-in-container
 
 _asan-in-container: _prepare-workspace-in-container
     cmake --fresh --preset linux-asan -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-    cmake --build --preset linux-asan
-    ctest --preset linux-asan --output-on-failure ${CTEST_ARGS:-}
+    @parallel="${SWBT_BUILD_PARALLEL_LEVEL:-}"; if [ -n "$parallel" ]; then cmake --build --preset linux-asan --parallel "$parallel"; else cmake --build --preset linux-asan; fi
+    ctest --preset linux-asan --parallel "${SWBT_CTEST_PARALLEL_LEVEL:-8}" --output-on-failure ${CTEST_ARGS:-}
 
 _windows-cross-in-container: _prepare-workspace-in-container
     cmake --fresh --preset windows-mingw-debug
@@ -177,7 +201,7 @@ _windows-cross-in-container: _prepare-workspace-in-container
 _verify-in-container: _prepare-workspace-in-container
     just --justfile "{{justfile()}}" _format-check-in-container
     just --justfile "{{justfile()}}" _tidy-in-container
-    just --justfile "{{justfile()}}" _debug-in-container
+    just --justfile "{{justfile()}}" _debug-fresh-in-container
     just --justfile "{{justfile()}}" _asan-in-container
     just --justfile "{{justfile()}}" _windows-cross-in-container
 

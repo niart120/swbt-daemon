@@ -9,15 +9,36 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
     env:
       SWBT_RUN_HARDWARE: "0"
       SWBT_HARDWARE_APPROVED: "0"
+      SWBT_CTEST_PARALLEL_LEVEL: "8"
+      CCACHE_DIR: /workspaces/swbt-daemon/.ccache
+      CCACHE_MAXSIZE: "500M"
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ${{ runner.os }}-ccache-${{ hashFiles('.devcontainer/Dockerfile', 'CMakeLists.txt', 'CMakePresets.json', 'cmake/**/*.cmake', 'api/**', 'apps/**', 'swbt/**', 'tests/**') }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
       - name: Verify in Dev Container
         uses: devcontainers/ci@v0.3
         with:
-          push: never
+          imageName: ghcr.io/${{ github.repository }}/swbt-daemon-devcontainer
+          cacheFrom: ghcr.io/${{ github.repository }}/swbt-daemon-devcontainer
+          push: filter
+          refFilterForPush: refs/heads/main
+          eventFilterForPush: push
+          env: |
+            SWBT_CTEST_PARALLEL_LEVEL=${{ env.SWBT_CTEST_PARALLEL_LEVEL }}
+            CCACHE_DIR=${{ env.CCACHE_DIR }}
+            CCACHE_MAXSIZE=${{ env.CCACHE_MAXSIZE }}
           runCmd: just verify-ci
