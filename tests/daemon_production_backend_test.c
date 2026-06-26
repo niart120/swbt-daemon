@@ -757,6 +757,52 @@ static int approved_backend_requests_active_reconnect_when_switch_address_is_con
     return failed;
 }
 
+static int active_reconnect_failure_reports_failed_state_without_stopping_run_loop(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {
+        .active_reconnect_connect_result = -7,
+    };
+    const swbt_btstack_production_adapter_t adapter = fake_backend_adapter();
+    swbt_daemon_production_backend_t backend;
+    const swbt_daemon_hardware_approval_t approval = {
+        .run_hardware = true,
+        .hardware_approved = true,
+    };
+    const int expected[] = {
+        STEP_IPC_START,
+        STEP_PLATFORM_START,
+        STEP_HID_REGISTER,
+        STEP_OUTPUT_START,
+        STEP_TIMER_INIT,
+        STEP_POWER_ON,
+        STEP_ACTIVE_RECONNECT_CONNECT,
+        STEP_RUN_LOOP_EXECUTE,
+        STEP_POWER_OFF,
+        STEP_TIMER_STOP,
+        STEP_OUTPUT_STOP,
+        STEP_HID_STOP,
+        STEP_PLATFORM_STOP,
+        STEP_IPC_STOP,
+    };
+
+    int failed = 0;
+    failed += expect_true(swbt_daemon_config_set_active_reconnect_learned_switch_address(
+                              &config, "01:23:45:67:89:ab"),
+                          "set learned address");
+    failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
+                            SWBT_DAEMON_PRODUCTION_OK, "main result");
+    failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
+    failed += expect_eq_int(fake.status_during_run_loop_result, SWBT_IPC_OK, "status read");
+    failed +=
+        expect_eq_int((int)fake.status_during_run_loop.hardware.switch_connection_state,
+                      (int)SWBT_IPC_HARDWARE_CHANNEL_FAILED, "switch connection failed state");
+    failed += expect_eq_int((int)fake.status_during_run_loop.hardware.hid_channel_state,
+                            (int)SWBT_IPC_HARDWARE_CHANNEL_FAILED, "hid failed state");
+    return failed;
+}
+
 static int run_loop_json_state_reaches_fake_hid_send(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_ops_t fake = {
@@ -1342,6 +1388,7 @@ int main(void) {
     failed += hardware_approval_env_requires_both_flags();
     failed += approved_backend_starts_hardware_and_cleans_up_in_order();
     failed += approved_backend_requests_active_reconnect_when_switch_address_is_configured();
+    failed += active_reconnect_failure_reports_failed_state_without_stopping_run_loop();
     failed += run_loop_json_state_reaches_fake_hid_send();
     failed += production_report_success_updates_status_metrics_without_hardware_measurement();
     failed += production_report_failure_updates_send_failure_metrics_and_cleans_up();

@@ -569,6 +569,20 @@ static void swbt_daemon_production_power_off(swbt_daemon_production_backend_t *b
 }
 
 static void
+swbt_daemon_production_report_active_reconnect_failed(swbt_daemon_production_backend_t *backend) {
+    const swbt_app_hardware_status_t failed_status = {
+        .adapter_state = SWBT_APP_HARDWARE_CHANNEL_UNAVAILABLE,
+        .switch_connection_state = SWBT_APP_HARDWARE_CHANNEL_FAILED,
+        .hid_channel_state = SWBT_APP_HARDWARE_CHANNEL_FAILED,
+    };
+
+    if (backend == NULL || backend->host == NULL) {
+        return;
+    }
+    (void)swbt_app_set_hardware_status(swbt_daemon_host_app(backend->host), &failed_status);
+}
+
+static void
 swbt_daemon_production_request_active_reconnect(swbt_daemon_production_backend_t *backend) {
     const char *switch_address = NULL;
     swbt_btstack_production_active_reconnect_request_t request = {
@@ -588,6 +602,7 @@ swbt_daemon_production_request_active_reconnect(swbt_daemon_production_backend_t
     }
     if (!swbt_daemon_production_parse_switch_address(switch_address, request.address)) {
         swbt_diagnostic_trace("production: active reconnect address invalid");
+        swbt_daemon_production_report_active_reconnect_failed(backend);
         return;
     }
 
@@ -596,6 +611,9 @@ swbt_daemon_production_request_active_reconnect(swbt_daemon_production_backend_t
         backend->adapter->active_reconnect.connect(backend->adapter_context, &request, &hid_cid);
     swbt_diagnostic_trace(result == 0 ? "production: active reconnect request ok"
                                       : "production: active reconnect request failed");
+    if (result != 0) {
+        swbt_daemon_production_report_active_reconnect_failed(backend);
+    }
 }
 
 static void swbt_daemon_production_finish_shutdown(swbt_daemon_production_backend_t *backend) {

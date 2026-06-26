@@ -145,13 +145,13 @@ source-audit 結果:
 | refactor-done | HID connection opened event exposes remote Bluetooth address for learned Switch address capture | new | unit | no |
 | refactor-skipped | learned Switch address is captured from a successful pairing / connection path and handed to config persistence after the chosen success boundary | new | integration | no |
 | refactor-skipped | invalid active reconnect Switch address in TOML is rejected without partially mutating config | edge | unit | no |
-| todo | active reconnect failure paths report unavailable / failed states without breaking incoming pairing path | edge | integration | no |
+| refactor-done | active reconnect failure paths report unavailable / failed states without breaking incoming pairing path | edge | integration | no |
 | todo | active reconnect hardware preflight defines initial address capture, daemon restart, active reconnect, optional Switch-side reconnect operation, and Button A smoke | characterization | docs | yes |
 | todo | daemon restart active reconnect reaches L2CAP open and Button A smoke without Change Grip / Order re-pairing, or records the exact unsupported boundary | characterization | hardware | yes |
 
 ## 10. 検証
 
-一部 software 実装を開始した。active reconnect address の TOML 読み取り、learned address 書き戻し boundary、production adapter の active reconnect request boundary、HID connection opened event からの remote address decode、connection opened 成功 event から保存先 target への learned address 永続化呼び出しは実装済みである。daemon main からの config path 注入、実機 reconnect、request failure の状態分類はまだ実装していない。
+一部 software 実装を開始した。active reconnect address の TOML 読み取り、learned address 書き戻し boundary、production adapter の active reconnect request boundary、HID connection opened event からの remote address decode、connection opened 成功 event から保存先 target への learned address 永続化呼び出し、active reconnect request failure の IPC status 分類は実装済みである。daemon main からの config path 注入と実機 reconnect はまだ実装 / 検証していない。
 
 起票時確認:
 
@@ -289,6 +289,24 @@ Refactor status:
 - unchanged behavior: target 未設定時の connection opened、active reconnect request、hardware approval gate、incoming pairing / advertising、report timer start / stop は維持する。
 - verification: `just build-debug`, `just test-debug`, `just format-check`, `just tidy`, `git diff --check`
 - notes: config path の収集、CLI / service 起動契約、保存失敗時の operator-facing 状態分類はこの cycle に混ぜず後続 item に残す。
+
+TDD status:
+- source: active reconnect request は既存 incoming pairing path の前に試行されるため、失敗時に daemon を止めると再 pairing / incoming connection の退避経路まで壊す。operator からは request failure が見える必要がある。
+- use case: effective reconnect address が設定され、production adapter の active reconnect connect が失敗した場合、daemon は `SWBT_DAEMON_PRODUCTION_OK` のまま run loop へ進み、IPC status の `switch_connection_state` と `hid_channel_state` は `failed` になる。JSON response でも `failed` として表示される。
+- item: active reconnect failure paths report unavailable / failed states without breaking incoming pairing path。
+- state: refactor-done
+- commands:
+  - red: `just build-debug`
+  - green: `just build-debug`; `just test-debug`
+  - refactor: `just format`; `just build-debug`; `just test-debug`; `just format-check`; `git diff --check`; `just tidy`
+- notes: red は `SWBT_IPC_HARDWARE_CHANNEL_FAILED` 未定義で compile failure になった。green では `SWBT_APP_HARDWARE_CHANNEL_FAILED` / `SWBT_IPC_HARDWARE_CHANNEL_FAILED` を追加し、active reconnect request failure 時だけ hardware channel state を failed にする。success は実機未検証のため connected 扱いにしない。実機は不要。
+
+Refactor status:
+- decision: refactor-done
+- change: active reconnect failure status の構築を `swbt_daemon_production_report_active_reconnect_failed()` にまとめた。
+- unchanged behavior: active reconnect address がない場合は channel state を `unavailable` のままにする。request failure でも run loop は継続し、incoming pairing / advertising path、hardware approval gate、report timer lifecycle は維持する。
+- verification: `just build-debug`, `just test-debug`, `just format-check`, `just tidy`, `git diff --check`
+- notes: `failed` は request failure の診断状態であり、L2CAP open / Button A smoke の成功状態は実機 item に残す。
 ## 11. 実機実行条件
 
 実機が必要である。ただし起票時点では実行しない。

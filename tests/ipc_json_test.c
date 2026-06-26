@@ -98,8 +98,8 @@ static int large_status_response_fits_response_buffer(void) {
                 .hardware =
                     {
                         .adapter_state = SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE,
-                        .switch_connection_state = SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE,
-                        .hid_channel_state = SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE,
+                        .switch_connection_state = SWBT_IPC_HARDWARE_CHANNEL_FAILED,
+                        .hid_channel_state = SWBT_IPC_HARDWARE_CHANNEL_FAILED,
                     },
             },
     };
@@ -112,6 +112,8 @@ static int large_status_response_fits_response_buffer(void) {
     return swbt_ipc_json_encode_response(&typed_response, response, sizeof(response)) ==
                        SWBT_IPC_JSON_OK &&
                    expect_contains(response, "\"type\":\"status\"") == 0 &&
+                   expect_contains(response, "\"switch_connection_state\":\"failed\"") == 0 &&
+                   expect_contains(response, "\"hid_channel_state\":\"failed\"") == 0 &&
                    strlen(response) < sizeof(response)
                ? 0
                : 1;

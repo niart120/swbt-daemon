@@ -247,6 +247,18 @@ swbt_app_result_t swbt_app_set_hardware_approval(swbt_app_t *app,
     return SWBT_APP_OK;
 }
 
+swbt_app_result_t swbt_app_set_hardware_status(swbt_app_t *app,
+                                               const swbt_app_hardware_status_t *hardware_status) {
+    if (app == NULL || hardware_status == NULL) {
+        return SWBT_APP_ERROR_INVALID_ARGUMENT;
+    }
+
+    swbt_spin_lock_acquire(&app->lock);
+    app->hardware = *hardware_status;
+    swbt_spin_lock_release(&app->lock);
+    return SWBT_APP_OK;
+}
+
 swbt_app_result_t swbt_app_record_report_tick(swbt_app_t *app, uint64_t now_us,
                                               swbt_metrics_report_send_result_t send_result) {
     if (app == NULL) {

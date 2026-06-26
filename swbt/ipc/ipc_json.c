@@ -657,6 +657,8 @@ swbt_ipc_json_hardware_channel_text(swbt_ipc_hardware_channel_state_t hardware_c
     switch (hardware_channel_state) {
     case SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE:
         return "unavailable";
+    case SWBT_IPC_HARDWARE_CHANNEL_FAILED:
+        return "failed";
     }
     return "unavailable";
 }
