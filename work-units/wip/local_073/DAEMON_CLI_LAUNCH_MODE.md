@@ -141,6 +141,7 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 | refactor-skipped | experimental link key DB explicitly stores a non-null HCI link key notification into the TLV DB during platform lifetime | characterization | integration | no |
 | refactor-skipped | active outgoing reconnect with experimental link key DB records whether link key notification is persisted to a non-empty TLV file | characterization | hardware | yes |
 | refactor-skipped | daemon restart after experimental link key DB persistence reaches HID channel open but still records incoming SSP pairing | characterization | hardware | yes |
+| refactor-skipped | sleep/resume after experimental link key DB persistence issues active reconnect but does not reach controller connection complete | characterization | hardware | yes |
 | deferred | daemon restart after experimental link key DB persistence reaches HID channel open without a new `pairing complete, status 00` | characterization | hardware | yes |
 | todo | CLI parser defaults to production backend when no backend flag is supplied | new | unit | no |
 | todo | `--backend noop` selects noop backend and does not require production hardware approval state | new | unit/integration | no |
@@ -324,6 +325,29 @@ TDD status:
 - commands:
   - hardware: `powershell -NoProfile -ExecutionPolicy Bypass -File .\tmp\hardware\local_073\run-link-key-db-reconnect-retest.ps1`
 - notes: TLV persistence は実機で確認できた。restart run は `hid connection opened` と Button A smoke まで到達したが、outgoing active reconnect の失敗後に incoming SSP pairing が走り、`pairing complete, status 00` を 1 件記録した。pairing-free reconnect 条件は未達のため、別の設計または追加調査が必要である。
+
+実機 sleep/resume existing TLV reconnect experiment:
+
+- date: 2026-06-26
+- approval: user approved CSR8510 A10 / WinUSB adapter open、保存済み TOML config / experimental TLV-backed Classic link key DB の再利用、Switch HOME から sleep / resume 済み状態での active reconnect request、Button A smoke、HCI dump / diagnostic trace 保存、cleanup 確認。Switch 側の Change Grip/Order 操作は含めない。
+- artifact: `tmp/hardware/local_073/20260626-201135-link-key-db-sleep-resume-existing`
+- source artifact: `tmp/hardware/local_073/20260626-195716-link-key-db-reconnect-retest`
+- environment: Windows native PowerShell、CSR8510 A10 `USB\VID_0A12&PID_0001\9&12127A34&0&1`、Service `WinUSB`、backend `windows-winusb`、BTstack `075a0780f0fad7ff67d58ac19f46e8953656a752`、Switch2 firmware `22.1.0`。
+- swbt: git HEAD `aec3537`。
+- procedure: source artifact の `swbt-daemon.toml` と `swbt-link-key.tlv` を新 artifact へコピーした。operator は事前に Switch を HOME へ戻し、sleep / resume まで完了した。`tmp/hardware/local_073/run-link-key-db-sleep-resume-existing.ps1` で daemon を起動し、Switch 側を操作せず `production: hid connection opened` を 120 秒待った。
+- result: trace は `btstack: experimental link key db open ok` と `production: active reconnect request ok` を各 1 件記録した。HCI dump は `Create_connection` を記録したが、120 秒内に `Connection_complete`、`Connection_incoming`、`pairing started`、`pairing complete, status 00`、`L2CAP_EVENT_CHANNEL_OPENED status 0x0` / `0x8` は出なかった。`production: hid connection opened` は 0 件だった。TLV file は before / after とも 88 bytes で、link key notification の追加保存も 0 件だった。Button A smoke は HID open がなかったため実行していない。
+- boundary: 今回の失敗は link key request / response や pairing の段階ではなく、active reconnect request 後に controller connection complete へ進まない段階で起きている。保存済み link key DB の正否だけでは説明できないため、再試行 policy、起動タイミング、Switch 側 sleep/resume 後の connectability 状態を後続で切り分ける。
+- cleanup: pass。IPC neutral client は exit code 0。HID connection が開いていないため trace 上の shutdown neutral send は failed だが、daemon は `CTRL_BREAK_EVENT` で exit code 0、forced stop false、crash dump なしで終了した。
+- log: raw Switch address と raw link key value は転記しない。`swbt-daemon.toml`、TLV file、HCI dump は scrub 対象である。
+
+TDD status:
+- source: user discussion, 2026-06-26: restart run が incoming SSP pairing を含んだため、Change Grip/Order の影響を外し、HOME -> sleep -> resume 後に保存済み config / TLV だけで active reconnect が成立するかを確認する。
+- use case: hardware operator は initial pairing 済みの config / TLV を再利用し、Switch 側再登録画面を開かずに sleep/resume 後の active reconnect request と connection outcome を観測する。
+- item: sleep/resume after experimental link key DB persistence issues active reconnect but does not reach controller connection complete。
+- state: refactor-skipped
+- commands:
+  - hardware: `powershell -NoProfile -ExecutionPolicy Bypass -File .\tmp\hardware\local_073\run-link-key-db-sleep-resume-existing.ps1`
+- notes: `active reconnect request ok` は出たが、HCI は `Create_connection` 後に `Connection_complete` へ進まなかった。pairing-free reconnect 成功条件は未達であり、今回の観測は connection establishment failure として扱う。
 
 ## 11. 実機実行条件
 
