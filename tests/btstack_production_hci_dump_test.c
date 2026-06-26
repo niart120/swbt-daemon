@@ -69,10 +69,26 @@ static int explicit_hci_dump_open_failure_rejects_platform_start(void) {
     if (adapter == NULL || adapter->platform.start == NULL) {
         return 1;
     }
+    failed += expect_eq_int(
+        swbt_btstack_production_hci_dump_configure("btstack-hci-dump-missing-dir/hci.log"), 0);
+    failed += expect_eq_int(adapter->platform.start(NULL), -1);
+    failed += expect_eq_int(swbt_btstack_production_hci_dump_configure(NULL), 0);
+    return failed;
+}
+
+static int hci_dump_env_path_is_ignored_without_cli_configuration(void) {
+    int failed = 0;
+    const swbt_btstack_production_adapter_t *adapter = swbt_btstack_production_adapter();
+
+    if (adapter == NULL || adapter->platform.start == NULL || adapter->platform.stop == NULL) {
+        return 1;
+    }
     if (set_hci_dump_env("btstack-hci-dump-missing-dir/hci.log") != 0) {
         return 1;
     }
-    failed += expect_eq_int(adapter->platform.start(NULL), -1);
+    failed += expect_eq_int(swbt_btstack_production_hci_dump_configure(NULL), 0);
+    failed += expect_eq_int(adapter->platform.start(NULL), 0);
+    adapter->platform.stop(NULL);
     clear_hci_dump_env();
     return failed;
 }
@@ -150,6 +166,7 @@ int main(void) {
     int failed = 0;
     failed += missing_hci_dump_path_is_noop();
     failed += explicit_hci_dump_open_failure_rejects_platform_start();
+    failed += hci_dump_env_path_is_ignored_without_cli_configuration();
     failed += link_key_db_path_creates_tlv_file_on_platform_start();
     failed += link_key_db_stores_link_key_notification();
     return failed == 0 ? 0 : 1;

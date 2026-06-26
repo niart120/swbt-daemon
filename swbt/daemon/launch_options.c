@@ -42,6 +42,7 @@ swbt_daemon_launch_options_parse(swbt_daemon_launch_options_t *options, int argc
         const char *config_value = NULL;
         const char *link_key_db_value = NULL;
         const char *trace_value = NULL;
+        const char *hci_dump_value = NULL;
         const char *backend_value = NULL;
 
         if (argument == NULL) {
@@ -99,6 +100,25 @@ swbt_daemon_launch_options_parse(swbt_daemon_launch_options_t *options, int argc
                 return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE;
             }
             options->trace_path = trace_value;
+            continue;
+        }
+
+        if (strcmp(argument, "--hci-dump-path") == 0) {
+            if (index + 1 >= argc || argv[index + 1] == NULL || argv[index + 1][0] == '\0') {
+                return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE;
+            }
+            options->hci_dump_path = argv[index + 1];
+            ++index;
+            continue;
+        }
+
+        hci_dump_value =
+            swbt_daemon_launch_options_value_after_equals(argument, "--hci-dump-path=");
+        if (hci_dump_value != NULL) {
+            if (hci_dump_value[0] == '\0') {
+                return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE;
+            }
+            options->hci_dump_path = hci_dump_value;
             continue;
         }
 
@@ -162,6 +182,8 @@ bool swbt_daemon_launch_config_prepare(swbt_daemon_launch_config_t *launch_confi
         launch_config->link_key_db_path = options->link_key_db_path;
         launch_config->link_key_db_configured = true;
     }
+
+    launch_config->hci_dump_path = options->hci_dump_path;
 
     if (!swbt_daemon_config_apply_env(&launch_config->config, env)) {
         *launch_config = (swbt_daemon_launch_config_t){0};

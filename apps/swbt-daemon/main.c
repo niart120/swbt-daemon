@@ -131,6 +131,10 @@ static int swbt_daemon_run_production(const swbt_daemon_launch_config_t *launch_
         swbt_diagnostic_trace("production: link key db path invalid");
         return 1;
     }
+    if (swbt_btstack_production_hci_dump_configure(launch_config->hci_dump_path) != 0) {
+        swbt_diagnostic_trace("production: hci dump path invalid");
+        return 1;
+    }
     swbt_diagnostic_trace("production: backend init");
     if (swbt_daemon_production_backend_init(&backend, &launch_config->config,
                                             swbt_btstack_production_adapter(),

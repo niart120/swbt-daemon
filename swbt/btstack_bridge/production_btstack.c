@@ -35,6 +35,7 @@
 #define SWBT_BTSTACK_IPC_PUMP_PERIOD_MS 1u
 
 static bool g_swbt_btstack_production_hci_dump_open;
+static const char *g_hci_dump_path;
 static const char *g_link_key_db_path;
 static bool g_link_key_db_open;
 static bool g_link_key_event_handler_registered;
@@ -134,8 +135,12 @@ int swbt_btstack_production_hci_dump_start(const char *path) {
     return 0;
 }
 
-static int swbt_btstack_production_hci_dump_start_from_env(void) {
-    return swbt_btstack_production_hci_dump_start(getenv("SWBT_HCI_DUMP_TRACE_PATH"));
+int swbt_btstack_production_hci_dump_configure(const char *path) {
+    if (path != NULL && path[0] == '\0') {
+        return -1;
+    }
+    g_hci_dump_path = path;
+    return 0;
 }
 
 static void swbt_btstack_production_hci_dump_stop(void) {
@@ -252,7 +257,7 @@ static int swbt_btstack_production_platform_start(void *context) {
     swbt_btstack_classic_discovery_result_t discovery_result;
     swbt_btstack_classic_discovery_config_t discovery_config;
     (void)context;
-    if (swbt_btstack_production_hci_dump_start_from_env() != 0) {
+    if (swbt_btstack_production_hci_dump_start(g_hci_dump_path) != 0) {
         return -1;
     }
     swbt_diagnostic_trace("btstack: memory init");

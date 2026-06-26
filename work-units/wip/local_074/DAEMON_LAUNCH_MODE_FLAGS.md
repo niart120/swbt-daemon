@@ -105,7 +105,7 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 | green | invalid backend value fails before adapter open | edge | unit/integration | no |
 | green | production backend no longer requires `SWBT_RUN_HARDWARE` and `SWBT_HARDWARE_APPROVED` as code-level gates, while hardware execution remains documented as human-approved | behavior | unit/integration | no |
 | green | diagnostic trace path is enabled only by CLI flag and not by persistent config file | regression | unit/integration | no |
-| todo | HCI dump path is enabled only by CLI flag and fails before production run loop when the path cannot be opened | edge | unit/integration | no |
+| green | HCI dump path is enabled only by CLI flag and fails before production run loop when the path cannot be opened | edge | unit/integration | no |
 | todo | crash dump path CLI behavior is fixed for Windows and non-Windows builds | edge | unit/build | no |
 | todo | test / smoke entrypoints that need no hardware pass `--backend noop` explicitly | regression | integration | no |
 | deferred | adapter selector or dedicated dongle identity guard is designed if production default leaves adapter selection ambiguous | behavior | design/hardware | yes |
@@ -181,6 +181,19 @@ TDD status:
   - green: `rg -n "SWBT_DIAGNOSTIC_TRACE_PATH" apps swbt tests` は implementation 側 no match、test helper の env ignored 確認だけ match。最初の複合 regex は構文誤りのため判定に使わない。
   - green: `just format-check` pass。
 - notes: `swbt_diagnostic_trace` は process-global に設定された path だけを見る。`main.c` は CLI parse 後に `launch_options.trace_path` を設定する。TOML config file schema には trace path を追加していない。
+
+TDD status:
+- source: user discussion, 2026-06-26。HCI dump path は環境変数ではなく、その起動の CLI flag として明示する。
+- use case: `--hci-dump-path` を指定した production 起動だけ HCI dump を開き、path が開けない場合は production platform start が fail する。`SWBT_HCI_DUMP_TRACE_PATH` だけでは HCI dump を開かない。
+- item: HCI dump path is enabled only by CLI flag and fails before production run loop when the path cannot be opened。
+- state: green。
+- commands:
+  - red: `just build-debug` fail。`options.hci_dump_path` と `swbt_btstack_production_hci_dump_configure` が未定義。
+  - green: `just build-debug` pass。
+  - green: `CTEST_ARGS='-R "(daemon_launch_options_test|btstack_production_hci_dump_test)" --output-on-failure' just test-debug` pass。
+  - green: `rg -n "SWBT_HCI_DUMP_TRACE_PATH" apps swbt tests` は implementation 側 no match、test helper の env ignored 確認だけ match。
+  - green: `just format-check` pass。
+- notes: `main.c` は production 起動前に `launch_config.hci_dump_path` を `swbt_btstack_production_hci_dump_configure` へ渡す。BTstack platform start は configured path だけを使う。実 Bluetooth adapter は開いていない。
 
 ## 11. 実機実行条件
 

@@ -26,6 +26,7 @@ typedef struct {
     const char *config_path;
     const char *link_key_db_path;
     const char *trace_path;
+    const char *hci_dump_path;
 } swbt_daemon_launch_options_t;
 
 typedef struct {
@@ -34,6 +35,7 @@ typedef struct {
     bool learned_switch_address_target_configured;
     const char *link_key_db_path;
     bool link_key_db_configured;
+    const char *hci_dump_path;
 } swbt_daemon_launch_config_t;
 
 swbt_daemon_launch_options_result_t
