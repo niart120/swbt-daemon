@@ -57,6 +57,10 @@ configure-debug:
 build-debug:
     @just --justfile "{{justfile()}}" _run-or-delegate build-debug
 
+# Build linux-debug unit test executables.
+build-tests-debug:
+    @just --justfile "{{justfile()}}" _run-or-delegate build-tests-debug
+
 # Build the swbt-daemon executable on linux-debug.
 build-daemon-debug:
     @just --justfile "{{justfile()}}" _run-or-delegate build-daemon-debug
@@ -158,6 +162,13 @@ _configure-debug-fresh-in-container: _prepare-workspace-in-container
 _build-debug-in-container: _prepare-workspace-in-container
     @parallel="${SWBT_BUILD_PARALLEL_LEVEL:-}"; if [ -n "$parallel" ]; then cmake --build --preset linux-debug --parallel "$parallel"; else cmake --build --preset linux-debug; fi
 
+_build-tests-debug-target-in-container: _prepare-workspace-in-container
+    @parallel="${SWBT_BUILD_PARALLEL_LEVEL:-}"; if [ -n "$parallel" ]; then cmake --build --preset linux-debug --target swbt_unit_tests --parallel "$parallel"; else cmake --build --preset linux-debug --target swbt_unit_tests; fi
+
+_build-tests-debug-in-container: _prepare-workspace-in-container
+    just --justfile "{{justfile()}}" _configure-debug-in-container
+    just --justfile "{{justfile()}}" _build-tests-debug-target-in-container
+
 _build-daemon-debug-in-container: _prepare-workspace-in-container
     just --justfile "{{justfile()}}" _configure-debug-in-container
     @parallel="${SWBT_BUILD_PARALLEL_LEVEL:-}"; if [ -n "$parallel" ]; then cmake --build --preset linux-debug --target swbt-daemon --parallel "$parallel"; else cmake --build --preset linux-debug --target swbt-daemon; fi
@@ -170,13 +181,12 @@ _test-debug-in-container: _prepare-workspace-in-container
     ctest --preset linux-debug --parallel "${SWBT_CTEST_PARALLEL_LEVEL:-8}" --output-on-failure ${CTEST_ARGS:-}
 
 _debug-in-container: _prepare-workspace-in-container
-    just --justfile "{{justfile()}}" _configure-debug-in-container
-    just --justfile "{{justfile()}}" _build-debug-in-container
+    just --justfile "{{justfile()}}" _build-tests-debug-in-container
     just --justfile "{{justfile()}}" _test-debug-in-container
 
 _debug-fresh-in-container: _prepare-workspace-in-container
     just --justfile "{{justfile()}}" _configure-debug-fresh-in-container
-    just --justfile "{{justfile()}}" _build-debug-in-container
+    just --justfile "{{justfile()}}" _build-tests-debug-target-in-container
     just --justfile "{{justfile()}}" _test-debug-in-container
 
 _format-in-container: _prepare-workspace-in-container
