@@ -140,7 +140,8 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 | refactor-skipped | production BTstack platform start connects an explicitly configured experimental TLV-backed Classic link key DB and closes it on platform stop | characterization | integration | no |
 | refactor-skipped | experimental link key DB explicitly stores a non-null HCI link key notification into the TLV DB during platform lifetime | characterization | integration | no |
 | refactor-skipped | active outgoing reconnect with experimental link key DB records whether link key notification is persisted to a non-empty TLV file | characterization | hardware | yes |
-| todo | daemon restart after experimental link key DB persistence reaches HID channel open without a new `pairing complete, status 00` | characterization | hardware | yes |
+| refactor-skipped | daemon restart after experimental link key DB persistence reaches HID channel open but still records incoming SSP pairing | characterization | hardware | yes |
+| deferred | daemon restart after experimental link key DB persistence reaches HID channel open without a new `pairing complete, status 00` | characterization | hardware | yes |
 | todo | CLI parser defaults to production backend when no backend flag is supplied | new | unit | no |
 | todo | `--backend noop` selects noop backend and does not require production hardware approval state | new | unit/integration | no |
 | todo | invalid backend value fails before adapter open | edge | unit/integration | no |
@@ -301,6 +302,28 @@ Refactor status:
 - unchanged behavior: `--experimental-link-key-db` 未指定時は HCI link key notification を swbt 側で保存しない。raw address と raw key は trace に出さない。
 - verification: `just build-debug`、`$env:CTEST_ARGS='-R btstack_production_hci_dump_test'; just test-debug`、`just test-debug`、`just windows-cross`、`just format-check`、`just asan`、`git diff --check`
 - notes: 実験 DB 保存経路の software characterization は完了した。実機で pairing-free reconnect に進むかは未検証であり、同じ artifact 形で再試験する。
+
+実機 experimental link key notification persistence retest:
+
+- date: 2026-06-26
+- approval: user approved CSR8510 A10 / WinUSB adapter open、initial pairing、experimental TLV-backed Classic link key DB、HCI link key notification 明示保存、daemon restart、active reconnect request、Button A smoke、HCI dump / diagnostic trace 保存、cleanup 確認。
+- artifact: `tmp/hardware/local_073/20260626-195716-link-key-db-reconnect-retest`
+- environment: Windows native PowerShell、CSR8510 A10 `USB\VID_0A12&PID_0001\9&12127A34&0&1`、Service `WinUSB`、backend `windows-winusb`、BTstack `075a0780f0fad7ff67d58ac19f46e8953656a752`、Switch2 firmware `22.1.0`。
+- swbt: git HEAD `47ea721`。
+- procedure: empty TOML config と `--experimental-link-key-db <artifact>/swbt-link-key.tlv` を指定して initial pairing を実行した。その後、同じ config と TLV path で restart run を実行し、Switch 側操作なしで active reconnect request を観測した。両 run で Button A smoke と shutdown neutral send を実行した。
+- result: initial run は trace の `btstack: experimental link key db stored notification`、`production: hid connection opened`、`production: learned switch address save ok` を記録し、TLV file は `48` bytes へ増えた。restart run は `production: active reconnect request ok`、`btstack: experimental link key db stored notification`、`production: hid connection opened`、`production: learned switch address save ok` を記録し、TLV file は `88` bytes へ増えた。Button A smoke は initial / restart とも exit code `0`。
+- reconnect boundary: restart run は `hid connection opened` まで到達したが、HCI dump 上は outgoing connection が `Connection_complete (status=8)` と control PSM `0x11` の `L2CAP_EVENT_CHANNEL_OPENED status 0x8` で一度失敗した後、incoming connection で `pairing started, ssp 1, initiator 0`、`Remote not bonding, dropping local flag`、`pairing complete, status 00`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` を記録した。保存済み link key だけによる pairing-free reconnect 成功ではない。
+- cleanup: pass。initial / restart とも neutral state を accepted させた後、`CTRL_BREAK_EVENT` により daemon は exit code `0` で終了した。`Get-Process swbt-daemon -ErrorAction SilentlyContinue` は空で、crash dump は作成されなかった。
+- log: raw Switch address と raw link key value は転記しない。`swbt-daemon.toml`、TLV file、HCI dump は scrub 対象である。
+
+TDD status:
+- source: user discussion, 2026-06-26: HCI link key notification を実験 DB に明示保存する実装後に、実機で TLV persistence と restart reconnect の境界を再確認する。
+- use case: hardware operator は initial pairing で保存した experimental TLV DB を restart run に持ち越し、Switch 側操作なしで active reconnect と pairing-free 条件を観測する。
+- item: daemon restart after experimental link key DB persistence reaches HID channel open but still records incoming SSP pairing。
+- state: refactor-skipped
+- commands:
+  - hardware: `powershell -NoProfile -ExecutionPolicy Bypass -File .\tmp\hardware\local_073\run-link-key-db-reconnect-retest.ps1`
+- notes: TLV persistence は実機で確認できた。restart run は `hid connection opened` と Button A smoke まで到達したが、outgoing active reconnect の失敗後に incoming SSP pairing が走り、`pairing complete, status 00` を 1 件記録した。pairing-free reconnect 条件は未達のため、別の設計または追加調査が必要である。
 
 ## 11. 実機実行条件
 
