@@ -70,7 +70,7 @@ source から use case への変換:
 
 ## 6. 根拠監査
 
-実施中。
+BTstack / joycontrol source audit は完了。実機 reconnect 成立性は未検証であり、hardware item に残す。
 
 この work unit は BTstack outbound L2CAP、HID device reconnect、Switch controller reconnect 操作、実機 HCI event を扱う。Switch-facing report bytes そのものを変える予定はないが、connection lifecycle と実機挙動に触れるため `source-audit` と `hardware-harness` を使う。
 
@@ -132,7 +132,7 @@ source-audit 結果:
 - `spec/references/*`
 - `docs/status.md`
 - `docs/hardware-test-log.md`
-- `work-units/wip/local_072/ACTIVE_SWITCH_RECONNECT.md`
+- `work-units/complete/local_072/ACTIVE_SWITCH_RECONNECT.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
@@ -325,6 +325,11 @@ TDD status:
 - commands:
   - characterization: `git diff --check`
 - notes: exact unsupported boundary は section 11 に記録した。`apps/swbt-daemon/main.c` が config path と learned address target を production backend に接続した後で、実機 run を再開する。実機コマンドは実行していない。
+
+Final verification:
+- `just verify`: pass。`format-check`、`clang-tidy`、debug build/test、ASan、Windows cross build を確認した。
+- 実機: 未実行。現行 `apps/swbt-daemon/main.c` が設定ファイル path と learned address target を production backend へ渡さないため、この状態で Bluetooth adapter open / pairing / advertising を実行しても active reconnect の評価にならない。
+
 ## 11. 実機実行条件
 
 実機が必要である。ただし起票時点では実行しない。
@@ -361,9 +366,9 @@ TDD status:
 - 観測: learned address の同一 TOML file 書き戻しは実装したが、atomic replace、parent directory auto-create、format / comment preservation guarantee は持たない。
   先送り理由: 今回は daemon-managed learned address を保存できる最小 config boundary を固定した。耐障害性の高い file update policy は、設定ファイル path / CLI / service 運用と合わせて決める方がよい。
   次の置き場: 後続の設定ファイル運用 spec または CLI launch mode work。
-- 観測: learned address を pairing / connection success から自動取得して保存 API へ渡す経路は未実装である。
-  先送り理由: 取得タイミングは HID connection opened、report smoke、Switch 側 reconnect 操作の観測と結び付くため、production adapter boundary と実機 preflight で決める必要がある。
-  次の置き場: この work unit の integration / hardware item。
+- 観測: learned address の保存成功境界は software では `HID_SUBEVENT_CONNECTION_OPENED` 成功 event に固定したが、Switch UI が input report を採用したかは未確認である。
+  先送り理由: Button A smoke や reconnect 後の input 採用は実機でしか確認できない。
+  次の置き場: config path / 起動契約 work の完了後に再開する active reconnect hardware item。
 - 観測: Switch 側 controller reconnect 操作が必須かどうかは未確認である。
   先送り理由: daemon restart active reconnect の最小 run を先に設計し、操作の要否を artifact で分ける。
   次の置き場: この work unit の hardware item。

@@ -16,7 +16,7 @@ source:
 - `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md`: 環境変数を optional runtime override、required hardware safety gate、optional diagnostic sink、development tooling gate に分類し、`swbt/daemon/config.*` へ runtime env parsing を寄せた。
 - `docs/status.md`: production 起動条件と実機実行時の推奨環境変数を状態表として記録している。
 - `work-units/complete/local_065/BONDED_RECONNECT_PERSISTENCE.md`: TLV-backed bond cache 経路は実機観測後に不採用として閉じた。設定ファイル移行では、この未採用 path を復活させない。
-- `work-units/wip/local_072/ACTIVE_SWITCH_RECONNECT.md`: reconnect 用の永続状態または設定が必要になった場合は、active reconnect 側で境界を決めてからこの work unit へ取り込む。
+- `work-units/complete/local_072/ACTIVE_SWITCH_RECONNECT.md`: reconnect 用の永続状態または設定が必要になった場合は、active reconnect 側で境界を決めてからこの work unit へ取り込む。
 - user discussion, 2026-06-25: active reconnect 用 Switch address は自動取得し、設定ファイル layer に永続化する。削除は設定ファイル上の値の除去で扱う。trace log では検証用に address を出してよいが、リポジトリ上の記録は scrub する。
 - user discussion, 2026-06-26: 同一 TOML file 更新を前提にするなら、TOML parser / serializer のために C++ 導入または部分的な C++ 化も検討する。
 - user discussion, 2026-06-26: dependency は `vendor/*` の Git submodule として pin し、BTstack と同じ依存管理方針に寄せる。
@@ -66,7 +66,7 @@ source から use case への変換:
 
 - `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md`
 - `work-units/complete/local_065/BONDED_RECONNECT_PERSISTENCE.md`
-- `work-units/wip/local_072/ACTIVE_SWITCH_RECONNECT.md`
+- `work-units/complete/local_072/ACTIVE_SWITCH_RECONNECT.md`
 - `docs/status.md`
 - `spec/operations/windows-native-preflight.md`
 - `spec/operations/windows-hardware-bringup-sequence.md`

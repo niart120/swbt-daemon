@@ -61,7 +61,7 @@ source から use case への変換:
 - `spec/operations/windows-hardware-bringup-sequence.md`
 - `docs/status.md`
 - `docs/hardware-test-log.md`
-- `work-units/wip/local_072/ACTIVE_SWITCH_RECONNECT.md`
+- `work-units/complete/local_072/ACTIVE_SWITCH_RECONNECT.md`
 - `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md`
 - `work-units/complete/local_053/BTSTACK_PORT_EVENT_BOUNDARY.md`
 - `work-units/complete/local_057/ARCHITECTURE_CUTOVER_H1.md`
@@ -101,8 +101,8 @@ source から use case への変換:
 - `docs/status.md`
 - `docs/hardware-test-log.md`
 - `work-units/complete/local_065/BONDED_RECONNECT_PERSISTENCE.md`
-- `work-units/wip/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`
-- `work-units/wip/local_072/ACTIVE_SWITCH_RECONNECT.md`
+- `work-units/complete/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`
+- `work-units/complete/local_072/ACTIVE_SWITCH_RECONNECT.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
@@ -159,13 +159,13 @@ cleanup 後の software verification:
 
 - 観測: passive TLV-backed link key DB では、今回条件の Switch2 `22.1.0` に link key material を保存させられなかった。
   先送り理由: link key DB の保存先や cleanup を詰めても、保存する key material がない。
-  次の置き場: `work-units/wip/local_072/ACTIVE_SWITCH_RECONNECT.md`。
+  次の置き場: `work-units/complete/local_072/ACTIVE_SWITCH_RECONNECT.md`。
 - 観測: Switch 側 controller reconnect 操作は、この work unit では実行しない。
   先送り理由: passive bond cache 経路を採用しないため、同じ設計で追加実機 run を行っても目的に対する根拠が弱い。
-  次の置き場: `work-units/wip/local_072/ACTIVE_SWITCH_RECONNECT.md`。
+  次の置き場: `work-units/complete/local_072/ACTIVE_SWITCH_RECONNECT.md`。
 - 観測: reconnect に必要な Switch address の取得、保存、削除、設定ファイル化は未定義である。
   先送り理由: active reconnect の接続経路と一緒に設計する必要がある。
-  次の置き場: `work-units/wip/local_072/ACTIVE_SWITCH_RECONNECT.md`。
+  次の置き場: `work-units/complete/local_072/ACTIVE_SWITCH_RECONNECT.md`。
 
 ## 13. チェックリスト
 
