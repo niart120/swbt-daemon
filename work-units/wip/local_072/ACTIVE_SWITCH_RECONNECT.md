@@ -38,6 +38,7 @@ source から use case への変換:
 - joycontrol `-r` 型 reconnect の source audit を実施し、必要な address、channel open 順、pairing / reconnect の違いを記録する。
 - BTstack の outbound L2CAP / HID device connect 境界を source-audit で確認する。
 - Switch Bluetooth address の取得、保存、設定、削除、ログ露出の方針を決める。
+- daemon-managed learned Switch address を同一 TOML file へ書き戻す config file boundary を追加する。
 - production adapter に active reconnect request を表現する testable boundary を追加する。
 - active reconnect 失敗時に既存 incoming pairing / advertising 経路を壊さないことを test で固定する。
 - 実機手順を `hardware-harness` に沿って作り、daemon restart、Switch sleep / resume、Switch 側 controller reconnect 操作のどれを要求するか分けて記録する。
@@ -103,14 +104,16 @@ source-audit 結果:
 
 - active reconnect の最小保存状態は、raw link key ではなく Switch Bluetooth address 候補である。
 - Switch address は自動取得する。取得タイミングの候補は pairing complete 時点ではなく、少なくとも HID connection opened、できれば report smoke 成立後にする。理由は、単に address が見えただけの失敗 pairing を learned reconnect target として固定しないためである。
-- Switch address は設定ファイル layer に永続化する。`local_071` は TOML 入力境界と初期 runtime schema を固定済みであり、手書きの explicit address と daemon-managed learned address の具体 key はこの work unit または後続の reconnect persistence work で追加する。
+- Switch address は設定ファイル layer に永続化する。`local_071` は TOML 入力境界と初期 runtime schema を固定済みであり、手書きの explicit address は `[active_reconnect] switch_address`、daemon-managed learned address は `[active_reconnect.learned] switch_address` として分ける。
 - 削除境界は設定ファイル上の値の除去とする。起動時環境変数で reset path や reset flag を与える設計にはしない。
 - pairing で新しい Switch address を確認した場合、daemon-managed learned address は上書きしてよい。ただし手書きの explicit address を自動上書きするかは別扱いにし、初期案では上書きしない。
 - effective reconnect address の優先順位は、手書き explicit address、daemon-managed learned address、address なしの順にする。将来 address 用の環境変数 override を追加する場合は `local_071` の全体方針に従い、一時 override として最優先に置く。
 - Switch Bluetooth address は raw link key ではないが、実機固有情報である。trace log と hardware artifact では検証用に明示してよい。リポジトリへ残す `docs/hardware-test-log.md` や work unit record では必要に応じて scrub する。
 - active reconnect は既存 incoming pairing / advertising 経路を壊してはならない。address が不明または reconnect が失敗した場合は、現行の pairing-capable path に戻れる必要がある。
 - production adapter に直接 joycontrol 互換ロジックを混ぜ込まない。BTstack outbound connect、address source、operator intent、diagnostics を分ける。
-- 設定ファイルへの取り込みは、この work unit で Switch address / policy の boundary を決めてから、`local_071` で固定した TOML 入力境界に reconnect 用 key / writer を追加する形で扱う。
+- learned address 書き戻しは `swbt_daemon_config_save_active_reconnect_learned_switch_address()` が同一 TOML file を読み、現行 schema で検証してから `[active_reconnect.learned] switch_address` だけを追加または更新する。手書き explicit address は上書きしない。
+- learned address 書き戻し API は、設定ファイルが存在しない場合に最小 TOML file を作る。親ディレクトリの自動作成、atomic replace、format / comment preservation の保証はまだ持たない。
+- 設定ファイルへの取り込みは、`local_071` で固定した TOML 入力境界に reconnect 用 key / writer を追加する形で扱う。daemon 起動時の config path 収集は `local_073` へ送る。
 - 実機 pass 条件は、L2CAP open だけでは足りない。Button A smoke または同等の input report 採用まで確認する。
 - failure は再 pairing と reconnect を分けて記録する。`pairing complete, status 00` が再度出る場合は active reconnect 成功として扱わない。
 
@@ -134,7 +137,8 @@ source-audit 結果:
 | refactor-skipped | source audit records joycontrol-style reconnect assumptions and BTstack outbound L2CAP / HID device connect boundaries | characterization | docs | no |
 | refactor-done | daemon config/state can represent explicit and learned Switch Bluetooth addresses from TOML without raw link key storage | new | unit | no |
 | todo | production adapter exposes an active reconnect request boundary for HID control PSM `0x11` and interrupt PSM `0x13` | new | unit/integration | no |
-| todo | learned Switch address is captured from a successful pairing / connection path and persisted through the config layer without overwriting explicit address | new | integration | no |
+| refactor-done | learned Switch address can be persisted to the same TOML config file without overwriting explicit address | new | unit | no |
+| todo | learned Switch address is captured from a successful pairing / connection path and handed to config persistence after the chosen success boundary | new | integration | no |
 | refactor-skipped | invalid active reconnect Switch address in TOML is rejected without partially mutating config | edge | unit | no |
 | todo | active reconnect failure paths report unavailable / failed states without breaking incoming pairing path | edge | integration | no |
 | todo | active reconnect hardware preflight defines initial address capture, daemon restart, active reconnect, optional Switch-side reconnect operation, and Button A smoke | characterization | docs | yes |
@@ -142,7 +146,7 @@ source-audit 結果:
 
 ## 10. 検証
 
-一部 software 実装を開始した。active reconnect の outbound L2CAP、実機 reconnect、pairing / connection からの address 自動取得はまだ実装していない。
+一部 software 実装を開始した。active reconnect address の TOML 読み取りと learned address 書き戻し boundary は実装済みである。active reconnect の outbound L2CAP、実機 reconnect、pairing / connection からの address 自動取得はまだ実装していない。
 
 起票時確認:
 
@@ -209,6 +213,24 @@ Refactor status:
 - unchanged behavior: active reconnect address の正常 TOML 読み取り、explicit 優先、learned fallback、既存 runtime config は維持する。
 - verification: `just build-debug`, `just test-debug`
 - notes: invalid learned address の個別 test は未追加。次に書き戻し境界を扱うとき、learned 側の rollback を追加で固定する余地がある。
+
+TDD status:
+- source: 取得した Switch address は同一設定ファイルに daemon-managed learned address として永続化し、手書き explicit address は operator の明示設定として残す。
+- use case: 既存 TOML file に `[active_reconnect] switch_address` がある状態で learned address を保存しても explicit address は上書きされず、再読み込み後も effective reconnect address は explicit を優先する。設定ファイルが存在しない場合は、learned address だけを含む最小 TOML file を作れる。
+- item: learned Switch address can be persisted to the same TOML config file without overwriting explicit address。
+- state: refactor-done
+- commands:
+  - red: `just build-debug`
+  - green: `just build-debug`; `just test-debug`
+  - refactor: `just build-debug`; `just test-debug`; `just format`; `just format-check`; `just tidy`; `git diff --check`
+- notes: red は `swbt_daemon_config_save_active_reconnect_learned_switch_address()` が未定義だったため `daemon_config_file_test` の compile failure になった。green では `swbt_daemon_config_file_target_t` と保存 API を追加し、既存 TOML を現行 schema で検証してから `[active_reconnect.learned] switch_address` だけを追加または更新する。保存時に address は大文字 `AA:BB:CC:DD:EE:FF` 形式へ正規化する。既存 file の unknown key / 不正値は書き戻し前に失敗させる。実機は不要。
+
+Refactor status:
+- decision: refactor-done
+- change: 読み取り用の `swbt_daemon_config_file_source_t` と書き込み用の `swbt_daemon_config_file_target_t` を分けた。`required` は read policy であり、write API には持ち込まない。
+- unchanged behavior: daemon main の起動順序、config path discovery、environment override precedence、backend selection、hardware approval、diagnostic env、BTstack reconnect は変更しない。
+- verification: `just build-debug`, `just test-debug`, `just format-check`, `just tidy`
+- notes: writer は同一 path への direct rewrite であり、atomic replace、parent directory auto-create、format / comment preservation guarantee はまだ持たない。
 ## 11. 実機実行条件
 
 実機が必要である。ただし起票時点では実行しない。
@@ -232,9 +254,12 @@ Refactor status:
 
 ## 12. 先送り事項
 
-- 観測: Switch address の読み取り key は `[active_reconnect] switch_address` と `[active_reconnect.learned] switch_address` に固定したが、同一ファイル更新時の atomic write、comment / unknown key preservation は未定義である。
-  先送り理由: 今回は config/state 表現と TOML 読み取りだけを固定した。daemon-managed learned address の書き戻しは、pairing / connection success の取得境界と合わせて扱う必要がある。
-  次の置き場: この work unit の TDD item、または後続の reconnect persistence work。
+- 観測: learned address の同一 TOML file 書き戻しは実装したが、atomic replace、parent directory auto-create、format / comment preservation guarantee は持たない。
+  先送り理由: 今回は daemon-managed learned address を保存できる最小 config boundary を固定した。耐障害性の高い file update policy は、設定ファイル path / CLI / service 運用と合わせて決める方がよい。
+  次の置き場: 後続の設定ファイル運用 spec または CLI launch mode work。
+- 観測: learned address を pairing / connection success から自動取得して保存 API へ渡す経路は未実装である。
+  先送り理由: 取得タイミングは HID connection opened、report smoke、Switch 側 reconnect 操作の観測と結び付くため、production adapter boundary と実機 preflight で決める必要がある。
+  次の置き場: この work unit の integration / hardware item。
 - 観測: Switch 側 controller reconnect 操作が必須かどうかは未確認である。
   先送り理由: daemon restart active reconnect の最小 run を先に設計し、操作の要否を artifact で分ける。
   次の置き場: この work unit の hardware item。
@@ -248,6 +273,7 @@ Refactor status:
 - [x] BTstack outbound L2CAP / HID device connect boundary を source audit で固定した。
 - [x] Switch address の取得 / 保存 / 削除 boundary を決めた。
 - [x] red test または characterization test を追加した。
+- [x] learned Switch address の同一 TOML file 書き戻し boundary を実装した。
 - [ ] active reconnect boundary を実装した。
 - [ ] hardware preflight を作成した。
 - [ ] 実機結果または未実行理由を記録した。

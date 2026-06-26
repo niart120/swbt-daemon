@@ -53,6 +53,10 @@ typedef struct {
     bool required;
 } swbt_daemon_config_file_source_t;
 
+typedef struct {
+    const char *path;
+} swbt_daemon_config_file_target_t;
+
 swbt_daemon_config_t swbt_daemon_config_default(void);
 
 bool swbt_daemon_config_set_ipc_host(swbt_daemon_config_t *config, const char *host);
@@ -69,6 +73,10 @@ swbt_daemon_config_effective_reconnect_switch_address(const swbt_daemon_config_t
 swbt_daemon_config_file_result_t
 swbt_daemon_config_apply_file(swbt_daemon_config_t *config,
                               const swbt_daemon_config_file_source_t *source);
+
+swbt_daemon_config_file_result_t swbt_daemon_config_save_active_reconnect_learned_switch_address(
+    swbt_daemon_config_t *config, const swbt_daemon_config_file_target_t *target,
+    const char *address);
 
 bool swbt_daemon_config_apply_env(swbt_daemon_config_t *config,
                                   const swbt_daemon_config_env_t *env);

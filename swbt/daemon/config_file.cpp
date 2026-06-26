@@ -244,6 +244,69 @@ static swbt_daemon_config_file_result_t swbt_daemon_config_apply_toml(swbt_daemo
     return SWBT_DAEMON_CONFIG_FILE_OK;
 }
 
+static swbt_daemon_config_file_result_t swbt_toml_load_or_empty(const char *path,
+                                                                toml::value *out_value) {
+    if (path == nullptr || path[0] == '\0' || out_value == nullptr) {
+        return SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_ARGUMENT;
+    }
+
+    errno = 0;
+    FILE *file = std::fopen(path, "rb");
+    if (file == nullptr) {
+        if (errno == ENOENT) {
+            *out_value = toml::value(toml::table{});
+            return SWBT_DAEMON_CONFIG_FILE_OK;
+        }
+        return SWBT_DAEMON_CONFIG_FILE_ERROR_IO;
+    }
+    if (std::fclose(file) != 0) {
+        return SWBT_DAEMON_CONFIG_FILE_ERROR_IO;
+    }
+
+    try {
+        *out_value = toml::parse(path, toml::spec::v(1, 0, 0));
+    } catch (const std::exception &) {
+        return SWBT_DAEMON_CONFIG_FILE_ERROR_PARSE;
+    }
+    return SWBT_DAEMON_CONFIG_FILE_OK;
+}
+
+static toml::value *swbt_toml_ensure_child_table(toml::value *parent, const char *key) {
+    if (parent == nullptr || key == nullptr || !parent->is_table()) {
+        return nullptr;
+    }
+    if (!parent->contains(key)) {
+        (*parent)[std::string(key)] = toml::value(toml::table{});
+    }
+    toml::value &child = (*parent)[std::string(key)];
+    return child.is_table() ? &child : nullptr;
+}
+
+static swbt_daemon_config_file_result_t swbt_toml_write_file(const char *path,
+                                                             const toml::value &value) {
+    std::string output;
+    FILE *file = nullptr;
+    bool ok = true;
+
+    try {
+        output = toml::format(value, toml::spec::v(1, 0, 0));
+    } catch (const std::exception &) {
+        return SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_VALUE;
+    }
+    file = std::fopen(path, "wb");
+    if (file == nullptr) {
+        return SWBT_DAEMON_CONFIG_FILE_ERROR_IO;
+    }
+    if (!output.empty() &&
+        std::fwrite(output.data(), sizeof(char), output.size(), file) != output.size()) {
+        ok = false;
+    }
+    if (std::fclose(file) != 0) {
+        ok = false;
+    }
+    return ok ? SWBT_DAEMON_CONFIG_FILE_OK : SWBT_DAEMON_CONFIG_FILE_ERROR_IO;
+}
+
 extern "C" swbt_daemon_config_file_result_t
 swbt_daemon_config_apply_file(swbt_daemon_config_t *config,
                               const swbt_daemon_config_file_source_t *source) {
@@ -273,4 +336,52 @@ swbt_daemon_config_apply_file(swbt_daemon_config_t *config,
     } catch (const std::exception &) {
         return SWBT_DAEMON_CONFIG_FILE_ERROR_PARSE;
     }
+}
+
+extern "C" swbt_daemon_config_file_result_t
+swbt_daemon_config_save_active_reconnect_learned_switch_address(
+    swbt_daemon_config_t *config, const swbt_daemon_config_file_target_t *target,
+    const char *address) {
+    swbt_daemon_config_t next;
+    swbt_daemon_config_t validated;
+    toml::value parsed;
+    toml::value *active_reconnect = nullptr;
+    toml::value *learned = nullptr;
+    swbt_daemon_config_file_result_t result;
+
+    if (config == nullptr || target == nullptr || target->path == nullptr ||
+        target->path[0] == '\0') {
+        return SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_ARGUMENT;
+    }
+
+    next = *config;
+    if (!swbt_daemon_config_set_active_reconnect_learned_switch_address(&next, address)) {
+        return SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_VALUE;
+    }
+
+    result = swbt_toml_load_or_empty(target->path, &parsed);
+    if (result != SWBT_DAEMON_CONFIG_FILE_OK) {
+        return result;
+    }
+    validated = *config;
+    result = swbt_daemon_config_apply_toml(&validated, parsed);
+    if (result != SWBT_DAEMON_CONFIG_FILE_OK) {
+        return result;
+    }
+
+    active_reconnect = swbt_toml_ensure_child_table(&parsed, "active_reconnect");
+    learned = swbt_toml_ensure_child_table(active_reconnect, "learned");
+    if (learned == nullptr) {
+        return SWBT_DAEMON_CONFIG_FILE_ERROR_INVALID_VALUE;
+    }
+    (*learned)[std::string("switch_address")] =
+        std::string(next.active_reconnect_learned_switch_address);
+
+    result = swbt_toml_write_file(target->path, parsed);
+    if (result != SWBT_DAEMON_CONFIG_FILE_OK) {
+        return result;
+    }
+
+    *config = next;
+    return SWBT_DAEMON_CONFIG_FILE_OK;
 }
