@@ -100,7 +100,8 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | refactor-skipped | CLI parser defaults to production backend when no backend flag is supplied | new | unit | no |
-| todo | `--backend noop` selects noop backend and does not require production hardware approval state | new | unit/integration | no |
+| refactor-skipped | CLI parser accepts `--backend noop` and `--backend=noop` | new | unit | no |
+| todo | `--backend noop` selects noop backend and does not require production hardware approval state | new | integration | no |
 | todo | invalid backend value fails before adapter open | edge | unit/integration | no |
 | todo | production backend no longer requires `SWBT_RUN_HARDWARE` and `SWBT_HARDWARE_APPROVED` as code-level gates, while hardware execution remains documented as human-approved | behavior | unit/integration | no |
 | todo | diagnostic trace path is enabled only by CLI flag and not by persistent config file | regression | unit/integration | no |
@@ -121,6 +122,17 @@ TDD status:
   - green: `just build-debug` pass。
   - green: `CTEST_ARGS='-R daemon_launch_options_test --output-on-failure' just test-debug` pass。sandboxed run は Dev Container CLI の Docker lookup failure で not run。権限付き再実行で対象 test pass。
 - notes: `tdd-workflow`、`tdd-one-cycle`、`refactor-after-green`、`work-unit-record` を読んだ。`swbt_daemon_launch_options_t` に backend enum を追加し、zero-initialized default を production として固定した。今回の item では重複や責務混在がなく、refactor-skipped とした。
+
+TDD status:
+- source: `local_073` から分離した backend 起動モード整理。
+- use case: test / smoke が Bluetooth adapter を開かない起動を明示できる。
+- item: CLI parser accepts `--backend noop` and `--backend=noop`。
+- state: refactor-skipped。
+- commands:
+  - red: `just build-debug` pass 後、`CTEST_ARGS='-R daemon_launch_options_test --output-on-failure' just test-debug` fail。`--backend` が unknown option 扱いで対象 test が fail。最初の CTest は build 前の古い binary を実行したため red として扱わない。
+  - green: `just build-debug` pass。
+  - green: `CTEST_ARGS='-R daemon_launch_options_test --output-on-failure' just test-debug` pass。
+- notes: parser に `--backend` と `--backend=` を追加した。main の noop 分岐接続と hardware approval 非依存の integration 確認は別 item として残す。今回の item では構造変更不要のため refactor-skipped とした。
 
 ## 11. 実機実行条件
 

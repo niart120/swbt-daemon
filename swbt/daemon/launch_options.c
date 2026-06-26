@@ -12,6 +12,22 @@ static const char *swbt_daemon_launch_options_value_after_equals(const char *arg
     return argument + prefix_length;
 }
 
+static bool swbt_daemon_launch_options_parse_backend(swbt_daemon_launch_backend_t *out_backend,
+                                                     const char *value) {
+    if (out_backend == NULL || value == NULL) {
+        return false;
+    }
+    if (strcmp(value, "production") == 0) {
+        *out_backend = SWBT_DAEMON_LAUNCH_BACKEND_PRODUCTION;
+        return true;
+    }
+    if (strcmp(value, "noop") == 0) {
+        *out_backend = SWBT_DAEMON_LAUNCH_BACKEND_NOOP;
+        return true;
+    }
+    return false;
+}
+
 swbt_daemon_launch_options_result_t
 swbt_daemon_launch_options_parse(swbt_daemon_launch_options_t *options, int argc,
                                  const char *const argv[]) {
@@ -25,6 +41,7 @@ swbt_daemon_launch_options_parse(swbt_daemon_launch_options_t *options, int argc
         const char *argument = argv[index];
         const char *config_value = NULL;
         const char *link_key_db_value = NULL;
+        const char *backend_value = NULL;
 
         if (argument == NULL) {
             return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_INVALID_ARGUMENT;
@@ -63,6 +80,28 @@ swbt_daemon_launch_options_parse(swbt_daemon_launch_options_t *options, int argc
                 return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE;
             }
             options->link_key_db_path = link_key_db_value;
+            continue;
+        }
+
+        if (strcmp(argument, "--backend") == 0) {
+            if (index + 1 >= argc || argv[index + 1] == NULL || argv[index + 1][0] == '\0') {
+                return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE;
+            }
+            if (!swbt_daemon_launch_options_parse_backend(&options->backend, argv[index + 1])) {
+                return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_INVALID_ARGUMENT;
+            }
+            ++index;
+            continue;
+        }
+
+        backend_value = swbt_daemon_launch_options_value_after_equals(argument, "--backend=");
+        if (backend_value != NULL) {
+            if (backend_value[0] == '\0') {
+                return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE;
+            }
+            if (!swbt_daemon_launch_options_parse_backend(&options->backend, backend_value)) {
+                return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_INVALID_ARGUMENT;
+            }
             continue;
         }
 

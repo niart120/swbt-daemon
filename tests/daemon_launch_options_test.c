@@ -103,6 +103,28 @@ static int link_key_db_equals_argument_is_accepted(void) {
     return failed;
 }
 
+static int backend_noop_separate_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--backend", "noop"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 3, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed += expect_eq_int((int)options.backend, (int)SWBT_DAEMON_LAUNCH_BACKEND_NOOP, "backend");
+    return failed;
+}
+
+static int backend_noop_equals_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--backend=noop"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 2, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed += expect_eq_int((int)options.backend, (int)SWBT_DAEMON_LAUNCH_BACKEND_NOOP, "backend");
+    return failed;
+}
+
 static int missing_link_key_db_path_is_rejected(void) {
     const char *argv[] = {"swbt-daemon", "--link-key-db"};
     swbt_daemon_launch_options_t options = {0};
@@ -217,6 +239,8 @@ int main(void) {
     failed += config_path_equals_argument_is_accepted();
     failed += link_key_db_path_is_accepted();
     failed += link_key_db_equals_argument_is_accepted();
+    failed += backend_noop_separate_argument_is_accepted();
+    failed += backend_noop_equals_argument_is_accepted();
     failed += missing_link_key_db_path_is_rejected();
     failed += missing_config_path_is_rejected();
     failed += unknown_option_is_rejected();
