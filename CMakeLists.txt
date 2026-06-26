@@ -295,6 +295,7 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(swbt_smoke_test)
 
     add_test(NAME swbt_smoke_test COMMAND swbt_smoke_test)
+    add_test(NAME swbt_daemon_noop_smoke_test COMMAND swbt-daemon --backend noop)
     add_test(
         NAME btstack_sources_cmake_test
         COMMAND
@@ -730,5 +731,6 @@ if(SWBT_BUILD_TESTS)
             daemon_production_hid_sdp_record_test
             report_metrics_test
             diagnostics_test
+            swbt-daemon
     )
 endif()

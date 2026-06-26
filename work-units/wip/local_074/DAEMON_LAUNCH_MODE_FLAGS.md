@@ -107,7 +107,7 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 | green | diagnostic trace path is enabled only by CLI flag and not by persistent config file | regression | unit/integration | no |
 | green | HCI dump path is enabled only by CLI flag and fails before production run loop when the path cannot be opened | edge | unit/integration | no |
 | green | crash dump path CLI behavior is fixed for Windows and non-Windows builds | edge | unit/build | no |
-| todo | test / smoke entrypoints that need no hardware pass `--backend noop` explicitly | regression | integration | no |
+| green | test / smoke entrypoints that need no hardware pass `--backend noop` explicitly | regression | integration | no |
 | deferred | adapter selector or dedicated dongle identity guard is designed if production default leaves adapter selection ambiguous | behavior | design/hardware | yes |
 
 ## 10. 検証
@@ -208,6 +208,18 @@ TDD status:
   - green: `rg -n "SWBT_CRASH_DUMP_PATH" apps swbt tests` no match。
   - green: `just format-check` pass。
 - notes: `main.c` は CLI parse 後に `launch_options.crash_dump_path` を crash dump handler へ渡す。Windows では minidump handler の出力先として使い、非 Windows では flag を受け付けて破棄する。実 crash は発生させていないため、minidump ファイル生成は未検証である。
+
+TDD status:
+- source: user discussion, 2026-06-26。test / smoke で Bluetooth adapter を開かない場合は noop backend を CLI flag で明示する。
+- use case: CTest の smoke entrypoint は `swbt-daemon` を直接起動しても production backend の adapter open へ進まず、`--backend noop` を明示して即時終了する。
+- item: test / smoke entrypoints that need no hardware pass `--backend noop` explicitly。
+- state: green。
+- commands:
+  - characterization: `rg -n "swbt-daemon(\\.exe)?|SWBT_DAEMON_BACKEND|--backend|SWBT_RUN_HARDWARE|SWBT_HARDWARE_APPROVED|SWBT_DIAGNOSTIC_TRACE_PATH|SWBT_HCI_DUMP_TRACE_PATH|SWBT_CRASH_DUMP_PATH" .github scripts tests docs spec work-units apps swbt`。current implementation と docs の更新対象を確認した。
+  - characterization: `rg -n "add_test|swbt-daemon|daemon_.*smoke|smoke" CMakeLists.txt tests cmake .github scripts`。CTest は `swbt-daemon` executable を直接呼んでいなかった。
+  - green: `just build-tests-debug` pass。sandboxed run は Dev Container CLI の Docker lookup failure で not run。権限付き再実行で pass。
+  - green: `CTEST_ARGS='-R swbt_daemon_noop_smoke_test --output-on-failure' just test-debug` pass。
+- notes: `CMakeLists.txt` に `swbt_daemon_noop_smoke_test` を追加し、`COMMAND swbt-daemon --backend noop` とした。`swbt_unit_tests` に `swbt-daemon` dependency を追加し、test target build だけでも smoke executable が生成されるようにした。実 Bluetooth adapter は開いていない。
 
 ## 11. 実機実行条件
 
