@@ -16,8 +16,9 @@ source:
 - user discussion, 2026-06-26: backend 指定は何かを確認した結果、現行の noop は test / smoke 用であり、daemon の通常起動は production を既定にして、test 時だけ明示的に noop を与える方針が妥当と判断した。
 - user discussion, 2026-06-26: CLI parser を入れて backend / 実機承認 / 診断出力を反転させる話は、設定ファイル work unit に混ぜず、別 work unit として record 執筆に留める。実装は設定ファイル方針の反映を優先した後で再開する。
 - user discussion, 2026-06-26: 実機 reconnect 検証へ進む。現行 `main` は設定ファイル path と learned address target を production backend へ渡さないため、実機を開く前に `--config` 相当の起動契約を最小実装する。
-- user discussion, 2026-06-26: active reconnect manual rerun で daemon initiated HID transport は成功したが、`have link key db: 0` と `pairing complete, status 00` が出た。HCI event `0x18` により link key notification は観測できたため、実験用 link key DB を指定起動だけで接続し、active outgoing path で保存と pairing-free reconnect が成立するか検証する。
-- user discussion, 2026-06-26: experimental link key DB 起動では DB open 自体は成功したが、TLV file は `8` bytes の header だけに留まり、BTstack log は `Remote not bonding, dropping local flag` を記録した。BTstack の bonding policy と実験 DB persistence を切り分けるため、HCI link key notification を swbt 側で明示的に実験 DB へ保存する経路を作る。
+- user discussion, 2026-06-26: active reconnect manual rerun で daemon initiated HID transport は成功したが、`have link key db: 0` と `pairing complete, status 00` が出た。HCI event `0x18` により link key notification は観測できたため、link key DB を指定起動だけで接続し、active outgoing path で保存と pairing-free reconnect が成立するか検証する。
+- user discussion, 2026-06-26: link key DB 起動では DB open 自体は成功したが、TLV file は `8` bytes の header だけに留まり、BTstack log は `Remote not bonding, dropping local flag` を記録した。BTstack の bonding policy と DB persistence を切り分けるため、HCI link key notification を swbt 側で明示的に DB へ保存する経路を作る。
+- user discussion, 2026-06-26: 保存済み link key DB を使った outgoing reconnect が、新規 `pairing complete, status 00` なしで HID open と Button A smoke まで到達した。実験用と銘打っていた実装名を撤去し、余計な接頭辞・接尾辞を避けて通常の link key DB 経路として整理する。
 - `work-units/complete/local_071/DAEMON_CONFIG_FILE_OVERRIDE_LAYER.md`: 設定ファイル schema は `ipc`、`report`、`device.profile` に絞り、backend 起動モード、実機承認、診断出力 path はこの work unit へ切り出す。
 - `work-units/complete/local_045/CODEBASE_ENV_DEPENDENCY_AUDIT.md`: 環境変数を backend selection、hardware safety gate、runtime override、diagnostic sink に分類した。
 - `docs/status.md`: 現行状態として、未指定では noop backend、`SWBT_DAEMON_BACKEND=production` で production backend、production には `SWBT_RUN_HARDWARE=1` と `SWBT_HARDWARE_APPROVED=1` が必要と記録している。
@@ -34,7 +35,7 @@ use case:
   - 診断出力 path が不正な場合は、可能な限り adapter open 前に失敗し、意図しない場所へ黙って書き込まない。
   - `--config <path>` を指定した production daemon は、default config に TOML file を適用し、その後に環境変数 override を適用する。
   - `--config <path>` で読み込んだ同じ TOML file を learned Switch address の書き戻し先として production backend に渡す。
-  - `--experimental-link-key-db <path>` を指定した起動では、HCI link key notification から raw key を trace に出さず、実験用 TLV DB に保存する。
+  - `--link-key-db <path>` を指定した起動では、HCI link key notification から raw key を trace に出さず、TLV DB に保存する。
   - test / CI / smoke は必要に応じて `--backend noop` を明示する。
 - 制約: エージェント運用上の実機コマンド承認は残す。Bluetooth adapter open、Switch pairing、HID advertising、report loop は `hardware-harness` の承認境界に従う。
 
@@ -52,7 +53,7 @@ source から use case への変換:
 - `--trace-path`、`--hci-dump-path`、`--crash-dump-path` を設計する。
 - `SWBT_DIAGNOSTIC_TRACE_PATH`、`SWBT_HCI_DUMP_TRACE_PATH`、`SWBT_CRASH_DUMP_PATH` の削除または互換期間を決める。
 - 診断出力 path の open failure policy を決める。
-- 実験 DB 指定時だけ、HCI link key notification を BTstack TLV-backed Classic link key DB へ明示保存する経路を追加する。
+- link key DB 指定時だけ、HCI link key notification を BTstack TLV-backed Classic link key DB へ明示保存する経路を追加する。
 - test / CI / smoke entrypoint が Bluetooth adapter を開かない場合は `--backend noop` を明示するよう更新する。
 - `docs/status.md` と関連 operations docs に、新しい起動モードと実機承認境界を記録する。
 
@@ -80,16 +81,16 @@ source-audit required for BTstack source selection。
 
 この work unit は CLI 起動指定、環境変数削除、診断出力 path の扱いを主対象にする。Switch HID report bytes、subcommand、SPI、rumble、report period 採用値は追加または変更しない。
 
-ただし実験用 link key DB を `production_btstack` に接続するため、BTstack platform TLV source selection を変更した。根拠は BTstack port 実装であり、`vendor/btstack/port/libusb/main.c`、`vendor/btstack/port/windows-winusb/main.c`、`vendor/btstack/port/windows-h4/main.c` は `btstack_tlv_*_init_instance()`、`btstack_tlv_set_instance()`、`btstack_link_key_db_tlv_get_instance()`、`hci_set_link_key_db()` の順に Classic link key DB を接続している。
+ただし link key DB を `production_btstack` に接続するため、BTstack platform TLV source selection を変更した。根拠は BTstack port 実装であり、`vendor/btstack/port/libusb/main.c`、`vendor/btstack/port/windows-winusb/main.c`、`vendor/btstack/port/windows-h4/main.c` は `btstack_tlv_*_init_instance()`、`btstack_tlv_set_instance()`、`btstack_link_key_db_tlv_get_instance()`、`hci_set_link_key_db()` の順に Classic link key DB を接続している。
 
 swbt 側では `vendor/btstack` を編集せず、`CMakeLists.txt` の backend 別 link source に `platform/posix/btstack_tlv_posix.c` と `platform/windows/btstack_tlv_windows.c` を追加した。`tests/cmake/btstack_sources_test.cmake` で source selection に TLV source が含まれることを固定し、`just windows-cross` で Windows MinGW executable link まで確認した。
 
 link key notification 保存経路の根拠:
 
 - source fact: `vendor/btstack/src/hci.c:4779-4812` は `HCI_EVENT_LINK_KEY_NOTIFICATION` を処理し、`gap_store_link_key_for_bd_addr()` を呼び得る。ただし保存は BTstack の bonding 条件に依存する。
-- source fact: `vendor/btstack/src/hci.c:7993` は remote が bonding しない場合に local bonding flag を落とす。この条件は 2026-06-26 の experimental DB 実機ログでも観測した。
+- source fact: `vendor/btstack/src/hci.c:7993` は remote が bonding しない場合に local bonding flag を落とす。この条件は 2026-06-26 の link key DB 実機ログでも観測した。
 - source fact: `vendor/btstack/src/hci.c:571-574` の `gap_store_link_key_for_bd_addr()` は現在の `hci_stack->link_key_db` に保存を委譲する。
-- source fact: `vendor/btstack/src/hci.c:5383-5396` と `vendor/btstack/src/hci.c:8709-8713` は HCI event handler の登録と dispatch 経路である。swbt 側は experimental DB open 中だけ handler を登録する。
+- source fact: `vendor/btstack/src/hci.c:5383-5396` と `vendor/btstack/src/hci.c:8709-8713` は HCI event handler の登録と dispatch 経路である。swbt 側は link key DB open 中だけ handler を登録する。
 - source fact: `vendor/btstack/src/classic/btstack_link_key_db.h:88-96` と `vendor/btstack/src/classic/btstack_link_key_db_tlv.c:88-180` は `get_link_key` / `put_link_key` と TLV 永続化の実装である。
 - source fact: `vendor/btstack/src/btstack_defines.h:378` は `HCI_EVENT_LINK_KEY_NOTIFICATION` を `0x18` と定義する。event の address bytes は `vendor/btstack/src/btstack_event.h:715-716` の generated accessor と同じ向きへ swbt 側で変換する。
 
@@ -102,8 +103,8 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 - `--config` で指定した TOML file は読み込み元であり、learned Switch address の書き戻し先でもある。削除境界は設定ファイル上の値の除去とする。
 - CLI flag は永続設定より優先する。ただし `backend` と診断出力 path は `local_071` の設定ファイル schema には入れない。
 - `--config` による file 値は、`default -> TOML config file -> environment override` の優先順位を保つ。環境変数による runtime override は現行互換として残す。
-- `--experimental-link-key-db <path>` は恒久設定ではなく、active reconnect の link key 保存可否を切り分ける実験入口である。設定ファイル schema には入れず、指定された起動だけ BTstack TLV-backed Classic link key DB を接続する。
-- BTstack TLV DB を接続するだけでは、Switch 側が bonding しない条件で link key が保存されない。`--experimental-link-key-db` 指定時は HCI event handler を登録し、`HCI_EVENT_LINK_KEY_NOTIFICATION` の非 null key を `gap_store_link_key_for_bd_addr()` で明示保存する。raw address と raw key は trace に出さない。
+- `--link-key-db <path>` は恒久設定ではなく、active reconnect の link key 保存可否を起動単位で切り分ける入口である。設定ファイル schema には入れず、指定された起動だけ BTstack TLV-backed Classic link key DB を接続する。
+- BTstack TLV DB を接続するだけでは、Switch 側が bonding しない条件で link key が保存されない。`--link-key-db` 指定時は HCI event handler を登録し、`HCI_EVENT_LINK_KEY_NOTIFICATION` の非 null key を `gap_store_link_key_for_bd_addr()` で明示保存する。raw address と raw key は trace に出さない。
 - `swbt-daemon` 引数なしを production にする場合、unit / smoke / CI で daemon binary を直接起動する箇所は `--backend noop` へ移す。
 - `SWBT_RUN_HARDWARE` / `SWBT_HARDWARE_APPROVED` は code-level double gate としては削除候補である。エージェント運用上の実機承認は別物として残す。
 - この record の起票時点では CLI parser 実装を開始しない。未マージの試作実装は採用済み状態として扱わず、再開時は `main` 上の現行挙動から TDD Test List の先頭 item を選ぶ。
@@ -136,14 +137,15 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 |---|---|---|---|---|
 | refactor-skipped | CLI parser accepts `--config <path>` / `--config=<path>` and rejects missing or unknown options before adapter open | new | unit | no |
 | refactor-skipped | daemon main applies config file before environment override and passes the same config path as learned address target to production backend | new | integration | no |
-| refactor-skipped | CLI parser accepts `--experimental-link-key-db <path>` / `--experimental-link-key-db=<path>` and stores it outside persistent config | characterization | unit | no |
-| refactor-skipped | production BTstack platform start connects an explicitly configured experimental TLV-backed Classic link key DB and closes it on platform stop | characterization | integration | no |
-| refactor-skipped | experimental link key DB explicitly stores a non-null HCI link key notification into the TLV DB during platform lifetime | characterization | integration | no |
-| refactor-skipped | active outgoing reconnect with experimental link key DB records whether link key notification is persisted to a non-empty TLV file | characterization | hardware | yes |
-| refactor-skipped | daemon restart after experimental link key DB persistence reaches HID channel open but still records incoming SSP pairing | characterization | hardware | yes |
-| refactor-skipped | sleep/resume after experimental link key DB persistence issues active reconnect but does not reach controller connection complete | characterization | hardware | yes |
-| refactor-skipped | sleep/resume rerun after experimental link key DB persistence reaches HID open with saved link key DB and no incoming pairing | characterization | hardware | yes |
-| deferred | daemon restart after experimental link key DB persistence reaches HID channel open without a new `pairing complete, status 00` | characterization | hardware | yes |
+| refactor-skipped | CLI parser accepts `--link-key-db <path>` / `--link-key-db=<path>` and stores it outside persistent config | characterization | unit | no |
+| refactor-skipped | production BTstack platform start connects an explicitly configured TLV-backed Classic link key DB and closes it on platform stop | characterization | integration | no |
+| refactor-skipped | link key DB explicitly stores a non-null HCI link key notification into the TLV DB during platform lifetime | characterization | integration | no |
+| refactor-skipped | active outgoing reconnect with link key DB records whether link key notification is persisted to a non-empty TLV file | characterization | hardware | yes |
+| refactor-skipped | daemon restart after link key DB persistence reaches HID channel open but still records incoming SSP pairing | characterization | hardware | yes |
+| refactor-skipped | sleep/resume after link key DB persistence issues active reconnect but does not reach controller connection complete | characterization | hardware | yes |
+| refactor-skipped | sleep/resume rerun after link key DB persistence reaches HID open with saved link key DB and no incoming pairing | characterization | hardware | yes |
+| refactor-skipped | link key DB implementation and CLI names drop the experimental prefix after pairing-free reconnect is observed | refactor | unit/integration | no |
+| deferred | daemon restart after link key DB persistence reaches HID channel open without a new `pairing complete, status 00` | characterization | hardware | yes |
 | todo | CLI parser defaults to production backend when no backend flag is supplied | new | unit | no |
 | todo | `--backend noop` selects noop backend and does not require production hardware approval state | new | unit/integration | no |
 | todo | invalid backend value fails before adapter open | edge | unit/integration | no |
@@ -205,20 +207,20 @@ Refactor status:
 - notes: backend 既定化、hardware approval env 削除、diagnostic CLI flag 化は後続 item のままにする。
 
 TDD status:
-- source: user discussion, 2026-06-26: active reconnect manual rerun は daemon initiated HID transport に成功したが、`have link key db: 0` と `pairing complete, status 00` が残った。link key notification は観測できるため、実験用 link key DB で保存可否を切り分ける。
-- use case: hardware operator は `--experimental-link-key-db <path>` を指定した起動だけで BTstack TLV-backed Classic link key DB を接続し、通常の設定ファイル schema には恒久保存しない。
-- item: CLI parser accepts `--experimental-link-key-db <path>` / `--experimental-link-key-db=<path>` and stores it outside persistent config。
+- source: user discussion, 2026-06-26: active reconnect manual rerun は daemon initiated HID transport に成功したが、`have link key db: 0` と `pairing complete, status 00` が残った。link key notification は観測できるため、link key DB で保存可否を切り分ける。
+- use case: hardware operator は `--link-key-db <path>` を指定した起動だけで BTstack TLV-backed Classic link key DB を接続し、通常の設定ファイル schema には恒久保存しない。
+- item: CLI parser accepts `--link-key-db <path>` / `--link-key-db=<path>` and stores it outside persistent config。
 - state: refactor-skipped
 - commands:
   - red: `just build-debug`
   - green: `$env:CTEST_ARGS='-R daemon_launch_options_test'; just test-debug`
   - green: `$env:CTEST_ARGS='-R "btstack_sources_cmake_test|daemon_launch_options_test|btstack_production_hci_dump_test"'; just test-debug`
-- notes: red は launch option / launch config に experimental path field が未実装で compile が失敗した。green では `--experimental-link-key-db <path>` と `--experimental-link-key-db=<path>` を受け付け、missing value を拒否する。prepared launch config には path と configured flag だけを保持し、TOML config schema へは書かない。
+- notes: red は launch option / launch config に link key DB path field が未実装で compile が失敗した。green では `--link-key-db <path>` と `--link-key-db=<path>` を受け付け、missing value を拒否する。prepared launch config には path と configured flag だけを保持し、TOML config schema へは書かない。
 
 TDD status:
 - source: user discussion, 2026-06-26: link key notification が観測できるため、BTstack の Classic link key DB を production 経路に接続して保存と pairing-free reconnect を検証する。
 - use case: hardware operator は事前に用意した artifact directory 配下の TLV path を指定し、その起動だけ BTstack の link key DB を有効化できる。親 directory の自動作成は行わない。
-- item: production BTstack platform start connects an explicitly configured experimental TLV-backed Classic link key DB and closes it on platform stop。
+- item: production BTstack platform start connects an explicitly configured TLV-backed Classic link key DB and closes it on platform stop。
 - state: refactor-skipped
 - commands:
   - red: `just windows-cross`
@@ -227,12 +229,12 @@ TDD status:
   - green: `just test-debug`
   - green: `just windows-cross`
   - green: `just format-check`
-- notes: `swbt_btstack_production_experimental_link_key_db_configure()` を追加し、production platform start で `btstack_tlv_*_init_instance()`、`btstack_tlv_set_instance()`、`btstack_link_key_db_tlv_get_instance()`、`hci_set_link_key_db()` を呼ぶ。最初の Windows cross build は `btstack_tlv_windows_init_instance` / `btstack_tlv_windows_deinit` の unresolved symbol で失敗したため、backend 別 link source に `btstack_tlv_posix.c` / `btstack_tlv_windows.c` を明示追加した。`hci_close()` 後に `hci_set_link_key_db(NULL)` を呼ぶと `hci_stack` 解放後参照で segfault するため、stop 側は BTstack TLV singleton と TLV context の後始末に限定した。
+- notes: `swbt_btstack_production_link_key_db_configure()` を追加し、production platform start で `btstack_tlv_*_init_instance()`、`btstack_tlv_set_instance()`、`btstack_link_key_db_tlv_get_instance()`、`hci_set_link_key_db()` を呼ぶ。最初の Windows cross build は `btstack_tlv_windows_init_instance` / `btstack_tlv_windows_deinit` の unresolved symbol で失敗したため、backend 別 link source に `btstack_tlv_posix.c` / `btstack_tlv_windows.c` を明示追加した。`hci_close()` 後に `hci_set_link_key_db(NULL)` を呼ぶと `hci_stack` 解放後参照で segfault するため、stop 側は BTstack TLV singleton と TLV context の後始末に限定した。
 
 Refactor status:
 - decision: refactor-skipped
 - change: none
-- unchanged behavior: `--experimental-link-key-db` 未指定時は link key DB を接続しない。`SWBT_DAEMON_BACKEND=production`、hardware approval env、diagnostic env は現行互換のまま残す。
+- unchanged behavior: `--link-key-db` 未指定時は link key DB を接続しない。`SWBT_DAEMON_BACKEND=production`、hardware approval env、diagnostic env は現行互換のまま残す。
 - verification: `just build-debug`、`$env:CTEST_ARGS='-R "btstack_sources_cmake_test|daemon_launch_options_test|btstack_production_hci_dump_test"'; just test-debug`、`just test-debug`、`just windows-cross`、`just format-check`
 - notes: 保存された link key によって pairing-free reconnect が成立するかは実機未検証であり、hardware item として残す。
 
@@ -282,9 +284,9 @@ Refactor status:
 - log: raw Switch address と raw link key value は転記しない。`swbt-daemon.toml` と HCI dump は scrub 対象である。
 
 TDD status:
-- source: user discussion, 2026-06-26: experimental DB open は成功したが、BTstack の bonding policy により TLV file へ link key が保存されなかった。
-- use case: hardware operator は `--experimental-link-key-db <path>` を指定した起動で、BTstack の bonding 条件に依存せず、観測済み HCI link key notification を実験用 TLV DB へ保存できるか切り分ける。
-- item: experimental link key DB explicitly stores a non-null HCI link key notification into the TLV DB during platform lifetime。
+- source: user discussion, 2026-06-26: link key DB open は成功したが、BTstack の bonding policy により TLV file へ link key が保存されなかった。
+- use case: hardware operator は `--link-key-db <path>` を指定した起動で、BTstack の bonding 条件に依存せず、観測済み HCI link key notification を TLV DB へ保存できるか切り分ける。
+- item: link key DB explicitly stores a non-null HCI link key notification into the TLV DB during platform lifetime。
 - state: refactor-skipped
 - commands:
   - red: `just build-debug`
@@ -296,14 +298,14 @@ TDD status:
   - green: `just format-check`
   - green: `just asan`
   - green: `git diff --check`
-- notes: red は再ビルド後の targeted CTest で、synthetic `HCI_EVENT_LINK_KEY_NOTIFICATION` を emit しても TLV file が header `8` bytes のままになる失敗として確認した。再ビルドなしの targeted run は旧 binary を実行していたため red として扱わない。green では experimental DB open 中だけ HCI event handler を登録し、非 null key を `gap_store_link_key_for_bd_addr()` へ渡す。handler は platform stop と discovery configure failure で登録解除する。`hci_close()` 後に `hci_set_link_key_db(NULL)` を呼ぶと BTstack 内部の解放済み stack に触れるため、この経路では呼ばない。
+- notes: red は再ビルド後の targeted CTest で、synthetic `HCI_EVENT_LINK_KEY_NOTIFICATION` を emit しても TLV file が header `8` bytes のままになる失敗として確認した。再ビルドなしの targeted run は旧 binary を実行していたため red として扱わない。green では link key DB open 中だけ HCI event handler を登録し、非 null key を `gap_store_link_key_for_bd_addr()` へ渡す。handler は platform stop と discovery configure failure で登録解除する。`hci_close()` 後に `hci_set_link_key_db(NULL)` を呼ぶと BTstack 内部の解放済み stack に触れるため、この経路では呼ばない。
 
 Refactor status:
 - decision: refactor-skipped
 - change: none
-- unchanged behavior: `--experimental-link-key-db` 未指定時は HCI link key notification を swbt 側で保存しない。raw address と raw key は trace に出さない。
+- unchanged behavior: `--link-key-db` 未指定時は HCI link key notification を swbt 側で保存しない。raw address と raw key は trace に出さない。
 - verification: `just build-debug`、`$env:CTEST_ARGS='-R btstack_production_hci_dump_test'; just test-debug`、`just test-debug`、`just windows-cross`、`just format-check`、`just asan`、`git diff --check`
-- notes: 実験 DB 保存経路の software characterization は完了した。実機で pairing-free reconnect に進むかは未検証であり、同じ artifact 形で再試験する。
+- notes: link key DB 保存経路の software characterization は完了した。実機で pairing-free reconnect に進むかは未検証であり、同じ artifact 形で再試験する。
 
 実機 experimental link key notification persistence retest:
 
@@ -319,9 +321,9 @@ Refactor status:
 - log: raw Switch address と raw link key value は転記しない。`swbt-daemon.toml`、TLV file、HCI dump は scrub 対象である。
 
 TDD status:
-- source: user discussion, 2026-06-26: HCI link key notification を実験 DB に明示保存する実装後に、実機で TLV persistence と restart reconnect の境界を再確認する。
-- use case: hardware operator は initial pairing で保存した experimental TLV DB を restart run に持ち越し、Switch 側操作なしで active reconnect と pairing-free 条件を観測する。
-- item: daemon restart after experimental link key DB persistence reaches HID channel open but still records incoming SSP pairing。
+- source: user discussion, 2026-06-26: HCI link key notification を link key DB に明示保存する実装後に、実機で TLV persistence と restart reconnect の境界を再確認する。
+- use case: hardware operator は initial pairing で保存した TLV DB を restart run に持ち越し、Switch 側操作なしで active reconnect と pairing-free 条件を観測する。
+- item: daemon restart after link key DB persistence reaches HID channel open but still records incoming SSP pairing。
 - state: refactor-skipped
 - commands:
   - hardware: `powershell -NoProfile -ExecutionPolicy Bypass -File .\tmp\hardware\local_073\run-link-key-db-reconnect-retest.ps1`
@@ -344,7 +346,7 @@ TDD status:
 TDD status:
 - source: user discussion, 2026-06-26: restart run が incoming SSP pairing を含んだため、Change Grip/Order の影響を外し、HOME -> sleep -> resume 後に保存済み config / TLV だけで active reconnect が成立するかを確認する。
 - use case: hardware operator は initial pairing 済みの config / TLV を再利用し、Switch 側再登録画面を開かずに sleep/resume 後の active reconnect request と connection outcome を観測する。
-- item: sleep/resume after experimental link key DB persistence issues active reconnect but does not reach controller connection complete。
+- item: sleep/resume after link key DB persistence issues active reconnect but does not reach controller connection complete。
 - state: refactor-skipped
 - commands:
   - hardware: `powershell -NoProfile -ExecutionPolicy Bypass -File .\tmp\hardware\local_073\run-link-key-db-sleep-resume-existing.ps1`
@@ -360,18 +362,31 @@ TDD status:
 - swbt: git HEAD `8bc2218`。
 - procedure: source artifact の `swbt-daemon.toml` と `swbt-link-key.tlv` を新 artifact へコピーした。`tmp/hardware/local_073/run-link-key-db-sleep-resume-existing.ps1` で daemon を起動し、Switch 側を操作せず `production: hid connection opened` を待った。HID open 後に Button A smoke と neutral cleanup を実行した。
 - result: trace は `btstack: experimental link key db open ok`、`production: active reconnect request ok`、`production: hid connection opened`、`production: shutdown neutral send ok` を各 1 件記録した。HCI dump は outgoing connection の `Connection_complete (status=0)` 1 件、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` 2 件、`responding to link key request` 1 件、`have link key db: 1` 1 件を記録した。`Connection_incoming`、`Connection_complete (status=8)`、`pairing started`、`pairing complete, status 00`、`L2CAP_EVENT_CHANNEL_OPENED status 0x8` は 0 件だった。Button A smoke は exit code 0。TLV file は before / after とも 88 bytes で、追加の link key notification 保存はなかった。
-- boundary: 保存済み experimental link key DB を使った outgoing reconnect が、新規 pairing なしで HID open まで到達した。直前の failed run は `Create_connection` 後に `Connection_complete` がなく、本体が sleep または Bluetooth 接続受付前だった可能性と整合する。ただし artifact は本体の電源状態を直接記録していないため、原因は未確定である。
+- boundary: 保存済み link key DB を使った outgoing reconnect が、新規 pairing なしで HID open まで到達した。直前の failed run は `Create_connection` 後に `Connection_complete` がなく、本体が sleep または Bluetooth 接続受付前だった可能性と整合する。ただし artifact は本体の電源状態を直接記録していないため、原因は未確定である。
 - cleanup: pass。Button A smoke 後に neutral state を accepted させ、daemon は `CTRL_BREAK_EVENT` で exit code 0、forced stop false、crash dump なしで終了した。
 - log: raw Switch address と raw link key value は転記しない。`swbt-daemon.toml`、TLV file、HCI dump は scrub 対象である。
 
 TDD status:
 - source: user discussion, 2026-06-26: 直前の failed run は本体が sleep していた可能性があるため、同じ条件でもう一度試す。
 - use case: hardware operator は initial pairing 済みの config / TLV を再利用し、Switch 側再登録画面を開かずに active reconnect request、saved link key DB response、HID open、Button A smoke を観測する。
-- item: sleep/resume rerun after experimental link key DB persistence reaches HID open with saved link key DB and no incoming pairing。
+- item: sleep/resume rerun after link key DB persistence reaches HID open with saved link key DB and no incoming pairing。
 - state: refactor-skipped
 - commands:
   - hardware: `powershell -NoProfile -ExecutionPolicy Bypass -File .\tmp\hardware\local_073\run-link-key-db-sleep-resume-existing.ps1`
 - notes: `responding to link key request` と `have link key db: 1` が出て、`pairing complete, status 00` と `Connection_incoming` は出なかった。これにより、保存済み link key DB による pairing-free outgoing reconnect 成功を実機で観測した。
+
+Tidy status:
+- classification: structure change
+- decision: tidy after
+- reason: pairing-free outgoing reconnect を実機で観測した後、`experimental` と銘打っていた CLI / function / static helper / trace 名は現在の振る舞いを表さなくなった。互換 alias を増やさず、正本を `--link-key-db` と `swbt_btstack_production_link_key_db_configure()` に揃える。
+- verification: `just format`、`just build-debug`、`$env:CTEST_ARGS='-R "daemon_launch_options_test|btstack_production_hci_dump_test"'; just test-debug`、`just test-debug`、`just format-check`、`just windows-cross`、`just asan`
+
+Refactor status:
+- decision: refactor-done
+- change: `--experimental-link-key-db` を `--link-key-db` へ置き換え、launch config field、BTstack bridge public function、static helper、trace を通常名へ変更した。過去 artifact の旧 trace / 旧 flag は実測証跡として残す。
+- unchanged behavior: `--link-key-db` 未指定時は link key DB を接続しない。指定時は TLV-backed Classic link key DB を接続し、非 null `HCI_EVENT_LINK_KEY_NOTIFICATION` を `gap_store_link_key_for_bd_addr()` 経由で保存する。raw address と raw key は trace に出さない。
+- verification: `just format`、`just build-debug`、`$env:CTEST_ARGS='-R "daemon_launch_options_test|btstack_production_hci_dump_test"'; just test-debug`、`just test-debug`、`just format-check`、`just windows-cross`、`just asan`
+- notes: 実機再実行はこの refactor では行っていない。変更は CLI 名と trace 名を含むため、次に実機 script を使う場合は新しい `--link-key-db` と `btstack: link key db ...` trace を正本にする。
 
 ## 11. 実機実行条件
 

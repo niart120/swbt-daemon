@@ -77,9 +77,9 @@ static int explicit_hci_dump_open_failure_rejects_platform_start(void) {
     return failed;
 }
 
-static int experimental_link_key_db_path_creates_tlv_file_on_platform_start(void) {
+static int link_key_db_path_creates_tlv_file_on_platform_start(void) {
     int failed = 0;
-    const char *path = "btstack-experimental-link-key-db-test.tlv";
+    const char *path = "btstack-link-key-db-test.tlv";
     const swbt_btstack_production_adapter_t *adapter = swbt_btstack_production_adapter();
 
     if (adapter == NULL || adapter->platform.start == NULL || adapter->platform.stop == NULL) {
@@ -88,19 +88,19 @@ static int experimental_link_key_db_path_creates_tlv_file_on_platform_start(void
 
     clear_hci_dump_env();
     (void)remove(path);
-    failed += expect_eq_int(swbt_btstack_production_experimental_link_key_db_configure(""), -1);
-    failed += expect_eq_int(swbt_btstack_production_experimental_link_key_db_configure(path), 0);
+    failed += expect_eq_int(swbt_btstack_production_link_key_db_configure(""), -1);
+    failed += expect_eq_int(swbt_btstack_production_link_key_db_configure(path), 0);
     failed += expect_eq_int(adapter->platform.start(NULL), 0);
     failed += expect_eq_int(file_exists(path), 1);
     adapter->platform.stop(NULL);
-    failed += expect_eq_int(swbt_btstack_production_experimental_link_key_db_configure(NULL), 0);
+    failed += expect_eq_int(swbt_btstack_production_link_key_db_configure(NULL), 0);
     failed += remove(path) == 0 ? 0 : 1;
     return failed;
 }
 
-static int experimental_link_key_db_stores_link_key_notification(void) {
+static int link_key_db_stores_link_key_notification(void) {
     int failed = 0;
-    const char *path = "btstack-experimental-link-key-db-notification-test.tlv";
+    const char *path = "btstack-link-key-db-notification-test.tlv";
     const swbt_btstack_production_adapter_t *adapter = swbt_btstack_production_adapter();
     uint8_t link_key_notification[] = {
         HCI_EVENT_LINK_KEY_NOTIFICATION,
@@ -136,12 +136,12 @@ static int experimental_link_key_db_stores_link_key_notification(void) {
 
     clear_hci_dump_env();
     (void)remove(path);
-    failed += expect_eq_int(swbt_btstack_production_experimental_link_key_db_configure(path), 0);
+    failed += expect_eq_int(swbt_btstack_production_link_key_db_configure(path), 0);
     failed += expect_eq_int(adapter->platform.start(NULL), 0);
     hci_emit_btstack_event(link_key_notification, sizeof(link_key_notification), 0);
     adapter->platform.stop(NULL);
     failed += file_size(path) > 8L ? 0 : 1;
-    failed += expect_eq_int(swbt_btstack_production_experimental_link_key_db_configure(NULL), 0);
+    failed += expect_eq_int(swbt_btstack_production_link_key_db_configure(NULL), 0);
     failed += remove(path) == 0 ? 0 : 1;
     return failed;
 }
@@ -150,7 +150,7 @@ int main(void) {
     int failed = 0;
     failed += missing_hci_dump_path_is_noop();
     failed += explicit_hci_dump_open_failure_rejects_platform_start();
-    failed += experimental_link_key_db_path_creates_tlv_file_on_platform_start();
-    failed += experimental_link_key_db_stores_link_key_notification();
+    failed += link_key_db_path_creates_tlv_file_on_platform_start();
+    failed += link_key_db_stores_link_key_notification();
     return failed == 0 ? 0 : 1;
 }

@@ -35,15 +35,14 @@
 #define SWBT_BTSTACK_IPC_PUMP_PERIOD_MS 1u
 
 static bool g_swbt_btstack_production_hci_dump_open;
-static const char *g_swbt_btstack_production_experimental_link_key_db_path;
-static bool g_swbt_btstack_production_experimental_link_key_db_open;
-static bool g_swbt_btstack_production_experimental_link_key_event_handler_registered;
-static btstack_packet_callback_registration_t
-    g_swbt_btstack_production_experimental_link_key_event_registration;
+static const char *g_link_key_db_path;
+static bool g_link_key_db_open;
+static bool g_link_key_event_handler_registered;
+static btstack_packet_callback_registration_t g_link_key_event_registration;
 #if defined(_WIN32)
-static btstack_tlv_windows_t g_swbt_btstack_production_experimental_tlv_context;
+static btstack_tlv_windows_t g_link_key_tlv_context;
 #else
-static btstack_tlv_posix_t g_swbt_btstack_production_experimental_tlv_context;
+static btstack_tlv_posix_t g_link_key_tlv_context;
 #endif
 static swbt_btstack_production_ipc_pump_t g_swbt_btstack_production_ipc_pump;
 static bool g_swbt_btstack_production_ipc_pump_started;
@@ -151,30 +150,27 @@ static void swbt_btstack_production_hci_dump_stop(void) {
     swbt_diagnostic_trace("btstack: hci dump close done");
 }
 
-int swbt_btstack_production_experimental_link_key_db_configure(const char *path) {
+int swbt_btstack_production_link_key_db_configure(const char *path) {
     if (path != NULL && path[0] == '\0') {
         return -1;
     }
-    g_swbt_btstack_production_experimental_link_key_db_path = path;
+    g_link_key_db_path = path;
     return 0;
 }
 
-static void swbt_btstack_production_experimental_link_key_packet_handler(uint8_t packet_type,
-                                                                         uint16_t channel,
-                                                                         uint8_t *packet,
-                                                                         uint16_t size) {
+static void link_key_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet,
+                                    uint16_t size) {
     bd_addr_t addr;
     link_key_t link_key;
     link_key_type_t link_key_type;
     (void)channel;
 
-    if (!g_swbt_btstack_production_experimental_link_key_db_open ||
-        packet_type != HCI_EVENT_PACKET || packet == NULL || size < 25u ||
+    if (!g_link_key_db_open || packet_type != HCI_EVENT_PACKET || packet == NULL || size < 25u ||
         packet[0] != HCI_EVENT_LINK_KEY_NOTIFICATION) {
         return;
     }
     if (btstack_is_null(&packet[8], sizeof(link_key))) {
-        swbt_diagnostic_trace("btstack: experimental link key db ignored null notification");
+        swbt_diagnostic_trace("btstack: link key db ignored null notification");
         return;
     }
 
@@ -184,75 +180,70 @@ static void swbt_btstack_production_experimental_link_key_packet_handler(uint8_t
     (void)memcpy(link_key, &packet[8], sizeof(link_key));
     link_key_type = (link_key_type_t)packet[24];
     gap_store_link_key_for_bd_addr(addr, link_key, link_key_type);
-    swbt_diagnostic_trace("btstack: experimental link key db stored notification");
+    swbt_diagnostic_trace("btstack: link key db stored notification");
 }
 
-static void swbt_btstack_production_experimental_link_key_event_handler_start(void) {
-    if (g_swbt_btstack_production_experimental_link_key_event_handler_registered) {
+static void link_key_events_start(void) {
+    if (g_link_key_event_handler_registered) {
         return;
     }
 
-    g_swbt_btstack_production_experimental_link_key_event_registration.callback =
-        swbt_btstack_production_experimental_link_key_packet_handler;
-    hci_add_event_handler(&g_swbt_btstack_production_experimental_link_key_event_registration);
-    g_swbt_btstack_production_experimental_link_key_event_handler_registered = true;
+    g_link_key_event_registration.callback = link_key_packet_handler;
+    hci_add_event_handler(&g_link_key_event_registration);
+    g_link_key_event_handler_registered = true;
 }
 
-static void swbt_btstack_production_experimental_link_key_event_handler_stop(void) {
-    if (!g_swbt_btstack_production_experimental_link_key_event_handler_registered) {
+static void link_key_events_stop(void) {
+    if (!g_link_key_event_handler_registered) {
         return;
     }
 
-    hci_remove_event_handler(&g_swbt_btstack_production_experimental_link_key_event_registration);
-    g_swbt_btstack_production_experimental_link_key_event_handler_registered = false;
-    g_swbt_btstack_production_experimental_link_key_event_registration =
-        (btstack_packet_callback_registration_t){0};
+    hci_remove_event_handler(&g_link_key_event_registration);
+    g_link_key_event_handler_registered = false;
+    g_link_key_event_registration = (btstack_packet_callback_registration_t){0};
 }
 
-static int swbt_btstack_production_experimental_link_key_db_start(void) {
+static int link_key_db_start(void) {
     const btstack_tlv_t *tlv = NULL;
-    const char *path = g_swbt_btstack_production_experimental_link_key_db_path;
+    const char *path = g_link_key_db_path;
 
     if (!swbt_diagnostic_path_is_enabled(path)) {
         return 0;
     }
 
-    swbt_diagnostic_trace("btstack: experimental link key db open");
+    swbt_diagnostic_trace("btstack: link key db open");
 #if defined(_WIN32)
-    tlv = btstack_tlv_windows_init_instance(&g_swbt_btstack_production_experimental_tlv_context,
-                                            path);
+    tlv = btstack_tlv_windows_init_instance(&g_link_key_tlv_context, path);
 #else
-    tlv =
-        btstack_tlv_posix_init_instance(&g_swbt_btstack_production_experimental_tlv_context, path);
+    tlv = btstack_tlv_posix_init_instance(&g_link_key_tlv_context, path);
 #endif
     if (tlv == NULL) {
-        swbt_diagnostic_trace("btstack: experimental link key db open failed");
+        swbt_diagnostic_trace("btstack: link key db open failed");
         return -1;
     }
 
-    btstack_tlv_set_instance(tlv, &g_swbt_btstack_production_experimental_tlv_context);
-    hci_set_link_key_db(btstack_link_key_db_tlv_get_instance(
-        tlv, &g_swbt_btstack_production_experimental_tlv_context));
-    swbt_btstack_production_experimental_link_key_event_handler_start();
-    g_swbt_btstack_production_experimental_link_key_db_open = true;
-    swbt_diagnostic_trace("btstack: experimental link key db open ok");
+    btstack_tlv_set_instance(tlv, &g_link_key_tlv_context);
+    hci_set_link_key_db(btstack_link_key_db_tlv_get_instance(tlv, &g_link_key_tlv_context));
+    link_key_events_start();
+    g_link_key_db_open = true;
+    swbt_diagnostic_trace("btstack: link key db open ok");
     return 0;
 }
 
-static void swbt_btstack_production_experimental_link_key_db_stop(void) {
-    if (!g_swbt_btstack_production_experimental_link_key_db_open) {
+static void link_key_db_stop(void) {
+    if (!g_link_key_db_open) {
         return;
     }
 
-    swbt_diagnostic_trace("btstack: experimental link key db close");
+    swbt_diagnostic_trace("btstack: link key db close");
     btstack_tlv_set_instance(NULL, NULL);
 #if defined(_WIN32)
-    btstack_tlv_windows_deinit(&g_swbt_btstack_production_experimental_tlv_context);
+    btstack_tlv_windows_deinit(&g_link_key_tlv_context);
 #else
-    btstack_tlv_posix_deinit(&g_swbt_btstack_production_experimental_tlv_context);
+    btstack_tlv_posix_deinit(&g_link_key_tlv_context);
 #endif
-    g_swbt_btstack_production_experimental_link_key_db_open = false;
-    swbt_diagnostic_trace("btstack: experimental link key db close done");
+    g_link_key_db_open = false;
+    swbt_diagnostic_trace("btstack: link key db close done");
 }
 
 static int swbt_btstack_production_platform_start(void *context) {
@@ -273,7 +264,7 @@ static int swbt_btstack_production_platform_start(void *context) {
 #endif
     swbt_diagnostic_trace("btstack: hci init usb transport");
     hci_init(hci_transport_usb_instance(), NULL);
-    if (swbt_btstack_production_experimental_link_key_db_start() != 0) {
+    if (link_key_db_start() != 0) {
         swbt_btstack_production_hci_dump_stop();
         return -1;
     }
@@ -283,8 +274,8 @@ static int swbt_btstack_production_platform_start(void *context) {
         swbt_btstack_classic_discovery_backend_btstack(), NULL, &discovery_config);
     if (discovery_result != SWBT_BTSTACK_CLASSIC_DISCOVERY_OK) {
         swbt_diagnostic_trace("btstack: classic discovery configure failed");
-        swbt_btstack_production_experimental_link_key_event_handler_stop();
-        swbt_btstack_production_experimental_link_key_db_stop();
+        link_key_events_stop();
+        link_key_db_stop();
         swbt_btstack_production_hci_dump_stop();
         return -1;
     }
@@ -300,11 +291,11 @@ static void swbt_btstack_production_platform_stop(void *context) {
     swbt_diagnostic_trace("btstack: ipc pump stop");
     swbt_btstack_production_ipc_pump_stop(NULL);
     swbt_diagnostic_trace("btstack: ipc pump stop done");
-    swbt_btstack_production_experimental_link_key_event_handler_stop();
+    link_key_events_stop();
     swbt_diagnostic_trace("btstack: hci close");
     hci_close();
     swbt_diagnostic_trace("btstack: hci close done");
-    swbt_btstack_production_experimental_link_key_db_stop();
+    link_key_db_stop();
     swbt_diagnostic_trace("btstack: run loop deinit");
     btstack_run_loop_deinit();
     swbt_diagnostic_trace("btstack: run loop deinit done");
