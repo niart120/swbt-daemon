@@ -166,6 +166,7 @@ int main(int argc, char **argv) {
         swbt_diagnostic_trace("main: invalid CLI options");
         return 1;
     }
+    swbt_diagnostic_trace_set_path(launch_options.trace_path);
     if (!swbt_daemon_launch_config_prepare(&launch_config, &launch_options, &config_env)) {
         swbt_diagnostic_trace("main: invalid launch config");
         return 1;

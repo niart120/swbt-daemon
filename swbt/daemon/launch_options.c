@@ -41,6 +41,7 @@ swbt_daemon_launch_options_parse(swbt_daemon_launch_options_t *options, int argc
         const char *argument = argv[index];
         const char *config_value = NULL;
         const char *link_key_db_value = NULL;
+        const char *trace_value = NULL;
         const char *backend_value = NULL;
 
         if (argument == NULL) {
@@ -80,6 +81,24 @@ swbt_daemon_launch_options_parse(swbt_daemon_launch_options_t *options, int argc
                 return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE;
             }
             options->link_key_db_path = link_key_db_value;
+            continue;
+        }
+
+        if (strcmp(argument, "--trace-path") == 0) {
+            if (index + 1 >= argc || argv[index + 1] == NULL || argv[index + 1][0] == '\0') {
+                return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE;
+            }
+            options->trace_path = argv[index + 1];
+            ++index;
+            continue;
+        }
+
+        trace_value = swbt_daemon_launch_options_value_after_equals(argument, "--trace-path=");
+        if (trace_value != NULL) {
+            if (trace_value[0] == '\0') {
+                return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE;
+            }
+            options->trace_path = trace_value;
             continue;
         }
 

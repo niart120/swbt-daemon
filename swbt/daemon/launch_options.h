@@ -25,6 +25,7 @@ typedef struct {
     swbt_daemon_launch_backend_t backend;
     const char *config_path;
     const char *link_key_db_path;
+    const char *trace_path;
 } swbt_daemon_launch_options_t;
 
 typedef struct {

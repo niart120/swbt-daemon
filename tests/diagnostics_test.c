@@ -81,8 +81,8 @@ static int diagnostic_path_requires_nonempty_value(void) {
     return failed;
 }
 
-static int writes_trace_when_env_path_is_set(void) {
-    const char *path = "diagnostics-test-trace.log";
+static int trace_env_path_is_ignored_without_cli_configuration(void) {
+    const char *path = "diagnostics-test-env-trace.log";
 
     remove(path);
     if (set_trace_env(path) != 0) {
@@ -91,6 +91,17 @@ static int writes_trace_when_env_path_is_set(void) {
     swbt_diagnostic_trace("diagnostics_test marker");
     clear_trace_env();
 
+    return expect_missing(path);
+}
+
+static int writes_trace_when_configured_path_is_set(void) {
+    const char *path = "diagnostics-test-trace.log";
+
+    remove(path);
+    swbt_diagnostic_trace_set_path(path);
+    swbt_diagnostic_trace("diagnostics_test marker");
+    swbt_diagnostic_trace_set_path(NULL);
+
     return expect_contains(path, "diagnostics_test marker");
 }
 
@@ -98,6 +109,7 @@ int main(void) {
     int failed = 0;
     failed += diagnostic_path_requires_nonempty_value();
     failed += missing_trace_path_is_noop();
-    failed += writes_trace_when_env_path_is_set();
+    failed += trace_env_path_is_ignored_without_cli_configuration();
+    failed += writes_trace_when_configured_path_is_set();
     return failed == 0 ? 0 : 1;
 }

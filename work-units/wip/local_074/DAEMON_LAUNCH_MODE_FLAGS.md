@@ -104,7 +104,7 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 | green | `--backend noop` selects noop backend and does not require production hardware approval state | new | integration | no |
 | green | invalid backend value fails before adapter open | edge | unit/integration | no |
 | green | production backend no longer requires `SWBT_RUN_HARDWARE` and `SWBT_HARDWARE_APPROVED` as code-level gates, while hardware execution remains documented as human-approved | behavior | unit/integration | no |
-| todo | diagnostic trace path is enabled only by CLI flag and not by persistent config file | regression | unit/integration | no |
+| green | diagnostic trace path is enabled only by CLI flag and not by persistent config file | regression | unit/integration | no |
 | todo | HCI dump path is enabled only by CLI flag and fails before production run loop when the path cannot be opened | edge | unit/integration | no |
 | todo | crash dump path CLI behavior is fixed for Windows and non-Windows builds | edge | unit/build | no |
 | todo | test / smoke entrypoints that need no hardware pass `--backend noop` explicitly | regression | integration | no |
@@ -168,6 +168,19 @@ TDD status:
   - green: `rg -n "SWBT_RUN_HARDWARE|SWBT_HARDWARE_APPROVED|hardware_approval_from_process_env" apps/swbt-daemon/main.c` no match。
   - green: `scripts/check-format.sh` pass。
 - notes: `hardware-harness` を読んだ。実機向けコマンド、Bluetooth adapter open、pairing、HID advertising、report loop は実行していない。実機実行は引き続き人間の明示承認と専用 USB Bluetooth dongle の確認を必要とする。
+
+TDD status:
+- source: user discussion, 2026-06-26。診断出力 path は環境変数ではなく、その起動の CLI flag として明示する。
+- use case: `--trace-path` を指定した起動だけ startup / cleanup trace を書き、`SWBT_DIAGNOSTIC_TRACE_PATH` だけでは trace を書かない。
+- item: diagnostic trace path is enabled only by CLI flag and not by persistent config file。
+- state: green。
+- commands:
+  - red: `just build-debug` fail。`swbt_diagnostic_trace_set_path` と `options.trace_path` が未定義。
+  - green: `just build-debug` pass。
+  - green: `CTEST_ARGS='-R "(daemon_launch_options_test|diagnostics_test)" --output-on-failure' just test-debug` pass。
+  - green: `rg -n "SWBT_DIAGNOSTIC_TRACE_PATH" apps swbt tests` は implementation 側 no match、test helper の env ignored 確認だけ match。最初の複合 regex は構文誤りのため判定に使わない。
+  - green: `just format-check` pass。
+- notes: `swbt_diagnostic_trace` は process-global に設定された path だけを見る。`main.c` は CLI parse 後に `launch_options.trace_path` を設定する。TOML config file schema には trace path を追加していない。
 
 ## 11. 実機実行条件
 

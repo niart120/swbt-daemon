@@ -1,10 +1,15 @@
 #include "core/diagnostics.h"
 
 #include <stdio.h>
-#include <stdlib.h>
+
+static const char *g_swbt_diagnostic_trace_path;
 
 bool swbt_diagnostic_path_is_enabled(const char *path) {
     return path != NULL && path[0] != '\0';
+}
+
+void swbt_diagnostic_trace_set_path(const char *path) {
+    g_swbt_diagnostic_trace_path = swbt_diagnostic_path_is_enabled(path) ? path : NULL;
 }
 
 void swbt_diagnostic_trace_to_path(const char *path, const char *message) {
@@ -24,5 +29,5 @@ void swbt_diagnostic_trace_to_path(const char *path, const char *message) {
 }
 
 void swbt_diagnostic_trace(const char *message) {
-    swbt_diagnostic_trace_to_path(getenv("SWBT_DIAGNOSTIC_TRACE_PATH"), message);
+    swbt_diagnostic_trace_to_path(g_swbt_diagnostic_trace_path, message);
 }

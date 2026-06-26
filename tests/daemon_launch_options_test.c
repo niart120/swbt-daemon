@@ -125,6 +125,28 @@ static int backend_noop_equals_argument_is_accepted(void) {
     return failed;
 }
 
+static int trace_path_separate_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--trace-path", "tmp/startup-trace.txt"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 3, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed += expect_str_eq(options.trace_path, "tmp/startup-trace.txt", "trace path");
+    return failed;
+}
+
+static int trace_path_equals_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--trace-path=tmp/startup-trace.txt"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 2, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed += expect_str_eq(options.trace_path, "tmp/startup-trace.txt", "trace path");
+    return failed;
+}
+
 static int missing_link_key_db_path_is_rejected(void) {
     const char *argv[] = {"swbt-daemon", "--link-key-db"};
     swbt_daemon_launch_options_t options = {0};
@@ -261,6 +283,8 @@ int main(void) {
     failed += link_key_db_equals_argument_is_accepted();
     failed += backend_noop_separate_argument_is_accepted();
     failed += backend_noop_equals_argument_is_accepted();
+    failed += trace_path_separate_argument_is_accepted();
+    failed += trace_path_equals_argument_is_accepted();
     failed += missing_link_key_db_path_is_rejected();
     failed += missing_config_path_is_rejected();
     failed += unknown_option_is_rejected();
