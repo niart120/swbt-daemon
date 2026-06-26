@@ -147,7 +147,7 @@ source-audit 結果:
 | refactor-skipped | invalid active reconnect Switch address in TOML is rejected without partially mutating config | edge | unit | no |
 | refactor-done | active reconnect failure paths report unavailable / failed states without breaking incoming pairing path | edge | integration | no |
 | refactor-skipped | active reconnect hardware preflight defines initial address capture, daemon restart, active reconnect, optional Switch-side reconnect operation, and Button A smoke | characterization | docs | yes |
-| todo | daemon restart active reconnect reaches L2CAP open and Button A smoke without Change Grip / Order re-pairing, or records the exact unsupported boundary | characterization | hardware | yes |
+| deferred | daemon restart active reconnect reaches L2CAP open and Button A smoke without Change Grip / Order re-pairing, or records the exact unsupported boundary | characterization | hardware | yes |
 
 ## 10. 検証
 
@@ -316,6 +316,15 @@ TDD status:
 - commands:
   - characterization: `git diff --check`
 - notes: preflight は section 11 に記録した。現時点の daemon main は config path と learned address target を収集しないため、この手順は実行禁止条件付きである。実機は未実行。
+
+TDD status:
+- source: daemon restart active reconnect の pass 条件は L2CAP open と Button A smoke である。ただし実行経路が設定ファイル上の Switch address を daemon main へ渡せない場合、実機 run を開始しても active reconnect の評価にならない。
+- use case: 現行 tree で実機 run を開始する前に、daemon binary が設定ファイル path と learned address target を受け取らないという unsupported boundary を記録し、Bluetooth adapter open / pairing / advertising を実行しない。
+- item: daemon restart active reconnect reaches L2CAP open and Button A smoke without Change Grip / Order re-pairing, or records the exact unsupported boundary。
+- state: deferred
+- commands:
+  - characterization: `git diff --check`
+- notes: exact unsupported boundary は section 11 に記録した。`apps/swbt-daemon/main.c` が config path と learned address target を production backend に接続した後で、実機 run を再開する。実機コマンドは実行していない。
 ## 11. 実機実行条件
 
 実機が必要である。ただし起票時点では実行しない。
@@ -358,6 +367,9 @@ TDD status:
 - 観測: Switch 側 controller reconnect 操作が必須かどうかは未確認である。
   先送り理由: daemon restart active reconnect の最小 run を先に設計し、操作の要否を artifact で分ける。
   次の置き場: この work unit の hardware item。
+- 観測: daemon restart active reconnect の実機 run は未実行である。
+  先送り理由: 現行 `apps/swbt-daemon/main.c` が設定ファイル path と learned address target を収集しないため、daemon binary だけでは設定ファイル上の Switch address を active reconnect 入力として評価できない。
+  次の置き場: config path / 起動契約 work の完了後に、この work unit の hardware item を再開する。
 
 ## 13. チェックリスト
 
@@ -372,4 +384,4 @@ TDD status:
 - [x] HID connection opened 成功 event から learned address を config persistence target へ渡す boundary を実装した。
 - [x] active reconnect boundary を実装した。
 - [x] hardware preflight を作成した。
-- [ ] 実機結果または未実行理由を記録した。
+- [x] 実機結果または未実行理由を記録した。
