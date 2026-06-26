@@ -93,7 +93,7 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 - `docs/status.md`
 - `spec/operations/windows-native-preflight.md`
 - `spec/operations/windows-hardware-bringup-sequence.md`
-- `work-units/wip/local_074/DAEMON_LAUNCH_MODE_FLAGS.md`
+- `work-units/complete/local_074/DAEMON_LAUNCH_MODE_FLAGS.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
@@ -230,6 +230,11 @@ TDD status:
   - green: `rg -n "SWBT_DAEMON_BACKEND|SWBT_RUN_HARDWARE|SWBT_HARDWARE_APPROVED|SWBT_DIAGNOSTIC_TRACE_PATH|SWBT_HCI_DUMP_TRACE_PATH|SWBT_CRASH_DUMP_PATH|--trace-path|--hci-dump-path|--crash-dump-path|--backend" docs/status.md spec/operations/windows-native-preflight.md spec/operations/windows-hardware-bringup-sequence.md spec/architecture/daemon-architecture-cutover.md`。current docs の更新対象を確認した。
   - green: `rg -n "SWBT_DAEMON_BACKEND|SWBT_RUN_HARDWARE|SWBT_HARDWARE_APPROVED|SWBT_DIAGNOSTIC_TRACE_PATH|SWBT_HCI_DUMP_TRACE_PATH|SWBT_CRASH_DUMP_PATH|no-op backend|noop backend" docs/status.md spec/operations/windows-native-preflight.md spec/operations/windows-hardware-bringup-sequence.md`。残った match は current implementation で selector ではないこと、または noop backend の明示指定を説明する記述だけ。
 - notes: 実機ログの過去 entry は履歴証跡として変更していない。operations spec では `SWBT_RUN_HARDWARE` / `SWBT_HARDWARE_APPROVED` を current implementation の分岐条件ではなく、人間承認 gate と切り分けた。
+
+Final verification:
+
+- `just verify` pass。`format-check`、`clang-tidy`、fresh debug configure / test target build / CTest、ASan、Windows MinGW cross build を実行した。
+- 実機は未実行。Bluetooth adapter open、Switch pairing、HID advertising、report loop はこの work unit の最終確認に含めていない。
 
 ## 11. 実機実行条件
 

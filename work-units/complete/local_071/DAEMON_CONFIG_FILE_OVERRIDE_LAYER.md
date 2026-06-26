@@ -330,7 +330,7 @@ Final verification:
   次の置き場: 後続 work unit。
 - 観測: backend selection、noop 明示指定、hardware approval env の削除、診断出力 path は、設定ファイルではなく daemon 起動時引数として扱う方がよい。
   先送り理由: これらは永続設定ではなく「今回の起動でどの経路を使い、どこへ証跡を書くか」の指定であり、CLI parser と一緒に設計する必要がある。
-  次の置き場: `work-units/wip/local_074/DAEMON_LAUNCH_MODE_FLAGS.md`。
+  次の置き場: `work-units/complete/local_074/DAEMON_LAUNCH_MODE_FLAGS.md`。
 
 ## 13. チェックリスト
 

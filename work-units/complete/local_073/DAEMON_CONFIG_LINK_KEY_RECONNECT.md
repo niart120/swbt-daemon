@@ -6,7 +6,7 @@ daemon の実機 reconnect 検証に必要な `--config` と `--link-key-db` の
 
 `--config <path>` は TOML config file の読み込み元であり、production backend では learned Switch address の書き戻し先でもある。`--link-key-db <path>` は起動単位で TLV-backed Classic link key DB を接続し、HCI link key notification を raw key を trace に出さず保存する。
 
-保存済み config と link key DB により、Switch 側の再登録操作なしで daemon initiated outgoing reconnect が HID open と Button A smoke まで到達することを実機で確認する。production / noop 起動モード、実機承認 env、diagnostic path の CLI flag 化は `work-units/wip/local_074/DAEMON_LAUNCH_MODE_FLAGS.md` に分離する。
+保存済み config と link key DB により、Switch 側の再登録操作なしで daemon initiated outgoing reconnect が HID open と Button A smoke まで到達することを実機で確認する。production / noop 起動モード、実機承認 env、diagnostic path の CLI flag 化は `work-units/complete/local_074/DAEMON_LAUNCH_MODE_FLAGS.md` に分離する。
 
 ## 2. 起点 / ユースケース
 
@@ -51,7 +51,7 @@ source から use case への変換:
 ## 4. 対象外
 
 - `local_071` の設定ファイル schema、TOML parser / serializer、環境変数 runtime override precedence。
-- production / noop 起動モードの反転、`--backend noop`、実機承認 env 整理、diagnostic path の CLI flag 化。`work-units/wip/local_074/DAEMON_LAUNCH_MODE_FLAGS.md` で扱う。
+- production / noop 起動モードの反転、`--backend noop`、実機承認 env 整理、diagnostic path の CLI flag 化。`work-units/complete/local_074/DAEMON_LAUNCH_MODE_FLAGS.md` で扱う。
 - adapter selector、VID/PID selector、複数 Bluetooth adapter の選択 policy。
 - Switch protocol byte、device info payload、report period の既定値変更。
 - service manager、installer、Windows registry、binary release。
@@ -65,7 +65,7 @@ source から use case への変換:
 - `spec/operations/windows-native-preflight.md`
 - `spec/operations/windows-hardware-bringup-sequence.md`
 - `spec/architecture/daemon-architecture-cutover.md`
-- `work-units/wip/local_074/DAEMON_LAUNCH_MODE_FLAGS.md`
+- `work-units/complete/local_074/DAEMON_LAUNCH_MODE_FLAGS.md`
 
 ## 6. 根拠監査
 
@@ -396,7 +396,7 @@ TDD status:
 
 none for this work unit。
 
-production / noop 起動モード、実機承認 env 整理、diagnostic path の CLI flag 化、adapter selector の設計候補は `work-units/wip/local_074/DAEMON_LAUNCH_MODE_FLAGS.md` に分離した。
+production / noop 起動モード、実機承認 env 整理、diagnostic path の CLI flag 化、adapter selector の設計候補は `work-units/complete/local_074/DAEMON_LAUNCH_MODE_FLAGS.md` に分離した。
 
 ## 13. チェックリスト
 
