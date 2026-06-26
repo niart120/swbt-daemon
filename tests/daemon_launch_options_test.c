@@ -148,6 +148,18 @@ static int no_options_keeps_config_path_unset(void) {
     return failed;
 }
 
+static int no_options_defaults_to_production_backend(void) {
+    const char *argv[] = {"swbt-daemon"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 1, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed +=
+        expect_eq_int((int)options.backend, (int)SWBT_DAEMON_LAUNCH_BACKEND_PRODUCTION, "backend");
+    return failed;
+}
+
 static int launch_config_applies_file_before_env_and_sets_learned_target(void) {
     const char *path = "daemon-launch-options-config.toml";
     const char *argv[] = {"swbt-daemon", "--config", path};
@@ -209,6 +221,7 @@ int main(void) {
     failed += missing_config_path_is_rejected();
     failed += unknown_option_is_rejected();
     failed += no_options_keeps_config_path_unset();
+    failed += no_options_defaults_to_production_backend();
     failed += launch_config_applies_file_before_env_and_sets_learned_target();
     failed += launch_config_without_config_path_keeps_learned_target_unset();
     return failed == 0 ? 0 : 1;

@@ -99,7 +99,7 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | CLI parser defaults to production backend when no backend flag is supplied | new | unit | no |
+| refactor-skipped | CLI parser defaults to production backend when no backend flag is supplied | new | unit | no |
 | todo | `--backend noop` selects noop backend and does not require production hardware approval state | new | unit/integration | no |
 | todo | invalid backend value fails before adapter open | edge | unit/integration | no |
 | todo | production backend no longer requires `SWBT_RUN_HARDWARE` and `SWBT_HARDWARE_APPROVED` as code-level gates, while hardware execution remains documented as human-approved | behavior | unit/integration | no |
@@ -111,7 +111,16 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 
 ## 10. 検証
 
-not run。新規分離 record であり、実装はまだ開始していない。
+TDD status:
+- source: `local_073` から分離した backend 起動モード整理。
+- use case: daemon を引数なしで起動すると通常運用として production backend を選ぶ。
+- item: CLI parser defaults to production backend when no backend flag is supplied。
+- state: refactor-skipped。
+- commands:
+  - red: `just build-debug`。`tests/daemon_launch_options_test.c` が `options.backend` と `SWBT_DAEMON_LAUNCH_BACKEND_PRODUCTION` 未定義で fail。
+  - green: `just build-debug` pass。
+  - green: `CTEST_ARGS='-R daemon_launch_options_test --output-on-failure' just test-debug` pass。sandboxed run は Dev Container CLI の Docker lookup failure で not run。権限付き再実行で対象 test pass。
+- notes: `tdd-workflow`、`tdd-one-cycle`、`refactor-after-green`、`work-unit-record` を読んだ。`swbt_daemon_launch_options_t` に backend enum を追加し、zero-initialized default を production として固定した。今回の item では重複や責務混在がなく、refactor-skipped とした。
 
 ## 11. 実機実行条件
 
