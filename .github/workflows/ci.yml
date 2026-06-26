@@ -16,7 +16,7 @@ jobs:
       SWBT_RUN_HARDWARE: "0"
       SWBT_HARDWARE_APPROVED: "0"
       SWBT_CTEST_PARALLEL_LEVEL: "8"
-      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_DIR: /workspaces/swbt-daemon/.ccache
       CCACHE_MAXSIZE: "500M"
     steps:
       - uses: actions/checkout@v4
