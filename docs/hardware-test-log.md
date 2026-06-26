@@ -940,3 +940,25 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: `tmp/hardware/local_073/20260626-171348-active-reconnect`, `tmp/hardware/local_073/manual-20260626-174907-active-reconnect`
 - cleanup: pass by trace。最初の restart run は停止前に `swbt-debug-client.exe --port 37637 --seq 3 --hold-ms 100` で neutral state を accepted させた。`GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT)` は `sent=True`、`still_running=false` を記録した。manual rerun は trace で `production: shutdown neutral send ok`、`btstack: hci power off`、`production: run loop returned`、`btstack: hci close done`、`btstack: run loop deinit done`、`btstack: hci dump close done`、`production: host stop done` まで到達した。crash dump は作成されなかった
 - notes: config file 上の raw Switch address は表示、転記していない。この entry は `CSR8510 A10` / WinUSB / Switch2 firmware `22.1.0` / swbt commit `d3f2b9c` plus MinGW static link diff の hardware observation であり、別 firmware や別 adapter の一般結果ではない
+
+## 2026-06-26: local_073 experimental link key DB reconnect boundary on Switch2
+
+- OS: Microsoft Windows NT `10.0.26200.0`
+- environment: Windows native PowerShell、swbt branch `work/local-073-config-path-reconnect`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Class `USBDevice`、Service `WinUSB`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: git HEAD `384e5d4`
+- Switch firmware: Switch2 `22.1.0`。既存実機環境の継続値であり、今回の artifact では本体画面を再読していない
+- approval scope: ユーザ承認済み。CSR8510 A10、WinUSB、adapter open、initial pairing、experimental TLV-backed Classic link key DB、daemon restart、保存済み address からの active reconnect request、HCI dump / diagnostic trace 保存、cleanup 確認
+- environment variables: daemon side `SWBT_DAEMON_BACKEND=production`, `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`, `SWBT_DIAGNOSTIC_TRACE_PATH`, `SWBT_HCI_DUMP_TRACE_PATH`, `SWBT_CRASH_DUMP_PATH`。daemon argument は `--config <artifact>/swbt-daemon.toml --experimental-link-key-db <artifact>/swbt-link-key.tlv`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: `tmp/hardware/local_073/20260626-191642-link-key-db-reconnect` を artifact root として、空の TOML config と experimental link key DB path を指定した initial run を起動した。initial run では Switch 側 pairing を実行し、restart run では同じ config と TLV path で Switch 側操作なしの active reconnect request を観測した
+- result: experimental DB open は initial / restart の両方で pass。initial run は trace の `btstack: experimental link key db open ok`、`production: hid connection opened`、`production: learned switch address save ok` を記録した。initial HCI dump は `responding to link key request, have link key db: 1`、`pairing complete, status 00`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` を記録したが、同時に `Remote not bonding, dropping local flag` も記録した。`swbt-link-key.tlv` は `8` bytes のままで、link key material は保存されなかった。restart run は trace の `btstack: experimental link key db open ok` と `production: active reconnect request ok` を記録したが、`production: hid connection opened` は記録しなかった。restart HCI dump は `Create outgoing HID Control` の後、`Connection_complete (status=22)` と control PSM `0x11` の `L2CAP_EVENT_CHANNEL_OPENED status 0x16` を記録した。restart run では `responding to link key request` と `pairing complete, status 00` は記録されていない
+- daemon log: daemon stdout / stderr log は空。`initial-trace.txt`、`initial-hci-dump.txt`、`restart-trace.txt`、`restart-hci-dump.txt` を正本にする
+- artifact root: `tmp/hardware/local_073/20260626-191642-link-key-db-reconnect`
+- cleanup: initial inspection 時点では `swbt-daemon.exe` process が残り、TLV file は process lock されていた。その後 `Get-Process swbt-daemon -ErrorAction SilentlyContinue` が空であることを確認した。TLV file は `BTstack` header の 8 bytes のみで、raw link key value は含まれていない
+- notes: config file 上の raw Switch address、HCI dump 上の raw address、raw link key value は表示、転記していない。この entry は `CSR8510 A10` / WinUSB / Switch2 firmware `22.1.0` / swbt commit `384e5d4` の hardware observation であり、別 firmware や別 adapter の一般結果ではない

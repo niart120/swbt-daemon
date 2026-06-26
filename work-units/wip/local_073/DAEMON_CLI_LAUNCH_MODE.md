@@ -125,7 +125,7 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 | refactor-skipped | daemon main applies config file before environment override and passes the same config path as learned address target to production backend | new | integration | no |
 | refactor-skipped | CLI parser accepts `--experimental-link-key-db <path>` / `--experimental-link-key-db=<path>` and stores it outside persistent config | characterization | unit | no |
 | refactor-skipped | production BTstack platform start connects an explicitly configured experimental TLV-backed Classic link key DB and closes it on platform stop | characterization | integration | no |
-| todo | active outgoing reconnect with experimental link key DB records whether link key notification is persisted to a non-empty TLV file | characterization | hardware | yes |
+| refactor-skipped | active outgoing reconnect with experimental link key DB records whether link key notification is persisted to a non-empty TLV file | characterization | hardware | yes |
 | todo | daemon restart after experimental link key DB persistence reaches HID channel open without a new `pairing complete, status 00` | characterization | hardware | yes |
 | todo | CLI parser defaults to production backend when no backend flag is supplied | new | unit | no |
 | todo | `--backend noop` selects noop backend and does not require production hardware approval state | new | unit/integration | no |
@@ -250,6 +250,19 @@ Refactor status:
 - result: trace は `production: active reconnect request ok` と `production: hid connection opened` を記録した。HCI は `Create outgoing HID Control`、`Connection_complete (status=0)`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` を記録し、`Connection_incoming`、`Connection_complete (status=8)`、`L2CAP_EVENT_CHANNEL_OPENED status 0x8` は記録しなかった。`a1 30` input report は `9532` 件、Switch 側 `a2 01` output report は `17` 件、`a1 21` reply は `17` 件だった。
 - boundary: 同じ run で `have link key db: 0`、`pairing started, ssp 1, initiator 1`、`pairing complete, status 00` `1` 件も記録した。したがって daemon initiated active reconnect transport は成功したが、保存済み link key による pairing-free reconnect は未確認のまま残す。
 - cleanup: trace は `production: shutdown neutral send ok`、HCI power off、HCI close、run loop deinit、HCI dump close、host stop done まで到達した。`swbt-daemon.exe` process は残っていない。
+
+実機 experimental link key DB reconnect verification:
+
+- date: 2026-06-26
+- approval: user approved CSR8510 A10 / WinUSB adapter open、initial pairing、experimental TLV-backed Classic link key DB、daemon restart、active reconnect request、HCI dump / diagnostic trace 保存、cleanup 確認。
+- artifact: `tmp/hardware/local_073/20260626-191642-link-key-db-reconnect`
+- environment: Windows native PowerShell、CSR8510 A10 `USB\VID_0A12&PID_0001\9&12127A34&0&1`、Service `WinUSB`、backend `windows-winusb`、BTstack `075a0780f0fad7ff67d58ac19f46e8953656a752`、Switch2 firmware `22.1.0`。
+- swbt: git HEAD `384e5d4`。
+- procedure: empty TOML config と `--experimental-link-key-db <artifact>/swbt-link-key.tlv` を指定して initial pairing を実行した。その後、同じ config と TLV path で restart run を実行し、Switch 側操作なしで active reconnect request を観測した。
+- result: experimental DB open は initial / restart の両方で pass。initial run は `responding to link key request, have link key db: 1`、`pairing complete, status 00`、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0`、trace の `production: hid connection opened` を記録した。一方、initial HCI dump は `Remote not bonding, dropping local flag` を記録し、`swbt-link-key.tlv` は `8` bytes のままだった。したがって BTstack TLV DB は接続できたが、link key material は保存されなかった。
+- restart result: trace は `btstack: experimental link key db open ok` と `production: active reconnect request ok` を記録したが、`production: hid connection opened` は記録しなかった。HCI dump は `Create outgoing HID Control` の後、`Connection_complete (status=22)` と control PSM `0x11` の `L2CAP_EVENT_CHANNEL_OPENED status 0x16` を記録した。restart run に `responding to link key request` と `pairing complete, status 00` は出ていない。link key DB persistence の precondition が満たせていないため、pairing-free reconnect 成否判定には進めていない。
+- cleanup: initial inspection 時点では `swbt-daemon.exe` process が残り、TLV file は process lock されていた。その後 `Get-Process swbt-daemon -ErrorAction SilentlyContinue` が空であることを確認した。TLV file は `BTstack` header の 8 bytes のみで、raw link key value は含まれていない。
+- log: raw Switch address と raw link key value は転記しない。`swbt-daemon.toml` と HCI dump は scrub 対象である。
 
 ## 11. 実機実行条件
 
