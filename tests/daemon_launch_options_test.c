@@ -158,6 +158,26 @@ static int unknown_option_is_rejected(void) {
     return failed;
 }
 
+static int invalid_backend_value_is_rejected(void) {
+    const char *argv[] = {"swbt-daemon", "--backend", "dry-run"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 3, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_INVALID_ARGUMENT, "parse");
+    return failed;
+}
+
+static int missing_backend_value_is_rejected(void) {
+    const char *argv[] = {"swbt-daemon", "--backend"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 2, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE, "parse");
+    return failed;
+}
+
 static int no_options_keeps_config_path_unset(void) {
     const char *argv[] = {"swbt-daemon"};
     swbt_daemon_launch_options_t options = {0};
@@ -244,6 +264,8 @@ int main(void) {
     failed += missing_link_key_db_path_is_rejected();
     failed += missing_config_path_is_rejected();
     failed += unknown_option_is_rejected();
+    failed += invalid_backend_value_is_rejected();
+    failed += missing_backend_value_is_rejected();
     failed += no_options_keeps_config_path_unset();
     failed += no_options_defaults_to_production_backend();
     failed += launch_config_applies_file_before_env_and_sets_learned_target();

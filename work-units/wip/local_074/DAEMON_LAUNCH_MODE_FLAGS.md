@@ -102,7 +102,7 @@ production 既定化は Bluetooth adapter open に直結するため、実機実
 | refactor-skipped | CLI parser defaults to production backend when no backend flag is supplied | new | unit | no |
 | refactor-skipped | CLI parser accepts `--backend noop` and `--backend=noop` | new | unit | no |
 | todo | `--backend noop` selects noop backend and does not require production hardware approval state | new | integration | no |
-| todo | invalid backend value fails before adapter open | edge | unit/integration | no |
+| green | invalid backend value fails before adapter open | edge | unit/integration | no |
 | todo | production backend no longer requires `SWBT_RUN_HARDWARE` and `SWBT_HARDWARE_APPROVED` as code-level gates, while hardware execution remains documented as human-approved | behavior | unit/integration | no |
 | todo | diagnostic trace path is enabled only by CLI flag and not by persistent config file | regression | unit/integration | no |
 | todo | HCI dump path is enabled only by CLI flag and fails before production run loop when the path cannot be opened | edge | unit/integration | no |
@@ -133,6 +133,16 @@ TDD status:
   - green: `just build-debug` pass。
   - green: `CTEST_ARGS='-R daemon_launch_options_test --output-on-failure' just test-debug` pass。
 - notes: parser に `--backend` と `--backend=` を追加した。main の noop 分岐接続と hardware approval 非依存の integration 確認は別 item として残す。今回の item では構造変更不要のため refactor-skipped とした。
+
+TDD status:
+- source: `local_073` から分離した backend 起動モード整理。
+- use case: 不正な backend 名は adapter open 前に CLI validation で失敗する。
+- item: invalid backend value fails before adapter open。
+- state: green。
+- commands:
+  - characterization: `just build-debug` pass。
+  - characterization: `CTEST_ARGS='-R daemon_launch_options_test --output-on-failure' just test-debug` pass。
+- notes: 前 cycle の `swbt_daemon_launch_options_parse_backend` が invalid value と missing value をすでに reject していたため、追加 test は red にならなかった。adapter open 前の前提は parser unit test で確認した。main 分岐で adapter を開かないことは後続 integration item で確認する。
 
 ## 11. 実機実行条件
 
