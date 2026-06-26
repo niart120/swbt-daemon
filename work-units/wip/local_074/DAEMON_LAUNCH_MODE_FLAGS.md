@@ -221,9 +221,19 @@ TDD status:
   - green: `CTEST_ARGS='-R swbt_daemon_noop_smoke_test --output-on-failure' just test-debug` pass。
 - notes: `CMakeLists.txt` に `swbt_daemon_noop_smoke_test` を追加し、`COMMAND swbt-daemon --backend noop` とした。`swbt_unit_tests` に `swbt-daemon` dependency を追加し、test target build だけでも smoke executable が生成されるようにした。実 Bluetooth adapter は開いていない。
 
+TDD status:
+- source: `docs/status.md`、`spec/operations/windows-native-preflight.md`、`spec/operations/windows-hardware-bringup-sequence.md` の current state 更新。
+- use case: current docs は production 既定、`--backend noop`、diagnostic CLI flag、実機承認の運用 gate を implementation と同じ意味で説明する。
+- item: docs / status reflect daemon launch mode flags。
+- state: green。
+- commands:
+  - green: `rg -n "SWBT_DAEMON_BACKEND|SWBT_RUN_HARDWARE|SWBT_HARDWARE_APPROVED|SWBT_DIAGNOSTIC_TRACE_PATH|SWBT_HCI_DUMP_TRACE_PATH|SWBT_CRASH_DUMP_PATH|--trace-path|--hci-dump-path|--crash-dump-path|--backend" docs/status.md spec/operations/windows-native-preflight.md spec/operations/windows-hardware-bringup-sequence.md spec/architecture/daemon-architecture-cutover.md`。current docs の更新対象を確認した。
+  - green: `rg -n "SWBT_DAEMON_BACKEND|SWBT_RUN_HARDWARE|SWBT_HARDWARE_APPROVED|SWBT_DIAGNOSTIC_TRACE_PATH|SWBT_HCI_DUMP_TRACE_PATH|SWBT_CRASH_DUMP_PATH|no-op backend|noop backend" docs/status.md spec/operations/windows-native-preflight.md spec/operations/windows-hardware-bringup-sequence.md`。残った match は current implementation で selector ではないこと、または noop backend の明示指定を説明する記述だけ。
+- notes: 実機ログの過去 entry は履歴証跡として変更していない。operations spec では `SWBT_RUN_HARDWARE` / `SWBT_HARDWARE_APPROVED` を current implementation の分岐条件ではなく、人間承認 gate と切り分けた。
+
 ## 11. 実機実行条件
 
-production 既定化と hardware approval env の削除候補を含むため、最終確認では実機が必要になる可能性が高い。
+この work unit の最終確認は software-only とする。Bluetooth adapter open、Switch pairing、HID advertising、report loop は実行していない。
 
 実機実行前条件:
 
@@ -239,6 +249,7 @@ software-only で確認できる範囲:
 - noop 明示指定が adapter port を呼ばないこと。
 - invalid backend / invalid diagnostic path が production run loop 前に失敗すること。
 - 環境変数依存削除または互換期間の挙動。
+- current docs が implementation と同じ起動 mode / 診断 path selector を説明していること。
 
 ## 12. 先送り事項
 
@@ -254,10 +265,10 @@ software-only で確認できる範囲:
 - [x] source を user discussion、`local_073`、`local_071`、`local_045` から特定した。
 - [x] use case を production default、explicit noop、CLI diagnostic flag として定義した。
 - [x] 設定ファイル schema と link key DB reconnect とは別 work unit に分離した。
-- [ ] CLI parser の test list を実装前に再確認した。
-- [ ] red test または characterization test を追加した。
-- [ ] production default / noop explicit behavior を実装した。
-- [ ] diagnostic CLI flag を実装した。
-- [ ] hardware approval env の削除または互換期間を決めた。
-- [ ] docs / status を更新した。
-- [ ] software verification と実機未実行理由または実機結果を記録した。
+- [x] CLI parser の test list を実装前に再確認した。
+- [x] red test または characterization test を追加した。
+- [x] production default / noop explicit behavior を実装した。
+- [x] diagnostic CLI flag を実装した。
+- [x] hardware approval env の削除または互換期間を決めた。
+- [x] docs / status を更新した。
+- [x] software verification と実機未実行理由または実機結果を記録した。
