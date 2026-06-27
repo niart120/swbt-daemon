@@ -885,6 +885,7 @@ if(SWBT_BUILD_TESTS)
             daemon_config_file_test
             daemon_switch_address_test
             daemon_production_reconnect_test
+            daemon_production_ipc_pump_test
             daemon_launch_options_test
             daemon_cli_test
             architecture_journey_test
