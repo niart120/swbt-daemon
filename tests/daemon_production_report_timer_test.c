@@ -27,6 +27,12 @@ typedef struct {
     swbt_btstack_input_report_timer_adapter_config_t captured_timer_config;
 } fake_ops_t;
 
+typedef struct {
+    swbt_btstack_input_report_timer_report_send_result_t send_result;
+    int expected_ok;
+    int expected_failed;
+} report_tick_metrics_case_t;
+
 static int expect_true(bool value, const char *label) {
     if (!value) {
         // Test diagnostics write to stderr with no retained buffer.
@@ -105,6 +111,8 @@ static int fake_device_send(void *context, uint16_t hid_cid, const uint8_t *mess
     fake->last_device_hid_cid = hid_cid;
     fake->last_device_message_size = message_size;
     if (message_size <= sizeof(fake->last_device_message)) {
+        // The fake capture buffer capacity is checked before copying message bytes.
+        // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         (void)memcpy(fake->last_device_message, message, message_size);
     }
     return 0;
@@ -145,6 +153,8 @@ static int fake_report_timer_enqueue_reply(void *context,
     fake->last_reply_hid_cid = hid_cid;
     fake->last_reply_size = report_size;
     if (report_size <= sizeof(fake->last_reply)) {
+        // The fake capture buffer capacity is checked before copying reply bytes.
+        // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         (void)memcpy(fake->last_reply, report, report_size);
     }
     return 0;
@@ -252,9 +262,7 @@ static int production_report_timer_sender_uses_device_send(void) {
     return failed;
 }
 
-static int report_tick_observer_updates_metrics(
-    swbt_btstack_input_report_timer_report_send_result_t send_result, int expected_ok,
-    int expected_failed) {
+static int report_tick_observer_updates_metrics(report_tick_metrics_case_t test_case) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_ops_t fake = {0};
     swbt_btstack_device_t device = {0};
@@ -285,13 +293,14 @@ static int report_tick_observer_updates_metrics(
                           "report tick observer configured");
     if (fake.captured_timer_config.report_tick_observer != NULL) {
         fake.captured_timer_config.report_tick_observer(
-            fake.captured_timer_config.report_tick_context, 123000u, send_result);
+            fake.captured_timer_config.report_tick_context, 123000u, test_case.send_result);
     }
     failed += expect_eq_int(swbt_domain_read_status(swbt_daemon_process_app(&host), &status),
                             SWBT_DOMAIN_OK, "status read");
     failed += expect_eq_int((int)status.metrics.report_ticks, 1, "report ticks");
-    failed += expect_eq_int((int)status.metrics.report_send_ok, expected_ok, "report send ok");
-    failed += expect_eq_int((int)status.metrics.report_send_failed, expected_failed,
+    failed +=
+        expect_eq_int((int)status.metrics.report_send_ok, test_case.expected_ok, "report send ok");
+    failed += expect_eq_int((int)status.metrics.report_send_failed, test_case.expected_failed,
                             "report send failed");
     failed += expect_eq_int((int)status.metrics.hardware_status,
                             (int)SWBT_METRICS_HARDWARE_UNAVAILABLE, "hardware metrics");
@@ -301,13 +310,19 @@ static int report_tick_observer_updates_metrics(
 }
 
 static int successful_report_tick_updates_metrics(void) {
-    return report_tick_observer_updates_metrics(SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_OK, 1,
-                                                0);
+    return report_tick_observer_updates_metrics((report_tick_metrics_case_t){
+        .send_result = SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_OK,
+        .expected_ok = 1,
+        .expected_failed = 0,
+    });
 }
 
 static int failed_report_tick_updates_metrics(void) {
-    return report_tick_observer_updates_metrics(SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_FAILED,
-                                                0, 1);
+    return report_tick_observer_updates_metrics((report_tick_metrics_case_t){
+        .send_result = SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_FAILED,
+        .expected_ok = 0,
+        .expected_failed = 1,
+    });
 }
 
 static int neutral_send_returns_port_result(int port_result) {

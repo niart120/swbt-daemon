@@ -136,6 +136,7 @@ Completion verification:
 
 - `just debug`: pass、56/56。
 - `just windows-cross`: pass。
+- `just verify`: pass。format-check、clang-tidy、fresh debug、ASan、Windows cross build を含む。
 - `rg -n "swbt_btstack_device_send|swbt_daemon_production_record_report_tick|swbt_daemon_production_report_send_result|send_neutral_now|enqueue_subcommand_reply" swbt\daemon\production_runner.c swbt\daemon\production_report_timer.c`:
   report timer の device send、metrics mapping、neutral send、subcommand reply port
   委譲は `production_report_timer.c` にある。`production_runner.c` には process
