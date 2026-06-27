@@ -233,6 +233,14 @@ target_link_libraries(swbt_runtime PUBLIC swbt_application swbt_btstack_adapter 
 swbt_apply_common_warnings(swbt_runtime)
 swbt_apply_sanitizers(swbt_runtime)
 
+add_library(swbt_control STATIC
+    swbt/control/control.c
+)
+swbt_configure_module_public_includes(swbt_control MODULES control)
+target_link_libraries(swbt_control PUBLIC swbt_application swbt_runtime)
+swbt_apply_common_warnings(swbt_control)
+swbt_apply_sanitizers(swbt_control)
+
 add_library(swbt_daemon_host STATIC
     swbt/daemon/config.c
     swbt/daemon/config_file.cpp
@@ -451,6 +459,15 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(application_command_test)
 
     add_test(NAME application_command_test COMMAND application_command_test)
+
+    add_executable(control_test
+        tests/control_test.c
+    )
+    target_link_libraries(control_test PRIVATE swbt_control)
+    swbt_apply_common_warnings(control_test)
+    swbt_apply_sanitizers(control_test)
+
+    add_test(NAME control_test COMMAND control_test)
 
     add_executable(ipc_json_test
         tests/ipc_json_test.c
@@ -773,6 +790,7 @@ if(SWBT_BUILD_TESTS)
             switch_player_lights_test
             application_control_lease_test
             application_command_test
+            control_test
             ipc_json_test
             ipc_server_test
             debug_ipc_client_test
