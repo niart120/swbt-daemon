@@ -19,9 +19,11 @@ typedef struct {
     int timer_can_send_result;
     int timer_stop_calls;
     int finish_shutdown_calls;
+    int ssp_confirmation_calls;
     uint16_t timer_hid_cid;
     uint64_t timer_now_us;
     uint32_t clock_time_ms;
+    uint8_t ssp_confirmation_address[6];
     uint8_t *captured_service_buffer;
     size_t captured_service_buffer_size;
     swbt_btstack_hid_registration_config_t captured_registration;
@@ -48,6 +50,16 @@ static int expect_eq_int(int actual, int expected, const char *label) {
 }
 
 static int expect_eq_u16(uint16_t actual, uint16_t expected, const char *label) {
+    if (actual != expected) {
+        // Test diagnostics write to stderr with no retained buffer.
+        // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+        fprintf(stderr, "%s: expected %u, got %u\n", label, (unsigned)expected, (unsigned)actual);
+        return 1;
+    }
+    return 0;
+}
+
+static int expect_eq_u8(uint8_t actual, uint8_t expected, const char *label) {
     if (actual != expected) {
         // Test diagnostics write to stderr with no retained buffer.
         // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
@@ -166,6 +178,21 @@ static uint32_t fake_time_ms(void *context) {
 static swbt_btstack_production_clock_port_t fake_clock_port(void) {
     return (swbt_btstack_production_clock_port_t){
         .time_ms = fake_time_ms,
+    };
+}
+
+static int fake_ssp_confirm_user_confirmation(void *context, const uint8_t address[6]) {
+    fake_ops_t *fake = context;
+    fake->ssp_confirmation_calls += 1;
+    for (size_t index = 0; index < sizeof(fake->ssp_confirmation_address); ++index) {
+        fake->ssp_confirmation_address[index] = address[index];
+    }
+    return 0;
+}
+
+static swbt_btstack_production_controller_port_t fake_controller_port(void) {
+    return (swbt_btstack_production_controller_port_t){
+        .confirm_ssp_user_confirmation = fake_ssp_confirm_user_confirmation,
     };
 }
 
@@ -347,11 +374,45 @@ static int hid_session_connection_closed_stops_timer_and_completes_pending_shutd
     return failed;
 }
 
+static int hid_session_confirms_ssp_user_confirmation(void) {
+    fake_ops_t fake = {0};
+    const swbt_btstack_device_port_t device_port = fake_device_port();
+    const swbt_btstack_production_controller_port_t controller_port = fake_controller_port();
+    swbt_btstack_device_t device = {0};
+    uint8_t service_buffer[512] = {0};
+    uint8_t user_confirmation_event[] = {0x33u, 0x0au, 0x21u, 0xb5u, 0xf7u, 0x05u,
+                                         0x48u, 0xc8u, 0xc4u, 0xdcu, 0x09u, 0x00u};
+    const uint8_t expected_address[] = {0xc8u, 0x48u, 0x05u, 0xf7u, 0xb5u, 0x21u};
+    swbt_daemon_production_hid_session_t session = {
+        .device_port = &device_port,
+        .controller_port = &controller_port,
+        .port_context = &fake,
+        .device = &device,
+        .service_buffer = service_buffer,
+        .service_buffer_size = sizeof(service_buffer),
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_hid_session_register(&session), 0, "register");
+    fake.captured_registration.packet_handler(0x04u, 0x0000u, user_confirmation_event,
+                                              sizeof(user_confirmation_event));
+
+    failed += expect_eq_int(fake.ssp_confirmation_calls, 1, "ssp confirmation calls");
+    for (size_t index = 0; index < sizeof(expected_address); ++index) {
+        failed += expect_eq_u8(fake.ssp_confirmation_address[index], expected_address[index],
+                               "ssp confirmation address");
+    }
+
+    swbt_daemon_production_hid_session_stop(&session);
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += hid_session_register_opens_and_stop_closes_device();
     failed += hid_session_connection_opened_starts_timer_with_hid_cid();
     failed += hid_session_can_send_now_completes_pending_shutdown_on_success_or_failure();
     failed += hid_session_connection_closed_stops_timer_and_completes_pending_shutdown();
+    failed += hid_session_confirms_ssp_user_confirmation();
     return failed == 0 ? 0 : 1;
 }
