@@ -302,10 +302,56 @@ static int hid_session_can_send_now_completes_pending_shutdown_on_success_or_fai
     return failed;
 }
 
+static int hid_session_connection_closed_stops_timer_and_completes_pending_shutdown(void) {
+    fake_ops_t fake = {
+        .clock_time_ms = 123u,
+    };
+    const swbt_btstack_device_port_t device_port = fake_device_port();
+    const swbt_btstack_production_report_timer_port_t timer_port = fake_report_timer_port();
+    const swbt_btstack_production_clock_port_t clock_port = fake_clock_port();
+    swbt_btstack_device_t device = {0};
+    swbt_btstack_input_report_timer_adapter_t timer = {
+        .running = true,
+    };
+    uint8_t service_buffer[512] = {0};
+    bool timer_initialized = true;
+    bool shutdown_pending = true;
+    uint8_t closed_event[] = {0xefu, 3u, 0x03u, 0x42u, 0x00u};
+    swbt_daemon_production_hid_session_t session = {
+        .device_port = &device_port,
+        .report_timer_port = &timer_port,
+        .clock_port = &clock_port,
+        .port_context = &fake,
+        .device = &device,
+        .report_timer = &timer,
+        .report_timer_initialized = &timer_initialized,
+        .shutdown_neutral_pending = &shutdown_pending,
+        .service_buffer = service_buffer,
+        .service_buffer_size = sizeof(service_buffer),
+        .finish_shutdown = fake_finish_shutdown,
+        .finish_shutdown_context = &fake,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_hid_session_register(&session), 0, "register");
+    fake.captured_registration.packet_handler(0x04u, 0x0042u, closed_event, sizeof(closed_event));
+
+    failed += expect_eq_int(fake.timer_stop_calls, 1, "timer stop calls");
+    failed += expect_true(!timer.running, "timer stopped");
+    failed += expect_true(!shutdown_pending, "shutdown pending cleared");
+    failed += expect_eq_int(fake.finish_shutdown_calls, 1, "finish shutdown calls");
+    failed += expect_eq_int(fake.timer_start_calls, 0, "timer start calls");
+    failed += expect_eq_int(fake.timer_can_send_calls, 0, "timer can send calls");
+
+    swbt_daemon_production_hid_session_stop(&session);
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += hid_session_register_opens_and_stop_closes_device();
     failed += hid_session_connection_opened_starts_timer_with_hid_cid();
     failed += hid_session_can_send_now_completes_pending_shutdown_on_success_or_failure();
+    failed += hid_session_connection_closed_stops_timer_and_completes_pending_shutdown();
     return failed == 0 ? 0 : 1;
 }
