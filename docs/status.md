@@ -6,9 +6,10 @@
 
 | 項目 | 確認済みの範囲 | 根拠 |
 |---|---|---|
-| 既定起動 | `swbt-daemon` は既定で production backend を選ぶ。Bluetooth アダプターを開かない test / smoke は `--backend noop` を明示する。 | `apps/swbt-daemon/main.c`, `CMakeLists.txt`, `work-units/complete/local_074/DAEMON_LAUNCH_MODE_FLAGS.md` |
+| 既定起動 | `swbt-daemon` は既定で production backend を選ぶ。production backend は `--adapter-location` 未指定では adapter open 前に失敗する。Bluetooth アダプターを開かない test / smoke は `--backend noop` を明示する。 | `apps/swbt-daemon/main.c`, `CMakeLists.txt`, `work-units/complete/local_074/DAEMON_LAUNCH_MODE_FLAGS.md`, `work-units/complete/local_077/ADAPTER_SELECTOR_GUARD.md` |
 | noop backend opt-in | `swbt-daemon --backend noop` または `--backend=noop` は noop backend を選び、Bluetooth アダプターを開かない。 | `apps/swbt-daemon/main.c`, `swbt/daemon/launch_options.c`, `tests/daemon_launch_options_test.c` |
-| 実機承認条件 | production backend の実装上の環境変数分岐は削除済み。実機操作は引き続き人間の明示承認、専用 USB Bluetooth ドングル、driver state 記録を必要とする。 | `apps/swbt-daemon/main.c`, `spec/operations/windows-native-preflight.md`, `work-units/complete/local_074/DAEMON_LAUNCH_MODE_FLAGS.md` |
+| adapter location selector | production backend は `--adapter-location winusb:<location-path>` または `--adapter-location libusb:<bus>:<port-path>` を受け付ける。選択中の build backend と prefix が一致しない場合、adapter open 前に失敗する。Windows WinUSB は CSR8510 A10 で selector による adapter open と HCI power on を確認済み。 | `apps/swbt-daemon/main.c`, `swbt/daemon/launch_options.c`, `swbt/btstack_bridge/usb_adapter_location.c`, `swbt/btstack_bridge/production_btstack.c`, `tests/btstack_usb_adapter_location_test.c`, `tests/daemon_production_backend_test.c`, `docs/hardware-test-log.md` |
+| 実機承認条件 | production backend の実装上の環境変数分岐は削除済み。実機操作は引き続き人間の明示承認、専用 USB Bluetooth ドングル、adapter location、driver / permission state 記録を必要とする。 | `apps/swbt-daemon/main.c`, `spec/operations/windows-native-preflight.md`, `work-units/complete/local_074/DAEMON_LAUNCH_MODE_FLAGS.md`, `work-units/complete/local_077/ADAPTER_SELECTOR_GUARD.md` |
 | 既知の対応構成 | Windows native、CSR8510 A10、WinUSB、Switch 2 firmware `22.1.0`（実機ログ表記は Switch2）、production backend。 | `docs/hardware-test-log.md`, `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` |
 | Switch pairing / HID L2CAP | 上記構成で SSP pairing status `0x00` と PSM `0x11` / `0x13` の L2CAP open status `0x0` を観測した。 | `docs/hardware-test-log.md` |
 | Switch output subcommand reply | `0x02`, `0x08`, `0x10`, `0x03`, `0x04`, `0x40`, `0x48`, `0x21`, `0x30` を含む reply sequence を観測した。 | `docs/hardware-test-log.md` |
@@ -30,7 +31,7 @@
 |---|---|---|
 | 初代Switch各モデル | 初代Switch、Switch Lite、Switch OLED での pairing、subcommand sequence、input 反映。 | firmware、adapter、driver、report period を記録した実機ログ。 |
 | 他のUSBドングル | CSR8510 A10 以外の Bluetooth ドングルでの WinUSB / libusb 挙動。 | VID/PID、driver、BTstack backend、HCI dump を含む実機ログ。 |
-| Linux実機経路 | Linux + libusb backend での adapter open、pairing、HID report loop。 | Linux host、libusb device、udev / permission、HCI dump を含む実機ログ。 |
+| Linux実機経路 | Linux + libusb backend での adapter open、pairing、HID report loop。software selector は `libusb:<bus>:<port-path>` を受け付けるが、実機では未確認。 | Linux host、libusb bus / port path、udev / permission、HCI dump を含む実機ログ。 |
 | 厳密な遅延・jitter・取りこぼし率 | input report の実送信周期、Switch 側入力遅延、取りこぼし率。 | timestamp 付き計測、サンプル数、解析方法、測定誤差の記録。 |
 
 ## 未実装
@@ -46,14 +47,16 @@
 
 ## production 起動条件
 
-`apps/swbt-daemon/main.c` は引数なしで production backend を選ぶ。Bluetooth アダプターを開かない test / smoke は `--backend noop` または `--backend=noop` を明示する。不正な backend 値は adapter open 前の CLI validation で失敗する。
+`apps/swbt-daemon/main.c` は引数なしで production backend を選ぶ。production backend は `--adapter-location` 未指定では adapter open 前に失敗する。Bluetooth アダプターを開かない test / smoke は `--backend noop` または `--backend=noop` を明示する。不正な backend 値と不正な adapter location は adapter open 前の CLI validation で失敗する。
 
-runtime config の reusable boundary は `default -> TOML config file -> environment override` の優先順位で test されている。現行 `apps/swbt-daemon/main.c` は `--config <path>` / `--config=<path>` を受け取り、同じ path を learned Switch address の書き戻し先 target として production backend へ渡す。`--link-key-db <path>` / `--link-key-db=<path>` を指定した起動では、production BTstack が TLV-backed Classic link key DB を接続し、HCI link key notification を同じ DB へ保存する。診断出力 path は `--trace-path`、`--hci-dump-path`、`--crash-dump-path` を指定した起動だけで有効になる。`SWBT_DAEMON_BACKEND`、`SWBT_RUN_HARDWARE`、`SWBT_HARDWARE_APPROVED`、`SWBT_DIAGNOSTIC_TRACE_PATH`、`SWBT_HCI_DUMP_TRACE_PATH`、`SWBT_CRASH_DUMP_PATH` は current implementation の起動 mode / 診断 path selector ではない。
+runtime config の reusable boundary は `default -> TOML config file -> environment override` の優先順位で test されている。現行 `apps/swbt-daemon/main.c` は `--config <path>` / `--config=<path>` を受け取り、同じ path を learned Switch address の書き戻し先 target として production backend へ渡す。`--link-key-db <path>` / `--link-key-db=<path>` を指定した起動では、production BTstack が TLV-backed Classic link key DB を接続し、HCI link key notification を同じ DB へ保存する。`--adapter-location <selector>` は production BTstack の USB transport selector と production backend の missing-selector guard を設定する。診断出力 path は `--trace-path`、`--hci-dump-path`、`--crash-dump-path` を指定した起動だけで有効になる。`SWBT_DAEMON_BACKEND`、`SWBT_RUN_HARDWARE`、`SWBT_HARDWARE_APPROVED`、`SWBT_DIAGNOSTIC_TRACE_PATH`、`SWBT_HCI_DUMP_TRACE_PATH`、`SWBT_CRASH_DUMP_PATH` は current implementation の起動 mode / 診断 path selector ではない。
 
 | 区分 | 指定 | 値 | 備考 |
 |---|---|---|---|
-| 起動 mode | なし | production | 既定。実機操作には下記の人間承認が別途必要。 |
+| 起動 mode | なし | production | 既定。ただし `--adapter-location` がない production 起動は adapter open 前に失敗する。 |
 | 起動 mode | `--backend noop` | noop | test / smoke 用。Bluetooth アダプターを開かない。 |
+| adapter selector | `--adapter-location winusb:<location-path>` | Windows WinUSB の USB location path | Windows WinUSB build 用。指定した location path に一致した USB device interface だけを open 対象にする。 |
+| adapter selector | `--adapter-location libusb:<bus>:<port-path>` | Linux libusb の bus + port path | libusb build 用。BTstack の `hci_transport_usb_set_bus_and_path(...)` へ接続する。 |
 | 診断 | `--trace-path <path>` | trace 出力先 | startup / cleanup trace を残す。 |
 | 診断 | `--hci-dump-path <path>` | HCI dump text 出力先 | pairing、L2CAP、HID report の証跡を残す。path が開けない場合は production run loop 前に失敗する。 |
 | 診断 | `--crash-dump-path <path>` | dump 出力先 | Windows crash dump 出力先。非 Windows build では flag を受け付けるが no-op。 |
@@ -68,8 +71,9 @@ runtime config の reusable boundary は `default -> TOML config file -> environ
 - 専用 USB Bluetooth ドングルを使う。
 - 内蔵 Bluetooth と普段使いのドングルを対象にしない。
 - ユーザが Bluetooth adapter open、Switch pairing、HID advertising、report loop、IPC input、cleanup confirmation のどこまで許可するかを明示する。
-- Windows native では対象ドングルの driver が WinUSB に割り当たっていることを記録する。
-- Switch firmware、dongle VID/PID、driver、BTstack commit、swbt commit、report period、artifact path を `docs/hardware-test-log.md` に記録する。
+- Windows native では対象ドングルの driver が WinUSB に割り当たっていることと `winusb:<location-path>` selector を記録する。
+- Linux では対象ドングルの libusb permission と `libusb:<bus>:<port-path>` selector を記録する。
+- Switch firmware、dongle VID/PID、driver / permission、adapter location、BTstack commit、swbt commit、report period、artifact path を `docs/hardware-test-log.md` に記録する。
 
 ## 証跡
 
@@ -81,6 +85,7 @@ runtime config の reusable boundary は `default -> TOML config file -> environ
 | `work-units/complete/local_046/DOC_IMPLEMENTATION_STATE_ALIGNMENT.md` | README / spec の直近整合更新記録。 |
 | `work-units/complete/local_057/ARCHITECTURE_CUTOVER_H1.md` | architecture cutover 後の Hardware Gate H1 実行記録。 |
 | `work-units/complete/local_058/SHUTDOWN_NEUTRAL_RETRY_FAILURE.md` | shutdown neutral pending 後の再送失敗でも power-off と run-loop exit へ進む software failure cleanup の完了記録。 |
+| `work-units/complete/local_077/ADAPTER_SELECTOR_GUARD.md` | USB location adapter selector guard の完了記録。 |
 | `apps/swbt-daemon/main.c` | backend selection と起動時 config / CLI diagnostic path の実装根拠。 |
 | `swbt/daemon/host.c` | application、IPC、BTstack adapter、report timer、shutdown cleanup ordering の実装根拠。 |
 | `swbt/daemon/production_backend.c` | production lifecycle の実装根拠。 |

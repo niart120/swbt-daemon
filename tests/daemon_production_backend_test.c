@@ -586,12 +586,38 @@ static swbt_btstack_production_adapter_t fake_backend_adapter(void) {
     };
 }
 
+static int mark_adapter_location_configured(swbt_daemon_production_backend_t *backend) {
+    return expect_true(swbt_daemon_production_backend_set_adapter_location_configured(backend),
+                       "adapter location configured");
+}
+
 static int expect_steps(const fake_ops_t *fake, const int *expected, size_t expected_count) {
     int failed = 0;
     failed += expect_eq_int((int)fake->step_count, (int)expected_count, "step count");
     for (size_t index = 0; index < expected_count && index < fake->step_count; ++index) {
         failed += expect_eq_int(fake->steps[index], expected[index], "step");
     }
+    return failed;
+}
+
+static int production_backend_requires_adapter_location_before_platform_start(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {0};
+    const swbt_btstack_production_adapter_t adapter = fake_backend_adapter();
+    swbt_daemon_production_backend_t backend;
+    const swbt_daemon_hardware_approval_t approval = {
+        .run_hardware = true,
+        .hardware_approved = true,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
+                            SWBT_DAEMON_PRODUCTION_ERROR_ADAPTER_LOCATION_REQUIRED, "main result");
+    failed += expect_eq_int((int)fake.step_count, 0, "no adapter steps");
+    failed += expect_eq_int(fake.platform_start_calls, 0, "platform not started");
+    failed += expect_eq_int(fake.power_off_calls, 0, "power not touched");
     return failed;
 }
 
@@ -614,6 +640,7 @@ static int production_backend_starts_without_code_level_hardware_approval_gate(v
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
@@ -700,6 +727,7 @@ static int approved_backend_starts_hardware_and_cleans_up_in_order(void) {
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
@@ -745,6 +773,7 @@ static int approved_backend_requests_active_reconnect_when_switch_address_is_con
                           "set learned address");
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
@@ -794,6 +823,7 @@ static int active_reconnect_failure_reports_failed_state_without_stopping_run_lo
                           "set learned address");
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
@@ -821,6 +851,7 @@ static int run_loop_json_state_reaches_fake_hid_send(void) {
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_eq_int(fake.injected_json_result, 0, "json commands");
@@ -847,6 +878,7 @@ static int production_report_success_updates_status_metrics_without_hardware_mea
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_eq_int(fake.injected_json_result, 0, "json commands");
@@ -881,6 +913,7 @@ static int production_report_failure_updates_send_failure_metrics_and_cleans_up(
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_eq_int(fake.injected_json_result, 0, "json commands");
@@ -912,6 +945,7 @@ static int run_loop_disconnect_emits_neutral_before_reacquire(void) {
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_eq_int(fake.injected_json_result, 0, "json commands");
@@ -935,6 +969,7 @@ static int approved_backend_status_exposes_production_without_hardware_metrics(v
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_eq_int(fake.status_during_run_loop_result, SWBT_IPC_OK, "status read");
@@ -969,6 +1004,7 @@ static int start_failure_cleans_started_resources_only(void) {
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(swbt_daemon_production_main_with_backend(&backend, &approval),
                             SWBT_DAEMON_PRODUCTION_ERROR_RUNTIME, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
@@ -1012,6 +1048,7 @@ static int stop_request_sends_neutral_before_power_off_and_run_loop_exit(void) {
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(swbt_daemon_production_main_with_backend_and_shutdown(
                                 &backend, &approval, &shutdown, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
@@ -1062,6 +1099,7 @@ static int shutdown_after_json_state_sends_trailing_neutral_before_power_off(voi
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(swbt_daemon_production_main_with_backend_and_shutdown(
                                 &backend, &approval, &shutdown, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
@@ -1114,6 +1152,7 @@ static int pending_stop_request_finishes_after_can_send_event(void) {
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(swbt_daemon_production_main_with_backend_and_shutdown(
                                 &backend, &approval, &shutdown, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
@@ -1167,6 +1206,7 @@ static int pending_stop_request_finishes_after_failed_can_send_event(void) {
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(swbt_daemon_production_main_with_backend_and_shutdown(
                                 &backend, &approval, &shutdown, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
@@ -1215,6 +1255,7 @@ static int shutdown_listener_is_installed_without_code_level_hardware_approval_g
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(swbt_daemon_production_main_with_backend_and_shutdown(
                                 &backend, &approval, &shutdown, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
@@ -1263,6 +1304,7 @@ static int repeated_stop_request_does_not_power_off_twice(void) {
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(swbt_daemon_production_main_with_backend_and_shutdown(
                                 &backend, &approval, &shutdown, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
@@ -1405,6 +1447,7 @@ static int hid_packet_handler_confirms_ssp_user_confirmation(void) {
 
 int main(void) {
     int failed = 0;
+    failed += production_backend_requires_adapter_location_before_platform_start();
     failed += production_backend_starts_without_code_level_hardware_approval_gate();
     failed += ipc_pump_port_starts_without_unrelated_btstack_abilities();
     failed += hardware_approval_env_requires_both_flags();

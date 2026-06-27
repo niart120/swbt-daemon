@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "btstack_bridge/usb_adapter_location.h"
+
 static const char *swbt_daemon_launch_options_value_after_equals(const char *argument,
                                                                  const char *prefix) {
     const size_t prefix_length = strlen(prefix);
@@ -28,6 +30,12 @@ static bool swbt_daemon_launch_options_parse_backend(swbt_daemon_launch_backend_
     return false;
 }
 
+static bool swbt_daemon_launch_options_adapter_location_is_valid(const char *value) {
+    swbt_btstack_usb_adapter_location_t location;
+    return swbt_btstack_usb_adapter_location_parse(value, &location) ==
+           SWBT_BTSTACK_USB_ADAPTER_LOCATION_OK;
+}
+
 swbt_daemon_launch_options_result_t
 swbt_daemon_launch_options_parse(swbt_daemon_launch_options_t *options, int argc,
                                  const char *const argv[]) {
@@ -45,6 +53,7 @@ swbt_daemon_launch_options_parse(swbt_daemon_launch_options_t *options, int argc
         const char *hci_dump_value = NULL;
         const char *crash_dump_value = NULL;
         const char *backend_value = NULL;
+        const char *adapter_location_value = NULL;
 
         if (argument == NULL) {
             return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_INVALID_ARGUMENT;
@@ -164,6 +173,31 @@ swbt_daemon_launch_options_parse(swbt_daemon_launch_options_t *options, int argc
             continue;
         }
 
+        if (strcmp(argument, "--adapter-location") == 0) {
+            if (index + 1 >= argc || argv[index + 1] == NULL || argv[index + 1][0] == '\0') {
+                return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE;
+            }
+            if (!swbt_daemon_launch_options_adapter_location_is_valid(argv[index + 1])) {
+                return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_INVALID_ARGUMENT;
+            }
+            options->adapter_location = argv[index + 1];
+            ++index;
+            continue;
+        }
+
+        adapter_location_value =
+            swbt_daemon_launch_options_value_after_equals(argument, "--adapter-location=");
+        if (adapter_location_value != NULL) {
+            if (adapter_location_value[0] == '\0') {
+                return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE;
+            }
+            if (!swbt_daemon_launch_options_adapter_location_is_valid(adapter_location_value)) {
+                return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_INVALID_ARGUMENT;
+            }
+            options->adapter_location = adapter_location_value;
+            continue;
+        }
+
         return SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_UNKNOWN_OPTION;
     }
 
@@ -204,6 +238,10 @@ bool swbt_daemon_launch_config_prepare(swbt_daemon_launch_config_t *launch_confi
     }
 
     launch_config->hci_dump_path = options->hci_dump_path;
+    if (options->adapter_location != NULL) {
+        launch_config->adapter_location = options->adapter_location;
+        launch_config->adapter_location_configured = true;
+    }
 
     if (!swbt_daemon_config_apply_env(&launch_config->config, env)) {
         *launch_config = (swbt_daemon_launch_config_t){0};

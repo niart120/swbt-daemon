@@ -9,6 +9,7 @@
 #include "btstack_bridge/hid_device_btstack_adapter.h"
 #include "btstack_bridge/input_report_timer_adapter.h"
 #include "btstack_bridge/output_report_callbacks.h"
+#include "btstack_bridge/usb_adapter_location.h"
 #include "btstack_memory.h"
 #include "btstack_run_loop.h"
 #include "btstack_tlv.h"
@@ -23,6 +24,10 @@
 #include "l2cap.h"
 
 #include <stdlib.h>
+
+#if defined(SWBT_BACKEND_WINDOWS_WINUSB)
+int hci_transport_usb_set_location_path(const char *location_path);
+#endif
 
 #if defined(_WIN32)
 #include "btstack_run_loop_windows.h"
@@ -161,6 +166,48 @@ int swbt_btstack_production_link_key_db_configure(const char *path) {
     }
     g_link_key_db_path = path;
     return 0;
+}
+
+#if defined(SWBT_BACKEND_WINDOWS_WINUSB)
+static int swbt_btstack_production_winusb_location_path_set(void *context,
+                                                            const char *location_path) {
+    (void)context;
+    return hci_transport_usb_set_location_path(location_path);
+}
+#endif
+
+#if defined(SWBT_BACKEND_LIBUSB)
+static void swbt_btstack_production_libusb_bus_and_path_set(void *context, uint8_t bus,
+                                                            int port_count, uint8_t *ports) {
+    (void)context;
+    hci_transport_usb_set_bus_and_path(bus, port_count, ports);
+}
+#endif
+
+int swbt_btstack_production_adapter_location_configure(const char *location) {
+    swbt_btstack_usb_adapter_location_t parsed_location;
+    swbt_btstack_usb_adapter_location_port_t port = {0};
+
+    if (location == NULL || location[0] == '\0') {
+        return -1;
+    }
+    if (swbt_btstack_usb_adapter_location_parse(location, &parsed_location) !=
+        SWBT_BTSTACK_USB_ADAPTER_LOCATION_OK) {
+        return -1;
+    }
+
+#if defined(SWBT_BACKEND_WINDOWS_WINUSB)
+    port.set_winusb_location_path = swbt_btstack_production_winusb_location_path_set;
+#elif defined(SWBT_BACKEND_LIBUSB)
+    port.set_libusb_bus_and_path = swbt_btstack_production_libusb_bus_and_path_set;
+#else
+    return -1;
+#endif
+
+    return swbt_btstack_usb_adapter_location_apply(&parsed_location, &port) ==
+                   SWBT_BTSTACK_USB_ADAPTER_LOCATION_OK
+               ? 0
+               : -1;
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): BTstack packet handler ABI.

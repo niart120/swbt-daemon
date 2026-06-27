@@ -19,6 +19,7 @@ typedef enum {
     SWBT_DAEMON_PRODUCTION_ERROR_RUNTIME = -2,
     SWBT_DAEMON_PRODUCTION_ERROR_HARDWARE_APPROVAL_REQUIRED = -3,
     SWBT_DAEMON_PRODUCTION_ERROR_HARDWARE = -4,
+    SWBT_DAEMON_PRODUCTION_ERROR_ADAPTER_LOCATION_REQUIRED = -5,
 } swbt_daemon_production_result_t;
 
 typedef struct {
@@ -54,6 +55,7 @@ typedef struct {
     bool report_timer_initialized;
     bool shutdown_neutral_pending;
     bool learned_switch_address_target_configured;
+    bool adapter_location_configured;
     btstack_context_callback_registration_t shutdown_callback;
     atomic_bool hardware_powered;
     atomic_bool shutdown_requested;
@@ -65,6 +67,9 @@ swbt_daemon_production_result_t swbt_daemon_production_backend_init(
 
 bool swbt_daemon_production_backend_set_learned_switch_address_target(
     swbt_daemon_production_backend_t *backend, const swbt_daemon_config_file_target_t *target);
+
+bool swbt_daemon_production_backend_set_adapter_location_configured(
+    swbt_daemon_production_backend_t *backend);
 
 const swbt_daemon_host_backend_t *swbt_daemon_production_host_backend(void);
 

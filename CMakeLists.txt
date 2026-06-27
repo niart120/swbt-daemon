@@ -67,6 +67,7 @@ endif()
 include(cmake/compiler_warnings.cmake)
 include(cmake/sanitizers.cmake)
 include(cmake/btstack_sources.cmake)
+include(cmake/btstack_winusb_location_patch.cmake)
 include(cmake/module_public_includes.cmake)
 
 set(SWBT_TOML11_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/toml11" CACHE PATH "toml11 source directory")
@@ -118,8 +119,15 @@ if(SWBT_BACKEND STREQUAL "libusb")
         list(APPEND swbt_btstack_link_libraries "${swbt_libusb_library}")
     endif()
 elseif(SWBT_BACKEND STREQUAL "windows-winusb")
-    list(APPEND swbt_btstack_link_sources
+    set(swbt_btstack_winusb_transport_source
+        "${CMAKE_CURRENT_BINARY_DIR}/generated/btstack/platform/windows/hci_transport_h2_winusb_location.c"
+    )
+    swbt_generate_btstack_winusb_location_transport(
         "${SWBT_BTSTACK_DIR}/platform/windows/hci_transport_h2_winusb.c"
+        "${swbt_btstack_winusb_transport_source}"
+    )
+    list(APPEND swbt_btstack_link_sources
+        "${swbt_btstack_winusb_transport_source}"
         "${SWBT_BTSTACK_DIR}/platform/windows/btstack_run_loop_windows.c"
         "${SWBT_BTSTACK_DIR}/platform/windows/btstack_tlv_windows.c"
     )
@@ -195,6 +203,7 @@ swbt_apply_sanitizers(swbt_ipc)
 
 add_library(swbt_btstack_adapter STATIC
     swbt/btstack_bridge/production_adapter.c
+    swbt/btstack_bridge/usb_adapter_location.c
     swbt/btstack_bridge/classic_discovery.c
     swbt/btstack_bridge/classic_discovery_btstack_adapter.c
     swbt/btstack_bridge/hci_dump_text.c
@@ -246,6 +255,11 @@ target_include_directories(swbt_btstack_production_adapter
         ${swbt_btstack_selected_include_dirs}
 )
 target_link_libraries(swbt_btstack_production_adapter PUBLIC swbt_btstack_adapter swbt_support swbt_btstack)
+if(SWBT_BACKEND STREQUAL "libusb")
+    target_compile_definitions(swbt_btstack_production_adapter PRIVATE SWBT_BACKEND_LIBUSB=1)
+elseif(SWBT_BACKEND STREQUAL "windows-winusb")
+    target_compile_definitions(swbt_btstack_production_adapter PRIVATE SWBT_BACKEND_WINDOWS_WINUSB=1)
+endif()
 swbt_apply_common_warnings(swbt_btstack_production_adapter)
 swbt_apply_sanitizers(swbt_btstack_production_adapter)
 
@@ -536,6 +550,15 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME btstack_hci_dump_text_test COMMAND btstack_hci_dump_text_test)
 
+    add_executable(btstack_usb_adapter_location_test
+        tests/btstack_usb_adapter_location_test.c
+    )
+    target_link_libraries(btstack_usb_adapter_location_test PRIVATE swbt_btstack_adapter)
+    swbt_apply_common_warnings(btstack_usb_adapter_location_test)
+    swbt_apply_sanitizers(btstack_usb_adapter_location_test)
+
+    add_test(NAME btstack_usb_adapter_location_test COMMAND btstack_usb_adapter_location_test)
+
     add_executable(btstack_production_hci_dump_test
         tests/btstack_production_hci_dump_test.c
     )
@@ -716,6 +739,7 @@ if(SWBT_BUILD_TESTS)
             btstack_timer_port_test
             btstack_classic_discovery_test
             btstack_hci_dump_text_test
+            btstack_usb_adapter_location_test
             btstack_production_hci_dump_test
             btstack_output_report_handler_test
             btstack_output_report_callbacks_test

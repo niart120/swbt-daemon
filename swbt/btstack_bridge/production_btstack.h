@@ -9,6 +9,8 @@ int swbt_btstack_production_hci_dump_configure(const char *path);
 
 int swbt_btstack_production_link_key_db_configure(const char *path);
 
+int swbt_btstack_production_adapter_location_configure(const char *location);
+
 const swbt_btstack_production_adapter_t *swbt_btstack_production_adapter(void);
 
 #endif

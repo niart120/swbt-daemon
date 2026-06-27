@@ -193,6 +193,37 @@ static int crash_dump_path_equals_argument_is_accepted(void) {
     return failed;
 }
 
+static int adapter_location_winusb_separate_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--adapter-location",
+                          "winusb:PCIROOT(0)#USBROOT(0)#USB(3)"};
+    swbt_daemon_launch_options_t options = {0};
+    swbt_daemon_launch_config_t launch_config = {0};
+    const swbt_daemon_config_env_t env = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 3, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed += expect_str_eq(options.adapter_location, "winusb:PCIROOT(0)#USBROOT(0)#USB(3)",
+                            "adapter location");
+    failed +=
+        expect_true(swbt_daemon_launch_config_prepare(&launch_config, &options, &env), "prepare");
+    failed += expect_true(launch_config.adapter_location_configured, "adapter configured");
+    failed += expect_str_eq(launch_config.adapter_location, "winusb:PCIROOT(0)#USBROOT(0)#USB(3)",
+                            "launch adapter location");
+    return failed;
+}
+
+static int adapter_location_libusb_equals_argument_is_accepted(void) {
+    const char *argv[] = {"swbt-daemon", "--adapter-location=libusb:1:3.2"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 2, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_OK, "parse");
+    failed += expect_str_eq(options.adapter_location, "libusb:1:3.2", "adapter location");
+    return failed;
+}
+
 static int missing_link_key_db_path_is_rejected(void) {
     const char *argv[] = {"swbt-daemon", "--link-key-db"};
     swbt_daemon_launch_options_t options = {0};
@@ -215,6 +246,17 @@ static int missing_config_path_is_rejected(void) {
     return failed;
 }
 
+static int missing_adapter_location_value_is_rejected(void) {
+    const char *argv[] = {"swbt-daemon", "--adapter-location"};
+    swbt_daemon_launch_options_t options = {0};
+
+    int failed = 0;
+    failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 2, argv),
+                            (int)SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_MISSING_VALUE, "parse");
+    failed += expect_null(options.adapter_location, "adapter location");
+    return failed;
+}
+
 static int unknown_option_is_rejected(void) {
     const char *argv[] = {"swbt-daemon", "--unknown"};
     swbt_daemon_launch_options_t options = {0};
@@ -223,6 +265,25 @@ static int unknown_option_is_rejected(void) {
     failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 2, argv),
                             (int)SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_UNKNOWN_OPTION, "parse");
     failed += expect_null(options.config_path, "config path");
+    return failed;
+}
+
+static int malformed_adapter_location_is_rejected(void) {
+    const char *const invalid_values[] = {
+        "winusb:",       "libusb:1",    "libusb:1:",   "libusb:0:3",
+        "libusb:256:3",  "libusb:1:3.", "libusb:1:.3", "libusb:1:3.2.4.5.6.7.8.9",
+        "bluetooth:1:3",
+    };
+    int failed = 0;
+
+    for (size_t index = 0; index < sizeof(invalid_values) / sizeof(invalid_values[0]); ++index) {
+        const char *argv[] = {"swbt-daemon", "--adapter-location", invalid_values[index]};
+        swbt_daemon_launch_options_t options = {0};
+        failed += expect_eq_int((int)swbt_daemon_launch_options_parse(&options, 3, argv),
+                                (int)SWBT_DAEMON_LAUNCH_OPTIONS_ERROR_INVALID_ARGUMENT,
+                                "parse invalid adapter location");
+        failed += expect_null(options.adapter_location, "adapter location");
+    }
     return failed;
 }
 
@@ -335,9 +396,13 @@ int main(void) {
     failed += hci_dump_path_equals_argument_is_accepted();
     failed += crash_dump_path_separate_argument_is_accepted();
     failed += crash_dump_path_equals_argument_is_accepted();
+    failed += adapter_location_winusb_separate_argument_is_accepted();
+    failed += adapter_location_libusb_equals_argument_is_accepted();
     failed += missing_link_key_db_path_is_rejected();
     failed += missing_config_path_is_rejected();
+    failed += missing_adapter_location_value_is_rejected();
     failed += unknown_option_is_rejected();
+    failed += malformed_adapter_location_is_rejected();
     failed += invalid_backend_value_is_rejected();
     failed += missing_backend_value_is_rejected();
     failed += no_options_keeps_config_path_unset();
