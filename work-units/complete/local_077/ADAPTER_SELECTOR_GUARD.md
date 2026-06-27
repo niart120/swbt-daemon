@@ -177,7 +177,7 @@ TDD status:
 
 - adapter list / management subcommand:
   - 理由: local_077 は production run を fail-closed にする selector guard が目的であり、CLI 管理面を広げると scope が増える。
-  - 次の置き場: `work-units/wip/local_078/DAEMON_CLI_MANAGEMENT_SURFACE.md`。
+  - 次の置き場: `work-units/complete/local_078/DAEMON_CLI_MANAGEMENT_SURFACE.md`。
 - config alias / short adapter name:
   - 理由: まず location selector を実装し、preflight で operator が確認して渡せることを固定する。alias は selector の永続運用が必要になってから扱う。
   - 次の置き場: `spec/dev-journal.md` または後続 work unit。
