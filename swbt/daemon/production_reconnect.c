@@ -74,3 +74,23 @@ void swbt_daemon_production_reconnect_request_active(
         swbt_daemon_production_reconnect_report_failed(reconnect->app);
     }
 }
+
+void swbt_daemon_production_reconnect_save_learned_address(
+    swbt_daemon_config_t *config, const swbt_daemon_config_file_target_t *target,
+    const uint8_t address[6]) {
+    char address_text[SWBT_DAEMON_SWITCH_ADDRESS_TEXT_SIZE];
+    swbt_daemon_config_file_result_t result;
+
+    if (config == NULL || target == NULL || target->path == NULL || target->path[0] == '\0' ||
+        address == NULL) {
+        return;
+    }
+
+    swbt_daemon_switch_address_format_bytes(address, address_text);
+    swbt_diagnostic_trace("production: learned switch address save");
+    result = swbt_daemon_config_save_active_reconnect_learned_switch_address(config, target,
+                                                                             address_text);
+    swbt_diagnostic_trace(result == SWBT_DAEMON_CONFIG_FILE_OK
+                              ? "production: learned switch address save ok"
+                              : "production: learned switch address save failed");
+}

@@ -11,4 +11,7 @@ bool swbt_daemon_switch_address_normalize(char dest[SWBT_DAEMON_SWITCH_ADDRESS_T
 
 bool swbt_daemon_switch_address_parse_bytes(const char *text, uint8_t address[6]);
 
+void swbt_daemon_switch_address_format_bytes(const uint8_t address[6],
+                                             char text[SWBT_DAEMON_SWITCH_ADDRESS_TEXT_SIZE]);
+
 #endif

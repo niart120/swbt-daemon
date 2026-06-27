@@ -40,6 +40,10 @@ static bool swbt_daemon_switch_address_hex_nibble(char value, uint8_t *out_nibbl
     return false;
 }
 
+static char swbt_daemon_switch_address_hex_digit_upper(uint8_t value) {
+    return (char)(value < 10u ? (uint8_t)'0' + value : (uint8_t)'A' + (uint8_t)(value - 10u));
+}
+
 bool swbt_daemon_switch_address_normalize(char dest[SWBT_DAEMON_SWITCH_ADDRESS_TEXT_SIZE],
                                           const char *address) {
     char normalized[SWBT_DAEMON_SWITCH_ADDRESS_TEXT_SIZE];
@@ -89,4 +93,21 @@ bool swbt_daemon_switch_address_parse_bytes(const char *text, uint8_t address[6]
         address[index] = (uint8_t)((uint8_t)(high << 4u) | low);
     }
     return text[SWBT_DAEMON_SWITCH_ADDRESS_TEXT_SIZE - 1u] == '\0';
+}
+
+void swbt_daemon_switch_address_format_bytes(const uint8_t address[6],
+                                             char text[SWBT_DAEMON_SWITCH_ADDRESS_TEXT_SIZE]) {
+    if (address == NULL || text == NULL) {
+        return;
+    }
+    for (size_t index = 0u; index < 6u; ++index) {
+        const size_t offset = index * 3u;
+        text[offset] = swbt_daemon_switch_address_hex_digit_upper((uint8_t)(address[index] >> 4u));
+        text[offset + 1u] =
+            swbt_daemon_switch_address_hex_digit_upper((uint8_t)(address[index] & 0x0Fu));
+        if (index < 5u) {
+            text[offset + 2u] = ':';
+        }
+    }
+    text[SWBT_DAEMON_SWITCH_ADDRESS_TEXT_SIZE - 1u] = '\0';
 }

@@ -25,4 +25,8 @@ swbt_daemon_production_reconnect_build_request(const swbt_daemon_config_t *confi
 void swbt_daemon_production_reconnect_request_active(
     const swbt_daemon_production_reconnect_t *reconnect);
 
+void swbt_daemon_production_reconnect_save_learned_address(
+    swbt_daemon_config_t *config, const swbt_daemon_config_file_target_t *target,
+    const uint8_t address[6]);
+
 #endif
