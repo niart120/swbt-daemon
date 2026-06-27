@@ -76,10 +76,8 @@ Tidy status:
 ## 8. 対象ファイル
 
 - `swbt/daemon/production_hid_session.*`
-- `swbt/daemon/production_runner.c`
-- `swbt/daemon/production_reconnect.*`
-- `swbt/daemon/production_report_timer.*`
-- `swbt/daemon/production_shutdown.*`
+- `swbt/daemon/production_runner.{c,h}`
+- `tests/daemon_production_hid_session_test.c`
 - `tests/daemon_production_runner_test.c`
 - `CMakeLists.txt`
 
@@ -87,25 +85,35 @@ Tidy status:
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | HID packet handler still starts timer after connection opened success and preserves captured HID CID | regression | integration | no |
-| todo | HID CAN_SEND_NOW still calls report timer can-send and completes pending shutdown on success or failure | regression | integration | no |
-| todo | HID connection closed still stops report timer and completes pending shutdown if needed | regression | integration | no |
-| todo | SSP user confirmation event still calls the controller confirmation port with decoded address | regression | integration | no |
-| todo | HID device open / close still preserve platform / HID registration cleanup behavior through device API | regression | integration | no |
+| done | HID packet handler still starts timer after connection opened success and preserves captured HID CID | regression | integration | no |
+| done | HID CAN_SEND_NOW still calls report timer can-send and completes pending shutdown on success or failure | regression | integration | no |
+| done | HID connection closed still stops report timer and completes pending shutdown if needed | regression | integration | no |
+| done | SSP user confirmation event still calls the controller confirmation port with decoded address | regression | integration | no |
+| done | HID device open / close still preserve platform / HID registration cleanup behavior through device API | regression | integration | no |
 
 ## 10. 検証
 
-not run yet.
+Red:
 
-Expected checks:
+- `just build-debug`: `tests/daemon_production_hid_session_test.c` 追加後、`daemon/production_hid_session.h` 不在で想定通り失敗した。
+
+Green / 完了検証:
 
 - `just build-debug`
-- `$env:CTEST_ARGS='-R "daemon_production_runner_test|btstack_hid_event_test|btstack_device_test" --output-on-failure'; just test-debug`
+- `$env:CTEST_ARGS='-R "daemon_production_hid_session_test|daemon_production_runner_test|btstack_hid_event_test|btstack_device_test" --output-on-failure'; just test-debug`
 - `just windows-cross`
+
+結果:
+
+- `just build-debug`: pass.
+- `$env:CTEST_ARGS='-R "daemon_production_hid_session_test|daemon_production_runner_test|btstack_hid_event_test|btstack_device_test" --output-on-failure'; just test-debug`: pass, 4/4.
+- `just windows-cross`: pass.
 
 ## 11. 実機実行条件
 
-実機実行は不要 if callback order and HID values remain unchanged.
+実機実行は未実行。
+
+理由: HID registration config、event decode constants、BTstack source selection、Switch-facing packet values を変更していない。変更は context-less packet handler の所有 module と fake-port integration の分離に限る。
 
 If this work changes HID registration config, event decode constants, or BTstack source selection, stop and re-scope with `source-audit` and `hardware-harness`.
 
@@ -115,10 +123,12 @@ none.
 
 Future listener registration or queueing policy is not part of this structure change and is not created as follow-up here.
 
+`production_runner.h` は runner-owned storage として `hid_session_bridge` を持つ。header 露出の整理は既存の `local_093` で扱うため、この work unit から新しい先送り事項は作らない。
+
 ## 13. チェックリスト
 
-- [ ] HID session module を追加した。
-- [ ] global active backend pointer 相当を runner から移した。
-- [ ] HID event dispatch behavior を維持した。
-- [ ] TDD Test List の検証を実行し、結果を記録した。
-- [ ] 実機未実行理由を維持した。
+- [x] HID session module を追加した。
+- [x] global active backend pointer 相当を runner から移した。
+- [x] HID event dispatch behavior を維持した。
+- [x] TDD Test List の検証を実行し、結果を記録した。
+- [x] 実機未実行理由を維持した。
