@@ -1,4 +1,4 @@
-#include "daemon/production_runner.h"
+#include "daemon/production_runner_internal.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -9,6 +9,7 @@
 #include "switch/switch_controller_state.h"
 #include "switch/switch_hid_descriptor.h"
 #include "switch/switch_report.h"
+#include "daemon/production_process_backend.h"
 
 enum {
     STEP_IPC_START = 1,
@@ -613,15 +614,11 @@ static int production_runner_requires_adapter_location_before_platform_start(voi
     fake_ops_t fake = {0};
     const swbt_btstack_production_ports_t adapter = fake_backend_ports();
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = true,
-        .hardware_approved = true,
-    };
 
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
-    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend, &approval),
+    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend),
                             SWBT_DAEMON_PRODUCTION_ERROR_ADAPTER_LOCATION_REQUIRED, "main result");
     failed += expect_eq_int((int)fake.step_count, 0, "no adapter steps");
     failed += expect_eq_int(fake.platform_start_calls, 0, "platform not started");
@@ -634,10 +631,6 @@ static int production_runner_starts_without_code_level_hardware_approval_gate(vo
     fake_ops_t fake = {0};
     const swbt_btstack_production_ports_t adapter = fake_backend_ports();
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = false,
-        .hardware_approved = true,
-    };
     const int expected[] = {
         STEP_IPC_START,  STEP_PLATFORM_START, STEP_HID_REGISTER,     STEP_OUTPUT_START,
         STEP_TIMER_INIT, STEP_POWER_ON,       STEP_RUN_LOOP_EXECUTE, STEP_POWER_OFF,
@@ -649,7 +642,7 @@ static int production_runner_starts_without_code_level_hardware_approval_gate(vo
     failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += mark_adapter_location_configured(&backend);
-    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend, &approval),
+    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
     return failed;
@@ -686,51 +679,11 @@ static int ipc_pump_port_starts_without_unrelated_btstack_abilities(void) {
     return failed;
 }
 
-static int hardware_approval_env_requires_both_flags(void) {
-    const swbt_daemon_hardware_approval_env_t missing = {0};
-    const swbt_daemon_hardware_approval_env_t run_only = {
-        .run_hardware = "1",
-    };
-    const swbt_daemon_hardware_approval_env_t approved_only = {
-        .hardware_approved = "1",
-    };
-    const swbt_daemon_hardware_approval_env_t non_exact = {
-        .run_hardware = "true",
-        .hardware_approved = "1",
-    };
-    const swbt_daemon_hardware_approval_env_t approved = {
-        .run_hardware = "1",
-        .hardware_approved = "1",
-    };
-    swbt_daemon_hardware_approval_t approval;
-    int failed = 0;
-
-    approval = swbt_daemon_hardware_approval_from_env(NULL);
-    failed += expect_true(!swbt_daemon_hardware_approval_is_granted(&approval), "null env denied");
-    approval = swbt_daemon_hardware_approval_from_env(&missing);
-    failed += expect_true(!swbt_daemon_hardware_approval_is_granted(&approval), "missing denied");
-    approval = swbt_daemon_hardware_approval_from_env(&run_only);
-    failed += expect_true(!swbt_daemon_hardware_approval_is_granted(&approval), "run only denied");
-    approval = swbt_daemon_hardware_approval_from_env(&approved_only);
-    failed +=
-        expect_true(!swbt_daemon_hardware_approval_is_granted(&approval), "approved only denied");
-    approval = swbt_daemon_hardware_approval_from_env(&non_exact);
-    failed += expect_true(!swbt_daemon_hardware_approval_is_granted(&approval), "non exact denied");
-    approval = swbt_daemon_hardware_approval_from_env(&approved);
-    failed +=
-        expect_true(swbt_daemon_hardware_approval_is_granted(&approval), "both flags granted");
-    return failed;
-}
-
 static int approved_backend_starts_hardware_and_cleans_up_in_order(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_ops_t fake = {0};
     const swbt_btstack_production_ports_t adapter = fake_backend_ports();
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = true,
-        .hardware_approved = true,
-    };
     const int expected[] = {
         STEP_IPC_START,  STEP_PLATFORM_START, STEP_HID_REGISTER,     STEP_OUTPUT_START,
         STEP_TIMER_INIT, STEP_POWER_ON,       STEP_RUN_LOOP_EXECUTE, STEP_POWER_OFF,
@@ -742,7 +695,7 @@ static int approved_backend_starts_hardware_and_cleans_up_in_order(void) {
     failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += mark_adapter_location_configured(&backend);
-    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend, &approval),
+    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
     failed += expect_eq_int(fake.ipc_pump_running_at_start, 1, "ipc pump running at start");
@@ -759,10 +712,6 @@ static int approved_backend_requests_active_reconnect_when_switch_address_is_con
     fake_ops_t fake = {0};
     const swbt_btstack_production_ports_t adapter = fake_backend_ports();
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = true,
-        .hardware_approved = true,
-    };
     const uint8_t expected_address[] = {0x01u, 0x23u, 0x45u, 0x67u, 0x89u, 0xabu};
     const int expected[] = {
         STEP_IPC_START,
@@ -788,7 +737,7 @@ static int approved_backend_requests_active_reconnect_when_switch_address_is_con
     failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += mark_adapter_location_configured(&backend);
-    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend, &approval),
+    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
     failed += expect_eq_int(fake.active_reconnect_connect_calls, 1, "active reconnect calls");
@@ -810,10 +759,6 @@ static int active_reconnect_failure_reports_failed_state_without_stopping_run_lo
     };
     const swbt_btstack_production_ports_t adapter = fake_backend_ports();
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = true,
-        .hardware_approved = true,
-    };
     const int expected[] = {
         STEP_IPC_START,
         STEP_PLATFORM_START,
@@ -838,7 +783,7 @@ static int active_reconnect_failure_reports_failed_state_without_stopping_run_lo
     failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += mark_adapter_location_configured(&backend);
-    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend, &approval),
+    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
     failed += expect_eq_int(fake.status_during_run_loop_result, SWBT_IPC_OK, "status read");
@@ -857,16 +802,12 @@ static int run_loop_json_state_reaches_fake_hid_send(void) {
     };
     const swbt_btstack_production_ports_t adapter = fake_backend_ports();
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = true,
-        .hardware_approved = true,
-    };
 
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += mark_adapter_location_configured(&backend);
-    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend, &approval),
+    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_eq_int(fake.injected_json_result, 0, "json commands");
     failed += expect_eq_int(fake.timer_can_send_calls, 1, "timer can send calls");
@@ -884,16 +825,12 @@ static int production_report_success_updates_status_metrics_without_hardware_mea
     };
     const swbt_btstack_production_ports_t adapter = fake_backend_ports();
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = true,
-        .hardware_approved = true,
-    };
 
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += mark_adapter_location_configured(&backend);
-    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend, &approval),
+    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_eq_int(fake.injected_json_result, 0, "json commands");
     failed += expect_eq_int(fake.status_after_report_result, SWBT_IPC_OK, "status after report");
@@ -919,16 +856,12 @@ static int production_report_failure_updates_send_failure_metrics_and_cleans_up(
     };
     const swbt_btstack_production_ports_t adapter = fake_backend_ports();
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = true,
-        .hardware_approved = true,
-    };
 
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += mark_adapter_location_configured(&backend);
-    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend, &approval),
+    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_eq_int(fake.injected_json_result, 0, "json commands");
     failed += expect_eq_int(fake.timer_can_send_calls, 1, "timer can send calls");
@@ -951,16 +884,12 @@ static int run_loop_disconnect_emits_neutral_before_reacquire(void) {
     };
     const swbt_btstack_production_ports_t adapter = fake_backend_ports();
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = true,
-        .hardware_approved = true,
-    };
 
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += mark_adapter_location_configured(&backend);
-    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend, &approval),
+    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_eq_int(fake.injected_json_result, 0, "json commands");
     failed += expect_eq_int(fake.hid_send_calls, 3, "hid send calls");
@@ -975,16 +904,12 @@ static int approved_backend_status_exposes_production_without_hardware_metrics(v
     fake_ops_t fake = {0};
     const swbt_btstack_production_ports_t adapter = fake_backend_ports();
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = true,
-        .hardware_approved = true,
-    };
 
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += mark_adapter_location_configured(&backend);
-    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend, &approval),
+    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend),
                             SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_eq_int(fake.status_during_run_loop_result, SWBT_IPC_OK, "status read");
     failed += expect_eq_int((int)fake.status_during_run_loop.daemon.backend,
@@ -1005,10 +930,6 @@ static int start_failure_cleans_started_resources_only(void) {
     };
     const swbt_btstack_production_ports_t adapter = fake_backend_ports();
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = true,
-        .hardware_approved = true,
-    };
     const int expected[] = {
         STEP_IPC_START,    STEP_PLATFORM_START, STEP_HID_REGISTER,
         STEP_OUTPUT_START, STEP_TIMER_INIT,     STEP_OUTPUT_STOP,
@@ -1019,7 +940,7 @@ static int start_failure_cleans_started_resources_only(void) {
     failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += mark_adapter_location_configured(&backend);
-    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend, &approval),
+    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend),
                             SWBT_DAEMON_PRODUCTION_ERROR_RUNTIME, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
     return failed;
@@ -1034,10 +955,6 @@ static int stop_request_sends_neutral_before_power_off_and_run_loop_exit(void) {
         .uninstall = fake_shutdown_uninstall,
     };
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = true,
-        .hardware_approved = true,
-    };
     const int expected[] = {
         STEP_IPC_START,
         STEP_PLATFORM_START,
@@ -1064,7 +981,7 @@ static int stop_request_sends_neutral_before_power_off_and_run_loop_exit(void) {
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(
-        swbt_daemon_production_main_with_runner_and_shutdown(&backend, &approval, &shutdown, &fake),
+        swbt_daemon_production_main_with_runner_and_shutdown(&backend, &shutdown, &fake),
         SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
     failed += expect_eq_int(fake.timer_send_neutral_now_calls, 1, "neutral send calls");
@@ -1084,10 +1001,6 @@ static int shutdown_after_json_state_sends_trailing_neutral_before_power_off(voi
         .uninstall = fake_shutdown_uninstall,
     };
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = true,
-        .hardware_approved = true,
-    };
     const int expected[] = {
         STEP_IPC_START,
         STEP_PLATFORM_START,
@@ -1115,7 +1028,7 @@ static int shutdown_after_json_state_sends_trailing_neutral_before_power_off(voi
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(
-        swbt_daemon_production_main_with_runner_and_shutdown(&backend, &approval, &shutdown, &fake),
+        swbt_daemon_production_main_with_runner_and_shutdown(&backend, &shutdown, &fake),
         SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
     failed += expect_eq_int(fake.injected_json_result, 0, "json commands");
@@ -1137,10 +1050,6 @@ static int pending_stop_request_finishes_after_can_send_event(void) {
         .uninstall = fake_shutdown_uninstall,
     };
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = true,
-        .hardware_approved = true,
-    };
     const int expected[] = {
         STEP_IPC_START,
         STEP_PLATFORM_START,
@@ -1168,7 +1077,7 @@ static int pending_stop_request_finishes_after_can_send_event(void) {
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(
-        swbt_daemon_production_main_with_runner_and_shutdown(&backend, &approval, &shutdown, &fake),
+        swbt_daemon_production_main_with_runner_and_shutdown(&backend, &shutdown, &fake),
         SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
     failed += expect_eq_int(fake.timer_send_neutral_now_calls, 1, "neutral send calls");
@@ -1191,10 +1100,6 @@ static int pending_stop_request_finishes_after_failed_can_send_event(void) {
         .uninstall = fake_shutdown_uninstall,
     };
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = true,
-        .hardware_approved = true,
-    };
     const int expected[] = {
         STEP_IPC_START,
         STEP_PLATFORM_START,
@@ -1222,7 +1127,7 @@ static int pending_stop_request_finishes_after_failed_can_send_event(void) {
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(
-        swbt_daemon_production_main_with_runner_and_shutdown(&backend, &approval, &shutdown, &fake),
+        swbt_daemon_production_main_with_runner_and_shutdown(&backend, &shutdown, &fake),
         SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
     failed += expect_eq_int(fake.timer_send_neutral_now_calls, 1, "neutral send calls");
@@ -1241,10 +1146,6 @@ static int shutdown_listener_is_installed_without_code_level_hardware_approval_g
         .uninstall = fake_shutdown_uninstall,
     };
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = false,
-        .hardware_approved = true,
-    };
     const int expected[] = {
         STEP_IPC_START,
         STEP_PLATFORM_START,
@@ -1271,7 +1172,7 @@ static int shutdown_listener_is_installed_without_code_level_hardware_approval_g
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(
-        swbt_daemon_production_main_with_runner_and_shutdown(&backend, &approval, &shutdown, &fake),
+        swbt_daemon_production_main_with_runner_and_shutdown(&backend, &shutdown, &fake),
         SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
     failed += expect_eq_int(fake.power_off_calls, 1, "power off calls");
@@ -1290,10 +1191,6 @@ static int repeated_stop_request_does_not_power_off_twice(void) {
         .uninstall = fake_shutdown_uninstall,
     };
     swbt_daemon_production_runner_t backend;
-    const swbt_daemon_hardware_approval_t approval = {
-        .run_hardware = true,
-        .hardware_approved = true,
-    };
     const int expected[] = {
         STEP_IPC_START,
         STEP_PLATFORM_START,
@@ -1320,38 +1217,12 @@ static int repeated_stop_request_does_not_power_off_twice(void) {
                             SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += mark_adapter_location_configured(&backend);
     failed += expect_eq_int(
-        swbt_daemon_production_main_with_runner_and_shutdown(&backend, &approval, &shutdown, &fake),
+        swbt_daemon_production_main_with_runner_and_shutdown(&backend, &shutdown, &fake),
         SWBT_DAEMON_PRODUCTION_OK, "main result");
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
     failed += expect_eq_int(fake.timer_send_neutral_now_calls, 1, "neutral send calls");
     failed += expect_eq_int(fake.power_off_calls, 1, "power off calls");
     failed += expect_eq_int(fake.run_loop_trigger_exit_calls, 1, "trigger exit calls");
-    return failed;
-}
-
-static int report_period_and_ipc_config_are_exposed(void) {
-    swbt_daemon_config_t config = swbt_daemon_config_default();
-    fake_ops_t fake = {0};
-    const swbt_btstack_production_ports_t adapter = fake_backend_ports();
-    swbt_daemon_production_runner_t backend;
-    swbt_daemon_ipc_runner_config_t ipc_config;
-
-    config.report_period_us = 8333u;
-    config.ipc_port = 34567u;
-    config.ipc_backlog = 2;
-    config.ipc_heartbeat_timeout_ms = 1234u;
-
-    int failed = 0;
-    failed += expect_true(swbt_daemon_config_set_ipc_host(&config, "127.0.0.1"), "ipc host set");
-    failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
-                            SWBT_DAEMON_PRODUCTION_OK, "init");
-    ipc_config = swbt_daemon_production_runner_ipc_config(&backend);
-    failed += expect_eq_int((int)swbt_daemon_production_runner_report_period_us(&backend), 8333,
-                            "report period");
-    failed += expect_true(ipc_config.host == config.ipc_host, "ipc host");
-    failed += expect_eq_u16(ipc_config.port, 34567u, "ipc port");
-    failed += expect_eq_int(ipc_config.backlog, 2, "ipc backlog");
-    failed += expect_eq_int((int)ipc_config.heartbeat_timeout_ms, 1234, "ipc heartbeat timeout");
     return failed;
 }
 
@@ -1501,7 +1372,6 @@ int main(void) {
     failed += production_runner_requires_adapter_location_before_platform_start();
     failed += production_runner_starts_without_code_level_hardware_approval_gate();
     failed += ipc_pump_port_starts_without_unrelated_btstack_abilities();
-    failed += hardware_approval_env_requires_both_flags();
     failed += approved_backend_starts_hardware_and_cleans_up_in_order();
     failed += approved_backend_requests_active_reconnect_when_switch_address_is_configured();
     failed += active_reconnect_failure_reports_failed_state_without_stopping_run_loop();
@@ -1517,7 +1387,6 @@ int main(void) {
     failed += pending_stop_request_finishes_after_failed_can_send_event();
     failed += shutdown_listener_is_installed_without_code_level_hardware_approval_gate();
     failed += repeated_stop_request_does_not_power_off_twice();
-    failed += report_period_and_ipc_config_are_exposed();
     failed += hid_packet_handler_starts_sends_and_stops_timer();
     failed += production_report_timer_sender_uses_device_send();
     failed += hid_connection_opened_persists_learned_switch_address_to_config_target();

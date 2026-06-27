@@ -3,7 +3,7 @@
 #include "platform_process.h"
 
 #include "btstack_bridge/production_btstack_impl.h"
-#include "daemon/production_runner.h"
+#include "daemon/production_runner_internal.h"
 #include "support/diagnostics.h"
 
 int swbt_daemon_production_entrypoint_list_adapter_locations(void *context, FILE *out, FILE *err) {
@@ -48,7 +48,7 @@ int swbt_daemon_production_entrypoint_run(const swbt_daemon_launch_config_t *lau
     }
     swbt_diagnostic_trace("production: enter main");
     return swbt_daemon_production_main_with_runner_and_shutdown(
-               &backend, NULL, swbt_daemon_platform_shutdown_listener(), NULL) ==
+               &backend, swbt_daemon_platform_shutdown_listener(), NULL) ==
                    SWBT_DAEMON_PRODUCTION_OK
                ? 0
                : 1;

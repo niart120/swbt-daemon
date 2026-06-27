@@ -324,6 +324,7 @@ if(WIN32)
 endif()
 target_include_directories(swbt-daemon
     PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/swbt
         ${swbt_btstack_selected_include_dirs}
 )
 swbt_apply_common_warnings(swbt-daemon)
@@ -801,6 +802,7 @@ if(SWBT_BUILD_TESTS)
     target_link_libraries(daemon_production_runner_test PRIVATE swbt_daemon_process)
     target_include_directories(daemon_production_runner_test
         PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/swbt
             ${swbt_btstack_selected_include_dirs}
     )
     swbt_apply_common_warnings(daemon_production_runner_test)
@@ -814,6 +816,7 @@ if(SWBT_BUILD_TESTS)
     target_link_libraries(daemon_production_process_backend_test PRIVATE swbt_daemon_process)
     target_include_directories(daemon_production_process_backend_test
         PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/swbt
             ${swbt_btstack_selected_include_dirs}
     )
     swbt_apply_common_warnings(daemon_production_process_backend_test)
@@ -866,6 +869,7 @@ if(SWBT_BUILD_TESTS)
     target_link_libraries(daemon_production_hid_sdp_record_test PRIVATE swbt_daemon_process swbt_btstack)
     target_include_directories(daemon_production_hid_sdp_record_test
         PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/swbt
             ${swbt_btstack_selected_include_dirs}
     )
     swbt_apply_common_warnings(daemon_production_hid_sdp_record_test)

@@ -207,6 +207,22 @@ swbt_expect_compile_result(
     "${protocol_public_include_dir}"
 )
 swbt_expect_compile_result(
+    production_runner_public_header_narrow
+    TRUE
+    "#include \"daemon/production_runner.h\"\nint main(void) { return 0; }\n"
+    "${daemon_process_public_include_dir}"
+    "${support_public_include_dir}"
+    "${protocol_public_include_dir}"
+)
+swbt_expect_compile_result(
+    production_runner_internal_header_hidden
+    FALSE
+    "#include \"daemon/production_runner_internal.h\"\nint main(void) { return 0; }\n"
+    "${daemon_process_public_include_dir}"
+    "${support_public_include_dir}"
+    "${protocol_public_include_dir}"
+)
+swbt_expect_compile_result(
     btstack_bridge_daemon_process_hidden
     FALSE
     "#include \"daemon/process.h\"\nint main(void) { return 0; }\n"

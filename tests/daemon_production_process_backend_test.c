@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 #include "domain/domain.h"
-#include "daemon/production_runner.h"
+#include "daemon/production_runner_internal.h"
 
 typedef struct {
     int output_handler_start_calls;

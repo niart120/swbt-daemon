@@ -6,14 +6,7 @@
 
 #include "btstack_bridge/production_ports.h"
 #include "daemon/process.h"
-
-typedef void (*swbt_daemon_shutdown_request_t)(void *context);
-
-typedef struct {
-    int (*install)(void *context, swbt_daemon_shutdown_request_t request_shutdown,
-                   void *request_context);
-    void (*uninstall)(void *context);
-} swbt_daemon_shutdown_listener_t;
+#include "daemon/shutdown_listener.h"
 
 typedef void (*swbt_daemon_production_shutdown_finish_t)(void *context);
 
