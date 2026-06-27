@@ -65,7 +65,7 @@ typedef struct {
     void (*trigger_exit)(void *context);
 } swbt_btstack_production_run_loop_port_t;
 
-typedef struct {
+typedef struct swbt_btstack_production_ports {
     swbt_btstack_production_ipc_pump_port_t ipc_pump;
     swbt_btstack_device_port_t device;
     swbt_btstack_production_output_handler_port_t output_handler;

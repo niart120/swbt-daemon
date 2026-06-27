@@ -3,7 +3,7 @@
 #include "daemon/production_hid_session.h"
 #include "daemon/production_ipc_pump.h"
 #include "daemon/production_report_timer.h"
-#include "daemon/production_runner.h"
+#include "daemon/production_runner_internal.h"
 #include "daemon/production_shutdown.h"
 
 static int swbt_daemon_production_ipc_start(void *context, swbt_control_t *control) {

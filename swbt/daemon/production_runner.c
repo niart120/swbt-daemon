@@ -1,9 +1,9 @@
-#include "daemon/production_runner.h"
+#include "daemon/production_runner_internal.h"
 
 #include <stddef.h>
-#include <string.h>
 
 #include "support/diagnostics.h"
+#include "daemon/production_process_backend.h"
 #include "daemon/production_reconnect.h"
 
 swbt_daemon_production_result_t swbt_daemon_production_runner_init(
@@ -46,26 +46,6 @@ bool swbt_daemon_production_runner_set_adapter_location_configured(
     return true;
 }
 
-bool swbt_daemon_hardware_approval_is_granted(const swbt_daemon_hardware_approval_t *approval) {
-    return approval != NULL && approval->run_hardware && approval->hardware_approved;
-}
-
-static bool swbt_daemon_hardware_approval_env_is_enabled(const char *value) {
-    return value != NULL && strcmp(value, "1") == 0;
-}
-
-swbt_daemon_hardware_approval_t
-swbt_daemon_hardware_approval_from_env(const swbt_daemon_hardware_approval_env_t *env) {
-    if (env == NULL) {
-        return (swbt_daemon_hardware_approval_t){0};
-    }
-
-    return (swbt_daemon_hardware_approval_t){
-        .run_hardware = swbt_daemon_hardware_approval_env_is_enabled(env->run_hardware),
-        .hardware_approved = swbt_daemon_hardware_approval_env_is_enabled(env->hardware_approved),
-    };
-}
-
 static swbt_daemon_production_result_t
 swbt_daemon_production_power_on(swbt_daemon_production_runner_t *backend) {
     if (backend->ports->power.on(backend->ports_context) != 0) {
@@ -91,7 +71,7 @@ static void swbt_daemon_production_runner_finish_shutdown(void *context) {
 }
 
 swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shutdown(
-    swbt_daemon_production_runner_t *backend, const swbt_daemon_hardware_approval_t *approval,
+    swbt_daemon_production_runner_t *backend,
     const swbt_daemon_shutdown_listener_t *shutdown_listener, void *shutdown_context) {
     swbt_daemon_process_t host;
     swbt_daemon_process_result_t host_result;
@@ -102,7 +82,6 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shut
         !swbt_daemon_production_shutdown_listener_is_valid(shutdown_listener)) {
         return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
     }
-    (void)approval;
     if (!swbt_btstack_production_ports_is_valid(backend->ports)) {
         return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
     }
@@ -181,20 +160,6 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shut
 }
 
 swbt_daemon_production_result_t
-swbt_daemon_production_main_with_runner(swbt_daemon_production_runner_t *backend,
-                                        const swbt_daemon_hardware_approval_t *approval) {
-    return swbt_daemon_production_main_with_runner_and_shutdown(backend, approval, NULL, NULL);
-}
-
-uint32_t
-swbt_daemon_production_runner_report_period_us(const swbt_daemon_production_runner_t *backend) {
-    return backend == NULL ? 0u : backend->config.report_period_us;
-}
-
-swbt_daemon_ipc_runner_config_t
-swbt_daemon_production_runner_ipc_config(const swbt_daemon_production_runner_t *backend) {
-    if (backend == NULL) {
-        return (swbt_daemon_ipc_runner_config_t){0};
-    }
-    return backend->ipc_runner.config;
+swbt_daemon_production_main_with_runner(swbt_daemon_production_runner_t *backend) {
+    return swbt_daemon_production_main_with_runner_and_shutdown(backend, NULL, NULL);
 }

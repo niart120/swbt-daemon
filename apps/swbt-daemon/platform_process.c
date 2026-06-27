@@ -1,5 +1,7 @@
 #include "platform_process.h"
 
+#include <stddef.h>
+
 #include "support/diagnostics.h"
 
 #if defined(_WIN32)
