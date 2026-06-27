@@ -83,7 +83,7 @@ Tidy status:
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | management commands still return before production startup composition is invoked | regression | unit/integration | no |
+| green | management commands still return before production startup composition is invoked | regression | unit/integration | no |
 | todo | noop backend startup still avoids real BTstack production implementation | regression | unit/integration | no |
 | todo | production startup still configures link key DB, HCI dump, adapter location, learned address target, and shutdown listener before runner main | regression | integration | no |
 | todo | executable target links after moving app-local sources out of `main.c` | regression | build | no |
@@ -111,6 +111,18 @@ TDD status:
   - result: pass, 5/5 tests passed.
 - notes: green 後の追加構造変更は行っていない。formatter のみで、refactor 本体は
   skipped とした。
+
+TDD status:
+
+- source: `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md` and this
+  work unit.
+- use case: management command は daemon runtime startup を行わず、production
+  entrypoint 分割後も CLI 結果だけを返す。
+- item: management commands still return before production startup composition is invoked.
+- state: green.
+- command: `$env:CTEST_ARGS='-R "daemon_cli_test|swbt_daemon_help_test|swbt_daemon_config_smoke_test" --output-on-failure'; just test-debug`
+- result: pass, 3/3 tests passed.
+- notes: この item は既存の CLI behavior の regression check。追加実装は不要。
 
 Expected checks:
 
