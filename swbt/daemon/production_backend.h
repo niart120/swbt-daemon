@@ -44,14 +44,13 @@ typedef struct {
     swbt_daemon_config_t config;
     swbt_daemon_config_file_target_t learned_switch_address_target;
     swbt_daemon_ipc_runner_t ipc_runner;
+    swbt_btstack_device_t device;
     swbt_btstack_input_report_timer_adapter_t report_timer;
     const swbt_btstack_production_adapter_t *adapter;
     void *adapter_context;
     swbt_daemon_host_t *host;
     uint8_t hid_service_buffer[SWBT_DAEMON_PRODUCTION_HID_SERVICE_BUFFER_SIZE];
     bool initialized;
-    bool platform_started;
-    bool hid_registered;
     bool report_timer_initialized;
     bool shutdown_neutral_pending;
     bool learned_switch_address_target_configured;

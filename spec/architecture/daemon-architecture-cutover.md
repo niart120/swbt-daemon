@@ -48,6 +48,10 @@ daemon の論理状態、IPC transport、BTstack adapter、host composition、pl
 - IPC は transport、framing、codec、client identity に閉じる。
 - BTstack adapter は daemon / IPC internal type を参照しない。
 - host が startup、shutdown、cleanup、power、run loop、platform listener の順序を所有する。
+- JSON Lines IPC と public C ABI は、owner、sequence、neutral、status 合成の意味論を `swbt/control` 経由に集約する。`swbt/control` は direct API 用の synthetic client id と sequence allocator を持ってよいが、authoritative な owner、latest sequence、controller state は `swbt_app_t` に残す。
+- `swbt/runtime` は IPC を含まない runtime resource lifecycle と runtime-owned state を持つ。runtime が所有してよいのは initialized/running、HID registration、output handler、report timer などの resource state であり、app lifetime、controller ownership、latest sequence、controller state の authoritative owner にはならない。
+- daemon host は IPC runner と runtime host の composition root である。IPC start / stop は daemon host backend contract に残し、runtime backend contract に入れない。
+- public C ABI target `swbt` は `swbt/control` を通り、`swbt_ipc` に link しない。初期 public C ABI は local state operation に限定し、Bluetooth adapter open、HCI power on、pairing、advertising、connect success を public contract として固定しない。
 - `swbt_core` を互換 aggregate target として残さない。production executable と test は必要 target を直接 link する。
 - 旧 symbol、旧 header、旧 target、旧 test の不存在を acceptance に含める。
 - 実機 H1 は三つの cutover が終わった後に一回だけ実行する。実機承認がない場合は未実行理由と必要条件を記録し、pass と偽らない。
@@ -71,6 +75,8 @@ daemon の論理状態、IPC transport、BTstack adapter、host composition、pl
 - `work-units/complete/local_053/BTSTACK_PORT_EVENT_BOUNDARY.md`
 - `work-units/complete/local_054/DAEMON_HOST_AND_BUILD_BOUNDARIES.md`
 - `work-units/complete/local_055/REARCHITECTURE_CUTOVER_ACCEPTANCE_AND_CLEANUP.md`
+- `work-units/complete/local_079/DEVICE_LIFECYCLE_API.md`
+- `work-units/complete/local_082/CONTROL_RUNTIME_BOUNDARY_IMPLEMENTATION.md`
 
 ## 7. 実装状態
 
@@ -81,6 +87,8 @@ daemon の論理状態、IPC transport、BTstack adapter、host composition、pl
 - H1 artifact は `tmp/hardware/local_057/20260623-105416-architecture-cutover-h1`。HCI dump は line `953` Button A、line `954` trailing neutral、line `955` `hci_power_control: 0` の順を記録した。current connection の `invalid size` と `non-registered handle` は `0` 件である。
 - 2026-06-23 の `local_058` で、shutdown neutral の即時送信が pending になった後の `CAN_SEND_NOW` 再送失敗でも pending を解除し、power-off と run-loop exit へ進む failure cleanup 経路を固定した。この変更は Switch-facing bytes、report period、BTstack source selection を変更しない。
 - 2026-06-23 の `local_061` で、`swbt_btstack_production_adapter_t` は `ipc_pump`、`platform`、`hid`、`output_handler`、`report_timer`、`controller`、`clock`、`power`、`run_loop` の能力別 port group へ分割した。旧 production backend ops table は復活させていない。この変更は Switch-facing bytes、report period、BTstack source selection、timer scheduling を変更しないため、H1 は再実行していない。
+- 2026-06-27 の `local_079` で、BTstack bridge に caller-owned `swbt_btstack_device_t` と `open` / `connect` / `send` / `recv` / `close` の device lifecycle API を追加した。production backend は platform start、HID register、active reconnect、HID event decode、HID / platform close を device API 経由で呼ぶ。これは internal BTstack bridge API であり、`api/swbt.h` の public C ABI ではない。Switch-facing bytes、report period、BTstack source selection、HID registration config 値、shutdown neutral ordering は変更していない。
+- 2026-06-27 の `local_082` で、`swbt/control` と `swbt/runtime` を追加した。IPC adapter / runner と public C ABI は control operation を通り、daemon host は IPC runner と runtime host を構成する。runtime host は IPC start / stop を持たず、HID registration、output handler、report timer、neutral shutdown、runtime resource status を扱う。shared target `swbt` は `swbt_control` に link し、`swbt_ipc` には link しない。この変更は IPC JSON wire format、Switch-facing bytes、report period、BTstack source selection、shutdown neutral ordering を変更していない。
 - 2026-06-25 の `local_065` cleanup 後、`swbt-bond-<local-bdaddr>.tlv` と TLV-backed Classic link key DB 経路は現行 tree から削除済みである。daemon restart / sleep-resume の実機観測では既存 bond reconnect ではなく再 pairing になったため、bond cache は release 互換を約束する外部契約に格上げしない。調査記録は `spec/archive/bond-cache-persistence.md` を参照する。
 - 「8. 採用した外部レビュー本文」内の未完了表記は、採用時点の作業指示として残す。現在の実装状態はこの章、`local_056`、`local_057`、`docs/status.md` を正とする。
 - 外部契約を破壊する必要が出た場合は、同じ PR に変更理由と migration note を含める。
@@ -380,13 +388,20 @@ void swbt_app_dispatch(
     const swbt_event_t *event
 );
 
-swbt_app_result_t swbt_app_snapshot(
+swbt_app_result_t swbt_app_read_controller_state(
     const swbt_app_t *app,
-    swbt_app_snapshot_t *snapshot
+    swbt_state_t *out_state
+);
+
+swbt_app_result_t swbt_app_read_status(
+    const swbt_app_t *app,
+    swbt_app_status_snapshot_t *out_status
 );
 ```
 
 adapter は `swbt_app_t` の field を直接参照しない。
+report scheduler は `swbt_app_read_controller_state` で latest controller state だけを読む。
+IPC status や後続の public C ABI status は、`swbt_app_read_status` の app-owned status と runtime / link status の合成として扱う。
 
 ## 5. 削除対象
 

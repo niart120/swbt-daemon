@@ -66,12 +66,12 @@ static int explicit_hci_dump_open_failure_rejects_platform_start(void) {
     int failed = 0;
     const swbt_btstack_production_adapter_t *adapter = swbt_btstack_production_adapter();
 
-    if (adapter == NULL || adapter->platform.start == NULL) {
+    if (adapter == NULL || adapter->device.platform_start == NULL) {
         return 1;
     }
     failed += expect_eq_int(
         swbt_btstack_production_hci_dump_configure("btstack-hci-dump-missing-dir/hci.log"), 0);
-    failed += expect_eq_int(adapter->platform.start(NULL), -1);
+    failed += expect_eq_int(adapter->device.platform_start(NULL), -1);
     failed += expect_eq_int(swbt_btstack_production_hci_dump_configure(NULL), 0);
     return failed;
 }
@@ -80,15 +80,16 @@ static int hci_dump_env_path_is_ignored_without_cli_configuration(void) {
     int failed = 0;
     const swbt_btstack_production_adapter_t *adapter = swbt_btstack_production_adapter();
 
-    if (adapter == NULL || adapter->platform.start == NULL || adapter->platform.stop == NULL) {
+    if (adapter == NULL || adapter->device.platform_start == NULL ||
+        adapter->device.platform_stop == NULL) {
         return 1;
     }
     if (set_hci_dump_env("btstack-hci-dump-missing-dir/hci.log") != 0) {
         return 1;
     }
     failed += expect_eq_int(swbt_btstack_production_hci_dump_configure(NULL), 0);
-    failed += expect_eq_int(adapter->platform.start(NULL), 0);
-    adapter->platform.stop(NULL);
+    failed += expect_eq_int(adapter->device.platform_start(NULL), 0);
+    adapter->device.platform_stop(NULL);
     clear_hci_dump_env();
     return failed;
 }
@@ -98,7 +99,8 @@ static int link_key_db_path_creates_tlv_file_on_platform_start(void) {
     const char *path = "btstack-link-key-db-test.tlv";
     const swbt_btstack_production_adapter_t *adapter = swbt_btstack_production_adapter();
 
-    if (adapter == NULL || adapter->platform.start == NULL || adapter->platform.stop == NULL) {
+    if (adapter == NULL || adapter->device.platform_start == NULL ||
+        adapter->device.platform_stop == NULL) {
         return 1;
     }
 
@@ -106,9 +108,9 @@ static int link_key_db_path_creates_tlv_file_on_platform_start(void) {
     (void)remove(path);
     failed += expect_eq_int(swbt_btstack_production_link_key_db_configure(""), -1);
     failed += expect_eq_int(swbt_btstack_production_link_key_db_configure(path), 0);
-    failed += expect_eq_int(adapter->platform.start(NULL), 0);
+    failed += expect_eq_int(adapter->device.platform_start(NULL), 0);
     failed += expect_eq_int(file_exists(path), 1);
-    adapter->platform.stop(NULL);
+    adapter->device.platform_stop(NULL);
     failed += expect_eq_int(swbt_btstack_production_link_key_db_configure(NULL), 0);
     failed += remove(path) == 0 ? 0 : 1;
     return failed;
@@ -146,16 +148,17 @@ static int link_key_db_stores_link_key_notification(void) {
         UNAUTHENTICATED_COMBINATION_KEY_GENERATED_FROM_P192,
     };
 
-    if (adapter == NULL || adapter->platform.start == NULL || adapter->platform.stop == NULL) {
+    if (adapter == NULL || adapter->device.platform_start == NULL ||
+        adapter->device.platform_stop == NULL) {
         return 1;
     }
 
     clear_hci_dump_env();
     (void)remove(path);
     failed += expect_eq_int(swbt_btstack_production_link_key_db_configure(path), 0);
-    failed += expect_eq_int(adapter->platform.start(NULL), 0);
+    failed += expect_eq_int(adapter->device.platform_start(NULL), 0);
     hci_emit_btstack_event(link_key_notification, sizeof(link_key_notification), 0);
-    adapter->platform.stop(NULL);
+    adapter->device.platform_stop(NULL);
     failed += file_size(path) > 8L ? 0 : 1;
     failed += expect_eq_int(swbt_btstack_production_link_key_db_configure(NULL), 0);
     failed += remove(path) == 0 ? 0 : 1;

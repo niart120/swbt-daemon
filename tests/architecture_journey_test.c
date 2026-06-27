@@ -22,6 +22,7 @@ typedef struct {
     int report_timer_start_calls;
     int report_timer_stop_calls;
     swbt_app_t *app;
+    swbt_control_t *control;
     swbt_daemon_host_state_provider_t state_provider;
     void *state_context;
 } fake_backend_t;
@@ -62,10 +63,11 @@ static int expect_contains(const char *text, const char *needle) {
     return 1;
 }
 
-static int fake_ipc_start(void *context, swbt_app_t *app) {
+static int fake_ipc_start(void *context, swbt_control_t *control) {
     fake_backend_t *fake = context;
     fake->ipc_start_calls += 1;
-    fake->app = app;
+    fake->control = control;
+    fake->app = control == NULL ? NULL : control->app;
     return 0;
 }
 
@@ -147,15 +149,15 @@ static swbt_daemon_host_backend_t fake_backend(void) {
     };
 }
 
-static int handle(swbt_app_t *app, uint32_t client_id, const char *line, char *response,
+static int handle(swbt_control_t *control, uint32_t client_id, const char *line, char *response,
                   size_t response_size) {
     for (size_t index = 0; index < response_size; ++index) {
         response[index] = '\0';
     }
-    return swbt_ipc_adapter_handle_line(app, client_id, line, response, response_size);
+    return swbt_ipc_adapter_handle_line(control, client_id, line, response, response_size);
 }
 
-static int send_button_a_state(swbt_app_t *app, uint32_t client_id, uint64_t sequence,
+static int send_button_a_state(swbt_control_t *control, uint32_t client_id, uint64_t sequence,
                                const char *request_id) {
     char line[256];
     char response[SWBT_IPC_JSON_RESPONSE_MAX];
@@ -170,7 +172,7 @@ static int send_button_a_state(swbt_app_t *app, uint32_t client_id, uint64_t seq
                  client_id, (unsigned long long)sequence, request_id) < 0) {
         return 1;
     }
-    if (handle(app, client_id, line, response, sizeof(response)) != SWBT_IPC_JSON_OK) {
+    if (handle(control, client_id, line, response, sizeof(response)) != SWBT_IPC_JSON_OK) {
         return 1;
     }
     return expect_contains(response, "\"type\":\"state_accepted\"");
@@ -201,12 +203,12 @@ static int expect_current_report_button_byte(const fake_backend_t *fake,
     return expect_eq_u8(report[3], expected_button_byte);
 }
 
-static int expect_status(swbt_app_t *app, bool has_owner, uint32_t owner_client_id,
+static int expect_status(swbt_control_t *control, bool has_owner, uint32_t owner_client_id,
                          uint32_t buttons) {
     swbt_ipc_status_t status;
     int failed = 0;
 
-    failed += expect_eq_int(swbt_ipc_adapter_get_status(app, &status), SWBT_IPC_OK);
+    failed += expect_eq_int(swbt_ipc_adapter_get_status(control, &status), SWBT_IPC_OK);
     failed += expect_true(status.has_owner == has_owner);
     if (has_owner) {
         failed += expect_eq_u32(status.owner_client_id, owner_client_id);
@@ -232,28 +234,28 @@ static int architecture_journey_neutralizes_disconnect_and_shutdown(void) {
     failed += expect_eq_int(fake.report_timer_start_calls, 1);
     failed += expect_true(fake.app == swbt_daemon_host_app(&host));
 
-    failed += expect_eq_int(handle(fake.app, 1001u,
+    failed += expect_eq_int(handle(fake.control, 1001u,
                                    "{\"v\":1,\"type\":\"acquire\",\"mode\":\"exclusive\","
                                    "\"request_id\":\"a1\"}\n",
                                    response, sizeof(response)),
                             SWBT_IPC_JSON_OK);
     failed += expect_contains(response, "\"type\":\"acquired\"");
-    failed += send_button_a_state(fake.app, 1001u, 1u, "s1");
-    failed += expect_status(fake.app, true, 1001u, SWBT_BUTTON_A);
+    failed += send_button_a_state(fake.control, 1001u, 1u, "s1");
+    failed += expect_status(fake.control, true, 1001u, SWBT_BUTTON_A);
     failed += expect_current_report_button_byte(&fake, &config, 0x08u);
 
-    failed += expect_eq_int(swbt_ipc_adapter_handle_disconnect(fake.app, 1001u), SWBT_IPC_OK);
-    failed += expect_status(fake.app, false, 0u, 0u);
+    failed += expect_eq_int(swbt_ipc_adapter_handle_disconnect(fake.control, 1001u), SWBT_IPC_OK);
+    failed += expect_status(fake.control, false, 0u, 0u);
     failed += expect_current_report_button_byte(&fake, &config, 0x00u);
 
-    failed += expect_eq_int(handle(fake.app, 2002u,
+    failed += expect_eq_int(handle(fake.control, 2002u,
                                    "{\"v\":1,\"type\":\"acquire\",\"mode\":\"exclusive\","
                                    "\"request_id\":\"a2\"}\n",
                                    response, sizeof(response)),
                             SWBT_IPC_JSON_OK);
     failed += expect_contains(response, "\"type\":\"acquired\"");
-    failed += send_button_a_state(fake.app, 2002u, 2u, "s2");
-    failed += expect_status(fake.app, true, 2002u, SWBT_BUTTON_A);
+    failed += send_button_a_state(fake.control, 2002u, 2u, "s2");
+    failed += expect_status(fake.control, true, 2002u, SWBT_BUTTON_A);
     failed += expect_current_report_button_byte(&fake, &config, 0x08u);
 
     swbt_daemon_host_stop(&host);
@@ -261,7 +263,7 @@ static int architecture_journey_neutralizes_disconnect_and_shutdown(void) {
     failed += expect_eq_int(fake.output_handler_stop_calls, 1);
     failed += expect_eq_int(fake.hid_stop_calls, 1);
     failed += expect_eq_int(fake.ipc_stop_calls, 1);
-    failed += expect_status(fake.app, false, 0u, 0u);
+    failed += expect_status(fake.control, false, 0u, 0u);
     failed += expect_current_report_button_byte(&fake, &config, 0x00u);
 
     swbt_daemon_host_destroy(&host);

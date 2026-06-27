@@ -50,6 +50,12 @@ set(protocol_public_include_dir
 set(btstack_adapter_public_include_dir
     "${SWBT_BINARY_DIR}/swbt_public_includes/swbt_btstack_adapter"
 )
+set(runtime_public_include_dir
+    "${SWBT_BINARY_DIR}/swbt_public_includes/swbt_runtime"
+)
+set(control_public_include_dir
+    "${SWBT_BINARY_DIR}/swbt_public_includes/swbt_control"
+)
 set(ipc_public_include_dir
     "${SWBT_BINARY_DIR}/swbt_public_includes/swbt_ipc"
 )
@@ -75,6 +81,16 @@ if(NOT IS_DIRECTORY "${btstack_adapter_public_include_dir}")
     message(FATAL_ERROR
         "swbt_btstack_adapter public include root is missing: "
         "${btstack_adapter_public_include_dir}"
+    )
+endif()
+if(NOT IS_DIRECTORY "${runtime_public_include_dir}")
+    message(FATAL_ERROR
+        "swbt_runtime public include root is missing: ${runtime_public_include_dir}"
+    )
+endif()
+if(NOT IS_DIRECTORY "${control_public_include_dir}")
+    message(FATAL_ERROR
+        "swbt_control public include root is missing: ${control_public_include_dir}"
     )
 endif()
 if(NOT IS_DIRECTORY "${daemon_host_public_include_dir}")
@@ -123,11 +139,55 @@ swbt_expect_compile_result(
     "${protocol_public_include_dir}"
 )
 swbt_expect_compile_result(
+    runtime_public_header_visible
+    TRUE
+    "#include \"runtime/host.h\"\nint main(void) { return 0; }\n"
+    "${runtime_public_include_dir}"
+    "${btstack_adapter_public_include_dir}"
+    "${application_public_include_dir}"
+    "${support_public_include_dir}"
+    "${protocol_public_include_dir}"
+)
+swbt_expect_compile_result(
+    runtime_ipc_transport_hidden
+    FALSE
+    "#include \"ipc/ipc_adapter.h\"\nint main(void) { return 0; }\n"
+    "${runtime_public_include_dir}"
+    "${btstack_adapter_public_include_dir}"
+    "${application_public_include_dir}"
+    "${support_public_include_dir}"
+    "${protocol_public_include_dir}"
+)
+swbt_expect_compile_result(
+    control_public_header_visible
+    TRUE
+    "#include \"control/control.h\"\nint main(void) { return 0; }\n"
+    "${control_public_include_dir}"
+    "${runtime_public_include_dir}"
+    "${btstack_adapter_public_include_dir}"
+    "${application_public_include_dir}"
+    "${support_public_include_dir}"
+    "${protocol_public_include_dir}"
+)
+swbt_expect_compile_result(
+    control_ipc_transport_hidden
+    FALSE
+    "#include \"ipc/ipc_adapter.h\"\nint main(void) { return 0; }\n"
+    "${control_public_include_dir}"
+    "${runtime_public_include_dir}"
+    "${btstack_adapter_public_include_dir}"
+    "${application_public_include_dir}"
+    "${support_public_include_dir}"
+    "${protocol_public_include_dir}"
+)
+swbt_expect_compile_result(
     daemon_host_public_header_visible
     TRUE
     "#include \"daemon/host.h\"\nint main(void) { return 0; }\n"
     "${daemon_host_public_include_dir}"
     "${ipc_public_include_dir}"
+    "${control_public_include_dir}"
+    "${runtime_public_include_dir}"
     "${btstack_adapter_public_include_dir}"
     "${application_public_include_dir}"
     "${support_public_include_dir}"
@@ -139,6 +199,9 @@ swbt_expect_compile_result(
     "#include \"daemon/ipc_runner.h\"\nint main(void) { return 0; }\n"
     "${daemon_host_public_include_dir}"
     "${ipc_public_include_dir}"
+    "${control_public_include_dir}"
+    "${runtime_public_include_dir}"
+    "${btstack_adapter_public_include_dir}"
     "${application_public_include_dir}"
     "${support_public_include_dir}"
     "${protocol_public_include_dir}"

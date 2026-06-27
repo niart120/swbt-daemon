@@ -36,11 +36,11 @@ static int expect_eq_u16(uint16_t actual, uint16_t expected) {
 
 static int application_acquires_and_rejects_owners(void) {
     swbt_app_t *app = swbt_app_create();
-    swbt_app_snapshot_t status;
+    swbt_app_status_snapshot_t status;
     int failed = 0;
 
     failed += expect_true(app != NULL);
-    failed += expect_eq_int(swbt_app_snapshot(app, &status), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_read_status(app, &status), SWBT_APP_OK);
     failed += expect_false(status.has_owner);
     failed += expect_eq_u32(status.owner_client_id, 0u);
     failed += expect_eq_u64(status.last_sequence, 0u);
@@ -49,7 +49,7 @@ static int application_acquires_and_rejects_owners(void) {
     failed += expect_eq_int(swbt_app_acquire(app, 1001u), SWBT_APP_OK);
     failed += expect_eq_int(swbt_app_acquire(app, 2002u), SWBT_APP_ERROR_OWNER_BUSY);
 
-    failed += expect_eq_int(swbt_app_snapshot(app, &status), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_read_status(app, &status), SWBT_APP_OK);
     failed += expect_true(status.has_owner);
     failed += expect_eq_u32(status.owner_client_id, 1001u);
     failed += expect_eq_u64(status.last_sequence, 0u);
@@ -60,7 +60,7 @@ static int application_acquires_and_rejects_owners(void) {
 
 static int stale_sequence_does_not_update_state(void) {
     swbt_app_t *app = swbt_app_create();
-    swbt_app_snapshot_t status;
+    swbt_app_status_snapshot_t status;
     swbt_state_t state = swbt_state_neutral();
     int failed = 0;
 
@@ -87,7 +87,7 @@ static int stale_sequence_does_not_update_state(void) {
                                                }),
                             SWBT_APP_ERROR_STALE_SEQUENCE);
 
-    failed += expect_eq_int(swbt_app_snapshot(app, &status), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_read_status(app, &status), SWBT_APP_OK);
     failed += expect_eq_u32(status.state.buttons, SWBT_BUTTON_A);
     failed += expect_eq_u16(status.state.lx, 1234u);
     failed += expect_eq_u64(status.last_sequence, 77u);
@@ -98,7 +98,7 @@ static int stale_sequence_does_not_update_state(void) {
 
 static int sequential_updates_do_not_report_coalesced_state_updates(void) {
     swbt_app_t *app = swbt_app_create();
-    swbt_app_snapshot_t status;
+    swbt_app_status_snapshot_t status;
     swbt_state_t state = swbt_state_neutral();
     int failed = 0;
 
@@ -123,7 +123,7 @@ static int sequential_updates_do_not_report_coalesced_state_updates(void) {
                                                }),
                             SWBT_APP_OK);
 
-    failed += expect_eq_int(swbt_app_snapshot(app, &status), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_read_status(app, &status), SWBT_APP_OK);
     failed += expect_eq_u32(status.state.buttons, SWBT_BUTTON_B);
     failed += expect_eq_u64(status.last_sequence, 2u);
     failed += expect_eq_u64(status.metrics.ipc_state_accepted, 2u);
@@ -135,10 +135,10 @@ static int sequential_updates_do_not_report_coalesced_state_updates(void) {
 }
 
 static int expect_active_state(const swbt_app_t *app, expected_active_state_t expected) {
-    swbt_app_snapshot_t status;
+    swbt_app_status_snapshot_t status;
     int failed = 0;
 
-    failed += expect_eq_int(swbt_app_snapshot(app, &status), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_read_status(app, &status), SWBT_APP_OK);
     failed += expect_true(status.has_owner);
     failed += expect_eq_u32(status.owner_client_id, expected.owner_id);
     failed += expect_eq_u64(status.last_sequence, expected.sequence);
@@ -148,10 +148,10 @@ static int expect_active_state(const swbt_app_t *app, expected_active_state_t ex
 }
 
 static int expect_neutral_state(const swbt_app_t *app) {
-    swbt_app_snapshot_t status;
+    swbt_app_status_snapshot_t status;
     int failed = 0;
 
-    failed += expect_eq_int(swbt_app_snapshot(app, &status), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_read_status(app, &status), SWBT_APP_OK);
     failed += expect_false(status.has_owner);
     failed += expect_eq_u32(status.owner_client_id, 0u);
     failed += expect_eq_u64(status.last_sequence, 0u);

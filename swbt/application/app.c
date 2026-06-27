@@ -188,25 +188,38 @@ swbt_app_result_t swbt_app_revoke(swbt_app_t *app, swbt_app_revoke_options_t opt
     return SWBT_APP_ERROR_INVALID_ARGUMENT;
 }
 
-swbt_app_result_t swbt_app_snapshot(const swbt_app_t *app, swbt_app_snapshot_t *out_snapshot) {
-    if (app == NULL || out_snapshot == NULL) {
+swbt_app_result_t swbt_app_read_controller_state(const swbt_app_t *app, swbt_state_t *out_state) {
+    if (app == NULL || out_state == NULL) {
+        return SWBT_APP_ERROR_INVALID_ARGUMENT;
+    }
+
+    swbt_app_t *mutable_app = (swbt_app_t *)app;
+    swbt_spin_lock_acquire(&mutable_app->lock);
+    *out_state = app->state;
+    swbt_spin_lock_release(&mutable_app->lock);
+    return SWBT_APP_OK;
+}
+
+swbt_app_result_t swbt_app_read_status(const swbt_app_t *app,
+                                       swbt_app_status_snapshot_t *out_status) {
+    if (app == NULL || out_status == NULL) {
         return SWBT_APP_ERROR_INVALID_ARGUMENT;
     }
 
     swbt_app_t *mutable_app = (swbt_app_t *)app;
     swbt_spin_lock_acquire(&mutable_app->lock);
     const swbt_control_lease_snapshot_t lease = swbt_control_lease_snapshot(&app->lease);
-    out_snapshot->has_owner = lease.has_owner;
-    out_snapshot->owner_client_id = lease.owner_client_id;
-    out_snapshot->last_sequence = lease.last_sequence;
-    out_snapshot->state = app->state;
-    out_snapshot->rumble = app->rumble;
-    if (swbt_metrics_snapshot(&app->metrics, &out_snapshot->metrics) != SWBT_METRICS_OK) {
+    out_status->has_owner = lease.has_owner;
+    out_status->owner_client_id = lease.owner_client_id;
+    out_status->last_sequence = lease.last_sequence;
+    out_status->state = app->state;
+    out_status->rumble = app->rumble;
+    if (swbt_metrics_snapshot(&app->metrics, &out_status->metrics) != SWBT_METRICS_OK) {
         swbt_spin_lock_release(&mutable_app->lock);
         return SWBT_APP_ERROR_INVALID_ARGUMENT;
     }
-    out_snapshot->daemon = app->daemon;
-    out_snapshot->hardware = app->hardware;
+    out_status->daemon = app->daemon;
+    out_status->hardware = app->hardware;
     swbt_spin_lock_release(&mutable_app->lock);
     return SWBT_APP_OK;
 }

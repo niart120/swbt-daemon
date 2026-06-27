@@ -245,19 +245,27 @@ swbt_ipc_server_result_t swbt_ipc_server_init(swbt_ipc_server_t *server) {
     if (server->default_app == NULL) {
         return SWBT_IPC_SERVER_ERROR_SOCKET;
     }
-    server->app = server->default_app;
+    if (swbt_control_init(&server->default_control, &(swbt_control_config_t){
+                                                        .app = server->default_app,
+                                                    }) != SWBT_CONTROL_OK) {
+        swbt_app_destroy(server->default_app);
+        server->default_app = NULL;
+        return SWBT_IPC_SERVER_ERROR_SOCKET;
+    }
+    server->control = &server->default_control;
     server->next_client_id = 1;
     server->bound_port = 0;
     server->listening = false;
     return SWBT_IPC_SERVER_OK;
 }
 
-swbt_ipc_server_result_t swbt_ipc_server_bind_app(swbt_ipc_server_t *server, swbt_app_t *app) {
-    if (server == NULL || app == NULL || server->listening) {
+swbt_ipc_server_result_t swbt_ipc_server_bind_control(swbt_ipc_server_t *server,
+                                                      swbt_control_t *control) {
+    if (server == NULL || control == NULL || server->listening) {
         return SWBT_IPC_SERVER_ERROR_INVALID_ARGUMENT;
     }
 
-    server->app = app;
+    server->control = control;
     return SWBT_IPC_SERVER_OK;
 }
 
@@ -448,11 +456,11 @@ swbt_ipc_server_serve_connection_once_internal(swbt_ipc_server_t *server,
     read_result = swbt_ipc_read_line(connection, line, sizeof(line), &line_length, &line_complete);
     if (read_result == SWBT_IPC_SERVER_ERROR_DISCONNECTED ||
         read_result == SWBT_IPC_SERVER_ERROR_SOCKET) {
-        (void)swbt_ipc_adapter_handle_disconnect(server->app, connection->client_id);
+        (void)swbt_ipc_adapter_handle_disconnect(server->control, connection->client_id);
         return SWBT_IPC_SERVER_ERROR_DISCONNECTED;
     }
     if (read_result == SWBT_IPC_SERVER_ERROR_MESSAGE_TOO_LONG) {
-        (void)swbt_ipc_adapter_handle_disconnect(server->app, connection->client_id);
+        (void)swbt_ipc_adapter_handle_disconnect(server->control, connection->client_id);
         swbt_ipc_connection_close(connection);
         return SWBT_IPC_SERVER_ERROR_MESSAGE_TOO_LONG;
     }
@@ -467,8 +475,8 @@ swbt_ipc_server_serve_connection_once_internal(swbt_ipc_server_t *server,
     if (update_heartbeat) {
         swbt_ipc_connection_record_heartbeat(connection, now_ms);
     }
-    json_result = swbt_ipc_adapter_handle_line(server->app, connection->client_id, line, response,
-                                               sizeof(response));
+    json_result = swbt_ipc_adapter_handle_line(server->control, connection->client_id, line,
+                                               response, sizeof(response));
     if (json_result != SWBT_IPC_JSON_OK) {
         return SWBT_IPC_SERVER_ERROR_SOCKET;
     }
@@ -510,7 +518,7 @@ swbt_ipc_server_result_t swbt_ipc_server_check_heartbeat(swbt_ipc_server_t *serv
         return SWBT_IPC_SERVER_OK;
     }
 
-    (void)swbt_ipc_adapter_handle_heartbeat_timeout(server->app, connection->client_id);
+    (void)swbt_ipc_adapter_handle_heartbeat_timeout(server->control, connection->client_id);
     return SWBT_IPC_SERVER_ERROR_HEARTBEAT_TIMEOUT;
 }
 
@@ -519,7 +527,7 @@ swbt_ipc_server_result_t swbt_ipc_server_get_status(const swbt_ipc_server_t *ser
     if (server == NULL || out_status == NULL) {
         return SWBT_IPC_SERVER_ERROR_INVALID_ARGUMENT;
     }
-    if (swbt_ipc_adapter_get_status(server->app, out_status) != SWBT_IPC_OK) {
+    if (swbt_ipc_adapter_get_status(server->control, out_status) != SWBT_IPC_OK) {
         return SWBT_IPC_SERVER_ERROR_SOCKET;
     }
     return SWBT_IPC_SERVER_OK;
@@ -548,7 +556,7 @@ void swbt_ipc_server_close(swbt_ipc_server_t *server) {
         swbt_app_destroy(server->default_app);
     }
     server->default_app = NULL;
-    server->app = NULL;
+    server->control = NULL;
     server->bound_port = 0;
     server->listening = false;
 }

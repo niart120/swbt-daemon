@@ -75,11 +75,11 @@ swbt_daemon_ipc_runner_result_t swbt_daemon_ipc_runner_init(swbt_daemon_ipc_runn
 }
 
 swbt_daemon_ipc_runner_result_t
-swbt_daemon_ipc_runner_start(swbt_daemon_ipc_runner_t *runner, swbt_app_t *app,
+swbt_daemon_ipc_runner_start(swbt_daemon_ipc_runner_t *runner, swbt_control_t *control,
                              const swbt_daemon_ipc_runner_config_t *config) {
     swbt_ipc_server_result_t result;
 
-    if (runner == NULL || app == NULL || config == NULL || config->host == NULL ||
+    if (runner == NULL || control == NULL || config == NULL || config->host == NULL ||
         config->backlog <= 0 || !runner->initialized) {
         return SWBT_DAEMON_IPC_RUNNER_ERROR_INVALID_ARGUMENT;
     }
@@ -87,7 +87,7 @@ swbt_daemon_ipc_runner_start(swbt_daemon_ipc_runner_t *runner, swbt_app_t *app,
         return SWBT_DAEMON_IPC_RUNNER_OK;
     }
 
-    result = swbt_ipc_server_bind_app(&runner->server, app);
+    result = swbt_ipc_server_bind_control(&runner->server, control);
     if (result != SWBT_IPC_SERVER_OK) {
         return swbt_daemon_ipc_runner_map_server_result(result);
     }
@@ -247,11 +247,12 @@ void swbt_daemon_ipc_runner_stop(swbt_daemon_ipc_runner_t *runner) {
     }
 
     if (runner->has_connection) {
-        (void)swbt_ipc_adapter_handle_disconnect(runner->server.app, runner->connection.client_id);
+        (void)swbt_ipc_adapter_handle_disconnect(runner->server.control,
+                                                 runner->connection.client_id);
         swbt_ipc_connection_close(&runner->connection);
         runner->has_connection = false;
-    } else if (runner->server.app != NULL) {
-        (void)swbt_ipc_adapter_handle_shutdown(runner->server.app);
+    } else if (runner->server.control != NULL) {
+        (void)swbt_ipc_adapter_handle_shutdown(runner->server.control);
     }
 
     swbt_ipc_server_close(&runner->server);
@@ -267,13 +268,14 @@ bool swbt_daemon_ipc_runner_has_connection(const swbt_daemon_ipc_runner_t *runne
     return runner != NULL && runner->has_connection;
 }
 
-int swbt_daemon_ipc_runner_backend_start(void *context, swbt_app_t *app) {
+int swbt_daemon_ipc_runner_backend_start(void *context, swbt_control_t *control) {
     swbt_daemon_ipc_runner_t *runner = context;
     if (runner == NULL) {
         return -1;
     }
 
-    return swbt_daemon_ipc_runner_start(runner, app, &runner->config) == SWBT_DAEMON_IPC_RUNNER_OK
+    return swbt_daemon_ipc_runner_start(runner, control, &runner->config) ==
+                   SWBT_DAEMON_IPC_RUNNER_OK
                ? 0
                : -1;
 }

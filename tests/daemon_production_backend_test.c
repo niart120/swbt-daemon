@@ -68,7 +68,7 @@ typedef struct {
     uint8_t hid_send_button_bytes[8];
     uint8_t controller_address[6];
     uint8_t ssp_confirmation_address[6];
-    swbt_btstack_production_active_reconnect_request_t captured_active_reconnect_request;
+    swbt_btstack_device_connect_request_t captured_active_reconnect_request;
     const swbt_daemon_ipc_runner_t *ipc_runner;
     swbt_ipc_status_t status_during_run_loop;
     int status_during_run_loop_result;
@@ -341,8 +341,8 @@ static void fake_power_off(void *context) {
 static void fake_handle_json_line(fake_ops_t *fake, uint32_t client_id, const char *line) {
     char response[SWBT_IPC_JSON_RESPONSE_MAX];
 
-    if (fake == NULL || fake->ipc_runner == NULL || fake->ipc_runner->server.app == NULL ||
-        swbt_ipc_adapter_handle_line(fake->ipc_runner->server.app, client_id, line, response,
+    if (fake == NULL || fake->ipc_runner == NULL || fake->ipc_runner->server.control == NULL ||
+        swbt_ipc_adapter_handle_line(fake->ipc_runner->server.control, client_id, line, response,
                                      sizeof(response)) != SWBT_IPC_JSON_OK) {
         if (fake != NULL) {
             fake->injected_json_result = 1;
@@ -397,29 +397,29 @@ static void fake_run_loop_execute(void *context) {
     fake_ops_t *fake = context;
     record_step(fake, STEP_RUN_LOOP_EXECUTE);
     fake->status_during_run_loop_result =
-        fake->ipc_runner == NULL || fake->ipc_runner->server.app == NULL
+        fake->ipc_runner == NULL || fake->ipc_runner->server.control == NULL
             ? SWBT_IPC_ERROR_INVALID_ARGUMENT
-            : swbt_ipc_adapter_get_status(fake->ipc_runner->server.app,
+            : swbt_ipc_adapter_get_status(fake->ipc_runner->server.control,
                                           &fake->status_during_run_loop);
     if (fake->inject_json_state_during_run_loop && fake->ipc_runner != NULL &&
-        fake->ipc_runner->server.app != NULL) {
+        fake->ipc_runner->server.control != NULL) {
         fake->injected_json_result = 0;
         fake_handle_acquire(fake, 1001u, "journey-acquire");
         fake_handle_button_a_state(fake, 1001u, "000003e9", "journey-state");
         fake_emit_hid_opened(fake);
         fake_emit_can_send(fake);
-        fake->status_after_report_result =
-            swbt_ipc_adapter_get_status(fake->ipc_runner->server.app, &fake->status_after_report);
+        fake->status_after_report_result = swbt_ipc_adapter_get_status(
+            fake->ipc_runner->server.control, &fake->status_after_report);
     }
     if (fake->inject_disconnect_reacquire_during_run_loop && fake->ipc_runner != NULL &&
-        fake->ipc_runner->server.app != NULL) {
+        fake->ipc_runner->server.control != NULL) {
         fake->injected_json_result = 0;
         fake_handle_acquire(fake, 1001u, "journey-acquire");
         fake_handle_button_a_state(fake, 1001u, "000003e9", "journey-state");
         fake_emit_hid_opened(fake);
         fake_emit_can_send(fake);
 
-        if (swbt_ipc_adapter_handle_disconnect(fake->ipc_runner->server.app, 1001u) !=
+        if (swbt_ipc_adapter_handle_disconnect(fake->ipc_runner->server.control, 1001u) !=
             SWBT_IPC_OK) {
             fake->injected_json_result = 1;
         }
@@ -476,10 +476,9 @@ static void fake_shutdown_uninstall(void *context) {
     record_step((fake_ops_t *)context, STEP_SHUTDOWN_UNINSTALL);
 }
 
-static int
-fake_active_reconnect_connect(void *context,
-                              const swbt_btstack_production_active_reconnect_request_t *request,
-                              uint16_t *out_hid_cid) {
+static int fake_active_reconnect_connect(void *context,
+                                         const swbt_btstack_device_connect_request_t *request,
+                                         uint16_t *out_hid_cid) {
     fake_ops_t *fake = context;
     fake->active_reconnect_connect_calls += 1;
     if (request != NULL) {
@@ -499,17 +498,23 @@ static swbt_btstack_production_ipc_pump_port_t fake_ipc_pump_port(void) {
     };
 }
 
-static swbt_btstack_production_platform_port_t fake_platform_port(void) {
-    return (swbt_btstack_production_platform_port_t){
-        .start = fake_platform_start,
-        .stop = fake_platform_stop,
-    };
+static int fake_device_send(void *context, uint16_t hid_cid, const uint8_t *message,
+                            size_t message_size) {
+    (void)context;
+    (void)hid_cid;
+    (void)message;
+    (void)message_size;
+    return 0;
 }
 
-static swbt_btstack_production_hid_port_t fake_hid_port(void) {
-    return (swbt_btstack_production_hid_port_t){
-        .register_device = fake_hid_register,
-        .stop = fake_hid_stop,
+static swbt_btstack_device_port_t fake_device_port(void) {
+    return (swbt_btstack_device_port_t){
+        .platform_start = fake_platform_start,
+        .platform_stop = fake_platform_stop,
+        .hid_register = fake_hid_register,
+        .hid_stop = fake_hid_stop,
+        .connect = fake_active_reconnect_connect,
+        .send = fake_device_send,
     };
 }
 
@@ -551,12 +556,6 @@ static swbt_btstack_production_power_port_t fake_power_port(void) {
     };
 }
 
-static swbt_btstack_production_active_reconnect_port_t fake_active_reconnect_port(void) {
-    return (swbt_btstack_production_active_reconnect_port_t){
-        .connect = fake_active_reconnect_connect,
-    };
-}
-
 static swbt_btstack_production_run_loop_port_t fake_run_loop_port(void) {
     return (swbt_btstack_production_run_loop_port_t){
         .execute = fake_run_loop_execute,
@@ -574,14 +573,12 @@ static swbt_btstack_production_adapter_t fake_ipc_pump_only_adapter(void) {
 static swbt_btstack_production_adapter_t fake_backend_adapter(void) {
     return (swbt_btstack_production_adapter_t){
         .ipc_pump = fake_ipc_pump_port(),
-        .platform = fake_platform_port(),
-        .hid = fake_hid_port(),
+        .device = fake_device_port(),
         .output_handler = fake_output_handler_port(),
         .report_timer = fake_report_timer_port(),
         .controller = fake_controller_port(),
         .clock = fake_clock_port(),
         .power = fake_power_port(),
-        .active_reconnect = fake_active_reconnect_port(),
         .run_loop = fake_run_loop_port(),
     };
 }
@@ -653,6 +650,7 @@ static int ipc_pump_port_starts_without_unrelated_btstack_abilities(void) {
     const swbt_btstack_production_adapter_t adapter = fake_ipc_pump_only_adapter();
     swbt_daemon_production_backend_t backend;
     swbt_app_t *app = swbt_app_create();
+    swbt_control_t control;
     const swbt_daemon_host_backend_t *host_backend = swbt_daemon_production_host_backend();
     const swbt_daemon_production_result_t init_result =
         swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake);
@@ -660,9 +658,14 @@ static int ipc_pump_port_starts_without_unrelated_btstack_abilities(void) {
     int failed = 0;
     failed += expect_eq_int(init_result, SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += expect_true(app != NULL, "app created");
+    failed += expect_eq_int(swbt_control_init(&control,
+                                              &(swbt_control_config_t){
+                                                  .app = app,
+                                              }),
+                            SWBT_CONTROL_OK, "control init");
     failed += expect_true(host_backend != NULL, "host backend");
     if (init_result == SWBT_DAEMON_PRODUCTION_OK && app != NULL && host_backend != NULL) {
-        failed += expect_eq_int(host_backend->ipc_start(&backend, app), 0, "ipc start");
+        failed += expect_eq_int(host_backend->ipc_start(&backend, &control), 0, "ipc start");
         failed += expect_eq_int(fake.ipc_start_calls, 1, "ipc start calls");
         failed += expect_eq_int(fake.platform_start_calls, 0, "platform not started");
         failed += expect_eq_int(fake.hid_register_calls, 0, "hid not registered");

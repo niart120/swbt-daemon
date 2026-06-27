@@ -188,24 +188,12 @@ target_link_libraries(swbt_application PUBLIC swbt_support swbt_switch_protocol)
 swbt_apply_common_warnings(swbt_application)
 swbt_apply_sanitizers(swbt_application)
 
-add_library(swbt_ipc STATIC
-    swbt/ipc/ipc_adapter.c
-    swbt/ipc/ipc_json.c
-    swbt/ipc/ipc_server.c
-)
-swbt_configure_module_public_includes(swbt_ipc MODULES ipc)
-if(WIN32)
-    target_link_libraries(swbt_ipc PUBLIC ws2_32)
-endif()
-target_link_libraries(swbt_ipc PUBLIC swbt_application swbt_support)
-swbt_apply_common_warnings(swbt_ipc)
-swbt_apply_sanitizers(swbt_ipc)
-
 add_library(swbt_btstack_adapter STATIC
     swbt/btstack_bridge/production_adapter.c
     swbt/btstack_bridge/usb_adapter_location.c
     swbt/btstack_bridge/classic_discovery.c
     swbt/btstack_bridge/classic_discovery_btstack_adapter.c
+    swbt/btstack_bridge/device.c
     swbt/btstack_bridge/hci_dump_text.c
     swbt/btstack_bridge/hid_event.c
     swbt/btstack_bridge/hid_port.c
@@ -224,6 +212,46 @@ target_link_libraries(swbt_btstack_adapter PUBLIC swbt_application swbt_switch_p
 swbt_apply_common_warnings(swbt_btstack_adapter)
 swbt_apply_sanitizers(swbt_btstack_adapter)
 
+add_library(swbt_runtime STATIC
+    swbt/runtime/host.c
+)
+swbt_configure_module_public_includes(swbt_runtime MODULES runtime)
+target_link_libraries(swbt_runtime PUBLIC swbt_application swbt_btstack_adapter swbt_support)
+swbt_apply_common_warnings(swbt_runtime)
+swbt_apply_sanitizers(swbt_runtime)
+
+add_library(swbt_control STATIC
+    swbt/control/control.c
+)
+swbt_configure_module_public_includes(swbt_control MODULES control)
+target_link_libraries(swbt_control PUBLIC swbt_application swbt_runtime)
+swbt_apply_common_warnings(swbt_control)
+swbt_apply_sanitizers(swbt_control)
+
+set_target_properties(
+    swbt_switch_protocol
+    swbt_support
+    swbt_application
+    swbt_btstack_adapter
+    swbt_runtime
+    swbt_control
+    PROPERTIES
+        POSITION_INDEPENDENT_CODE ON
+)
+
+add_library(swbt_ipc STATIC
+    swbt/ipc/ipc_adapter.c
+    swbt/ipc/ipc_json.c
+    swbt/ipc/ipc_server.c
+)
+swbt_configure_module_public_includes(swbt_ipc MODULES ipc)
+if(WIN32)
+    target_link_libraries(swbt_ipc PUBLIC ws2_32)
+endif()
+target_link_libraries(swbt_ipc PUBLIC swbt_control swbt_support)
+swbt_apply_common_warnings(swbt_ipc)
+swbt_apply_sanitizers(swbt_ipc)
+
 add_library(swbt_daemon_host STATIC
     swbt/daemon/config.c
     swbt/daemon/config_file.cpp
@@ -237,6 +265,7 @@ swbt_configure_module_public_includes(swbt_daemon_host MODULES daemon)
 target_link_libraries(swbt_daemon_host
     PUBLIC
         swbt_ipc
+        swbt_runtime
         swbt_btstack_adapter
         swbt_application
         swbt_support
@@ -268,7 +297,7 @@ if(SWBT_BUILD_SHARED)
     add_library(swbt SHARED
         api/swbt_c_api.c
     )
-    target_link_libraries(swbt PRIVATE swbt_support)
+    target_link_libraries(swbt PRIVATE swbt_control swbt_support)
     target_include_directories(swbt
         PUBLIC
             "${CMAKE_CURRENT_SOURCE_DIR}/api"
@@ -442,6 +471,15 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME application_command_test COMMAND application_command_test)
 
+    add_executable(control_test
+        tests/control_test.c
+    )
+    target_link_libraries(control_test PRIVATE swbt_control)
+    swbt_apply_common_warnings(control_test)
+    swbt_apply_sanitizers(control_test)
+
+    add_test(NAME control_test COMMAND control_test)
+
     add_executable(ipc_json_test
         tests/ipc_json_test.c
     )
@@ -517,6 +555,19 @@ if(SWBT_BUILD_TESTS)
     swbt_apply_sanitizers(btstack_hid_port_test)
 
     add_test(NAME btstack_hid_port_test COMMAND btstack_hid_port_test)
+
+    add_executable(btstack_device_test
+        tests/btstack_device_test.c
+    )
+    target_link_libraries(btstack_device_test PRIVATE swbt_btstack_adapter)
+    target_include_directories(btstack_device_test
+        PRIVATE
+            ${swbt_btstack_selected_include_dirs}
+    )
+    swbt_apply_common_warnings(btstack_device_test)
+    swbt_apply_sanitizers(btstack_device_test)
+
+    add_test(NAME btstack_device_test COMMAND btstack_device_test)
 
     add_executable(btstack_timer_port_test
         tests/btstack_timer_port_test.c
@@ -637,6 +688,15 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME daemon_host_test COMMAND daemon_host_test)
 
+    add_executable(runtime_host_test
+        tests/runtime_host_test.c
+    )
+    target_link_libraries(runtime_host_test PRIVATE swbt_runtime)
+    swbt_apply_common_warnings(runtime_host_test)
+    swbt_apply_sanitizers(runtime_host_test)
+
+    add_test(NAME runtime_host_test COMMAND runtime_host_test)
+
     add_executable(daemon_config_file_test
         tests/daemon_config_file_test.c
     )
@@ -727,6 +787,17 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME diagnostics_test COMMAND diagnostics_test)
 
+    if(SWBT_BUILD_SHARED)
+        add_executable(swbt_c_api_test
+            tests/swbt_c_api_test.c
+        )
+        target_link_libraries(swbt_c_api_test PRIVATE swbt)
+        swbt_apply_common_warnings(swbt_c_api_test)
+        swbt_apply_sanitizers(swbt_c_api_test)
+
+        add_test(NAME swbt_c_api_test COMMAND swbt_c_api_test)
+    endif()
+
     add_custom_target(swbt_unit_tests
         DEPENDS
             swbt_smoke_test
@@ -741,6 +812,7 @@ if(SWBT_BUILD_TESTS)
             switch_player_lights_test
             application_control_lease_test
             application_command_test
+            control_test
             ipc_json_test
             ipc_server_test
             debug_ipc_client_test
@@ -748,6 +820,7 @@ if(SWBT_BUILD_TESTS)
             btstack_hid_device_btstack_adapter_test
             btstack_hid_event_test
             btstack_hid_port_test
+            btstack_device_test
             btstack_timer_port_test
             btstack_classic_discovery_test
             btstack_hci_dump_text_test
@@ -759,6 +832,7 @@ if(SWBT_BUILD_TESTS)
             btstack_input_report_timer_adapter_test
             btstack_input_report_scheduler_test
             daemon_host_test
+            runtime_host_test
             daemon_config_file_test
             daemon_launch_options_test
             daemon_cli_test
@@ -770,4 +844,7 @@ if(SWBT_BUILD_TESTS)
             diagnostics_test
             swbt-daemon
     )
+    if(SWBT_BUILD_SHARED)
+        add_dependencies(swbt_unit_tests swbt_c_api_test)
+    endif()
 endif()

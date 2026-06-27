@@ -39,7 +39,7 @@ typedef struct {
     swbt_metrics_snapshot_t metrics;
     swbt_app_daemon_status_t daemon;
     swbt_app_hardware_status_t hardware;
-} swbt_app_snapshot_t;
+} swbt_app_status_snapshot_t;
 
 typedef struct swbt_app swbt_app_t;
 
@@ -59,7 +59,9 @@ void swbt_app_destroy(swbt_app_t *app);
 swbt_app_result_t swbt_app_acquire(swbt_app_t *app, uint32_t client_id);
 swbt_app_result_t swbt_app_set_state(swbt_app_t *app, swbt_app_set_state_options_t options);
 swbt_app_result_t swbt_app_revoke(swbt_app_t *app, swbt_app_revoke_options_t options);
-swbt_app_result_t swbt_app_snapshot(const swbt_app_t *app, swbt_app_snapshot_t *out_snapshot);
+swbt_app_result_t swbt_app_read_controller_state(const swbt_app_t *app, swbt_state_t *out_state);
+swbt_app_result_t swbt_app_read_status(const swbt_app_t *app,
+                                       swbt_app_status_snapshot_t *out_status);
 
 swbt_app_result_t swbt_app_set_daemon_status(swbt_app_t *app,
                                              const swbt_app_daemon_status_t *daemon_status);
