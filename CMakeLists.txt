@@ -308,6 +308,8 @@ endif()
 
 add_executable(swbt-daemon
     apps/swbt-daemon/main.c
+    apps/swbt-daemon/platform_process.c
+    apps/swbt-daemon/production_entrypoint.c
 )
 target_link_libraries(swbt-daemon PRIVATE swbt_daemon_process swbt_btstack_production_impl)
 if(WIN32)
@@ -370,6 +372,13 @@ if(SWBT_BUILD_TESTS)
             "${CMAKE_COMMAND}"
             "-DSWBT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/architecture_absence_test.cmake"
+    )
+    add_test(
+        NAME production_entrypoint_boundary_cmake_test
+        COMMAND
+            "${CMAKE_COMMAND}"
+            "-DSWBT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/production_entrypoint_boundary_test.cmake"
     )
 
     add_executable(switch_report_test
