@@ -85,7 +85,7 @@ Tidy status:
 |---|---|---|---|---|
 | green | management commands still return before production startup composition is invoked | regression | unit/integration | no |
 | green | noop backend startup still avoids real BTstack production implementation | regression | unit/integration | no |
-| todo | production startup still configures link key DB, HCI dump, adapter location, learned address target, and shutdown listener before runner main | regression | integration | no |
+| green | production startup still configures link key DB, HCI dump, adapter location, learned address target, and shutdown listener before runner main | regression | integration | no |
 | todo | executable target links after moving app-local sources out of `main.c` | regression | build | no |
 | refactor-skipped | `main.c` no longer owns production BTstack wiring or platform process support | regression | source/build | no |
 
@@ -136,6 +136,19 @@ TDD status:
 - result: pass, 2/2 tests passed.
 - notes: source boundary test と合わせ、`main.c` の noop branch が production
   entrypoint を経由しないことを確認した。
+
+TDD status:
+
+- source: `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md` and this
+  work unit.
+- use case: production backend は分割後も link key DB、HCI dump、adapter location、
+  learned address target、shutdown listener を runner main 前に構成する。
+- item: production startup still configures link key DB, HCI dump, adapter location, learned
+  address target, and shutdown listener before runner main.
+- state: green.
+- command: `$env:CTEST_ARGS='-R "daemon_production_runner_test|btstack_production_hci_dump_test" --output-on-failure'; just test-debug`
+- result: pass, 2/2 tests passed.
+- notes: BTstack source selection、report timing、Switch-facing bytes は変更していない。
 
 Expected checks:
 
