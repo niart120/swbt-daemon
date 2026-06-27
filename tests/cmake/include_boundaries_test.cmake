@@ -73,6 +73,10 @@ foreach(path IN LISTS swbt_runtime_files)
     file(RELATIVE_PATH relative_path "${SWBT_SOURCE_DIR}" "${path}")
     swbt_assert_file_not_match("${relative_path}" "#include \"(daemon|ipc)/"
                                "runtime daemon/IPC include boundary")
+    swbt_assert_file_not_match("${relative_path}" "ipc_start"
+                               "runtime backend IPC start contract boundary")
+    swbt_assert_file_not_match("${relative_path}" "ipc_stop"
+                               "runtime backend IPC stop contract boundary")
 endforeach()
 
 file(GLOB_RECURSE swbt_control_files

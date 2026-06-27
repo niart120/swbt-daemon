@@ -273,23 +273,22 @@ Tidy status:
 | refactor-skipped | IPC adapter delegates acquire/release/set_state/get_status to control instead of app direct calls | regression | integration | no |
 | refactor-skipped | public C ABI exposes open/close/submit_state/submit_neutral/get_status and does not link swbt_ipc | new | unit/build | no |
 | refactor-skipped | CMake include boundary tests recognize swbt_control and swbt_runtime targets | regression | build | no |
-| todo | old daemon_host backend no longer requires ipc_start/ipc_stop in runtime backend contract | characterization | review | no |
+| refactor-skipped | old daemon_host backend no longer requires ipc_start/ipc_stop in runtime backend contract | characterization | review | no |
 
 TDD status:
 
 - source: user request, 2026-06-27。
 - use case: `swbt/control` と `swbt/runtime` の実装を新規 work unit として進める。
-- last item: CMake include boundary tests recognize swbt_control and swbt_runtime targets。
+- last item: old daemon_host backend no longer requires ipc_start/ipc_stop in runtime backend contract。
 - state: refactor-skipped。
 - commands:
-  - red: `CTEST_ARGS="-R \"^compile_include_boundaries_cmake_test$\"" just test-debug`
-    - result: expected failure. `daemon/host.h` included `control/control.h`, while the compile include boundary probe did not expose `swbt_control` and `swbt_runtime` public include roots.
-  - green: `CTEST_ARGS="-R \"^(compile_include_boundaries_cmake_test|include_boundaries_cmake_test)$\"" just test-debug`
+  - red: not applicable for this characterization item. Existing implementation already had no `ipc_start` / `ipc_stop` in `swbt_runtime_host_backend_t`; the cycle fixed the absence check so it remains enforced.
+  - green: `CTEST_ARGS="-R \"^include_boundaries_cmake_test$\"" just test-debug`
     - result: pass.
   - refactor: skipped.
-    - reason: this cycle updated only CMake boundary tests and compile probes. No production code cleanup was needed.
-- notes: tenth cycle added `swbt_control` and `swbt_runtime` target existence checks, direct daemon/IPC include absence checks for control/runtime, public include-root compile probes, and daemon host probe include roots for the new dependencies.
-- next red candidate: old daemon_host backend no longer requires ipc_start/ipc_stop in runtime backend contract。
+    - reason: production code already matched the intended boundary; adding another implementation change would only duplicate the existing runtime/daemon split.
+- notes: eleventh cycle added explicit absence checks that reject `ipc_start` and `ipc_stop` inside `swbt/runtime/*`, while leaving IPC start / stop on the daemon host backend contract.
+- next red candidate: none. TDD Test List items are consumed。
 
 ## 10. 検証
 
@@ -319,6 +318,8 @@ TDD status:
   - result: pass。2/2 tests passed。
 - `CTEST_ARGS="-R \"^(compile_include_boundaries_cmake_test|include_boundaries_cmake_test)$\"" just test-debug`
   - result: pass。2/2 tests passed。
+- `CTEST_ARGS="-R \"^include_boundaries_cmake_test$\"" just test-debug`
+  - result: pass。1/1 tests passed。
 
 予定:
 
@@ -356,7 +357,7 @@ TDD status:
 - [x] IPC adapter / runner を control 経由に移した。
 - [x] public C ABI minimal operation を追加した。
 - [x] CMake target と include boundary を更新した。
-- [ ] relevant tests を追加または更新した。`control_test` は追加済み。direct API、status、IPC delegation、public C ABI、include boundary は未完了。
+- [x] relevant tests を追加または更新した。
 - [ ] 検証コマンドと結果を記録した。
 - [ ] 実機未実行理由を維持または実機実行条件を更新した。
 - [ ] work unit record を complete へ移した。
