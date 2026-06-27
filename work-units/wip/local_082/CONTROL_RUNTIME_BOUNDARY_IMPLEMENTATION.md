@@ -4,7 +4,7 @@
 
 `swbt/control` と `swbt/runtime` を新設し、daemon IPC と将来の public C ABI が `swbt_app_t` と `daemon_host` を直接操作し続ける状態を解消する。
 
-この work unit は、リアーキテクチャで得た単一の状態所有、一方向依存、旧経路を残さない方針を維持する。`swbt/runtime` は旧 `swbt_daemon_runtime_t` の復活ではなく、IPC を含まない runtime resource lifecycle に限定する。`swbt/control` は operation semantics を集約するが、authoritative state を複製しない。
+この work unit は、リアーキテクチャで得た単一の状態所有、一方向依存、旧経路を残さない方針を維持する。`swbt/runtime` は旧 `swbt_daemon_runtime_t` の復活ではなく、IPC を含まない runtime resource lifecycle と runtime-owned state を持つ層に限定する。`swbt/control` は operation semantics を集約するが、app-owned authoritative state を複製しない。
 
 この work unit の完了条件は設計方針の記録ではない。`swbt/control` と `swbt/runtime` の最小実装を追加し、既存の daemon / IPC 経路がその境界を通り、build と unit tests で検証済みになることを完了条件にする。
 
@@ -34,7 +34,7 @@ use case:
   - IPC command path が `swbt/control` の operation API を通る。
   - public C ABI の operation API が `swbt/control` を通り、`swbt_ipc` に link しない。
   - daemon host が IPC を含まない `swbt/runtime` を起動し、IPC runner は daemon 側の利用者になる。
-  - report scheduler は runtime から app controller state を読むが、IPC status 合成とは結合しない。
+  - report scheduler は app controller state を runtime 経由または runtime-owned callback 経由で読むが、IPC status 合成とは結合しない。
   - `swbt/control` status は app-owned status と runtime status を合成する。
 - 制約:
   - IPC JSON wire format は変更しない。
@@ -51,12 +51,13 @@ source から use case への変換:
   - `swbt_control_t` または同等の opaque/control object を定義する。
   - `swbt_control_acquire_client` / `release_client` / `submit_client_state` のような IPC client 用 operation を定義する。
   - `swbt_control_submit_state` / `submit_neutral` のような direct API 用 operation を定義する。
-  - direct API 用の internal owner id と sequence 管理を control 側へ閉じ込める。
+  - direct API 用の synthetic client id と sequence allocator は control 側へ閉じ込める。ただし、controller ownership と latest accepted sequence の authoritative state は app に残す。
   - `swbt_control_get_status` で app-owned status と runtime status を合成する。
 - `swbt/runtime/` を追加する。
   - IPC start / stop を含まない runtime host contract を定義する。
-  - runtime host は app を所有しない。composition root が所有する app への参照を受け、HID registration、output handler、report timer、neutral shutdown の runtime resource lifecycle を扱う。
-  - runtime status は daemon lifecycle ではなく runtime/link/hardware の要約として扱う。
+  - runtime host は app lifetime を所有しない。composition root が所有する app への参照を受け、HID registration、output handler、report timer、neutral shutdown の runtime resource lifecycle を扱う。
+  - runtime host は initialized/running、HID registration、output handler registration、report timer running、active HID cid/link summary、pending neutral send、last runtime error のような runtime-owned state を持つ。
+  - runtime status は daemon lifecycle ではなく runtime resource / link / hardware の要約として扱う。
   - noop runtime backend を用意し、unit test で start/stop/order を検証する。
 - daemon host を薄くする。
   - daemon host は runtime host と IPC runner の構成を持つ。
@@ -123,11 +124,13 @@ swbt/control
   operation semantics
   owner / sequence / neutral / status synthesis
   app と runtime を直接呼ぶ唯一の high-level layer
-  authoritative state は持たない
+  app-owned authoritative state は持たない
+  direct API 用 synthetic client id / sequence allocator は持ってよい
 
 swbt/runtime
   IPC を含まない runtime host
   HID registration / output handler / report timer / neutral shutdown
+  initialized / running / HID registration / report timer / link summary / pending neutral send
   app lifetime は所有しない
 
 swbt/daemon
@@ -213,15 +216,16 @@ Tidy status:
 
 妥当と判断する点:
 
-- `swbt_app_t` の owner、sequence、controller state、rumble、metrics を唯一の app-owned state として残す限り、`local_050` 以降の単一状態所有を損なわない。
+- `swbt_app_t` の owner、latest accepted sequence、controller state、rumble、metrics を唯一の app-owned state として残す限り、`local_050` 以降の単一状態所有を損なわない。
+- `swbt/runtime` が runtime resource state を持つことは妥当である。問題にするべきなのは、runtime が app lifetime、controller ownership、latest accepted sequence、controller state の authoritative owner になることである。
 - IPC と public C ABI が同じ `swbt/control` operation semantics を通るなら、owner、sequence、neutral、status 合成の二重実装を避けられる。
 - `swbt/runtime` から IPC start / stop を外すなら、daemon process lifecycle と runtime resource lifecycle を分けられる。
 - shared target `swbt` が `swbt_ipc` や `swbt_daemon_host` に link しないことを build test で固定すれば、public C ABI が daemon IPC 実装へ癒着しない。
 
 実装前に守る制約:
 
-- `swbt/runtime` は app を生成、破棄、公開しない。composition root が app lifetime を所有し、runtime は state provider / output event target として参照するだけにする。
-- `swbt/control` は owner id、sequence、neutral policy の authoritative state を複製しない。必要な direct API 用 owner id / sequence は operation 入力の補助に閉じ、最終判断は app API へ委譲する。
+- `swbt/runtime` は runtime resource state を持つ。app を生成、破棄、公開せず、composition root が app lifetime を所有し、runtime は state provider / output event target として参照する。
+- `swbt/control` は controller owner、latest accepted sequence、neutral policy の authoritative state を複製しない。必要な direct API 用 synthetic client id / sequence allocator は operation 入力の補助に閉じ、最終判断は app API へ委譲する。
 - `swbt/control` は IPC JSON codec、socket、BTstack vendor header、daemon CLI を include しない。
 - `swbt/runtime` は IPC runner、IPC adapter、JSON codec を include しない。
 - public C ABI はこの work unit では thin wrapper / smoke surface に留める。Bluetooth adapter open、HCI power on、pairing、advertising、connect success を public contract として固定しない。
@@ -232,6 +236,7 @@ Tidy status:
 - runtime status schema を IPC JSON wire format に露出したくなった場合。
 - public C ABI の `swbt_open` が実際の Bluetooth adapter open / listen / connect を意味し始めた場合。
 - runtime が app lifetime を持たない形では production backend wiring が過度に複雑になる場合。
+- runtime-owned state と app-owned state の境界が、unit test で観測できないほど曖昧になった場合。
 - `local_080` の device send path と同時に進めないと production 経路が二重化する場合。
 
 ## 8. 対象ファイル
@@ -259,7 +264,7 @@ Tidy status:
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | todo | runtime host starts HID/output/report runtime without IPC start callback | new | unit | no |
-| todo | runtime host uses caller-owned app reference without creating, destroying, or exposing app lifetime | new | unit/review | no |
+| todo | runtime host owns runtime resource state while leaving app lifetime and app-owned state outside runtime | new | unit/review | no |
 | todo | runtime host shutdown neutralizes state and stops runtime resources once | regression | unit | no |
 | todo | daemon host starts IPC runner as daemon responsibility and delegates HID/report runtime to runtime host | regression | integration | no |
 | todo | control submit client state preserves IPC owner and sequence semantics | regression | unit | no |
@@ -311,7 +316,7 @@ TDD status:
 - [x] TDD Test List を作成した。
 - [x] 事前妥当性評価を記録した。
 - [ ] `swbt/runtime` を実装した。
-- [ ] `swbt/runtime` が app lifetime を所有または公開しないことを検証した。
+- [ ] `swbt/runtime` が runtime-owned state を持ち、app lifetime と app-owned state を所有または公開しないことを検証した。
 - [ ] `swbt/control` を実装した。
 - [ ] daemon host を runtime host + IPC runner の利用者へ薄くした。
 - [ ] IPC adapter / runner を control 経由に移した。
