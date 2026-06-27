@@ -91,7 +91,7 @@ Tidy status:
 | green | invalid reconnect address still rejects config without partial update | regression | unit | no |
 | green | production active reconnect still converts effective text address into BTstack byte request with HID PSM values unchanged | regression | integration | no |
 | green | learned address save after HID connection opened still writes uppercase text address to the configured target | regression | integration | no |
-| todo | active reconnect request failure still records failed hardware status without stopping the run loop | regression | integration | no |
+| green | active reconnect request failure still records failed hardware status without stopping the run loop | regression | integration | no |
 
 ## 10. 検証
 
@@ -178,6 +178,20 @@ TDD status:
 - notes: `swbt_daemon_switch_address_format_bytes()` と
   `swbt_daemon_production_reconnect_save_learned_address()` を追加し、runner の
   HID connection opened path から保存処理を分離した。
+
+TDD status:
+
+- source: `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md` and this
+  work unit.
+- use case: active reconnect request が失敗しても failed hardware status を記録し、
+  production run loop は停止しない。
+- item: active reconnect request failure still records failed hardware status without stopping
+  the run loop.
+- state: green.
+- command: `$env:CTEST_ARGS='-R "daemon_production_runner_test" --output-on-failure'; just debug`
+- result: pass, 1/1 test passed.
+- notes: `active_reconnect_failure_reports_failed_state_without_stopping_run_loop` を含む
+  existing runner integration で、分離後も failed status と run loop continuation を確認した。
 
 Expected checks:
 
