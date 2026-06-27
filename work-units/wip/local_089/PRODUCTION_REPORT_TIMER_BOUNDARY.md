@@ -84,8 +84,8 @@ Tidy status:
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | green | production report timer sender still uses `swbt_btstack_device_send` and preserves fake device send observations | regression | unit/integration | no |
-| todo | successful report send still updates status metrics without hardware measurement values | regression | integration | no |
-| todo | failed report send still updates failure metrics and cleans up through existing lifecycle order | regression | integration | no |
+| green | successful report send still updates status metrics without hardware measurement values | regression | integration | no |
+| green | failed report send still updates failure metrics and cleans up through existing lifecycle order | regression | integration | no |
 | todo | neutral send immediate / pending / error return behavior remains unchanged | regression | integration | no |
 | todo | subcommand reply enqueue still routes through the production report timer port | regression | integration | no |
 
@@ -110,6 +110,17 @@ TDD status:
 - notes: `swbt/daemon/production_report_timer.*` を追加し、timer config、HID sender
   callback、report tick observer を runner から分離した。runner は stable な
   `report_timer_bridge` context を持ち、timer callback へ一時 object を渡さない。
+- item: successful report send still updates status metrics without hardware measurement values.
+- item: failed report send still updates failure metrics and cleans up through existing lifecycle order.
+- green:
+  - command: `just build-debug`
+  - result: pass。
+  - command: `$env:CTEST_ARGS='-R "daemon_production_report_timer_test|daemon_production_runner_test|report_metrics_test" --output-on-failure'; just test-debug`
+  - result: pass、3/3。
+- notes: `daemon_production_report_timer_test` に report tick observer の success /
+  failure mapping を追加した。成功時は `report_ticks=1`, `report_send_ok=1`、
+  失敗時は `report_ticks=1`, `report_send_failed=1` を確認した。既存
+  `daemon_production_runner_test` は failure path の cleanup order も維持している。
 
 Expected checks:
 
