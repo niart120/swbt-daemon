@@ -71,6 +71,7 @@ daemon の論理状態、IPC transport、BTstack adapter、host composition、pl
 - `work-units/complete/local_053/BTSTACK_PORT_EVENT_BOUNDARY.md`
 - `work-units/complete/local_054/DAEMON_HOST_AND_BUILD_BOUNDARIES.md`
 - `work-units/complete/local_055/REARCHITECTURE_CUTOVER_ACCEPTANCE_AND_CLEANUP.md`
+- `work-units/complete/local_079/DEVICE_LIFECYCLE_API.md`
 
 ## 7. 実装状態
 
@@ -81,6 +82,7 @@ daemon の論理状態、IPC transport、BTstack adapter、host composition、pl
 - H1 artifact は `tmp/hardware/local_057/20260623-105416-architecture-cutover-h1`。HCI dump は line `953` Button A、line `954` trailing neutral、line `955` `hci_power_control: 0` の順を記録した。current connection の `invalid size` と `non-registered handle` は `0` 件である。
 - 2026-06-23 の `local_058` で、shutdown neutral の即時送信が pending になった後の `CAN_SEND_NOW` 再送失敗でも pending を解除し、power-off と run-loop exit へ進む failure cleanup 経路を固定した。この変更は Switch-facing bytes、report period、BTstack source selection を変更しない。
 - 2026-06-23 の `local_061` で、`swbt_btstack_production_adapter_t` は `ipc_pump`、`platform`、`hid`、`output_handler`、`report_timer`、`controller`、`clock`、`power`、`run_loop` の能力別 port group へ分割した。旧 production backend ops table は復活させていない。この変更は Switch-facing bytes、report period、BTstack source selection、timer scheduling を変更しないため、H1 は再実行していない。
+- 2026-06-27 の `local_079` で、BTstack bridge に caller-owned `swbt_btstack_device_t` と `open` / `connect` / `send` / `recv` / `close` の device lifecycle API を追加した。production backend は platform start、HID register、active reconnect、HID event decode、HID / platform close を device API 経由で呼ぶ。これは internal BTstack bridge API であり、`api/swbt.h` の public C ABI ではない。Switch-facing bytes、report period、BTstack source selection、HID registration config 値、shutdown neutral ordering は変更していない。
 - 2026-06-25 の `local_065` cleanup 後、`swbt-bond-<local-bdaddr>.tlv` と TLV-backed Classic link key DB 経路は現行 tree から削除済みである。daemon restart / sleep-resume の実機観測では既存 bond reconnect ではなく再 pairing になったため、bond cache は release 互換を約束する外部契約に格上げしない。調査記録は `spec/archive/bond-cache-persistence.md` を参照する。
 - 「8. 採用した外部レビュー本文」内の未完了表記は、採用時点の作業指示として残す。現在の実装状態はこの章、`local_056`、`local_057`、`docs/status.md` を正とする。
 - 外部契約を破壊する必要が出た場合は、同じ PR に変更理由と migration note を含める。

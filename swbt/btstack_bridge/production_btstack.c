@@ -9,6 +9,7 @@
 #include "btstack_bridge/classic_discovery_btstack_adapter.h"
 #include "btstack_bridge/hci_dump_text.h"
 #include "btstack_bridge/hid_device_btstack_adapter.h"
+#include "btstack_bridge/hid_port.h"
 #include "btstack_bridge/input_report_timer_adapter.h"
 #include "btstack_bridge/output_report_callbacks.h"
 #include "btstack_bridge/usb_adapter_location.h"
@@ -848,9 +849,8 @@ static void swbt_btstack_production_power_off(void *context) {
     (void)hci_power_control(HCI_POWER_OFF);
 }
 
-static int swbt_btstack_production_active_reconnect_connect(
-    void *context, const swbt_btstack_production_active_reconnect_request_t *request,
-    uint16_t *out_hid_cid) {
+static int swbt_btstack_production_device_connect(
+    void *context, const swbt_btstack_device_connect_request_t *request, uint16_t *out_hid_cid) {
     uint8_t address[6];
     uint8_t status;
     (void)context;
@@ -869,6 +869,15 @@ static int swbt_btstack_production_active_reconnect_connect(
     swbt_diagnostic_trace(status == 0u ? "btstack: hid active reconnect connect ok"
                                        : "btstack: hid active reconnect connect failed");
     return status == 0u ? 0 : -1;
+}
+
+static int swbt_btstack_production_device_send(void *context, uint16_t hid_cid,
+                                               const uint8_t *message, size_t message_size) {
+    (void)context;
+    return swbt_btstack_hid_port_send_report(swbt_btstack_hid_port_btstack(), hid_cid, message,
+                                             message_size) == SWBT_BTSTACK_HID_PORT_OK
+               ? 0
+               : -1;
 }
 
 static void swbt_btstack_production_run_loop_execute(void *context) {
@@ -894,15 +903,14 @@ const swbt_btstack_production_adapter_t *swbt_btstack_production_adapter(void) {
                 .start = swbt_btstack_production_ipc_pump_start,
                 .stop = swbt_btstack_production_ipc_pump_stop,
             },
-        .platform =
+        .device =
             {
-                .start = swbt_btstack_production_platform_start,
-                .stop = swbt_btstack_production_platform_stop,
-            },
-        .hid =
-            {
-                .register_device = swbt_btstack_production_hid_register,
-                .stop = swbt_btstack_production_hid_stop,
+                .platform_start = swbt_btstack_production_platform_start,
+                .platform_stop = swbt_btstack_production_platform_stop,
+                .hid_register = swbt_btstack_production_hid_register,
+                .hid_stop = swbt_btstack_production_hid_stop,
+                .connect = swbt_btstack_production_device_connect,
+                .send = swbt_btstack_production_device_send,
             },
         .output_handler =
             {
@@ -932,10 +940,6 @@ const swbt_btstack_production_adapter_t *swbt_btstack_production_adapter(void) {
             {
                 .on = swbt_btstack_production_power_on,
                 .off = swbt_btstack_production_power_off,
-            },
-        .active_reconnect =
-            {
-                .connect = swbt_btstack_production_active_reconnect_connect,
             },
         .run_loop =
             {

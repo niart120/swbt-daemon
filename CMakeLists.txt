@@ -206,6 +206,7 @@ add_library(swbt_btstack_adapter STATIC
     swbt/btstack_bridge/usb_adapter_location.c
     swbt/btstack_bridge/classic_discovery.c
     swbt/btstack_bridge/classic_discovery_btstack_adapter.c
+    swbt/btstack_bridge/device.c
     swbt/btstack_bridge/hci_dump_text.c
     swbt/btstack_bridge/hid_event.c
     swbt/btstack_bridge/hid_port.c
@@ -518,6 +519,19 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME btstack_hid_port_test COMMAND btstack_hid_port_test)
 
+    add_executable(btstack_device_test
+        tests/btstack_device_test.c
+    )
+    target_link_libraries(btstack_device_test PRIVATE swbt_btstack_adapter)
+    target_include_directories(btstack_device_test
+        PRIVATE
+            ${swbt_btstack_selected_include_dirs}
+    )
+    swbt_apply_common_warnings(btstack_device_test)
+    swbt_apply_sanitizers(btstack_device_test)
+
+    add_test(NAME btstack_device_test COMMAND btstack_device_test)
+
     add_executable(btstack_timer_port_test
         tests/btstack_timer_port_test.c
     )
@@ -748,6 +762,7 @@ if(SWBT_BUILD_TESTS)
             btstack_hid_device_btstack_adapter_test
             btstack_hid_event_test
             btstack_hid_port_test
+            btstack_device_test
             btstack_timer_port_test
             btstack_classic_discovery_test
             btstack_hci_dump_text_test

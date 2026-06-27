@@ -68,7 +68,7 @@ typedef struct {
     uint8_t hid_send_button_bytes[8];
     uint8_t controller_address[6];
     uint8_t ssp_confirmation_address[6];
-    swbt_btstack_production_active_reconnect_request_t captured_active_reconnect_request;
+    swbt_btstack_device_connect_request_t captured_active_reconnect_request;
     const swbt_daemon_ipc_runner_t *ipc_runner;
     swbt_ipc_status_t status_during_run_loop;
     int status_during_run_loop_result;
@@ -476,10 +476,9 @@ static void fake_shutdown_uninstall(void *context) {
     record_step((fake_ops_t *)context, STEP_SHUTDOWN_UNINSTALL);
 }
 
-static int
-fake_active_reconnect_connect(void *context,
-                              const swbt_btstack_production_active_reconnect_request_t *request,
-                              uint16_t *out_hid_cid) {
+static int fake_active_reconnect_connect(void *context,
+                                         const swbt_btstack_device_connect_request_t *request,
+                                         uint16_t *out_hid_cid) {
     fake_ops_t *fake = context;
     fake->active_reconnect_connect_calls += 1;
     if (request != NULL) {
@@ -499,17 +498,23 @@ static swbt_btstack_production_ipc_pump_port_t fake_ipc_pump_port(void) {
     };
 }
 
-static swbt_btstack_production_platform_port_t fake_platform_port(void) {
-    return (swbt_btstack_production_platform_port_t){
-        .start = fake_platform_start,
-        .stop = fake_platform_stop,
-    };
+static int fake_device_send(void *context, uint16_t hid_cid, const uint8_t *message,
+                            size_t message_size) {
+    (void)context;
+    (void)hid_cid;
+    (void)message;
+    (void)message_size;
+    return 0;
 }
 
-static swbt_btstack_production_hid_port_t fake_hid_port(void) {
-    return (swbt_btstack_production_hid_port_t){
-        .register_device = fake_hid_register,
-        .stop = fake_hid_stop,
+static swbt_btstack_device_port_t fake_device_port(void) {
+    return (swbt_btstack_device_port_t){
+        .platform_start = fake_platform_start,
+        .platform_stop = fake_platform_stop,
+        .hid_register = fake_hid_register,
+        .hid_stop = fake_hid_stop,
+        .connect = fake_active_reconnect_connect,
+        .send = fake_device_send,
     };
 }
 
@@ -551,12 +556,6 @@ static swbt_btstack_production_power_port_t fake_power_port(void) {
     };
 }
 
-static swbt_btstack_production_active_reconnect_port_t fake_active_reconnect_port(void) {
-    return (swbt_btstack_production_active_reconnect_port_t){
-        .connect = fake_active_reconnect_connect,
-    };
-}
-
 static swbt_btstack_production_run_loop_port_t fake_run_loop_port(void) {
     return (swbt_btstack_production_run_loop_port_t){
         .execute = fake_run_loop_execute,
@@ -574,14 +573,12 @@ static swbt_btstack_production_adapter_t fake_ipc_pump_only_adapter(void) {
 static swbt_btstack_production_adapter_t fake_backend_adapter(void) {
     return (swbt_btstack_production_adapter_t){
         .ipc_pump = fake_ipc_pump_port(),
-        .platform = fake_platform_port(),
-        .hid = fake_hid_port(),
+        .device = fake_device_port(),
         .output_handler = fake_output_handler_port(),
         .report_timer = fake_report_timer_port(),
         .controller = fake_controller_port(),
         .clock = fake_clock_port(),
         .power = fake_power_port(),
-        .active_reconnect = fake_active_reconnect_port(),
         .run_loop = fake_run_loop_port(),
     };
 }
