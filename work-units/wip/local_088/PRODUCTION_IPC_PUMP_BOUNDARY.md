@@ -84,7 +84,7 @@ Tidy status:
 | green | production IPC start still starts daemon IPC runner before BTstack IPC pump start | regression | integration | no |
 | green | BTstack IPC pump start failure still stops daemon IPC runner | regression | integration | no |
 | green | production IPC stop still stops BTstack IPC pump before daemon IPC runner stop | regression | integration | no |
-| todo | pump callbacks still report running state and poll the same IPC runner instance | regression | unit/integration | no |
+| green | pump callbacks still report running state and poll the same IPC runner instance | regression | unit/integration | no |
 | todo | BTstack bridge remains free of daemon IPC runner include and type references | regression | architecture | no |
 
 ## 10. 検証
@@ -145,6 +145,22 @@ TDD status:
 - notes: fake pump stop の callback 内で同じ runner instance がまだ running であることを
   確認し、`swbt_daemon_production_ipc_pump_stop()` の戻り後に runner が stopped であることを
   確認した。
+
+TDD status:
+
+- source: `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md` and this
+  work unit.
+- use case: BTstack run loop pump に渡す callback は、start した daemon IPC runner
+  instance の running state を返し、同じ instance を poll する。
+- item: pump callbacks still report running state and poll the same IPC runner instance.
+- state: green.
+- command: `just format`
+- result: pass.
+- command: `$env:CTEST_ARGS='-R "daemon_production_ipc_pump_test|daemon_production_runner_test|daemon_ipc_runner_test" --output-on-failure'; just test-debug`
+- result: pass, 3/3 tests passed.
+- notes: fake pump port で受け取った callback を保存し、`is_running` が true を返すことを
+  確認した。loopback client を接続した後に `poll_once_at` callback を呼び、同じ runner
+  instance が connection を accept することを確認した。
 
 ## 11. 実機実行条件
 
