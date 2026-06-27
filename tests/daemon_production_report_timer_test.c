@@ -15,9 +15,15 @@
 typedef struct {
     int device_send_calls;
     int report_timer_init_calls;
+    int timer_send_neutral_now_calls;
+    int timer_send_neutral_now_result;
+    int enqueue_reply_calls;
     uint16_t last_device_hid_cid;
+    uint16_t last_reply_hid_cid;
     size_t last_device_message_size;
+    size_t last_reply_size;
     uint8_t last_device_message[8];
+    uint8_t last_reply[8];
     swbt_btstack_input_report_timer_adapter_config_t captured_timer_config;
 } fake_ops_t;
 
@@ -133,19 +139,23 @@ static int fake_report_timer_enqueue_reply(void *context,
                                            swbt_btstack_input_report_timer_adapter_t *adapter,
                                            uint16_t hid_cid, const uint8_t *report,
                                            size_t report_size) {
-    (void)context;
+    fake_ops_t *fake = context;
     (void)adapter;
-    (void)hid_cid;
-    (void)report;
-    (void)report_size;
+    fake->enqueue_reply_calls += 1;
+    fake->last_reply_hid_cid = hid_cid;
+    fake->last_reply_size = report_size;
+    if (report_size <= sizeof(fake->last_reply)) {
+        (void)memcpy(fake->last_reply, report, report_size);
+    }
     return 0;
 }
 
 static int fake_report_timer_send_neutral_now(void *context,
                                               swbt_btstack_input_report_timer_adapter_t *adapter) {
-    (void)context;
+    fake_ops_t *fake = context;
     (void)adapter;
-    return 0;
+    fake->timer_send_neutral_now_calls += 1;
+    return fake->timer_send_neutral_now_result;
 }
 
 static void fake_report_timer_stop(void *context,
@@ -300,10 +310,86 @@ static int failed_report_tick_updates_metrics(void) {
                                                 0, 1);
 }
 
+static int neutral_send_returns_port_result(int port_result) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {
+        .timer_send_neutral_now_result = port_result,
+    };
+    swbt_btstack_device_t device = {0};
+    swbt_btstack_input_report_timer_adapter_t adapter = {0};
+    swbt_daemon_process_t *host_ref = NULL;
+    bool initialized = false;
+    const swbt_btstack_production_report_timer_port_t report_timer_port = fake_report_timer_port();
+    swbt_daemon_production_report_timer_t timer = {
+        .config = &config,
+        .port = &report_timer_port,
+        .port_context = &fake,
+        .adapter = &adapter,
+        .device = &device,
+        .host = &host_ref,
+        .initialized = &initialized,
+    };
+
+    int failed = 0;
+    failed +=
+        expect_eq_int(swbt_daemon_production_report_timer_start(&timer, fake_state_provider, NULL),
+                      0, "timer start");
+    adapter.running = true;
+    failed += expect_eq_int(swbt_daemon_production_report_timer_send_neutral_now(&timer),
+                            port_result, "neutral send result");
+    failed += expect_eq_int(fake.timer_send_neutral_now_calls, 1, "neutral send calls");
+    return failed;
+}
+
+static int neutral_send_preserves_immediate_pending_and_error_results(void) {
+    int failed = 0;
+    failed += neutral_send_returns_port_result(0);
+    failed += neutral_send_returns_port_result(1);
+    failed += neutral_send_returns_port_result(-7);
+    return failed;
+}
+
+static int subcommand_reply_enqueue_routes_through_report_timer_port(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {0};
+    swbt_btstack_device_t device = {0};
+    swbt_btstack_input_report_timer_adapter_t adapter = {0};
+    swbt_daemon_process_t *host_ref = NULL;
+    bool initialized = false;
+    const swbt_btstack_production_report_timer_port_t report_timer_port = fake_report_timer_port();
+    const uint8_t reply[] = {0xa1u, 0x21u, 0x01u, 0x02u};
+    swbt_daemon_production_report_timer_t timer = {
+        .config = &config,
+        .port = &report_timer_port,
+        .port_context = &fake,
+        .adapter = &adapter,
+        .device = &device,
+        .host = &host_ref,
+        .initialized = &initialized,
+    };
+
+    int failed = 0;
+    failed +=
+        expect_eq_int(swbt_daemon_production_report_timer_start(&timer, fake_state_provider, NULL),
+                      0, "timer start");
+    failed += expect_eq_int(swbt_daemon_production_report_timer_enqueue_subcommand_reply(
+                                &timer, 0x0042u, reply, sizeof(reply)),
+                            0, "enqueue result");
+    failed += expect_eq_int(fake.enqueue_reply_calls, 1, "enqueue calls");
+    failed += expect_eq_u16(fake.last_reply_hid_cid, 0x0042u, "reply hid cid");
+    failed += expect_eq_int((int)fake.last_reply_size, (int)sizeof(reply), "reply size");
+    for (size_t index = 0; index < sizeof(reply); ++index) {
+        failed += expect_eq_u8(fake.last_reply[index], reply[index], "reply byte");
+    }
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += production_report_timer_sender_uses_device_send();
     failed += successful_report_tick_updates_metrics();
     failed += failed_report_tick_updates_metrics();
+    failed += neutral_send_preserves_immediate_pending_and_error_results();
+    failed += subcommand_reply_enqueue_routes_through_report_timer_port();
     return failed == 0 ? 0 : 1;
 }
