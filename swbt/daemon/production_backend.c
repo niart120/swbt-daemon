@@ -166,7 +166,7 @@ swbt_daemon_production_timer_config(swbt_daemon_production_backend_t *backend,
         .state_provider = state_provider,
         .state_context = state_context,
         .report_tick_observer = swbt_daemon_production_record_report_tick,
-        .report_tick_context = state_context,
+        .report_tick_context = backend,
         .scheduler_config =
             {
                 .report_period_us = backend->config.report_period_us,
@@ -189,12 +189,17 @@ static swbt_metrics_report_send_result_t swbt_daemon_production_report_send_resu
 static void swbt_daemon_production_record_report_tick(
     void *context, uint64_t now_us,
     swbt_btstack_input_report_timer_report_send_result_t send_result) {
-    swbt_daemon_host_t *host = context;
-    swbt_app_t *app = swbt_daemon_host_app(host);
+    swbt_daemon_production_backend_t *backend = context;
+    swbt_app_t *app;
 
+    if (backend == NULL || backend->host == NULL) {
+        return;
+    }
+    app = swbt_daemon_host_app(backend->host);
     if (app == NULL) {
         return;
     }
+
     (void)swbt_app_record_report_tick(app, now_us,
                                       swbt_daemon_production_report_send_result(send_result));
 }

@@ -8,6 +8,7 @@
 #include "application/app.h"
 #include "btstack_bridge/output_report_handler.h"
 #include "daemon/config.h"
+#include "runtime/host.h"
 #include "switch/switch_controller_state.h"
 #include "switch/switch_device_info.h"
 
@@ -43,13 +44,11 @@ typedef struct {
     const swbt_daemon_host_backend_t *backend;
     void *backend_context;
     swbt_app_t *app;
-    swbt_btstack_output_report_handler_t output_handler;
+    swbt_runtime_host_t runtime;
+    swbt_runtime_host_backend_t runtime_backend;
     bool initialized;
     bool running;
     bool ipc_started;
-    bool hid_registered;
-    bool output_handler_started;
-    bool report_timer_started;
 } swbt_daemon_host_t;
 
 swbt_daemon_host_result_t swbt_daemon_host_init(swbt_daemon_host_t *host,

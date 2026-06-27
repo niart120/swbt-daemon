@@ -266,7 +266,7 @@ Tidy status:
 | refactor-done | runtime host starts HID/output/report runtime without IPC start callback | new | unit | no |
 | refactor-skipped | runtime host owns runtime resource state while leaving app lifetime and app-owned state outside runtime | new | unit/review | no |
 | refactor-skipped | runtime host shutdown neutralizes state and stops runtime resources once | regression | unit | no |
-| todo | daemon host starts IPC runner as daemon responsibility and delegates HID/report runtime to runtime host | regression | integration | no |
+| refactor-skipped | daemon host starts IPC runner as daemon responsibility and delegates HID/report runtime to runtime host | regression | integration | no |
 | todo | control submit client state preserves IPC owner and sequence semantics | regression | unit | no |
 | todo | control submit state for direct API hides owner id and sequence from caller | new | unit | no |
 | todo | control get status combines app-owned status and runtime status without changing IPC JSON status | regression | integration | no |
@@ -279,19 +279,21 @@ TDD status:
 
 - source: user request, 2026-06-27。
 - use case: `swbt/control` と `swbt/runtime` の実装を新規 work unit として進める。
-- last item: runtime host shutdown neutralizes state and stops runtime resources once。
+- last item: daemon host starts IPC runner as daemon responsibility and delegates HID/report runtime to runtime host。
 - state: refactor-skipped。
 - commands:
   - red: `just build-tests-debug`
     - result: pass.
-  - red: `CTEST_ARGS="-R runtime_host_test" just test-debug`
-    - result: expected failure. `runtime_host_stop` stopped resources but did not neutralize app controller state.
-  - green: `just format`; `just build-tests-debug`; `CTEST_ARGS="-R runtime_host_test" just test-debug`
+  - red: `CTEST_ARGS="-R daemon_host_test" just test-debug`
+    - result: expected failure. `daemon_host` still passed `&host` as report timer state context instead of delegating HID/report runtime through `swbt_runtime_host_t`.
+  - green: `just format`; `just build-tests-debug`; `CTEST_ARGS="-R daemon_host_test" just test-debug`
+    - result: pass. `daemon_host` now starts IPC as daemon responsibility and delegates HID registration, output handler, report timer, output report handling, neutral send, and runtime stop to `swbt_runtime_host_t`.
+  - affected: `CTEST_ARGS="-R \"runtime_host_test|architecture_journey_test|daemon_production_backend_test\"" just test-debug`
     - result: pass.
   - refactor: skipped.
-    - reason: the shutdown behavior is a single call through app revoke plus existing idempotent resource flags. No separate structure change was useful.
-- notes: third cycle added shutdown neutralization through app revoke. Runtime still does not own app state; it requests the app-owned revoke policy.
-- next red candidate: daemon host starts IPC runner as daemon responsibility and delegates HID/report runtime to runtime host。
+    - reason: this cycle already moved the ownership boundary: runtime host owns runtime resource flags and output handler behavior, while daemon host owns IPC start / stop and process lifecycle. A separate post-green refactor would not reduce duplication without entering the next control-layer item.
+- notes: fourth cycle keeps the public daemon backend contract stable, but wraps it with a runtime backend inside `daemon_host`. `swbt_daemon_production_timer_config` now uses production backend as the metrics context so report timer state context can be runtime-owned without breaking app metrics recording.
+- next red candidate: control submit client state preserves IPC owner and sequence semantics。
 
 ## 10. 検証
 
@@ -307,6 +309,10 @@ TDD status:
   - result: pass。`swbt_runtime` と `runtime_host_test` を含む debug unit test target build が成功した。
 - `CTEST_ARGS="-R runtime_host_test" just test-debug`
   - result: pass。1/1 tests passed。
+- `CTEST_ARGS="-R daemon_host_test" just test-debug`
+  - result: pass。1/1 tests passed。
+- `CTEST_ARGS="-R \"runtime_host_test|architecture_journey_test|daemon_production_backend_test\"" just test-debug`
+  - result: pass。3/3 tests passed。
 
 予定:
 
@@ -337,10 +343,10 @@ TDD status:
 - [x] implementation completion を work unit の完了条件にした。
 - [x] TDD Test List を作成した。
 - [x] 事前妥当性評価を記録した。
-- [ ] `swbt/runtime` を実装した。初期 start path は実装済み。shutdown neutral、runtime-owned state status、daemon host delegation は未完了。
-- [ ] `swbt/runtime` が runtime-owned state を持ち、app lifetime と app-owned state を所有または公開しないことを検証した。
+- [ ] `swbt/runtime` を実装した。初期 start path、shutdown neutral、runtime-owned state status、daemon host delegation は実装済み。control / public C ABI から使う status 合成は未完了。
+- [x] `swbt/runtime` が runtime-owned state を持ち、app lifetime と app-owned state を所有または公開しないことを検証した。
 - [ ] `swbt/control` を実装した。
-- [ ] daemon host を runtime host + IPC runner の利用者へ薄くした。
+- [x] daemon host を runtime host + IPC runner の利用者へ薄くした。
 - [ ] IPC adapter / runner を control 経由に移した。
 - [ ] public C ABI minimal operation を追加した。
 - [ ] CMake target と include boundary を更新した。

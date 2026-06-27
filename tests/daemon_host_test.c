@@ -251,7 +251,7 @@ static int start_wires_application_hid_output_and_timer(void) {
     failed += expect_true(fake.app == swbt_daemon_host_app(&host));
     failed += expect_true(fake.output_handler == swbt_daemon_host_output_handler(&host));
     failed += expect_true(fake.state_provider != NULL);
-    failed += expect_true(fake.state_context == &host);
+    failed += expect_true(fake.state_context != &host);
 
     failed += expect_eq_int(swbt_app_acquire(swbt_daemon_host_app(&host), 1001u), SWBT_APP_OK);
     failed += expect_eq_int(swbt_app_set_state(swbt_daemon_host_app(&host),

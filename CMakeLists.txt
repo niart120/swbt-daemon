@@ -246,6 +246,7 @@ swbt_configure_module_public_includes(swbt_daemon_host MODULES daemon)
 target_link_libraries(swbt_daemon_host
     PUBLIC
         swbt_ipc
+        swbt_runtime
         swbt_btstack_adapter
         swbt_application
         swbt_support

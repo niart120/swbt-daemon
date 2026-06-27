@@ -17,50 +17,80 @@ static bool swbt_daemon_config_is_valid(const swbt_daemon_config_t *config) {
     return config != NULL && config->report_period_us != 0u;
 }
 
-static swbt_state_t swbt_daemon_host_read_state(void *context) {
+static int swbt_daemon_host_runtime_hid_register(void *context) {
     swbt_daemon_host_t *host = context;
-    swbt_state_t state;
-
-    if (host == NULL || swbt_app_read_controller_state(host->app, &state) != SWBT_APP_OK) {
-        return swbt_state_neutral();
-    }
-    return state;
+    return host->backend->hid_register(host->backend_context);
 }
 
-static void swbt_daemon_host_on_output_report(void *context, uint16_t hid_cid,
-                                              const swbt_switch_output_report_t *report) {
+static void swbt_daemon_host_runtime_hid_stop(void *context) {
     swbt_daemon_host_t *host = context;
-    swbt_switch_subcommand_dispatcher_response_t response;
-    swbt_switch_device_info_t device_info;
-
-    if (host == NULL || report == NULL) {
-        return;
-    }
-
-    device_info = host->config.device_info;
-    if (host->backend->read_device_info != NULL) {
-        swbt_switch_device_info_t backend_device_info;
-        if (host->backend->read_device_info(host->backend_context, &backend_device_info) == 0) {
-            device_info = backend_device_info;
-        }
-    }
-
-    if (swbt_app_handle_output_report(host->app, report, &host->config.report_options, &device_info,
-                                      host->backend->time_ms(host->backend_context),
-                                      &response) != SWBT_APP_OK ||
-        response.action != SWBT_SWITCH_SUBCOMMAND_DISPATCH_ACTION_REPLY) {
-        return;
-    }
-
-    (void)host->backend->subcommand_reply_enqueue(host->backend_context, hid_cid, response.report,
-                                                  response.report_size);
+    host->backend->hid_stop(host->backend_context);
 }
 
-static void swbt_daemon_host_store_neutral(swbt_daemon_host_t *host) {
-    (void)swbt_app_revoke(host->app, (swbt_app_revoke_options_t){
-                                         .reason = SWBT_APP_REVOKE_SHUTDOWN,
-                                         .client_id = 0u,
-                                     });
+static void
+swbt_daemon_host_runtime_output_handler_start(void *context,
+                                              swbt_btstack_output_report_handler_t *handler) {
+    swbt_daemon_host_t *host = context;
+    host->backend->output_handler_start(host->backend_context, handler);
+}
+
+static void swbt_daemon_host_runtime_output_handler_stop(void *context) {
+    swbt_daemon_host_t *host = context;
+    host->backend->output_handler_stop(host->backend_context);
+}
+
+static int swbt_daemon_host_runtime_report_timer_start(void *context,
+                                                       swbt_runtime_state_provider_t state_provider,
+                                                       void *state_context) {
+    swbt_daemon_host_t *host = context;
+    return host->backend->report_timer_start(host->backend_context, state_provider, state_context);
+}
+
+static void swbt_daemon_host_runtime_report_timer_stop(void *context) {
+    swbt_daemon_host_t *host = context;
+    host->backend->report_timer_stop(host->backend_context);
+}
+
+static int swbt_daemon_host_runtime_report_timer_send_neutral_now(void *context) {
+    swbt_daemon_host_t *host = context;
+    return host->backend->report_timer_send_neutral_now(host->backend_context);
+}
+
+static int swbt_daemon_host_runtime_subcommand_reply_enqueue(void *context, uint16_t hid_cid,
+                                                             const uint8_t *report,
+                                                             size_t report_size) {
+    swbt_daemon_host_t *host = context;
+    return host->backend->subcommand_reply_enqueue(host->backend_context, hid_cid, report,
+                                                   report_size);
+}
+
+static int swbt_daemon_host_runtime_read_device_info(void *context,
+                                                     swbt_switch_device_info_t *out_device_info) {
+    swbt_daemon_host_t *host = context;
+    if (host->backend->read_device_info == NULL) {
+        return -1;
+    }
+    return host->backend->read_device_info(host->backend_context, out_device_info);
+}
+
+static uint32_t swbt_daemon_host_runtime_time_ms(void *context) {
+    swbt_daemon_host_t *host = context;
+    return host->backend->time_ms(host->backend_context);
+}
+
+static swbt_daemon_host_result_t
+swbt_daemon_host_result_from_runtime(swbt_runtime_host_result_t result) {
+    switch (result) {
+    case SWBT_RUNTIME_HOST_OK:
+        return SWBT_DAEMON_HOST_OK;
+    case SWBT_RUNTIME_HOST_PENDING:
+        return SWBT_DAEMON_HOST_PENDING;
+    case SWBT_RUNTIME_HOST_ERROR_INVALID_ARGUMENT:
+        return SWBT_DAEMON_HOST_ERROR_INVALID_ARGUMENT;
+    case SWBT_RUNTIME_HOST_ERROR_BACKEND:
+        return SWBT_DAEMON_HOST_ERROR_BACKEND;
+    }
+    return SWBT_DAEMON_HOST_ERROR_BACKEND;
 }
 
 swbt_daemon_host_result_t swbt_daemon_host_init(swbt_daemon_host_t *host,
@@ -92,8 +122,29 @@ swbt_daemon_host_result_t swbt_daemon_host_init(swbt_daemon_host_t *host,
         return SWBT_DAEMON_HOST_ERROR_INVALID_ARGUMENT;
     }
 
-    swbt_btstack_output_report_handler_init(&host->output_handler,
-                                            swbt_daemon_host_on_output_report, host);
+    host->runtime_backend = (swbt_runtime_host_backend_t){
+        .hid_register = swbt_daemon_host_runtime_hid_register,
+        .hid_stop = swbt_daemon_host_runtime_hid_stop,
+        .output_handler_start = swbt_daemon_host_runtime_output_handler_start,
+        .output_handler_stop = swbt_daemon_host_runtime_output_handler_stop,
+        .report_timer_start = swbt_daemon_host_runtime_report_timer_start,
+        .report_timer_stop = swbt_daemon_host_runtime_report_timer_stop,
+        .report_timer_send_neutral_now = swbt_daemon_host_runtime_report_timer_send_neutral_now,
+        .subcommand_reply_enqueue = swbt_daemon_host_runtime_subcommand_reply_enqueue,
+        .read_device_info = swbt_daemon_host_runtime_read_device_info,
+        .time_ms = swbt_daemon_host_runtime_time_ms,
+    };
+    if (swbt_runtime_host_init(&host->runtime,
+                               &(swbt_runtime_host_config_t){
+                                   .app = host->app,
+                                   .report_options = config->report_options,
+                                   .device_info = config->device_info,
+                               },
+                               &host->runtime_backend, host) != SWBT_RUNTIME_HOST_OK) {
+        swbt_app_destroy(host->app);
+        host->app = NULL;
+        return SWBT_DAEMON_HOST_ERROR_INVALID_ARGUMENT;
+    }
 
     host->initialized = true;
     return SWBT_DAEMON_HOST_OK;
@@ -115,28 +166,13 @@ swbt_daemon_host_result_t swbt_daemon_host_start(swbt_daemon_host_t *host) {
     swbt_diagnostic_trace("host: ipc start ok");
     host->ipc_started = true;
 
-    swbt_diagnostic_trace("host: hid register");
-    if (host->backend->hid_register(host->backend_context) != 0) {
-        swbt_diagnostic_trace("host: hid register failed");
+    swbt_diagnostic_trace("host: runtime start");
+    if (swbt_runtime_host_start(&host->runtime) != SWBT_RUNTIME_HOST_OK) {
+        swbt_diagnostic_trace("host: runtime start failed");
         swbt_daemon_host_stop(host);
         return SWBT_DAEMON_HOST_ERROR_BACKEND;
     }
-    swbt_diagnostic_trace("host: hid register ok");
-    host->hid_registered = true;
-
-    swbt_diagnostic_trace("host: output handler start");
-    host->backend->output_handler_start(host->backend_context, &host->output_handler);
-    host->output_handler_started = true;
-
-    swbt_diagnostic_trace("host: report timer start");
-    if (host->backend->report_timer_start(host->backend_context, swbt_daemon_host_read_state,
-                                          host) != 0) {
-        swbt_diagnostic_trace("host: report timer start failed");
-        swbt_daemon_host_stop(host);
-        return SWBT_DAEMON_HOST_ERROR_BACKEND;
-    }
-    swbt_diagnostic_trace("host: report timer start ok");
-    host->report_timer_started = true;
+    swbt_diagnostic_trace("host: runtime start ok");
     (void)swbt_app_set_daemon_lifecycle(host->app, SWBT_APP_DAEMON_LIFECYCLE_RUNNING);
     host->running = true;
     return SWBT_DAEMON_HOST_OK;
@@ -147,18 +183,7 @@ swbt_daemon_host_result_t swbt_daemon_host_send_neutral_now(swbt_daemon_host_t *
         return SWBT_DAEMON_HOST_ERROR_INVALID_ARGUMENT;
     }
 
-    swbt_daemon_host_store_neutral(host);
-    if (!host->report_timer_started) {
-        return SWBT_DAEMON_HOST_OK;
-    }
-    const int send_result = host->backend->report_timer_send_neutral_now(host->backend_context);
-    if (send_result > 0) {
-        return SWBT_DAEMON_HOST_PENDING;
-    }
-    if (send_result != 0) {
-        return SWBT_DAEMON_HOST_ERROR_BACKEND;
-    }
-    return SWBT_DAEMON_HOST_OK;
+    return swbt_daemon_host_result_from_runtime(swbt_runtime_host_send_neutral_now(&host->runtime));
 }
 
 void swbt_daemon_host_stop(swbt_daemon_host_t *host) {
@@ -167,23 +192,8 @@ void swbt_daemon_host_stop(swbt_daemon_host_t *host) {
     }
 
     swbt_diagnostic_trace("host: stop enter");
-    swbt_daemon_host_store_neutral(host);
-
-    if (host->report_timer_started) {
-        swbt_diagnostic_trace("host: report timer stop");
-        host->backend->report_timer_stop(host->backend_context);
-        host->report_timer_started = false;
-    }
-    if (host->output_handler_started) {
-        swbt_diagnostic_trace("host: output handler stop");
-        host->backend->output_handler_stop(host->backend_context);
-        host->output_handler_started = false;
-    }
-    if (host->hid_registered) {
-        swbt_diagnostic_trace("host: hid stop");
-        host->backend->hid_stop(host->backend_context);
-        host->hid_registered = false;
-    }
+    swbt_diagnostic_trace("host: runtime stop");
+    swbt_runtime_host_stop(&host->runtime);
     if (host->ipc_started) {
         swbt_diagnostic_trace("host: ipc stop");
         host->backend->ipc_stop(host->backend_context);
@@ -214,7 +224,7 @@ swbt_app_t *swbt_daemon_host_app(swbt_daemon_host_t *host) {
 }
 
 swbt_btstack_output_report_handler_t *swbt_daemon_host_output_handler(swbt_daemon_host_t *host) {
-    return host == NULL ? NULL : &host->output_handler;
+    return host == NULL ? NULL : swbt_runtime_host_output_handler(&host->runtime);
 }
 
 static int swbt_daemon_noop_ipc_start(void *context, swbt_app_t *app) {

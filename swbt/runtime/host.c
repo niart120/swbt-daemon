@@ -22,9 +22,32 @@ static swbt_state_t swbt_runtime_host_read_state(void *context) {
 
 static void swbt_runtime_host_on_output_report(void *context, uint16_t hid_cid,
                                                const swbt_switch_output_report_t *report) {
-    (void)context;
-    (void)hid_cid;
-    (void)report;
+    swbt_runtime_host_t *runtime = context;
+    swbt_switch_subcommand_dispatcher_response_t response;
+    swbt_switch_device_info_t device_info;
+
+    if (runtime == NULL || report == NULL) {
+        return;
+    }
+
+    device_info = runtime->device_info;
+    if (runtime->backend->read_device_info != NULL) {
+        swbt_switch_device_info_t backend_device_info;
+        if (runtime->backend->read_device_info(runtime->backend_context, &backend_device_info) ==
+            0) {
+            device_info = backend_device_info;
+        }
+    }
+
+    if (swbt_app_handle_output_report(runtime->app, report, &runtime->report_options, &device_info,
+                                      runtime->backend->time_ms(runtime->backend_context),
+                                      &response) != SWBT_APP_OK ||
+        response.action != SWBT_SWITCH_SUBCOMMAND_DISPATCH_ACTION_REPLY) {
+        return;
+    }
+
+    (void)runtime->backend->subcommand_reply_enqueue(runtime->backend_context, hid_cid,
+                                                     response.report, response.report_size);
 }
 
 static void swbt_runtime_host_store_neutral(swbt_runtime_host_t *runtime) {
@@ -47,6 +70,8 @@ swbt_runtime_host_result_t swbt_runtime_host_init(swbt_runtime_host_t *runtime,
     runtime->backend = backend;
     runtime->backend_context = backend_context;
     runtime->app = config->app;
+    runtime->report_options = config->report_options;
+    runtime->device_info = config->device_info;
     swbt_btstack_output_report_handler_init(&runtime->output_handler,
                                             swbt_runtime_host_on_output_report, runtime);
     runtime->initialized = true;
@@ -83,6 +108,8 @@ swbt_runtime_host_result_t swbt_runtime_host_send_neutral_now(swbt_runtime_host_
     if (runtime == NULL || !runtime->initialized) {
         return SWBT_RUNTIME_HOST_ERROR_INVALID_ARGUMENT;
     }
+
+    swbt_runtime_host_store_neutral(runtime);
     if (!runtime->report_timer_started) {
         return SWBT_RUNTIME_HOST_OK;
     }

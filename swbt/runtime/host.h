@@ -36,6 +36,8 @@ typedef struct {
 
 typedef struct {
     swbt_app_t *app;
+    swbt_switch_report_options_t report_options;
+    swbt_switch_device_info_t device_info;
 } swbt_runtime_host_config_t;
 
 typedef struct {
@@ -50,6 +52,8 @@ typedef struct {
     const swbt_runtime_host_backend_t *backend;
     void *backend_context;
     swbt_app_t *app;
+    swbt_switch_report_options_t report_options;
+    swbt_switch_device_info_t device_info;
     swbt_btstack_output_report_handler_t output_handler;
     bool initialized;
     bool running;
