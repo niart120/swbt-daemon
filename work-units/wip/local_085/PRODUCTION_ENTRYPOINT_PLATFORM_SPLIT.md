@@ -86,7 +86,7 @@ Tidy status:
 | green | management commands still return before production startup composition is invoked | regression | unit/integration | no |
 | green | noop backend startup still avoids real BTstack production implementation | regression | unit/integration | no |
 | green | production startup still configures link key DB, HCI dump, adapter location, learned address target, and shutdown listener before runner main | regression | integration | no |
-| todo | executable target links after moving app-local sources out of `main.c` | regression | build | no |
+| green | executable target links after moving app-local sources out of `main.c` | regression | build | no |
 | refactor-skipped | `main.c` no longer owns production BTstack wiring or platform process support | regression | source/build | no |
 
 ## 10. 検証
@@ -149,6 +149,21 @@ TDD status:
 - command: `$env:CTEST_ARGS='-R "daemon_production_runner_test|btstack_production_hci_dump_test" --output-on-failure'; just test-debug`
 - result: pass, 2/2 tests passed.
 - notes: BTstack source selection、report timing、Switch-facing bytes は変更していない。
+
+TDD status:
+
+- source: `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md` and this
+  work unit.
+- use case: app-local source 分割後も `swbt-daemon` executable が Linux debug と
+  Windows MinGW cross build で link する。
+- item: executable target links after moving app-local sources out of `main.c`.
+- state: green.
+- commands:
+  - `just build-daemon-debug`
+  - `just windows-cross`
+- result: both passed. `swbt-daemon` and `swbt-daemon.exe` linked.
+- notes: Windows crash dump / console handler code は app-local `platform_process.c` に移した
+  うえで cross build 済み。
 
 Expected checks:
 
