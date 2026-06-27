@@ -79,6 +79,7 @@ Tidy status:
 - `swbt/daemon/production_runner.c`
 - `tests/daemon_switch_address_test.c`
 - `tests/daemon_config_file_test.c`
+- `tests/daemon_production_reconnect_test.c`
 - `tests/daemon_production_runner_test.c`
 - `CMakeLists.txt`
 
@@ -88,7 +89,7 @@ Tidy status:
 |---|---|---|---|---|
 | green | config address setters still normalize lowercase input to uppercase colon-separated text | regression | unit | no |
 | green | invalid reconnect address still rejects config without partial update | regression | unit | no |
-| todo | production active reconnect still converts effective text address into BTstack byte request with HID PSM values unchanged | regression | integration | no |
+| green | production active reconnect still converts effective text address into BTstack byte request with HID PSM values unchanged | regression | integration | no |
 | todo | learned address save after HID connection opened still writes uppercase text address to the configured target | regression | integration | no |
 | todo | active reconnect request failure still records failed hardware status without stopping the run loop | regression | integration | no |
 
@@ -132,6 +133,28 @@ TDD status:
 - notes: `daemon_switch_address_test` に invalid input が destination を部分更新しない
   regression を追加し、既存 `daemon_config_file_test` の invalid active reconnect
   preservation checks と合わせて確認した。
+
+TDD status:
+
+- source: `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md` and this
+  work unit.
+- use case: production active reconnect は config の effective text address を BTstack
+  connect request の byte array へ変換し、HID PSM 値を維持する。
+- item: production active reconnect still converts effective text address into BTstack byte
+  request with HID PSM values unchanged.
+- state: green.
+- red:
+  - command: `just build-debug`
+  - result: fail as expected. `daemon_production_reconnect_test` が
+    `daemon/production_reconnect.h` を要求し、header 未実装で compile failure。
+- green:
+  - command: `just format`
+  - result: pass.
+  - command: `$env:CTEST_ARGS='-R "daemon_production_reconnect_test|daemon_production_runner_test" --output-on-failure'; just debug`
+  - result: pass, 2/2 tests passed.
+- notes: `swbt/daemon/production_reconnect.*` を追加し、request build と active reconnect
+  execution を runner から分離した。runner integration test で既存 startup sequence、
+  PSM、address bytes を維持していることを確認した。
 
 Expected checks:
 
