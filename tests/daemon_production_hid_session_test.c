@@ -16,6 +16,7 @@ typedef struct {
     int platform_stop_calls;
     int timer_start_calls;
     int timer_can_send_calls;
+    int timer_can_send_result;
     int timer_stop_calls;
     int finish_shutdown_calls;
     uint16_t timer_hid_cid;
@@ -138,7 +139,7 @@ static int fake_timer_on_can_send_now(void *context,
     fake_ops_t *fake = context;
     (void)adapter;
     fake->timer_can_send_calls += 1;
-    return 0;
+    return fake->timer_can_send_result;
 }
 
 static void fake_timer_stop(void *context, swbt_btstack_input_report_timer_adapter_t *adapter) {
@@ -249,9 +250,62 @@ static int hid_session_connection_opened_starts_timer_with_hid_cid(void) {
     return failed;
 }
 
+static int hid_session_can_send_now_completes_pending_shutdown_result(int can_send_result,
+                                                                      const char *label) {
+    fake_ops_t fake = {
+        .timer_can_send_result = can_send_result,
+        .clock_time_ms = 123u,
+    };
+    const swbt_btstack_device_port_t device_port = fake_device_port();
+    const swbt_btstack_production_report_timer_port_t timer_port = fake_report_timer_port();
+    const swbt_btstack_production_clock_port_t clock_port = fake_clock_port();
+    swbt_btstack_device_t device = {0};
+    swbt_btstack_input_report_timer_adapter_t timer = {0};
+    uint8_t service_buffer[512] = {0};
+    bool timer_initialized = true;
+    bool shutdown_pending = true;
+    uint8_t can_send_event[] = {0xefu, 3u, 0x04u, 0x42u, 0x00u};
+    swbt_daemon_production_hid_session_t session = {
+        .device_port = &device_port,
+        .report_timer_port = &timer_port,
+        .clock_port = &clock_port,
+        .port_context = &fake,
+        .device = &device,
+        .report_timer = &timer,
+        .report_timer_initialized = &timer_initialized,
+        .shutdown_neutral_pending = &shutdown_pending,
+        .service_buffer = service_buffer,
+        .service_buffer_size = sizeof(service_buffer),
+        .finish_shutdown = fake_finish_shutdown,
+        .finish_shutdown_context = &fake,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_hid_session_register(&session), 0, label);
+    fake.captured_registration.packet_handler(0x04u, 0x0042u, can_send_event,
+                                              sizeof(can_send_event));
+
+    failed += expect_eq_int(fake.timer_can_send_calls, 1, "timer can send calls");
+    failed += expect_true(!shutdown_pending, "shutdown pending cleared");
+    failed += expect_eq_int(fake.finish_shutdown_calls, 1, "finish shutdown calls");
+    failed += expect_eq_int(fake.timer_start_calls, 0, "timer start calls");
+    failed += expect_eq_int(fake.timer_stop_calls, 0, "timer stop calls");
+
+    swbt_daemon_production_hid_session_stop(&session);
+    return failed;
+}
+
+static int hid_session_can_send_now_completes_pending_shutdown_on_success_or_failure(void) {
+    int failed = 0;
+    failed += hid_session_can_send_now_completes_pending_shutdown_result(0, "success register");
+    failed += hid_session_can_send_now_completes_pending_shutdown_result(-1, "failure register");
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += hid_session_register_opens_and_stop_closes_device();
     failed += hid_session_connection_opened_starts_timer_with_hid_cid();
+    failed += hid_session_can_send_now_completes_pending_shutdown_on_success_or_failure();
     return failed == 0 ? 0 : 1;
 }
