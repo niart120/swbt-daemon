@@ -1,4 +1,4 @@
-#include "btstack_bridge/production_btstack.h"
+#include "btstack_bridge/production_btstack_impl.h"
 
 #include <stdio.h>
 #include <stddef.h>
@@ -19,7 +19,7 @@
 #include "btstack_util.h"
 #include "classic/btstack_link_key_db_tlv.h"
 #include "classic/hid_device.h"
-#include "core/diagnostics.h"
+#include "support/diagnostics.h"
 #include "gap.h"
 #include "hci_dump.h"
 #include "hci.h"
@@ -199,7 +199,7 @@ static void swbt_btstack_production_libusb_bus_and_path_set(void *context, uint8
 }
 #endif
 
-int swbt_btstack_production_adapter_location_configure(const char *location) {
+int swbt_btstack_production_impl_configure_adapter_location(const char *location) {
     swbt_btstack_usb_adapter_location_t parsed_location;
     swbt_btstack_usb_adapter_location_port_t port = {0};
 
@@ -896,8 +896,8 @@ static void swbt_btstack_production_run_loop_trigger_exit(void *context) {
     btstack_run_loop_trigger_exit();
 }
 
-const swbt_btstack_production_adapter_t *swbt_btstack_production_adapter(void) {
-    static const swbt_btstack_production_adapter_t adapter = {
+const swbt_btstack_production_ports_t *swbt_btstack_production_ports_btstack(void) {
+    static const swbt_btstack_production_ports_t adapter = {
         .ipc_pump =
             {
                 .start = swbt_btstack_production_ipc_pump_start,

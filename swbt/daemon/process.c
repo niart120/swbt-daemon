@@ -1,10 +1,10 @@
-#include "daemon/host.h"
+#include "daemon/process.h"
 
 #include <stddef.h>
 
-#include "core/diagnostics.h"
+#include "support/diagnostics.h"
 
-static bool swbt_daemon_backend_is_valid(const swbt_daemon_host_backend_t *backend) {
+static bool swbt_daemon_backend_is_valid(const swbt_daemon_process_backend_t *backend) {
     return backend != NULL && backend->ipc_start != NULL && backend->ipc_stop != NULL &&
            backend->hid_register != NULL && backend->hid_stop != NULL &&
            backend->output_handler_start != NULL && backend->output_handler_stop != NULL &&
@@ -17,122 +17,122 @@ static bool swbt_daemon_config_is_valid(const swbt_daemon_config_t *config) {
     return config != NULL && config->report_period_us != 0u;
 }
 
-static int swbt_daemon_host_runtime_hid_register(void *context) {
-    swbt_daemon_host_t *host = context;
+static int swbt_daemon_process_runtime_hid_register(void *context) {
+    swbt_daemon_process_t *host = context;
     return host->backend->hid_register(host->backend_context);
 }
 
-static void swbt_daemon_host_runtime_hid_stop(void *context) {
-    swbt_daemon_host_t *host = context;
+static void swbt_daemon_process_runtime_hid_stop(void *context) {
+    swbt_daemon_process_t *host = context;
     host->backend->hid_stop(host->backend_context);
 }
 
 static void
-swbt_daemon_host_runtime_output_handler_start(void *context,
-                                              swbt_btstack_output_report_handler_t *handler) {
-    swbt_daemon_host_t *host = context;
+swbt_daemon_process_runtime_output_handler_start(void *context,
+                                                 swbt_btstack_output_report_handler_t *handler) {
+    swbt_daemon_process_t *host = context;
     host->backend->output_handler_start(host->backend_context, handler);
 }
 
-static void swbt_daemon_host_runtime_output_handler_stop(void *context) {
-    swbt_daemon_host_t *host = context;
+static void swbt_daemon_process_runtime_output_handler_stop(void *context) {
+    swbt_daemon_process_t *host = context;
     host->backend->output_handler_stop(host->backend_context);
 }
 
-static int swbt_daemon_host_runtime_report_timer_start(void *context,
-                                                       swbt_runtime_state_provider_t state_provider,
-                                                       void *state_context) {
-    swbt_daemon_host_t *host = context;
+static int swbt_daemon_process_runtime_report_timer_start(
+    void *context, swbt_runtime_state_provider_t state_provider, void *state_context) {
+    swbt_daemon_process_t *host = context;
     return host->backend->report_timer_start(host->backend_context, state_provider, state_context);
 }
 
-static void swbt_daemon_host_runtime_report_timer_stop(void *context) {
-    swbt_daemon_host_t *host = context;
+static void swbt_daemon_process_runtime_report_timer_stop(void *context) {
+    swbt_daemon_process_t *host = context;
     host->backend->report_timer_stop(host->backend_context);
 }
 
-static int swbt_daemon_host_runtime_report_timer_send_neutral_now(void *context) {
-    swbt_daemon_host_t *host = context;
+static int swbt_daemon_process_runtime_report_timer_send_neutral_now(void *context) {
+    swbt_daemon_process_t *host = context;
     return host->backend->report_timer_send_neutral_now(host->backend_context);
 }
 
-static int swbt_daemon_host_runtime_subcommand_reply_enqueue(void *context, uint16_t hid_cid,
-                                                             const uint8_t *report,
-                                                             size_t report_size) {
-    swbt_daemon_host_t *host = context;
+static int swbt_daemon_process_runtime_subcommand_reply_enqueue(void *context, uint16_t hid_cid,
+                                                                const uint8_t *report,
+                                                                size_t report_size) {
+    swbt_daemon_process_t *host = context;
     return host->backend->subcommand_reply_enqueue(host->backend_context, hid_cid, report,
                                                    report_size);
 }
 
-static int swbt_daemon_host_runtime_read_device_info(void *context,
-                                                     swbt_switch_device_info_t *out_device_info) {
-    swbt_daemon_host_t *host = context;
+static int
+swbt_daemon_process_runtime_read_device_info(void *context,
+                                             swbt_switch_device_info_t *out_device_info) {
+    swbt_daemon_process_t *host = context;
     if (host->backend->read_device_info == NULL) {
         return -1;
     }
     return host->backend->read_device_info(host->backend_context, out_device_info);
 }
 
-static uint32_t swbt_daemon_host_runtime_time_ms(void *context) {
-    swbt_daemon_host_t *host = context;
+static uint32_t swbt_daemon_process_runtime_time_ms(void *context) {
+    swbt_daemon_process_t *host = context;
     return host->backend->time_ms(host->backend_context);
 }
 
-static swbt_daemon_host_result_t
-swbt_daemon_host_result_from_runtime(swbt_runtime_host_result_t result) {
+static swbt_daemon_process_result_t
+swbt_daemon_process_result_from_runtime(swbt_runtime_host_result_t result) {
     switch (result) {
     case SWBT_RUNTIME_HOST_OK:
-        return SWBT_DAEMON_HOST_OK;
+        return SWBT_DAEMON_PROCESS_OK;
     case SWBT_RUNTIME_HOST_PENDING:
-        return SWBT_DAEMON_HOST_PENDING;
+        return SWBT_DAEMON_PROCESS_PENDING;
     case SWBT_RUNTIME_HOST_ERROR_INVALID_ARGUMENT:
-        return SWBT_DAEMON_HOST_ERROR_INVALID_ARGUMENT;
+        return SWBT_DAEMON_PROCESS_ERROR_INVALID_ARGUMENT;
     case SWBT_RUNTIME_HOST_ERROR_BACKEND:
-        return SWBT_DAEMON_HOST_ERROR_BACKEND;
+        return SWBT_DAEMON_PROCESS_ERROR_BACKEND;
     }
-    return SWBT_DAEMON_HOST_ERROR_BACKEND;
+    return SWBT_DAEMON_PROCESS_ERROR_BACKEND;
 }
 
-swbt_daemon_host_result_t swbt_daemon_host_init(swbt_daemon_host_t *host,
-                                                const swbt_daemon_config_t *config,
-                                                const swbt_daemon_host_backend_t *backend,
-                                                void *backend_context) {
+swbt_daemon_process_result_t swbt_daemon_process_init(swbt_daemon_process_t *host,
+                                                      const swbt_daemon_config_t *config,
+                                                      const swbt_daemon_process_backend_t *backend,
+                                                      void *backend_context) {
     if (host == NULL || !swbt_daemon_config_is_valid(config) ||
         !swbt_daemon_backend_is_valid(backend)) {
-        return SWBT_DAEMON_HOST_ERROR_INVALID_ARGUMENT;
+        return SWBT_DAEMON_PROCESS_ERROR_INVALID_ARGUMENT;
     }
 
-    *host = (swbt_daemon_host_t){0};
+    *host = (swbt_daemon_process_t){0};
     host->config = *config;
     host->backend = backend;
     host->backend_context = backend_context;
-    host->app = swbt_app_create();
+    host->app = swbt_domain_create();
     if (host->app == NULL) {
-        return SWBT_DAEMON_HOST_ERROR_INVALID_ARGUMENT;
+        return SWBT_DAEMON_PROCESS_ERROR_INVALID_ARGUMENT;
     }
 
-    const swbt_app_daemon_status_t daemon_status = {
+    const swbt_domain_daemon_status_t daemon_status = {
         .backend = backend->daemon_backend,
-        .lifecycle_state = SWBT_APP_DAEMON_LIFECYCLE_STOPPED,
-        .hardware_approval = SWBT_APP_HARDWARE_APPROVAL_UNAVAILABLE,
+        .lifecycle_state = SWBT_DOMAIN_DAEMON_LIFECYCLE_STOPPED,
+        .hardware_approval = SWBT_DOMAIN_HARDWARE_APPROVAL_UNAVAILABLE,
     };
-    if (swbt_app_set_daemon_status(host->app, &daemon_status) != SWBT_APP_OK) {
-        swbt_app_destroy(host->app);
+    if (swbt_domain_set_daemon_status(host->app, &daemon_status) != SWBT_DOMAIN_OK) {
+        swbt_domain_destroy(host->app);
         host->app = NULL;
-        return SWBT_DAEMON_HOST_ERROR_INVALID_ARGUMENT;
+        return SWBT_DAEMON_PROCESS_ERROR_INVALID_ARGUMENT;
     }
 
     host->runtime_backend = (swbt_runtime_host_backend_t){
-        .hid_register = swbt_daemon_host_runtime_hid_register,
-        .hid_stop = swbt_daemon_host_runtime_hid_stop,
-        .output_handler_start = swbt_daemon_host_runtime_output_handler_start,
-        .output_handler_stop = swbt_daemon_host_runtime_output_handler_stop,
-        .report_timer_start = swbt_daemon_host_runtime_report_timer_start,
-        .report_timer_stop = swbt_daemon_host_runtime_report_timer_stop,
-        .report_timer_send_neutral_now = swbt_daemon_host_runtime_report_timer_send_neutral_now,
-        .subcommand_reply_enqueue = swbt_daemon_host_runtime_subcommand_reply_enqueue,
-        .read_device_info = swbt_daemon_host_runtime_read_device_info,
-        .time_ms = swbt_daemon_host_runtime_time_ms,
+        .hid_register = swbt_daemon_process_runtime_hid_register,
+        .hid_stop = swbt_daemon_process_runtime_hid_stop,
+        .output_handler_start = swbt_daemon_process_runtime_output_handler_start,
+        .output_handler_stop = swbt_daemon_process_runtime_output_handler_stop,
+        .report_timer_start = swbt_daemon_process_runtime_report_timer_start,
+        .report_timer_stop = swbt_daemon_process_runtime_report_timer_stop,
+        .report_timer_send_neutral_now = swbt_daemon_process_runtime_report_timer_send_neutral_now,
+        .subcommand_reply_enqueue = swbt_daemon_process_runtime_subcommand_reply_enqueue,
+        .read_device_info = swbt_daemon_process_runtime_read_device_info,
+        .time_ms = swbt_daemon_process_runtime_time_ms,
     };
     if (swbt_runtime_host_init(&host->runtime,
                                &(swbt_runtime_host_config_t){
@@ -141,35 +141,35 @@ swbt_daemon_host_result_t swbt_daemon_host_init(swbt_daemon_host_t *host,
                                    .device_info = config->device_info,
                                },
                                &host->runtime_backend, host) != SWBT_RUNTIME_HOST_OK) {
-        swbt_app_destroy(host->app);
+        swbt_domain_destroy(host->app);
         host->app = NULL;
-        return SWBT_DAEMON_HOST_ERROR_INVALID_ARGUMENT;
+        return SWBT_DAEMON_PROCESS_ERROR_INVALID_ARGUMENT;
     }
     if (swbt_control_init(&host->control, &(swbt_control_config_t){
                                               .app = host->app,
                                               .runtime = &host->runtime,
                                           }) != SWBT_CONTROL_OK) {
-        swbt_app_destroy(host->app);
+        swbt_domain_destroy(host->app);
         host->app = NULL;
-        return SWBT_DAEMON_HOST_ERROR_INVALID_ARGUMENT;
+        return SWBT_DAEMON_PROCESS_ERROR_INVALID_ARGUMENT;
     }
 
     host->initialized = true;
-    return SWBT_DAEMON_HOST_OK;
+    return SWBT_DAEMON_PROCESS_OK;
 }
 
-swbt_daemon_host_result_t swbt_daemon_host_start(swbt_daemon_host_t *host) {
+swbt_daemon_process_result_t swbt_daemon_process_start(swbt_daemon_process_t *host) {
     if (host == NULL || !host->initialized) {
-        return SWBT_DAEMON_HOST_ERROR_INVALID_ARGUMENT;
+        return SWBT_DAEMON_PROCESS_ERROR_INVALID_ARGUMENT;
     }
     if (host->running) {
-        return SWBT_DAEMON_HOST_OK;
+        return SWBT_DAEMON_PROCESS_OK;
     }
 
     swbt_diagnostic_trace("host: ipc start");
     if (host->backend->ipc_start(host->backend_context, &host->control) != 0) {
         swbt_diagnostic_trace("host: ipc start failed");
-        return SWBT_DAEMON_HOST_ERROR_BACKEND;
+        return SWBT_DAEMON_PROCESS_ERROR_BACKEND;
     }
     swbt_diagnostic_trace("host: ipc start ok");
     host->ipc_started = true;
@@ -177,24 +177,25 @@ swbt_daemon_host_result_t swbt_daemon_host_start(swbt_daemon_host_t *host) {
     swbt_diagnostic_trace("host: runtime start");
     if (swbt_runtime_host_start(&host->runtime) != SWBT_RUNTIME_HOST_OK) {
         swbt_diagnostic_trace("host: runtime start failed");
-        swbt_daemon_host_stop(host);
-        return SWBT_DAEMON_HOST_ERROR_BACKEND;
+        swbt_daemon_process_stop(host);
+        return SWBT_DAEMON_PROCESS_ERROR_BACKEND;
     }
     swbt_diagnostic_trace("host: runtime start ok");
-    (void)swbt_app_set_daemon_lifecycle(host->app, SWBT_APP_DAEMON_LIFECYCLE_RUNNING);
+    (void)swbt_domain_set_daemon_lifecycle(host->app, SWBT_DOMAIN_DAEMON_LIFECYCLE_RUNNING);
     host->running = true;
-    return SWBT_DAEMON_HOST_OK;
+    return SWBT_DAEMON_PROCESS_OK;
 }
 
-swbt_daemon_host_result_t swbt_daemon_host_send_neutral_now(swbt_daemon_host_t *host) {
+swbt_daemon_process_result_t swbt_daemon_process_send_neutral_now(swbt_daemon_process_t *host) {
     if (host == NULL || !host->initialized) {
-        return SWBT_DAEMON_HOST_ERROR_INVALID_ARGUMENT;
+        return SWBT_DAEMON_PROCESS_ERROR_INVALID_ARGUMENT;
     }
 
-    return swbt_daemon_host_result_from_runtime(swbt_runtime_host_send_neutral_now(&host->runtime));
+    return swbt_daemon_process_result_from_runtime(
+        swbt_runtime_host_send_neutral_now(&host->runtime));
 }
 
-void swbt_daemon_host_stop(swbt_daemon_host_t *host) {
+void swbt_daemon_process_stop(swbt_daemon_process_t *host) {
     if (host == NULL || !host->initialized) {
         return;
     }
@@ -208,34 +209,35 @@ void swbt_daemon_host_stop(swbt_daemon_host_t *host) {
         host->ipc_started = false;
     }
 
-    (void)swbt_app_set_daemon_lifecycle(host->app, SWBT_APP_DAEMON_LIFECYCLE_STOPPED);
+    (void)swbt_domain_set_daemon_lifecycle(host->app, SWBT_DOMAIN_DAEMON_LIFECYCLE_STOPPED);
     host->running = false;
     swbt_diagnostic_trace("host: stop done");
 }
 
-void swbt_daemon_host_destroy(swbt_daemon_host_t *host) {
+void swbt_daemon_process_destroy(swbt_daemon_process_t *host) {
     if (host == NULL) {
         return;
     }
-    swbt_daemon_host_stop(host);
-    swbt_app_destroy(host->app);
+    swbt_daemon_process_stop(host);
+    swbt_domain_destroy(host->app);
     host->app = NULL;
     host->initialized = false;
 }
 
-bool swbt_daemon_host_is_running(const swbt_daemon_host_t *host) {
+bool swbt_daemon_process_is_running(const swbt_daemon_process_t *host) {
     return host != NULL && host->running;
 }
 
-swbt_app_t *swbt_daemon_host_app(swbt_daemon_host_t *host) {
+swbt_domain_t *swbt_daemon_process_app(swbt_daemon_process_t *host) {
     return host == NULL ? NULL : host->app;
 }
 
-swbt_control_t *swbt_daemon_host_control(swbt_daemon_host_t *host) {
+swbt_control_t *swbt_daemon_process_control(swbt_daemon_process_t *host) {
     return host == NULL ? NULL : &host->control;
 }
 
-swbt_btstack_output_report_handler_t *swbt_daemon_host_output_handler(swbt_daemon_host_t *host) {
+swbt_btstack_output_report_handler_t *
+swbt_daemon_process_output_handler(swbt_daemon_process_t *host) {
     return host == NULL ? NULL : swbt_runtime_host_output_handler(&host->runtime);
 }
 
@@ -261,7 +263,7 @@ static void swbt_daemon_noop_output_handler_start(void *context,
 }
 
 static int swbt_daemon_noop_report_timer_start(void *context,
-                                               swbt_daemon_host_state_provider_t state_provider,
+                                               swbt_daemon_process_state_provider_t state_provider,
                                                void *state_context) {
     (void)context;
     (void)state_provider;
@@ -288,9 +290,9 @@ static uint32_t swbt_daemon_noop_time_ms(void *context) {
     return 0u;
 }
 
-const swbt_daemon_host_backend_t *swbt_daemon_host_noop_backend(void) {
-    static const swbt_daemon_host_backend_t backend = {
-        .daemon_backend = SWBT_APP_DAEMON_BACKEND_NOOP,
+const swbt_daemon_process_backend_t *swbt_daemon_process_noop_backend(void) {
+    static const swbt_daemon_process_backend_t backend = {
+        .daemon_backend = SWBT_DOMAIN_DAEMON_BACKEND_NOOP,
         .ipc_start = swbt_daemon_noop_ipc_start,
         .ipc_stop = swbt_daemon_noop_stop,
         .hid_register = swbt_daemon_noop_start,
@@ -306,19 +308,20 @@ const swbt_daemon_host_backend_t *swbt_daemon_host_noop_backend(void) {
     return &backend;
 }
 
-int swbt_daemon_main_with_host_backend(const swbt_daemon_config_t *config,
-                                       const swbt_daemon_host_backend_t *backend,
-                                       void *backend_context) {
-    swbt_daemon_host_t host;
+int swbt_daemon_main_with_process_backend(const swbt_daemon_config_t *config,
+                                          const swbt_daemon_process_backend_t *backend,
+                                          void *backend_context) {
+    swbt_daemon_process_t host;
 
-    if (swbt_daemon_host_init(&host, config, backend, backend_context) != SWBT_DAEMON_HOST_OK) {
+    if (swbt_daemon_process_init(&host, config, backend, backend_context) !=
+        SWBT_DAEMON_PROCESS_OK) {
         return 1;
     }
-    if (swbt_daemon_host_start(&host) != SWBT_DAEMON_HOST_OK) {
-        swbt_daemon_host_destroy(&host);
+    if (swbt_daemon_process_start(&host) != SWBT_DAEMON_PROCESS_OK) {
+        swbt_daemon_process_destroy(&host);
         return 1;
     }
 
-    swbt_daemon_host_destroy(&host);
+    swbt_daemon_process_destroy(&host);
     return 0;
 }

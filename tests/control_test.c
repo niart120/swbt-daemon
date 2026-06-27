@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "application/app.h"
+#include "domain/domain.h"
 #include "btstack_bridge/output_report_handler.h"
 #include "control/control.h"
 #include "switch/switch_controller_state.h"
@@ -114,11 +114,11 @@ static swbt_runtime_host_backend_t fake_runtime_backend(void) {
     };
 }
 
-static int expect_status(const swbt_app_t *app, expected_app_status_t expected) {
-    swbt_app_status_snapshot_t status;
+static int expect_status(const swbt_domain_t *app, expected_app_status_t expected) {
+    swbt_domain_status_snapshot_t status;
     int failed = 0;
 
-    failed += expect_eq_int(swbt_app_read_status(app, &status), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_domain_read_status(app, &status), SWBT_DOMAIN_OK);
     failed += expect_true(status.has_owner);
     failed += expect_eq_u32(status.owner_client_id, 1001u);
     failed += expect_eq_u64(status.last_sequence, expected.last_sequence);
@@ -130,7 +130,7 @@ static int expect_status(const swbt_app_t *app, expected_app_status_t expected) 
 }
 
 static int submit_client_state_preserves_owner_and_sequence_semantics(void) {
-    swbt_app_t *app = swbt_app_create();
+    swbt_domain_t *app = swbt_domain_create();
     swbt_control_t control;
     swbt_state_t state = swbt_state_neutral();
     int failed = 0;
@@ -179,14 +179,14 @@ static int submit_client_state_preserves_owner_and_sequence_semantics(void) {
                                      .rejected = 2u,
                                  });
 
-    swbt_app_destroy(app);
+    swbt_domain_destroy(app);
     return failed;
 }
 
 static int submit_state_uses_control_owned_owner_and_sequence(void) {
-    swbt_app_t *app = swbt_app_create();
+    swbt_domain_t *app = swbt_domain_create();
     swbt_control_t control;
-    swbt_app_status_snapshot_t status;
+    swbt_domain_status_snapshot_t status;
     swbt_state_t state = swbt_state_neutral();
     int failed = 0;
 
@@ -199,7 +199,7 @@ static int submit_state_uses_control_owned_owner_and_sequence(void) {
 
     state.buttons = SWBT_BUTTON_A;
     failed += expect_eq_int(swbt_control_submit_state(&control, &state), SWBT_CONTROL_OK);
-    failed += expect_eq_int(swbt_app_read_status(app, &status), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_domain_read_status(app, &status), SWBT_DOMAIN_OK);
     failed += expect_true(status.has_owner);
     failed += expect_eq_u32(status.owner_client_id, UINT32_MAX);
     failed += expect_eq_u64(status.last_sequence, 1u);
@@ -207,18 +207,18 @@ static int submit_state_uses_control_owned_owner_and_sequence(void) {
 
     state.buttons = SWBT_BUTTON_B;
     failed += expect_eq_int(swbt_control_submit_state(&control, &state), SWBT_CONTROL_OK);
-    failed += expect_eq_int(swbt_app_read_status(app, &status), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_domain_read_status(app, &status), SWBT_DOMAIN_OK);
     failed += expect_eq_u64(status.last_sequence, 2u);
     failed += expect_eq_u32(status.state.buttons, SWBT_BUTTON_B);
     failed += expect_eq_u64(status.metrics.ipc_state_accepted, 2u);
     failed += expect_eq_u64(status.metrics.ipc_state_rejected, 0u);
 
-    swbt_app_destroy(app);
+    swbt_domain_destroy(app);
     return failed;
 }
 
 static int get_status_combines_app_and_runtime_status(void) {
-    swbt_app_t *app = swbt_app_create();
+    swbt_domain_t *app = swbt_domain_create();
     swbt_runtime_host_t runtime;
     swbt_control_t control;
     swbt_control_status_t status;
@@ -262,7 +262,7 @@ static int get_status_combines_app_and_runtime_status(void) {
     failed += expect_true(status.runtime.report_timer_started);
 
     swbt_runtime_host_stop(&runtime);
-    swbt_app_destroy(app);
+    swbt_domain_destroy(app);
     return failed;
 }
 

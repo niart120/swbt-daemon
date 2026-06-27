@@ -3,10 +3,10 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "application/app.h"
+#include "domain/domain.h"
 #include "btstack_bridge/output_report_handler.h"
 #include "daemon/config.h"
-#include "daemon/host.h"
+#include "daemon/process.h"
 #include "ipc/ipc_adapter.h"
 #include "ipc/ipc_json.h"
 #include "switch/switch_controller_state.h"
@@ -21,9 +21,9 @@ typedef struct {
     int output_handler_stop_calls;
     int report_timer_start_calls;
     int report_timer_stop_calls;
-    swbt_app_t *app;
+    swbt_domain_t *app;
     swbt_control_t *control;
-    swbt_daemon_host_state_provider_t state_provider;
+    swbt_daemon_process_state_provider_t state_provider;
     void *state_context;
 } fake_backend_t;
 
@@ -99,7 +99,8 @@ static void fake_output_handler_stop(void *context) {
     fake->output_handler_stop_calls += 1;
 }
 
-static int fake_report_timer_start(void *context, swbt_daemon_host_state_provider_t state_provider,
+static int fake_report_timer_start(void *context,
+                                   swbt_daemon_process_state_provider_t state_provider,
                                    void *state_context) {
     fake_backend_t *fake = context;
     fake->report_timer_start_calls += 1;
@@ -132,9 +133,9 @@ static uint32_t fake_time_ms(void *context) {
     return 123u;
 }
 
-static swbt_daemon_host_backend_t fake_backend(void) {
-    return (swbt_daemon_host_backend_t){
-        .daemon_backend = SWBT_APP_DAEMON_BACKEND_NOOP,
+static swbt_daemon_process_backend_t fake_backend(void) {
+    return (swbt_daemon_process_backend_t){
+        .daemon_backend = SWBT_DOMAIN_DAEMON_BACKEND_NOOP,
         .ipc_start = fake_ipc_start,
         .ipc_stop = fake_ipc_stop,
         .hid_register = fake_hid_register,
@@ -218,21 +219,21 @@ static int expect_status(swbt_control_t *control, bool has_owner, uint32_t owner
 }
 
 static int architecture_journey_neutralizes_disconnect_and_shutdown(void) {
-    swbt_daemon_host_t host;
+    swbt_daemon_process_t host;
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_backend_t fake = {0};
-    const swbt_daemon_host_backend_t backend = fake_backend();
+    const swbt_daemon_process_backend_t backend = fake_backend();
     char response[SWBT_IPC_JSON_RESPONSE_MAX];
     int failed = 0;
 
-    failed +=
-        expect_eq_int(swbt_daemon_host_init(&host, &config, &backend, &fake), SWBT_DAEMON_HOST_OK);
-    failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK);
+    failed += expect_eq_int(swbt_daemon_process_init(&host, &config, &backend, &fake),
+                            SWBT_DAEMON_PROCESS_OK);
+    failed += expect_eq_int(swbt_daemon_process_start(&host), SWBT_DAEMON_PROCESS_OK);
     failed += expect_eq_int(fake.ipc_start_calls, 1);
     failed += expect_eq_int(fake.hid_register_calls, 1);
     failed += expect_eq_int(fake.output_handler_start_calls, 1);
     failed += expect_eq_int(fake.report_timer_start_calls, 1);
-    failed += expect_true(fake.app == swbt_daemon_host_app(&host));
+    failed += expect_true(fake.app == swbt_daemon_process_app(&host));
 
     failed += expect_eq_int(handle(fake.control, 1001u,
                                    "{\"v\":1,\"type\":\"acquire\",\"mode\":\"exclusive\","
@@ -258,7 +259,7 @@ static int architecture_journey_neutralizes_disconnect_and_shutdown(void) {
     failed += expect_status(fake.control, true, 2002u, SWBT_BUTTON_A);
     failed += expect_current_report_button_byte(&fake, &config, 0x08u);
 
-    swbt_daemon_host_stop(&host);
+    swbt_daemon_process_stop(&host);
     failed += expect_eq_int(fake.report_timer_stop_calls, 1);
     failed += expect_eq_int(fake.output_handler_stop_calls, 1);
     failed += expect_eq_int(fake.hid_stop_calls, 1);
@@ -266,7 +267,7 @@ static int architecture_journey_neutralizes_disconnect_and_shutdown(void) {
     failed += expect_status(fake.control, false, 0u, 0u);
     failed += expect_current_report_button_byte(&fake, &config, 0x00u);
 
-    swbt_daemon_host_destroy(&host);
+    swbt_daemon_process_destroy(&host);
     return failed;
 }
 

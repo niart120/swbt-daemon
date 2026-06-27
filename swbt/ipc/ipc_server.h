@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "application/app.h"
+#include "domain/domain.h"
 #include "control/control.h"
 #include "ipc/ipc_json.h"
 #include "ipc/ipc_status.h"
@@ -49,7 +49,7 @@ typedef struct {
 
 typedef struct {
     swbt_ipc_socket_t listen_socket;
-    swbt_app_t *default_app;
+    swbt_domain_t *default_app;
     swbt_control_t default_control;
     swbt_control_t *control;
     uint32_t next_client_id;

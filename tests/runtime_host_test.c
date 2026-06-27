@@ -1,7 +1,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "application/app.h"
+#include "domain/domain.h"
 #include "btstack_bridge/output_report_handler.h"
 #include "runtime/host.h"
 #include "switch/switch_controller_state.h"
@@ -113,7 +113,7 @@ static swbt_state_t sample_state(void) {
 
 static int start_wires_hid_output_and_report_runtime_without_ipc_callback(void) {
     swbt_runtime_host_t runtime;
-    swbt_app_t *app = swbt_app_create();
+    swbt_domain_t *app = swbt_domain_create();
     fake_runtime_backend_t fake = {0};
     const swbt_runtime_host_backend_t backend = fake_backend();
     const swbt_state_t state = sample_state();
@@ -134,14 +134,14 @@ static int start_wires_hid_output_and_report_runtime_without_ipc_callback(void) 
     failed += expect_true(fake.state_provider != NULL);
     failed += expect_true(fake.state_context == &runtime);
 
-    failed += expect_eq_int(swbt_app_acquire(app, 1001u), SWBT_APP_OK);
-    failed += expect_eq_int(swbt_app_set_state(app,
-                                               (swbt_app_set_state_options_t){
-                                                   .client_id = 1001u,
-                                                   .state = &state,
-                                                   .sequence = 7u,
-                                               }),
-                            SWBT_APP_OK);
+    failed += expect_eq_int(swbt_domain_acquire(app, 1001u), SWBT_DOMAIN_OK);
+    failed += expect_eq_int(swbt_domain_set_state(app,
+                                                  (swbt_domain_set_state_options_t){
+                                                      .client_id = 1001u,
+                                                      .state = &state,
+                                                      .sequence = 7u,
+                                                  }),
+                            SWBT_DOMAIN_OK);
     if (fake.state_provider == NULL) {
         failed += 1;
     } else {
@@ -149,29 +149,29 @@ static int start_wires_hid_output_and_report_runtime_without_ipc_callback(void) 
     }
 
     swbt_runtime_host_stop(&runtime);
-    swbt_app_destroy(app);
+    swbt_domain_destroy(app);
     return failed;
 }
 
 static int runtime_status_tracks_resources_without_owning_application_state(void) {
     swbt_runtime_host_t runtime;
-    swbt_app_t *app = swbt_app_create();
+    swbt_domain_t *app = swbt_domain_create();
     fake_runtime_backend_t fake = {0};
     const swbt_runtime_host_backend_t backend = fake_backend();
     const swbt_state_t state = sample_state();
     swbt_runtime_host_status_t status;
-    swbt_app_status_snapshot_t app_status;
+    swbt_domain_status_snapshot_t app_status;
 
     int failed = 0;
     failed += expect_true(app != NULL);
-    failed += expect_eq_int(swbt_app_acquire(app, 1001u), SWBT_APP_OK);
-    failed += expect_eq_int(swbt_app_set_state(app,
-                                               (swbt_app_set_state_options_t){
-                                                   .client_id = 1001u,
-                                                   .state = &state,
-                                                   .sequence = 7u,
-                                               }),
-                            SWBT_APP_OK);
+    failed += expect_eq_int(swbt_domain_acquire(app, 1001u), SWBT_DOMAIN_OK);
+    failed += expect_eq_int(swbt_domain_set_state(app,
+                                                  (swbt_domain_set_state_options_t){
+                                                      .client_id = 1001u,
+                                                      .state = &state,
+                                                      .sequence = 7u,
+                                                  }),
+                            SWBT_DOMAIN_OK);
     failed += expect_eq_int(swbt_runtime_host_init(&runtime,
                                                    &(swbt_runtime_host_config_t){
                                                        .app = app,
@@ -193,7 +193,7 @@ static int runtime_status_tracks_resources_without_owning_application_state(void
     failed += expect_true(status.output_handler_started);
     failed += expect_true(status.report_timer_started);
 
-    failed += expect_eq_int(swbt_app_read_status(app, &app_status), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_domain_read_status(app, &app_status), SWBT_DOMAIN_OK);
     failed += expect_true(app_status.has_owner);
     failed += expect_eq_int((int)app_status.owner_client_id, 1001);
     failed += expect_eq_int((int)app_status.last_sequence, 7);
@@ -204,15 +204,15 @@ static int runtime_status_tracks_resources_without_owning_application_state(void
     failed += expect_true(!status.hid_registered);
     failed += expect_true(!status.output_handler_started);
     failed += expect_true(!status.report_timer_started);
-    failed += expect_eq_int(swbt_app_read_status(app, &app_status), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_domain_read_status(app, &app_status), SWBT_DOMAIN_OK);
 
-    swbt_app_destroy(app);
+    swbt_domain_destroy(app);
     return failed;
 }
 
 static int shutdown_neutralizes_state_and_stops_runtime_resources_once(void) {
     swbt_runtime_host_t runtime;
-    swbt_app_t *app = swbt_app_create();
+    swbt_domain_t *app = swbt_domain_create();
     fake_runtime_backend_t fake = {0};
     const swbt_runtime_host_backend_t backend = fake_backend();
     const swbt_state_t state = sample_state();
@@ -227,14 +227,14 @@ static int shutdown_neutralizes_state_and_stops_runtime_resources_once(void) {
                                                    &backend, &fake),
                             SWBT_RUNTIME_HOST_OK);
     failed += expect_eq_int(swbt_runtime_host_start(&runtime), SWBT_RUNTIME_HOST_OK);
-    failed += expect_eq_int(swbt_app_acquire(app, 1001u), SWBT_APP_OK);
-    failed += expect_eq_int(swbt_app_set_state(app,
-                                               (swbt_app_set_state_options_t){
-                                                   .client_id = 1001u,
-                                                   .state = &state,
-                                                   .sequence = 7u,
-                                               }),
-                            SWBT_APP_OK);
+    failed += expect_eq_int(swbt_domain_acquire(app, 1001u), SWBT_DOMAIN_OK);
+    failed += expect_eq_int(swbt_domain_set_state(app,
+                                                  (swbt_domain_set_state_options_t){
+                                                      .client_id = 1001u,
+                                                      .state = &state,
+                                                      .sequence = 7u,
+                                                  }),
+                            SWBT_DOMAIN_OK);
 
     swbt_runtime_host_stop(&runtime);
     swbt_runtime_host_stop(&runtime);
@@ -243,11 +243,11 @@ static int shutdown_neutralizes_state_and_stops_runtime_resources_once(void) {
     failed += expect_eq_int(fake.output_handler_stop_calls, 1);
     failed += expect_eq_int(fake.hid_stop_calls, 1);
     failed += expect_true(!swbt_runtime_host_is_running(&runtime));
-    failed += expect_eq_int(swbt_app_read_controller_state(app, &read_state), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_domain_read_controller_state(app, &read_state), SWBT_DOMAIN_OK);
     failed += expect_eq_int((int)read_state.buttons, 0);
     failed += expect_eq_u16(read_state.lx, 2048u);
 
-    swbt_app_destroy(app);
+    swbt_domain_destroy(app);
     return failed;
 }
 

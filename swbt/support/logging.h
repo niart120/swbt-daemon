@@ -1,9 +1,9 @@
-#ifndef SWBT_CORE_LOGGING_H
-#define SWBT_CORE_LOGGING_H
+#ifndef SWBT_SUPPORT_LOGGING_H
+#define SWBT_SUPPORT_LOGGING_H
 
 #include <stdint.h>
 
-#include "core/metrics.h"
+#include "support/metrics.h"
 
 typedef enum {
     SWBT_LOG_OK = 0,

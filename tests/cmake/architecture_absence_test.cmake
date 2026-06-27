@@ -42,14 +42,14 @@ swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_support STATIC"
                        "support target")
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_ipc STATIC"
                        "IPC target")
-swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_btstack_adapter STATIC"
-                       "BTstack adapter target")
-swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_daemon_host STATIC"
-                       "daemon host target")
+swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_btstack_bridge STATIC"
+                       "BTstack bridge target")
+swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_daemon_process STATIC"
+                       "daemon process target")
 swbt_assert_file_match("CMakeLists.txt" "add_executable\\(architecture_journey_test"
                        "architecture journey test target")
 swbt_assert_file_match("CMakeLists.txt"
-                       "target_link_libraries\\(architecture_journey_test PRIVATE swbt_daemon_host\\)"
+                       "target_link_libraries\\(architecture_journey_test PRIVATE swbt_daemon_process\\)"
                        "architecture journey test link")
 
 set(files_to_scan "${SWBT_SOURCE_DIR}/CMakeLists.txt")

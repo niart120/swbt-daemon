@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "application/app.h"
+#include "domain/domain.h"
 #include "btstack_bridge/output_report_handler.h"
 #include "switch/switch_controller_state.h"
 #include "switch/switch_device_info.h"
@@ -35,7 +35,7 @@ typedef struct {
 } swbt_runtime_host_backend_t;
 
 typedef struct {
-    swbt_app_t *app;
+    swbt_domain_t *app;
     swbt_switch_report_options_t report_options;
     swbt_switch_device_info_t device_info;
 } swbt_runtime_host_config_t;
@@ -51,7 +51,7 @@ typedef struct {
 typedef struct {
     const swbt_runtime_host_backend_t *backend;
     void *backend_context;
-    swbt_app_t *app;
+    swbt_domain_t *app;
     swbt_switch_report_options_t report_options;
     swbt_switch_device_info_t device_info;
     swbt_btstack_output_report_handler_t output_handler;

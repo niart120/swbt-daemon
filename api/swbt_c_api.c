@@ -3,13 +3,13 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-#include "application/app.h"
+#include "domain/domain.h"
 #include "control/control.h"
-#include "core/swbt_version.h"
+#include "support/swbt_version.h"
 #include "switch/switch_controller_state.h"
 
 struct swbt {
-    swbt_app_t *app;
+    swbt_domain_t *app;
     swbt_control_t control;
 };
 
@@ -76,7 +76,7 @@ swbt_result_t swbt_open(const swbt_open_options_t *options, swbt_t **out_swbt) {
         return SWBT_ERROR_NO_MEMORY;
     }
 
-    handle->app = swbt_app_create();
+    handle->app = swbt_domain_create();
     if (handle->app == NULL) {
         free(handle);
         return SWBT_ERROR_NO_MEMORY;
@@ -87,7 +87,7 @@ swbt_result_t swbt_open(const swbt_open_options_t *options, swbt_t **out_swbt) {
                                                 .app = handle->app,
                                             });
     if (control_result != SWBT_CONTROL_OK) {
-        swbt_app_destroy(handle->app);
+        swbt_domain_destroy(handle->app);
         free(handle);
         return swbt_map_control_result(control_result);
     }
@@ -101,7 +101,7 @@ void swbt_close(swbt_t *swbt) {
         return;
     }
 
-    swbt_app_destroy(swbt->app);
+    swbt_domain_destroy(swbt->app);
     free(swbt);
 }
 

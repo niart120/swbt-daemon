@@ -39,11 +39,11 @@ recorded。
 
 - `swbt/btstack_bridge/hid_event.*` は BTstack raw packet を swbt の typed event へ変換する。public header は BTstack vendor header を公開しない。
 - `swbt/btstack_bridge/hid_port.*` は HID can-send request と interrupt send を薄く包む。report bytes は変更しない。
-- `swbt/btstack_bridge/timer_port.*` は BTstack run loop timer API を薄く包む。`btstack_timer_source_t` を扱うため `timer_port.h` は BTstack header を含むが、これは `btstack_bridge` 内の port であり application public API ではない。
+- `swbt/btstack_bridge/timer_port.*` は BTstack run loop timer API を薄く包む。`btstack_timer_source_t` を扱うため `timer_port.h` は BTstack header を含むが、これは `btstack_bridge` 内の port であり domain public API ではない。
 - `swbt/btstack_bridge/input_report_timer_adapter.c` は HID send と timer の直接 BTstack call を port 経由にした。
-- `swbt/daemon/production_backend.c` と `swbt/daemon/host.c` は raw packet offset 判定を `swbt_btstack_hid_event_decode` へ移した production adapter / host 経路を使う。
+- `swbt/daemon/production_runner.c` と `swbt/daemon/process.c` は raw packet offset 判定を `swbt_btstack_hid_event_decode` へ移した production ports / process 経路を使う。
 
 ## 5. 未解決事項
 
-- `local_056` 完了時点では、`swbt/btstack_bridge/production_btstack.c` は `swbt_btstack_production_adapter_t` を返す。production backend ops table と aggregate target は source / tests / build graph から削除済みである。
+- current implementation では、`swbt/btstack_bridge/production_btstack_impl.c` は `swbt_btstack_production_ports_t` を返す。production backend ops table と aggregate target は source / tests / build graph から削除済みである。
 - production 実機経路の callback registration、report scheduling、shutdown order は今回の software gate では再実行していない。production composition を切り替える PR で hardware gate を判定する。

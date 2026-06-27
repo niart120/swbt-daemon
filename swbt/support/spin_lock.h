@@ -1,5 +1,5 @@
-#ifndef SWBT_CORE_SPIN_LOCK_H
-#define SWBT_CORE_SPIN_LOCK_H
+#ifndef SWBT_SUPPORT_SPIN_LOCK_H
+#define SWBT_SUPPORT_SPIN_LOCK_H
 
 #include <stdbool.h>
 #include <stdatomic.h>

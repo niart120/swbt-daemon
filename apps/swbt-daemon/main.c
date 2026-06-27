@@ -8,13 +8,13 @@
 #include <dbghelp.h>
 #endif
 
-#include "btstack_bridge/production_btstack.h"
-#include "core/diagnostics.h"
+#include "btstack_bridge/production_btstack_impl.h"
+#include "support/diagnostics.h"
 #include "daemon/cli.h"
 #include "daemon/config.h"
-#include "daemon/host.h"
+#include "daemon/process.h"
 #include "daemon/launch_options.h"
-#include "daemon/production_backend.h"
+#include "daemon/production_runner.h"
 
 #if defined(_WIN32)
 static swbt_daemon_shutdown_request_t g_swbt_daemon_shutdown_request;
@@ -127,7 +127,7 @@ static swbt_daemon_config_env_t swbt_daemon_config_env_from_process_env(void) {
 }
 
 static int swbt_daemon_run_production(const swbt_daemon_launch_config_t *launch_config) {
-    swbt_daemon_production_backend_t backend;
+    swbt_daemon_production_runner_t backend;
 
     if (swbt_btstack_production_link_key_db_configure(
             launch_config->link_key_db_configured ? launch_config->link_key_db_path : NULL) != 0) {
@@ -139,30 +139,31 @@ static int swbt_daemon_run_production(const swbt_daemon_launch_config_t *launch_
         return 1;
     }
     if (launch_config->adapter_location_configured &&
-        swbt_btstack_production_adapter_location_configure(launch_config->adapter_location) != 0) {
+        swbt_btstack_production_impl_configure_adapter_location(launch_config->adapter_location) !=
+            0) {
         swbt_diagnostic_trace("production: adapter location invalid");
         return 1;
     }
     swbt_diagnostic_trace("production: backend init");
-    if (swbt_daemon_production_backend_init(&backend, &launch_config->config,
-                                            swbt_btstack_production_adapter(),
-                                            NULL) != SWBT_DAEMON_PRODUCTION_OK) {
+    if (swbt_daemon_production_runner_init(&backend, &launch_config->config,
+                                           swbt_btstack_production_ports_btstack(),
+                                           NULL) != SWBT_DAEMON_PRODUCTION_OK) {
         swbt_diagnostic_trace("production: backend init failed");
         return 1;
     }
     if (launch_config->adapter_location_configured &&
-        !swbt_daemon_production_backend_set_adapter_location_configured(&backend)) {
+        !swbt_daemon_production_runner_set_adapter_location_configured(&backend)) {
         swbt_diagnostic_trace("production: adapter location state invalid");
         return 1;
     }
     if (launch_config->learned_switch_address_target_configured &&
-        !swbt_daemon_production_backend_set_learned_switch_address_target(
+        !swbt_daemon_production_runner_set_learned_switch_address_target(
             &backend, &launch_config->learned_switch_address_target)) {
         swbt_diagnostic_trace("production: learned switch address target invalid");
         return 1;
     }
     swbt_diagnostic_trace("production: enter main");
-    return swbt_daemon_production_main_with_backend_and_shutdown(
+    return swbt_daemon_production_main_with_runner_and_shutdown(
                &backend, NULL, swbt_daemon_process_shutdown_listener(), NULL) ==
                    SWBT_DAEMON_PRODUCTION_OK
                ? 0
@@ -204,8 +205,8 @@ int main(int argc, char **argv) {
         return swbt_daemon_run_production(&launch_config);
     case SWBT_DAEMON_LAUNCH_BACKEND_NOOP:
         swbt_diagnostic_trace("main: selected noop backend");
-        return swbt_daemon_main_with_host_backend(&launch_config.config,
-                                                  swbt_daemon_host_noop_backend(), NULL);
+        return swbt_daemon_main_with_process_backend(&launch_config.config,
+                                                     swbt_daemon_process_noop_backend(), NULL);
     }
     swbt_diagnostic_trace("main: unknown backend");
     return 1;

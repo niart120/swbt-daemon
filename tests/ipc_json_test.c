@@ -38,7 +38,7 @@ static int expect_status_core_unchanged(const swbt_ipc_status_t *actual,
                : 1;
 }
 
-static int handle(swbt_app_t *app, uint32_t client_id, const char *line, char *response,
+static int handle(swbt_domain_t *app, uint32_t client_id, const char *line, char *response,
                   size_t response_size) {
     swbt_control_t control;
 
@@ -53,7 +53,7 @@ static int handle(swbt_app_t *app, uint32_t client_id, const char *line, char *r
     return swbt_ipc_adapter_handle_line(&control, client_id, line, response, response_size);
 }
 
-static swbt_ipc_result_t get_status(swbt_app_t *app, swbt_ipc_status_t *out_status) {
+static swbt_ipc_result_t get_status(swbt_domain_t *app, swbt_ipc_status_t *out_status) {
     swbt_control_t control;
 
     if (swbt_control_init(&control, &(swbt_control_config_t){
@@ -192,7 +192,7 @@ static int malformed_json_corpus_is_rejected_without_state_mutation(void) {
         "{\"v\":1,\"type\":\"get_status\" \"request_id\":\"missing-comma\"}\n",
         "{\"v\":1,\"type\":\"hello\",\"request_id\":\"bad\" \"extra\"}\n",
     };
-    swbt_app_t *app = swbt_app_create();
+    swbt_domain_t *app = swbt_domain_create();
     swbt_ipc_status_t baseline;
     swbt_ipc_status_t current;
     char response[SWBT_IPC_JSON_RESPONSE_MAX];
@@ -204,7 +204,7 @@ static int malformed_json_corpus_is_rejected_without_state_mutation(void) {
     if (handle(app, 1001,
                "{\"v\":1,\"type\":\"acquire\",\"mode\":\"exclusive\",\"request_id\":\"a1\"}\n",
                response, sizeof(response)) != SWBT_IPC_JSON_OK) {
-        swbt_app_destroy(app);
+        swbt_domain_destroy(app);
         return 2;
     }
     if (handle(app, 1001,
@@ -213,48 +213,48 @@ static int malformed_json_corpus_is_rejected_without_state_mutation(void) {
                "\"rx\":2048,\"ry\":2048,\"accel_x\":1,\"accel_y\":2,\"accel_z\":3,"
                "\"gyro_x\":4,\"gyro_y\":5,\"gyro_z\":6}}\n",
                response, sizeof(response)) != SWBT_IPC_JSON_OK) {
-        swbt_app_destroy(app);
+        swbt_domain_destroy(app);
         return 3;
     }
     if (get_status(app, &baseline) != SWBT_IPC_OK) {
-        swbt_app_destroy(app);
+        swbt_domain_destroy(app);
         return 4;
     }
 
     for (size_t index = 0; index < sizeof(malformed_lines) / sizeof(malformed_lines[0]); ++index) {
         if (handle(app, 1001, malformed_lines[index], response, sizeof(response)) !=
             SWBT_IPC_JSON_OK) {
-            swbt_app_destroy(app);
+            swbt_domain_destroy(app);
             return 5;
         }
         if (expect_contains(response, "\"type\":\"error\"") ||
             expect_contains(response, "\"code\":\"invalid_json\"")) {
-            swbt_app_destroy(app);
+            swbt_domain_destroy(app);
             return 6;
         }
         if (expect_contains(response, "\"type\":\"hello_ok\"") == 0 ||
             expect_contains(response, "\"type\":\"status\"") == 0) {
-            swbt_app_destroy(app);
+            swbt_domain_destroy(app);
             return 7;
         }
         if (get_status(app, &current) != SWBT_IPC_OK) {
-            swbt_app_destroy(app);
+            swbt_domain_destroy(app);
             return 8;
         }
         if (expect_status_core_unchanged(&current, &baseline) != 0) {
-            swbt_app_destroy(app);
+            swbt_domain_destroy(app);
             return 9;
         }
     }
 
-    swbt_app_destroy(app);
+    swbt_domain_destroy(app);
     return 0;
 }
 
 int main(void) {
     swbt_ipc_command_t command;
     swbt_ipc_response_t codec_error;
-    swbt_app_t *app;
+    swbt_domain_t *app;
     swbt_ipc_status_t status;
     swbt_ipc_status_t status_after_decode;
     char response[SWBT_IPC_JSON_RESPONSE_MAX];
@@ -262,7 +262,7 @@ int main(void) {
         0x04, 0x01, 0x80, 0x41, 0x08, 0x01, 0x80, 0x42,
     };
 
-    app = swbt_app_create();
+    app = swbt_domain_create();
     if (app == NULL) {
         return 1;
     }
@@ -412,7 +412,7 @@ int main(void) {
         status.last_seq != 77) {
         return 13;
     }
-    if (swbt_app_record_rumble(app, active_rumble, 4242u) != SWBT_APP_OK) {
+    if (swbt_domain_record_rumble(app, active_rumble, 4242u) != SWBT_DOMAIN_OK) {
         return 32;
     }
 
@@ -557,6 +557,6 @@ int main(void) {
         return 57;
     }
 
-    swbt_app_destroy(app);
+    swbt_domain_destroy(app);
     return 0;
 }

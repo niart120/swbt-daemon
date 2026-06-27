@@ -1,7 +1,7 @@
 // NOLINTNEXTLINE(bugprone-reserved-identifier): POSIX feature test macro.
 #define _POSIX_C_SOURCE 200112L
 
-#include "core/diagnostics.h"
+#include "support/diagnostics.h"
 
 #if defined(_WIN32)
 #include <windows.h>

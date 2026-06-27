@@ -241,14 +241,14 @@ swbt_ipc_server_result_t swbt_ipc_server_init(swbt_ipc_server_t *server) {
 
     *server = (swbt_ipc_server_t){0};
     swbt_ipc_socket_init(&server->listen_socket);
-    server->default_app = swbt_app_create();
+    server->default_app = swbt_domain_create();
     if (server->default_app == NULL) {
         return SWBT_IPC_SERVER_ERROR_SOCKET;
     }
     if (swbt_control_init(&server->default_control, &(swbt_control_config_t){
                                                         .app = server->default_app,
                                                     }) != SWBT_CONTROL_OK) {
-        swbt_app_destroy(server->default_app);
+        swbt_domain_destroy(server->default_app);
         server->default_app = NULL;
         return SWBT_IPC_SERVER_ERROR_SOCKET;
     }
@@ -553,7 +553,7 @@ void swbt_ipc_server_close(swbt_ipc_server_t *server) {
     }
     swbt_ipc_socket_close(&server->listen_socket);
     if (server->default_app != NULL) {
-        swbt_app_destroy(server->default_app);
+        swbt_domain_destroy(server->default_app);
     }
     server->default_app = NULL;
     server->control = NULL;

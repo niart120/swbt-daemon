@@ -14,7 +14,8 @@ static swbt_state_t swbt_runtime_host_read_state(void *context) {
     swbt_runtime_host_t *runtime = context;
     swbt_state_t state;
 
-    if (runtime == NULL || swbt_app_read_controller_state(runtime->app, &state) != SWBT_APP_OK) {
+    if (runtime == NULL ||
+        swbt_domain_read_controller_state(runtime->app, &state) != SWBT_DOMAIN_OK) {
         return swbt_state_neutral();
     }
     return state;
@@ -39,9 +40,9 @@ static void swbt_runtime_host_on_output_report(void *context, uint16_t hid_cid,
         }
     }
 
-    if (swbt_app_handle_output_report(runtime->app, report, &runtime->report_options, &device_info,
-                                      runtime->backend->time_ms(runtime->backend_context),
-                                      &response) != SWBT_APP_OK ||
+    if (swbt_domain_handle_output_report(
+            runtime->app, report, &runtime->report_options, &device_info,
+            runtime->backend->time_ms(runtime->backend_context), &response) != SWBT_DOMAIN_OK ||
         response.action != SWBT_SWITCH_SUBCOMMAND_DISPATCH_ACTION_REPLY) {
         return;
     }
@@ -51,10 +52,10 @@ static void swbt_runtime_host_on_output_report(void *context, uint16_t hid_cid,
 }
 
 static void swbt_runtime_host_store_neutral(swbt_runtime_host_t *runtime) {
-    (void)swbt_app_revoke(runtime->app, (swbt_app_revoke_options_t){
-                                            .reason = SWBT_APP_REVOKE_SHUTDOWN,
-                                            .client_id = 0u,
-                                        });
+    (void)swbt_domain_revoke(runtime->app, (swbt_domain_revoke_options_t){
+                                               .reason = SWBT_DOMAIN_REVOKE_SHUTDOWN,
+                                               .client_id = 0u,
+                                           });
 }
 
 swbt_runtime_host_result_t swbt_runtime_host_init(swbt_runtime_host_t *runtime,

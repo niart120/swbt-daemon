@@ -2,8 +2,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "core/logging.h"
-#include "core/metrics.h"
+#include "support/logging.h"
+#include "support/metrics.h"
 
 typedef struct {
     swbt_log_event_t events[4];

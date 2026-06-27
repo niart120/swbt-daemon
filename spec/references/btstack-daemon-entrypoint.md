@@ -11,7 +11,7 @@ recorded。
 | source | commit / version | path |
 |---|---|---|
 | BTstack submodule | `075a0780f0fad7ff67d58ac19f46e8953656a752` | `vendor/btstack` |
-| swbt implementation | current work unit | `swbt/daemon/production_backend.*`, `swbt/btstack_bridge/production_btstack.*` |
+| swbt implementation | current work unit | `swbt/daemon/production_runner.*`, `swbt/btstack_bridge/production_btstack_impl.*` |
 
 ## 3. 根拠監査
 
@@ -37,7 +37,7 @@ recorded。
 - `SWBT_DAEMON_BACKEND=production` だけが production backend を選ぶ。既定実行は no-op backend のままにする。
 - production mode でも `SWBT_RUN_HARDWARE=1` と `SWBT_HARDWARE_APPROVED=1` が揃わない場合、runtime、IPC runner、BTstack platform、HCI power-on を開始しない。
 - adapter open は `hci_power_control(HCI_POWER_ON)` の先にあるため、approval gate はこの呼び出しより前に置く。
-- `swbt/daemon/production_backend.*` は fake ops で検証できる composition 層にし、BTstack API の実呼び出しは `swbt/btstack_bridge/production_btstack.*` に置く。
+- `swbt/daemon/production_runner.*` は fake ports で検証できる composition 層にし、BTstack API の実呼び出しは `swbt/btstack_bridge/production_btstack_impl.*` に置く。
 - BTstack HID packet handler は user context を持たないため、production backend は単一 active backend pointer を持つ。これは現行 scope の単一 controller 制約と一致する。
 - event parser は上表の BTstack event layout に基づく最小 parse とし、BTstack inline helper へ依存しない。
 - daemon link 用 BTstack source は broad source selection から platform helper を除き、選択 backend の transport と run loop だけを戻す。source selection の監査用一覧は `btstack_sources_cmake_test` で維持する。

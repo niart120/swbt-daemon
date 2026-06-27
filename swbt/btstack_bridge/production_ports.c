@@ -1,4 +1,4 @@
-#include "btstack_bridge/production_adapter.h"
+#include "btstack_bridge/production_ports.h"
 
 #include "switch/switch_hid_descriptor.h"
 
