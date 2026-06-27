@@ -268,7 +268,7 @@ Tidy status:
 | refactor-skipped | runtime host shutdown neutralizes state and stops runtime resources once | regression | unit | no |
 | refactor-skipped | daemon host starts IPC runner as daemon responsibility and delegates HID/report runtime to runtime host | regression | integration | no |
 | refactor-skipped | control submit client state preserves IPC owner and sequence semantics | regression | unit | no |
-| todo | control submit state for direct API hides owner id and sequence from caller | new | unit | no |
+| refactor-skipped | control submit state for direct API hides owner id and sequence from caller | new | unit | no |
 | todo | control get status combines app-owned status and runtime status without changing IPC JSON status | regression | integration | no |
 | todo | IPC adapter delegates acquire/release/set_state/get_status to control instead of app direct calls | regression | integration | no |
 | todo | public C ABI exposes open/close/submit_state/submit_neutral/get_status and does not link swbt_ipc | new | unit/build | no |
@@ -279,17 +279,17 @@ TDD status:
 
 - source: user request, 2026-06-27。
 - use case: `swbt/control` と `swbt/runtime` の実装を新規 work unit として進める。
-- last item: control submit client state preserves IPC owner and sequence semantics。
+- last item: control submit state for direct API hides owner id and sequence from caller。
 - state: refactor-skipped。
 - commands:
   - red: `just build-tests-debug`
-    - result: expected failure. `control_test` could not include `application/app.h` through a `swbt_control` target because `swbt_control` and `control/control.h` were not implemented yet.
+    - result: expected failure. `swbt_control_submit_state` was not declared.
   - green: `just format`; `just build-tests-debug`; `CTEST_ARGS="-R control_test" just test-debug`
     - result: pass.
   - refactor: skipped.
-    - reason: this cycle adds the first `swbt_control` operation seam only. The next direct API sequence allocator and status synthesis items will drive the next structure changes.
-- notes: fifth cycle added `swbt/control` with `swbt_control_init`, `swbt_control_acquire_client`, `swbt_control_release_client`, and `swbt_control_submit_client_state`. `submit_client_state` maps stale sequence to `SWBT_CONTROL_OK` while leaving app state unchanged, preserving IPC semantics.
-- next red candidate: control submit state for direct API hides owner id and sequence from caller。
+    - reason: direct submit only adds the synthetic client id and monotonic sequence allocator. No separate cleanup is useful before status synthesis.
+- notes: sixth cycle added `swbt_control_submit_state`. The direct path acquires a control-owned synthetic owner id and increments an internal sequence counter so callers do not provide owner id or sequence.
+- next red candidate: control get status combines app-owned status and runtime status without changing IPC JSON status。
 
 ## 10. 検証
 
@@ -343,7 +343,7 @@ TDD status:
 - [x] 事前妥当性評価を記録した。
 - [ ] `swbt/runtime` を実装した。初期 start path、shutdown neutral、runtime-owned state status、daemon host delegation は実装済み。control / public C ABI から使う status 合成は未完了。
 - [x] `swbt/runtime` が runtime-owned state を持ち、app lifetime と app-owned state を所有または公開しないことを検証した。
-- [ ] `swbt/control` を実装した。client state submit は実装済み。direct API 用 submit、status 合成、IPC adapter delegation は未完了。
+- [ ] `swbt/control` を実装した。client state submit と direct submit は実装済み。status 合成、IPC adapter delegation は未完了。
 - [x] daemon host を runtime host + IPC runner の利用者へ薄くした。
 - [ ] IPC adapter / runner を control 経由に移した。
 - [ ] public C ABI minimal operation を追加した。

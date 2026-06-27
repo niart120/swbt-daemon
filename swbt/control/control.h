@@ -22,6 +22,7 @@ typedef struct {
 typedef struct {
     swbt_app_t *app;
     swbt_runtime_host_t *runtime;
+    uint64_t next_direct_sequence;
 } swbt_control_t;
 
 swbt_control_result_t swbt_control_init(swbt_control_t *control,
@@ -34,5 +35,7 @@ swbt_control_result_t swbt_control_release_client(swbt_control_t *control, uint3
 swbt_control_result_t swbt_control_submit_client_state(swbt_control_t *control, uint32_t client_id,
                                                        const swbt_state_t *state,
                                                        uint64_t sequence);
+
+swbt_control_result_t swbt_control_submit_state(swbt_control_t *control, const swbt_state_t *state);
 
 #endif
