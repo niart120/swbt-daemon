@@ -4,14 +4,13 @@
 #include <string.h>
 
 #include "support/diagnostics.h"
-#include "btstack_bridge/hid_event.h"
+#include "daemon/production_hid_session.h"
 #include "daemon/production_ipc_pump.h"
 #include "daemon/production_report_timer.h"
 #include "daemon/production_reconnect.h"
 
-static swbt_daemon_production_runner_t *g_active_backend;
-
 static void swbt_daemon_production_finish_shutdown(swbt_daemon_production_runner_t *backend);
+static void swbt_daemon_production_hid_session_finish_shutdown(void *context);
 static void swbt_daemon_production_shutdown_on_main_thread(void *context);
 
 swbt_daemon_production_result_t swbt_daemon_production_runner_init(
@@ -97,111 +96,38 @@ swbt_daemon_production_report_timer_from_backend(swbt_daemon_production_runner_t
     return &backend->report_timer_bridge;
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters): BTstack packet handler ABI.
-static void swbt_daemon_production_hid_packet_handler(uint8_t packet_type, uint16_t channel,
-                                                      uint8_t *packet, uint16_t size) {
-    swbt_daemon_production_runner_t *backend = g_active_backend;
-    swbt_btstack_hid_event_t event;
-    (void)channel;
-
-    if (backend == NULL || swbt_btstack_device_recv(&backend->device, packet_type, packet, size,
-                                                    &event) != SWBT_BTSTACK_DEVICE_OK) {
-        return;
-    }
-
-    switch (event.type) {
-    case SWBT_BTSTACK_HID_EVENT_USER_CONFIRMATION_REQUEST:
-        (void)backend->ports->controller.confirm_ssp_user_confirmation(backend->ports_context,
-                                                                       event.address);
-        break;
-    case SWBT_BTSTACK_HID_EVENT_CONNECTION_OPENED:
-        if (!backend->report_timer_initialized || event.status != 0u) {
-            return;
-        }
-        swbt_diagnostic_trace("production: hid connection opened");
-        if (backend->learned_switch_address_target_configured) {
-            swbt_daemon_production_reconnect_save_learned_address(
-                &backend->config, &backend->learned_switch_address_target, event.address);
-        }
-        (void)backend->ports->report_timer.start(
-            backend->ports_context, &backend->report_timer,
-            (swbt_btstack_input_report_timer_start_options_t){
-                .hid_cid = event.hid_cid,
-                .now_us = (uint64_t)backend->ports->clock.time_ms(backend->ports_context) * 1000u,
-            });
-        break;
-    case SWBT_BTSTACK_HID_EVENT_CAN_SEND_NOW: {
-        if (!backend->report_timer_initialized) {
-            return;
-        }
-        const int can_send_result = backend->ports->report_timer.on_can_send_now(
-            backend->ports_context, &backend->report_timer);
-        if (backend->shutdown_neutral_pending && can_send_result == 0) {
-            swbt_diagnostic_trace("production: shutdown neutral pending sent");
-            backend->shutdown_neutral_pending = false;
-            swbt_daemon_production_finish_shutdown(backend);
-        } else if (backend->shutdown_neutral_pending && can_send_result != 0) {
-            swbt_diagnostic_trace("production: shutdown neutral pending failed");
-            backend->shutdown_neutral_pending = false;
-            swbt_daemon_production_finish_shutdown(backend);
-        }
-        break;
-    }
-    case SWBT_BTSTACK_HID_EVENT_CONNECTION_CLOSED:
-        if (!backend->report_timer_initialized) {
-            return;
-        }
-        swbt_diagnostic_trace("production: hid connection closed");
-        backend->ports->report_timer.stop(backend->ports_context, &backend->report_timer);
-        if (backend->shutdown_neutral_pending) {
-            swbt_diagnostic_trace("production: shutdown neutral pending connection closed");
-            backend->shutdown_neutral_pending = false;
-            swbt_daemon_production_finish_shutdown(backend);
-        }
-        break;
-    case SWBT_BTSTACK_HID_EVENT_NONE:
-    default:
-        break;
-    }
+static swbt_daemon_production_hid_session_t *
+swbt_daemon_production_hid_session_from_backend(swbt_daemon_production_runner_t *backend) {
+    backend->hid_session_bridge = (swbt_daemon_production_hid_session_t){
+        .config = &backend->config,
+        .device_port = &backend->ports->device,
+        .report_timer_port = &backend->ports->report_timer,
+        .controller_port = &backend->ports->controller,
+        .clock_port = &backend->ports->clock,
+        .port_context = backend->ports_context,
+        .device = &backend->device,
+        .report_timer = &backend->report_timer,
+        .report_timer_initialized = &backend->report_timer_initialized,
+        .shutdown_neutral_pending = &backend->shutdown_neutral_pending,
+        .learned_switch_address_target = &backend->learned_switch_address_target,
+        .learned_switch_address_target_configured =
+            &backend->learned_switch_address_target_configured,
+        .service_buffer = backend->hid_service_buffer,
+        .service_buffer_size = sizeof(backend->hid_service_buffer),
+        .finish_shutdown = swbt_daemon_production_hid_session_finish_shutdown,
+        .finish_shutdown_context = backend,
+    };
+    return &backend->hid_session_bridge;
 }
-// NOLINTEND(bugprone-easily-swappable-parameters)
 
 static int swbt_daemon_production_hid_register(void *context) {
     swbt_daemon_production_runner_t *backend = context;
-    swbt_btstack_hid_registration_config_t config;
-    swbt_btstack_device_result_t result;
 
     if (backend == NULL || !backend->initialized) {
         return -1;
     }
-    swbt_diagnostic_trace("production: hid register enter");
-
-    config = swbt_btstack_production_hid_registration_config();
-    config.packet_handler = swbt_daemon_production_hid_packet_handler;
-    g_active_backend = backend;
-    if (swbt_btstack_device_init(&backend->device, &backend->ports->device,
-                                 backend->ports_context) != SWBT_BTSTACK_DEVICE_OK) {
-        if (g_active_backend == backend) {
-            g_active_backend = NULL;
-        }
-        return -1;
-    }
-    swbt_diagnostic_trace("production: device open");
-    result = swbt_btstack_device_open(
-        &backend->device, (swbt_btstack_device_open_options_t){
-                              .service_buffer = backend->hid_service_buffer,
-                              .service_buffer_size = sizeof(backend->hid_service_buffer),
-                              .registration = &config,
-                          });
-    if (result != SWBT_BTSTACK_DEVICE_OK) {
-        swbt_diagnostic_trace("production: device open failed");
-        if (g_active_backend == backend) {
-            g_active_backend = NULL;
-        }
-        return -1;
-    }
-    swbt_diagnostic_trace("production: device open ok");
-    return 0;
+    return swbt_daemon_production_hid_session_register(
+        swbt_daemon_production_hid_session_from_backend(backend));
 }
 
 static void swbt_daemon_production_hid_stop(void *context) {
@@ -209,12 +135,8 @@ static void swbt_daemon_production_hid_stop(void *context) {
     if (backend == NULL || !backend->initialized) {
         return;
     }
-    if (g_active_backend == backend) {
-        g_active_backend = NULL;
-    }
-    swbt_diagnostic_trace("production: device close");
-    swbt_btstack_device_close(&backend->device);
-    swbt_diagnostic_trace("production: device close done");
+    swbt_daemon_production_hid_session_stop(
+        swbt_daemon_production_hid_session_from_backend(backend));
 }
 
 static void
@@ -363,6 +285,10 @@ static void swbt_daemon_production_finish_shutdown(swbt_daemon_production_runner
     }
     swbt_daemon_production_power_off(backend);
     backend->ports->run_loop.trigger_exit(backend->ports_context);
+}
+
+static void swbt_daemon_production_hid_session_finish_shutdown(void *context) {
+    swbt_daemon_production_finish_shutdown(context);
 }
 
 static bool
