@@ -85,7 +85,7 @@ Tidy status:
 | green | BTstack IPC pump start failure still stops daemon IPC runner | regression | integration | no |
 | green | production IPC stop still stops BTstack IPC pump before daemon IPC runner stop | regression | integration | no |
 | green | pump callbacks still report running state and poll the same IPC runner instance | regression | unit/integration | no |
-| todo | BTstack bridge remains free of daemon IPC runner include and type references | regression | architecture | no |
+| green | BTstack bridge remains free of daemon IPC runner include and type references | regression | architecture | no |
 
 ## 10. 検証
 
@@ -161,6 +161,19 @@ TDD status:
 - notes: fake pump port で受け取った callback を保存し、`is_running` が true を返すことを
   確認した。loopback client を接続した後に `poll_once_at` callback を呼び、同じ runner
   instance が connection を accept することを確認した。
+
+TDD status:
+
+- source: `tests/cmake/include_boundaries_test.cmake` and this work unit.
+- use case: BTstack bridge は daemon IPC runner 型を参照せず、IPC runner を知る glue は
+  daemon 配下に留める。
+- item: BTstack bridge remains free of daemon IPC runner include and type references.
+- state: green.
+- command: `$env:CTEST_ARGS='-R "include_boundaries_cmake_test|compile_include_boundaries_cmake_test" --output-on-failure'; just test-debug`
+- result: pass, 2/2 tests passed.
+- notes: `swbt/btstack_bridge/*.{c,h}` 全体で `swbt_daemon_ipc_runner` 型参照を禁止する
+  absence check を追加した。既存の daemon IPC runner include 禁止と合わせ、BTstack bridge へ
+  daemon IPC runner knowledge が入らないことを確認した。
 
 ## 11. 実機実行条件
 

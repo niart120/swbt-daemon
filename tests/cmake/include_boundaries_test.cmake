@@ -53,14 +53,14 @@ foreach(path IN LISTS swbt_btstack_bridge_files)
     swbt_assert_file_not_match("${relative_path}"
                                "#include \"(ipc/|daemon/(process|ipc_runner)\\.h)"
                                "BTstack bridge IPC internal include boundary")
+    swbt_assert_file_not_match("${relative_path}"
+                               "swbt_daemon_ipc_runner"
+                               "BTstack bridge IPC runner type boundary")
 endforeach()
 
 swbt_assert_file_not_match("swbt/btstack_bridge/production_btstack_impl.c"
                            "#include \"daemon/ipc_runner.h\""
                            "BTstack production adapter IPC runner include boundary")
-swbt_assert_file_not_match("swbt/btstack_bridge/production_btstack_impl.c"
-                           "swbt_daemon_ipc_runner"
-                           "BTstack production adapter IPC runner type boundary")
 swbt_assert_file_not_match("swbt/btstack_bridge/production_btstack_impl.h"
                            "daemon/production_runner.h"
                            "BTstack production implementation daemon runner struct boundary")
