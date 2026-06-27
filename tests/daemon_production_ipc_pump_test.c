@@ -6,6 +6,7 @@
 typedef struct {
     int start_calls;
     int stop_calls;
+    int start_result;
     bool runner_running_at_start;
     const swbt_daemon_ipc_runner_t *captured_runner;
 } fake_pump_port_t;
@@ -26,7 +27,7 @@ static int fake_pump_start(void *context, const swbt_btstack_production_ipc_pump
     fake->runner_running_at_start =
         pump != NULL && pump->is_running != NULL && pump->is_running(pump->context);
     fake->captured_runner = pump == NULL ? NULL : (const swbt_daemon_ipc_runner_t *)pump->context;
-    return 0;
+    return fake->start_result;
 }
 
 static void fake_pump_stop(void *context) {
@@ -74,8 +75,50 @@ static int start_starts_ipc_runner_before_btstack_pump(void) {
     return failed;
 }
 
+static int start_failure_stops_ipc_runner(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    swbt_daemon_ipc_runner_t runner;
+    fake_pump_port_t fake = {
+        .start_result = -7,
+    };
+    swbt_domain_t *app = swbt_domain_create();
+    swbt_control_t control;
+    const swbt_btstack_production_ipc_pump_port_t port = {
+        .start = fake_pump_start,
+        .stop = fake_pump_stop,
+    };
+    swbt_daemon_production_ipc_pump_t adapter;
+    int failed = 0;
+
+    failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK,
+                            "runner init");
+    runner.config = swbt_daemon_ipc_runner_config_from_daemon_config(&config);
+    failed += expect_true(app != NULL, "app created");
+    failed += expect_eq_int(swbt_control_init(&control,
+                                              &(swbt_control_config_t){
+                                                  .app = app,
+                                              }),
+                            SWBT_CONTROL_OK, "control init");
+
+    adapter = (swbt_daemon_production_ipc_pump_t){
+        .runner = &runner,
+        .port = &port,
+        .port_context = &fake,
+    };
+
+    failed += expect_eq_int(swbt_daemon_production_ipc_pump_start(&adapter, &control), -1,
+                            "pump start failure");
+    failed += expect_eq_int(fake.start_calls, 1, "pump start calls");
+    failed += expect_true(!swbt_daemon_ipc_runner_is_running(&runner), "runner stopped");
+    failed += expect_eq_int(fake.stop_calls, 0, "pump stop not called");
+
+    swbt_domain_destroy(app);
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += start_starts_ipc_runner_before_btstack_pump();
+    failed += start_failure_stops_ipc_runner();
     return failed == 0 ? 0 : 1;
 }
