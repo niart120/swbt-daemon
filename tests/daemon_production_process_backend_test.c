@@ -12,6 +12,7 @@ typedef struct {
     int output_handler_start_calls;
     int output_handler_stop_calls;
     int read_controller_address_calls;
+    uint32_t now_ms;
     swbt_btstack_output_report_handler_t *output_handler;
     uint8_t controller_address[6];
 } fake_ops_t;
@@ -37,6 +38,16 @@ static int expect_eq_int(int actual, int expected, const char *label) {
 }
 
 static int expect_eq_u8(uint8_t actual, uint8_t expected, const char *label) {
+    if (actual != expected) {
+        // Test diagnostics write to stderr with no retained buffer.
+        // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+        fprintf(stderr, "%s: expected %u, got %u\n", label, (unsigned)expected, (unsigned)actual);
+        return 1;
+    }
+    return 0;
+}
+
+static int expect_eq_u32(uint32_t actual, uint32_t expected, const char *label) {
     if (actual != expected) {
         // Test diagnostics write to stderr with no retained buffer.
         // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
@@ -77,6 +88,11 @@ static int fake_read_controller_address(void *context, uint8_t address[6]) {
     return 0;
 }
 
+static uint32_t fake_time_ms(void *context) {
+    const fake_ops_t *fake = context;
+    return fake->now_ms;
+}
+
 static swbt_btstack_production_ports_t fake_ports(void) {
     return (swbt_btstack_production_ports_t){
         .ipc_pump =
@@ -92,6 +108,10 @@ static swbt_btstack_production_ports_t fake_ports(void) {
         .controller =
             {
                 .read_controller_address = fake_read_controller_address,
+            },
+        .clock =
+            {
+                .time_ms = fake_time_ms,
             },
     };
 }
@@ -161,10 +181,27 @@ static int process_backend_reads_configured_device_info_and_controller_address(v
     return failed;
 }
 
+static int process_backend_time_ms_delegates_to_clock_port(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {
+        .now_ms = 9876u,
+    };
+    const swbt_btstack_production_ports_t ports = fake_ports();
+    const swbt_daemon_process_backend_t *process_backend = swbt_daemon_production_process_backend();
+    swbt_daemon_production_runner_t runner;
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_runner_init(&runner, &config, &ports, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "runner init");
+    failed += expect_eq_u32(process_backend->time_ms(&runner), 9876u, "time ms");
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += process_backend_table_exposes_production_backend_status();
     failed += process_backend_routes_output_handler_start_and_stop();
     failed += process_backend_reads_configured_device_info_and_controller_address();
+    failed += process_backend_time_ms_delegates_to_clock_port();
     return failed == 0 ? 0 : 1;
 }
