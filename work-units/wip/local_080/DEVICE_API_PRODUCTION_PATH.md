@@ -138,8 +138,8 @@ event listener が必要になった場合の再検討条件は `spec/dev-journa
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | refactor-skipped | timer adapter periodic report sends HIDP input message through caller-provided sender | new | unit | no |
-| todo | timer adapter subcommand reply sends HIDP input message through the same sender without changing reply holdoff behavior | regression | unit | no |
-| todo | timer adapter shutdown neutral sends HIDP input message through the same sender and preserves pending retry behavior | regression | unit | no |
+| refactor-skipped | timer adapter subcommand reply sends HIDP input message through the same sender without changing reply holdoff behavior | regression | unit | no |
+| refactor-skipped | timer adapter shutdown neutral sends HIDP input message through the same sender and preserves pending retry behavior | regression | unit | no |
 | todo | production backend wires report timer sender to `swbt_btstack_device_send` | new | integration | no |
 | todo | no production path calls `swbt_btstack_hid_port_send_report` directly except the production device port implementation | regression | build/review | no |
 | deferred | `open` / `listen` split for platform open vs incoming HID readiness | deferred | unit/integration | no |
@@ -149,9 +149,22 @@ TDD status:
 
 - source: user request, 2026-06-27。
 - use case: production の report send path まで device API 経由にする。packet / event 抽象と `open` / `listen` 分割はこの work unit では扱わない。
-- item: timer adapter periodic report sends HIDP input message through caller-provided sender。
+- item: timer adapter subcommand reply sends HIDP input message through the same sender without changing reply holdoff behavior / timer adapter shutdown neutral sends HIDP input message through the same sender and preserves pending retry behavior。
 - state: refactor-skipped。
 - commands:
+  - red: not applicable。
+    - reason: previous cycle の sender injection は共通 `send_hidp_input_report` 経路に入ったため、reply / neutral は実装済みだった。この cycle は regression test でその共有経路を固定した。
+  - green: `CTEST_ARGS="-R \"^btstack_input_report_timer_adapter_test$\" --output-on-failure" just test-debug`
+    - result: pass。1/1 tests passed。
+  - format: `just format`
+    - result: pass。
+  - verification after format: `CTEST_ARGS="-R \"^btstack_input_report_timer_adapter_test$\" --output-on-failure" just test-debug`
+    - result: pass。1/1 tests passed。
+  - refactor: skipped。
+    - reason: test fixture の helper 追加だけで、production wiring は次 item に残す。
+- previous item:
+  - item: timer adapter periodic report sends HIDP input message through caller-provided sender。
+  - state: refactor-skipped。
   - red: `just build-tests-debug`
     - result: expected fail。`swbt_btstack_input_report_timer_adapter_config_t` に `hid_sender` / `hid_sender_context` がなく、追加 test が compile error になった。
   - green: `just build-tests-debug`
@@ -162,9 +175,7 @@ TDD status:
     - result: pass。
   - verification after format: `CTEST_ARGS="-R \"^btstack_input_report_timer_adapter_test$\" --output-on-failure" just test-debug`
     - result: pass。1/1 tests passed。
-  - refactor: skipped。
-    - reason: 今の item は sender injection の最小 API と periodic path の観測だけを固定した。production wiring、reply、neutral は後続 item に残すため、この cycle で追加の構造変更を入れない。
-- next red candidate: timer adapter subcommand reply sends HIDP input message through the same sender without changing reply holdoff behavior。
+- next red candidate: production backend wires report timer sender to `swbt_btstack_device_send`。
 
 ## 10. 検証
 
@@ -174,6 +185,10 @@ TDD status:
   - result: pass。sender injection 実装後に debug unit test target build が成功した。
 - `CTEST_ARGS="-R \"^btstack_input_report_timer_adapter_test$\" --output-on-failure" just test-debug`
   - result: pass。1/1 tests passed。
+- `just format`
+  - result: pass。
+- `CTEST_ARGS="-R \"^btstack_input_report_timer_adapter_test$\" --output-on-failure" just test-debug`
+  - result: pass。reply / neutral sender regression 追加後も 1/1 tests passed。
 - `just format`
   - result: pass。
 - `CTEST_ARGS="-R \"^btstack_input_report_timer_adapter_test$\" --output-on-failure" just test-debug`
