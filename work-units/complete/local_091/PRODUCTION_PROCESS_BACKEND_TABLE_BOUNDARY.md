@@ -44,9 +44,9 @@ IPC pump、report timer、HID session を個別に分けた後、process backend
 ## 5. 関連 spec / docs
 
 - `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md`
-- `work-units/wip/local_088/PRODUCTION_IPC_PUMP_BOUNDARY.md`
-- `work-units/wip/local_089/PRODUCTION_REPORT_TIMER_BOUNDARY.md`
-- `work-units/wip/local_090/PRODUCTION_HID_SESSION_BOUNDARY.md`
+- `work-units/complete/local_088/PRODUCTION_IPC_PUMP_BOUNDARY.md`
+- `work-units/complete/local_089/PRODUCTION_REPORT_TIMER_BOUNDARY.md`
+- `work-units/complete/local_090/PRODUCTION_HID_SESSION_BOUNDARY.md`
 - `swbt/daemon/process.h`
 - `tests/daemon_process_test.c`
 - `tests/daemon_production_runner_test.c`
@@ -75,10 +75,8 @@ Tidy status:
 ## 8. 対象ファイル
 
 - `swbt/daemon/production_process_backend.*`
-- `swbt/daemon/production_runner.c`
-- `swbt/daemon/production_ipc_pump.*`
-- `swbt/daemon/production_report_timer.*`
-- `swbt/daemon/production_hid_session.*`
+- `swbt/daemon/production_runner.{c,h}`
+- `tests/daemon_production_process_backend_test.c`
 - `tests/daemon_process_test.c`
 - `tests/daemon_production_runner_test.c`
 - `CMakeLists.txt`
@@ -87,37 +85,46 @@ Tidy status:
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | production process backend table still exposes production daemon backend status | regression | integration | no |
-| todo | output handler start / stop still route through production ports | regression | integration | no |
-| todo | read device info still combines configured device info with controller address port | regression | integration | no |
-| todo | time_ms callback still delegates to production clock port | regression | unit/integration | no |
-| todo | daemon process startup and shutdown still call backend callbacks in the existing order | regression | integration | no |
+| done | production process backend table still exposes production daemon backend status | regression | integration | no |
+| done | output handler start / stop still route through production ports | regression | integration | no |
+| done | read device info still combines configured device info with controller address port | regression | integration | no |
+| done | time_ms callback still delegates to production clock port | regression | unit/integration | no |
+| done | daemon process startup and shutdown still call backend callbacks in the existing order | regression | integration | no |
 
 ## 10. 検証
 
-not run yet.
+Red:
 
-Expected checks:
+- `just build-debug`: `tests/daemon_production_process_backend_test.c` 追加後、`daemon/production_process_backend.h` 不在で想定通り失敗した。
+
+Green / 完了検証:
 
 - `just build-debug`
-- `$env:CTEST_ARGS='-R "daemon_process_test|daemon_production_runner_test|architecture_journey_test" --output-on-failure'; just test-debug`
+- `$env:CTEST_ARGS='-R "daemon_production_process_backend_test|daemon_process_test|daemon_production_runner_test|architecture_journey_test" --output-on-failure'; just test-debug`
+
+結果:
+
+- `just build-debug`: pass.
+- `$env:CTEST_ARGS='-R "daemon_production_process_backend_test|daemon_process_test|daemon_production_runner_test|architecture_journey_test" --output-on-failure'; just test-debug`: pass, 4/4.
 
 ## 11. 実機実行条件
 
-実機実行は不要.
+実機実行は未実行。
 
-This work unit moves callback table placement only and should not change Bluetooth adapter open, HCI power, HID advertising, or report loop behavior.
+理由: callback table と薄い adapter callback の配置だけを変更した。Bluetooth adapter open、HCI power、HID advertising、report loop、Switch-facing packet values は変更していない。
 
 ## 12. 先送り事項
 
-none.
+なし。
 
-If this work reveals that daemon process backend interface itself should shrink, record that separately after `local_093`; do not add it as an open completion condition here.
+daemon process backend interface 自体を縮小すべきだと分かった場合は、`local_093` の後に別途記録する。この work unit の未完了条件にはしない。
+
+`swbt_daemon_production_runner_finish_shutdown` は HID session の pending shutdown completion から runner lifecycle を呼ぶための既存責務の公開である。shutdown boundary は既存の `local_092`、runner header cleanup は既存の `local_093` で扱うため、この work unit から新しい先送り事項は作らない。
 
 ## 13. チェックリスト
 
-- [ ] production process backend table を runner から分離した。
-- [ ] backend callbacks delegate to existing helper modules or ports.
-- [ ] runner lifecycle no longer contains callback table definition.
-- [ ] TDD Test List の検証を実行し、結果を記録した。
-- [ ] 実機未実行理由を維持した。
+- [x] production process backend table を runner から分離した。
+- [x] backend callbacks delegate to existing helper modules or ports.
+- [x] runner lifecycle no longer contains callback table definition.
+- [x] TDD Test List の検証を実行し、結果を記録した。
+- [x] 実機未実行理由を維持した。

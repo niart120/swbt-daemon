@@ -11,6 +11,7 @@
 #include "daemon/process.h"
 #include "daemon/ipc_runner.h"
 #include "daemon/production_hid_session.h"
+#include "daemon/production_process_backend.h"
 #include "daemon/production_report_timer.h"
 
 #define SWBT_DAEMON_PRODUCTION_HID_SERVICE_BUFFER_SIZE 512u
@@ -74,7 +75,7 @@ bool swbt_daemon_production_runner_set_learned_switch_address_target(
 bool swbt_daemon_production_runner_set_adapter_location_configured(
     swbt_daemon_production_runner_t *backend);
 
-const swbt_daemon_process_backend_t *swbt_daemon_production_process_backend(void);
+void swbt_daemon_production_runner_finish_shutdown(swbt_daemon_production_runner_t *backend);
 
 swbt_daemon_production_result_t
 swbt_daemon_production_main_with_runner(swbt_daemon_production_runner_t *backend,
