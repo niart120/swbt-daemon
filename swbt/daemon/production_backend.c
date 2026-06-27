@@ -157,12 +157,27 @@ swbt_daemon_production_persist_learned_switch_address(swbt_daemon_production_bac
                               : "production: learned switch address save failed");
 }
 
+static int swbt_daemon_production_report_timer_send(void *context, uint16_t hid_cid,
+                                                    const uint8_t *message, size_t message_size) {
+    swbt_daemon_production_backend_t *backend = context;
+    if (backend == NULL || !backend->initialized) {
+        return -1;
+    }
+
+    return swbt_btstack_device_send(&backend->device, hid_cid, message, message_size) ==
+                   SWBT_BTSTACK_DEVICE_OK
+               ? 0
+               : -1;
+}
+
 static swbt_btstack_input_report_timer_adapter_config_t
 swbt_daemon_production_timer_config(swbt_daemon_production_backend_t *backend,
                                     swbt_daemon_host_state_provider_t state_provider,
                                     void *state_context) {
     return (swbt_btstack_input_report_timer_adapter_config_t){
         .backend = NULL,
+        .hid_sender = swbt_daemon_production_report_timer_send,
+        .hid_sender_context = backend,
         .state_provider = state_provider,
         .state_context = state_context,
         .report_tick_observer = swbt_daemon_production_record_report_tick,

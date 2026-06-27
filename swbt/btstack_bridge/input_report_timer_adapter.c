@@ -114,6 +114,17 @@ static void cancel_pending_timer(swbt_btstack_input_report_timer_adapter_t *adap
     }
 }
 
+static int send_interrupt_message(swbt_btstack_input_report_timer_adapter_t *adapter,
+                                  uint16_t hid_cid, const uint8_t *message, size_t message_size) {
+    if (adapter->hid_sender != NULL) {
+        return adapter->hid_sender(adapter->hid_sender_context, hid_cid, message, message_size);
+    }
+    if (message_size > UINT16_MAX) {
+        return -1;
+    }
+    return adapter->backend->send_interrupt_message(hid_cid, message, (uint16_t)message_size);
+}
+
 static int send_hidp_input_report(swbt_btstack_input_report_timer_adapter_t *adapter,
                                   uint16_t hid_cid, const uint8_t *report, size_t report_size) {
     if (adapter == NULL || report == NULL || report_size == 0u ||
@@ -133,8 +144,7 @@ static int send_hidp_input_report(swbt_btstack_input_report_timer_adapter_t *ada
         message[2] = adapter->scheduler.timer;
     }
 
-    const int result =
-        adapter->backend->send_interrupt_message(hid_cid, message, (uint16_t)(report_size + 1u));
+    const int result = send_interrupt_message(adapter, hid_cid, message, report_size + 1u);
     if (result == 0 && uses_shared_timer) {
         adapter->scheduler.timer = (uint8_t)(adapter->scheduler.timer + 1u);
     }
@@ -253,6 +263,8 @@ swbt_btstack_input_report_timer_result_t swbt_btstack_input_report_timer_adapter
 
     *adapter = (swbt_btstack_input_report_timer_adapter_t){0};
     adapter->backend = config->backend;
+    adapter->hid_sender = config->hid_sender;
+    adapter->hid_sender_context = config->hid_sender_context;
     adapter->state_provider = config->state_provider;
     adapter->state_context = config->state_context;
     adapter->report_tick_observer = config->report_tick_observer;
