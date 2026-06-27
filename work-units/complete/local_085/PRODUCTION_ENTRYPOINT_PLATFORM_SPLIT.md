@@ -75,9 +75,11 @@ Tidy status:
 - `apps/swbt-daemon/production_entrypoint.*`
 - `apps/swbt-daemon/platform_*.*`
 - `CMakeLists.txt`
+- `tests/cmake/production_entrypoint_boundary_test.cmake`
 - `tests/daemon_cli_test.c`
 - `tests/daemon_launch_options_test.c`
 - `tests/daemon_production_runner_test.c`
+- `tests/btstack_production_hci_dump_test.c`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
@@ -165,11 +167,18 @@ TDD status:
 - notes: Windows crash dump / console handler code は app-local `platform_process.c` に移した
   うえで cross build 済み。
 
-Expected checks:
+Completion checks:
 
-- `just build-debug`
-- `$env:CTEST_ARGS='-R "daemon_cli_test|daemon_launch_options_test|daemon_production_runner_test|btstack_production_hci_dump_test" --output-on-failure'; just test-debug`
-- `just windows-cross`
+- `just format-check`: pass.
+- `just debug`: pass, 51/51 tests passed.
+- `just windows-cross`: pass, `swbt-daemon.exe` linked.
+- CMake target boundary check:
+  - `swbt_daemon_process` links `swbt_ipc`, `swbt_runtime`, `swbt_btstack_bridge`,
+    `swbt_domain`, `swbt_support`, and `swbt_toml11`.
+  - `swbt-daemon` executable links `swbt_daemon_process` and
+    `swbt_btstack_production_impl`.
+  - `swbt_btstack_production_impl` は executable 側だけに残し、daemon process target
+    へは追加していない。
 
 ## 11. 実機実行条件
 
@@ -185,8 +194,8 @@ none.
 
 ## 13. チェックリスト
 
-- [ ] `main.c` から real production setup と Windows process support を分離した。
-- [ ] `swbt-daemon` executable source list を更新した。
-- [ ] `swbt_daemon_process` target が real BTstack implementation に依存していないことを確認した。
-- [ ] TDD Test List の検証を実行し、結果を記録した。
-- [ ] 実機未実行理由を維持した。
+- [x] `main.c` から real production setup と Windows process support を分離した。
+- [x] `swbt-daemon` executable source list を更新した。
+- [x] `swbt_daemon_process` target が real BTstack implementation に依存していないことを確認した。
+- [x] TDD Test List の検証を実行し、結果を記録した。
+- [x] 実機未実行理由を維持した。
