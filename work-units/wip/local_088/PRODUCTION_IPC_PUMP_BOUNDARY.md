@@ -83,7 +83,7 @@ Tidy status:
 |---|---|---|---|---|
 | green | production IPC start still starts daemon IPC runner before BTstack IPC pump start | regression | integration | no |
 | green | BTstack IPC pump start failure still stops daemon IPC runner | regression | integration | no |
-| todo | production IPC stop still stops BTstack IPC pump before daemon IPC runner stop | regression | integration | no |
+| green | production IPC stop still stops BTstack IPC pump before daemon IPC runner stop | regression | integration | no |
 | todo | pump callbacks still report running state and poll the same IPC runner instance | regression | unit/integration | no |
 | todo | BTstack bridge remains free of daemon IPC runner include and type references | regression | architecture | no |
 
@@ -128,6 +128,22 @@ TDD status:
 - notes: cleanup implementation は first item の抽出で既存 runner-local behavior を保持したため、
   この item は characterization test として追加した。`fake_pump_start` が失敗を返した後、
   `swbt_daemon_ipc_runner_is_running()` が false で、BTstack pump stop が呼ばれないことを
+  確認した。
+
+TDD status:
+
+- source: `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md` and this
+  work unit.
+- use case: production IPC stop は BTstack run loop 側の pump を先に止め、その後で
+  daemon IPC runner を停止する。
+- item: production IPC stop still stops BTstack IPC pump before daemon IPC runner stop.
+- state: green.
+- command: `just format`
+- result: pass.
+- command: `$env:CTEST_ARGS='-R "daemon_production_ipc_pump_test|daemon_production_runner_test" --output-on-failure'; just test-debug`
+- result: pass, 2/2 tests passed.
+- notes: fake pump stop の callback 内で同じ runner instance がまだ running であることを
+  確認し、`swbt_daemon_production_ipc_pump_stop()` の戻り後に runner が stopped であることを
   確認した。
 
 ## 11. 実機実行条件
