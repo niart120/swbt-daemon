@@ -6,77 +6,13 @@
 #include "support/diagnostics.h"
 #include "btstack_bridge/hid_event.h"
 #include "daemon/production_ipc_pump.h"
+#include "daemon/production_report_timer.h"
 #include "daemon/production_reconnect.h"
 
 static swbt_daemon_production_runner_t *g_active_backend;
 
 static void swbt_daemon_production_finish_shutdown(swbt_daemon_production_runner_t *backend);
-static void swbt_daemon_production_record_report_tick(
-    void *context, uint64_t now_us,
-    swbt_btstack_input_report_timer_report_send_result_t send_result);
 static void swbt_daemon_production_shutdown_on_main_thread(void *context);
-
-static int swbt_daemon_production_report_timer_send(void *context, uint16_t hid_cid,
-                                                    const uint8_t *message, size_t message_size) {
-    swbt_daemon_production_runner_t *backend = context;
-    if (backend == NULL || !backend->initialized) {
-        return -1;
-    }
-
-    return swbt_btstack_device_send(&backend->device, hid_cid, message, message_size) ==
-                   SWBT_BTSTACK_DEVICE_OK
-               ? 0
-               : -1;
-}
-
-static swbt_btstack_input_report_timer_adapter_config_t
-swbt_daemon_production_timer_config(swbt_daemon_production_runner_t *backend,
-                                    swbt_daemon_process_state_provider_t state_provider,
-                                    void *state_context) {
-    return (swbt_btstack_input_report_timer_adapter_config_t){
-        .backend = NULL,
-        .hid_sender = swbt_daemon_production_report_timer_send,
-        .hid_sender_context = backend,
-        .state_provider = state_provider,
-        .state_context = state_context,
-        .report_tick_observer = swbt_daemon_production_record_report_tick,
-        .report_tick_context = backend,
-        .scheduler_config =
-            {
-                .report_period_us = backend->config.report_period_us,
-                .report_options = backend->config.report_options,
-            },
-    };
-}
-
-static swbt_metrics_report_send_result_t swbt_daemon_production_report_send_result(
-    swbt_btstack_input_report_timer_report_send_result_t send_result) {
-    switch (send_result) {
-    case SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_OK:
-        return SWBT_METRICS_REPORT_SEND_OK;
-    case SWBT_BTSTACK_INPUT_REPORT_TIMER_REPORT_SEND_FAILED:
-        return SWBT_METRICS_REPORT_SEND_FAILED;
-    }
-    return SWBT_METRICS_REPORT_SEND_FAILED;
-}
-
-static void swbt_daemon_production_record_report_tick(
-    void *context, uint64_t now_us,
-    swbt_btstack_input_report_timer_report_send_result_t send_result) {
-    swbt_daemon_production_runner_t *backend = context;
-    swbt_domain_t *app;
-
-    if (backend == NULL || backend->host == NULL) {
-        return;
-    }
-    app = swbt_daemon_process_app(backend->host);
-    if (app == NULL) {
-        return;
-    }
-
-    (void)swbt_domain_record_report_tick(app, now_us,
-                                         swbt_daemon_production_report_send_result(send_result));
-}
 
 swbt_daemon_production_result_t swbt_daemon_production_runner_init(
     swbt_daemon_production_runner_t *backend, const swbt_daemon_config_t *config,
@@ -145,6 +81,20 @@ static void swbt_daemon_production_ipc_stop(void *context) {
         .port_context = backend->ports_context,
     };
     swbt_daemon_production_ipc_pump_stop(&ipc_pump);
+}
+
+static swbt_daemon_production_report_timer_t *
+swbt_daemon_production_report_timer_from_backend(swbt_daemon_production_runner_t *backend) {
+    backend->report_timer_bridge = (swbt_daemon_production_report_timer_t){
+        .config = &backend->config,
+        .port = &backend->ports->report_timer,
+        .port_context = backend->ports_context,
+        .adapter = &backend->report_timer,
+        .device = &backend->device,
+        .host = &backend->host,
+        .initialized = &backend->report_timer_initialized,
+    };
+    return &backend->report_timer_bridge;
 }
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters): BTstack packet handler ABI.
@@ -285,68 +235,50 @@ static void swbt_daemon_production_output_handler_stop(void *context) {
     backend->ports->output_handler.stop(backend->ports_context);
 }
 
-static int swbt_daemon_production_report_timer_start(
+static int swbt_daemon_production_process_report_timer_start(
     void *context, swbt_daemon_process_state_provider_t state_provider, void *state_context) {
     swbt_daemon_production_runner_t *backend = context;
-    swbt_btstack_input_report_timer_adapter_config_t config;
+    swbt_daemon_production_report_timer_t *timer;
 
     if (backend == NULL || !backend->initialized) {
         return -1;
     }
 
-    config = swbt_daemon_production_timer_config(backend, state_provider, state_context);
-    if (backend->ports->report_timer.init(backend->ports_context, &backend->report_timer,
-                                          &config) != 0) {
-        return -1;
-    }
-    backend->report_timer_initialized = true;
-    return 0;
+    timer = swbt_daemon_production_report_timer_from_backend(backend);
+    return swbt_daemon_production_report_timer_start(timer, state_provider, state_context);
 }
 
-static void swbt_daemon_production_report_timer_stop(void *context) {
+static void swbt_daemon_production_process_report_timer_stop(void *context) {
     swbt_daemon_production_runner_t *backend = context;
+    swbt_daemon_production_report_timer_t *timer;
     if (backend == NULL || !backend->initialized || !backend->report_timer_initialized) {
         return;
     }
-    backend->ports->report_timer.stop(backend->ports_context, &backend->report_timer);
-    backend->report_timer_initialized = false;
+    timer = swbt_daemon_production_report_timer_from_backend(backend);
+    swbt_daemon_production_report_timer_stop(timer);
 }
 
-static int swbt_daemon_production_report_timer_send_neutral_now(void *context) {
+static int swbt_daemon_production_process_report_timer_send_neutral_now(void *context) {
     swbt_daemon_production_runner_t *backend = context;
+    swbt_daemon_production_report_timer_t *timer;
     if (backend == NULL || !backend->initialized) {
-        swbt_diagnostic_trace("production: neutral send adapter unavailable");
         return -1;
     }
-    if (!backend->report_timer_initialized) {
-        swbt_diagnostic_trace("production: neutral send timer uninitialized");
-        return -1;
-    }
-    if (!backend->report_timer.running) {
-        swbt_diagnostic_trace("production: neutral send timer stopped");
-        return -1;
-    }
-    const int result = backend->ports->report_timer.send_neutral_now(backend->ports_context,
-                                                                     &backend->report_timer);
-    if (result == 0) {
-        swbt_diagnostic_trace("production: neutral send adapter ok");
-    } else if (result > 0) {
-        swbt_diagnostic_trace("production: neutral send adapter pending");
-    } else {
-        swbt_diagnostic_trace("production: neutral send adapter error");
-    }
-    return result;
+    timer = swbt_daemon_production_report_timer_from_backend(backend);
+    return swbt_daemon_production_report_timer_send_neutral_now(timer);
 }
 
-static int swbt_daemon_production_subcommand_reply_enqueue(void *context, uint16_t hid_cid,
-                                                           const uint8_t *report,
-                                                           size_t report_size) {
+static int swbt_daemon_production_process_subcommand_reply_enqueue(void *context, uint16_t hid_cid,
+                                                                   const uint8_t *report,
+                                                                   size_t report_size) {
     swbt_daemon_production_runner_t *backend = context;
+    swbt_daemon_production_report_timer_t *timer;
     if (backend == NULL || !backend->report_timer_initialized) {
         return -1;
     }
-    return backend->ports->report_timer.enqueue_subcommand_reply(
-        backend->ports_context, &backend->report_timer, hid_cid, report, report_size);
+    timer = swbt_daemon_production_report_timer_from_backend(backend);
+    return swbt_daemon_production_report_timer_enqueue_subcommand_reply(timer, hid_cid, report,
+                                                                        report_size);
 }
 
 static int swbt_daemon_production_read_device_info(void *context,
@@ -379,10 +311,11 @@ const swbt_daemon_process_backend_t *swbt_daemon_production_process_backend(void
         .hid_stop = swbt_daemon_production_hid_stop,
         .output_handler_start = swbt_daemon_production_output_handler_start,
         .output_handler_stop = swbt_daemon_production_output_handler_stop,
-        .report_timer_start = swbt_daemon_production_report_timer_start,
-        .report_timer_stop = swbt_daemon_production_report_timer_stop,
-        .report_timer_send_neutral_now = swbt_daemon_production_report_timer_send_neutral_now,
-        .subcommand_reply_enqueue = swbt_daemon_production_subcommand_reply_enqueue,
+        .report_timer_start = swbt_daemon_production_process_report_timer_start,
+        .report_timer_stop = swbt_daemon_production_process_report_timer_stop,
+        .report_timer_send_neutral_now =
+            swbt_daemon_production_process_report_timer_send_neutral_now,
+        .subcommand_reply_enqueue = swbt_daemon_production_process_subcommand_reply_enqueue,
         .read_device_info = swbt_daemon_production_read_device_info,
         .time_ms = swbt_daemon_production_host_time_ms,
     };

@@ -83,7 +83,7 @@ Tidy status:
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | production report timer sender still uses `swbt_btstack_device_send` and preserves fake device send observations | regression | unit/integration | no |
+| green | production report timer sender still uses `swbt_btstack_device_send` and preserves fake device send observations | regression | unit/integration | no |
 | todo | successful report send still updates status metrics without hardware measurement values | regression | integration | no |
 | todo | failed report send still updates failure metrics and cleans up through existing lifecycle order | regression | integration | no |
 | todo | neutral send immediate / pending / error return behavior remains unchanged | regression | integration | no |
@@ -91,7 +91,25 @@ Tidy status:
 
 ## 10. 検証
 
-not run yet.
+Partial.
+
+TDD status:
+
+- use case: report timer HID sender callback を `production_runner` から分離しても、
+  production send path は `swbt_btstack_device_send` を使う。
+- item: production report timer sender still uses `swbt_btstack_device_send` and preserves fake device send observations.
+- red:
+  - command: `just build-debug`
+  - result: fail as expected. `tests/daemon_production_report_timer_test.c` が
+    `daemon/production_report_timer.h` を要求し、header 未実装で compile failure。
+- green:
+  - command: `just build-debug`
+  - result: pass。
+  - command: `$env:CTEST_ARGS='-R "daemon_production_report_timer_test|daemon_production_runner_test|report_metrics_test" --output-on-failure'; just test-debug`
+  - result: pass、3/3。
+- notes: `swbt/daemon/production_report_timer.*` を追加し、timer config、HID sender
+  callback、report tick observer を runner から分離した。runner は stable な
+  `report_timer_bridge` context を持ち、timer callback へ一時 object を渡さない。
 
 Expected checks:
 
