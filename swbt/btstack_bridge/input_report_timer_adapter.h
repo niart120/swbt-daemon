@@ -30,6 +30,10 @@ typedef void (*swbt_btstack_input_report_timer_report_tick_observer_t)(
     void *context, uint64_t now_us,
     swbt_btstack_input_report_timer_report_send_result_t send_result);
 
+typedef int (*swbt_btstack_input_report_timer_hid_sender_t)(void *context, uint16_t hid_cid,
+                                                            const uint8_t *message,
+                                                            size_t message_size);
+
 typedef struct {
     void (*set_timer_handler)(btstack_timer_source_t *timer,
                               void (*process)(btstack_timer_source_t *timer));
@@ -44,6 +48,8 @@ typedef struct {
 
 typedef struct {
     const swbt_btstack_input_report_timer_backend_t *backend;
+    swbt_btstack_input_report_timer_hid_sender_t hid_sender;
+    void *hid_sender_context;
     swbt_btstack_input_report_timer_state_provider_t state_provider;
     void *state_context;
     swbt_btstack_input_report_timer_report_tick_observer_t report_tick_observer;
@@ -58,6 +64,8 @@ typedef struct {
 
 typedef struct {
     const swbt_btstack_input_report_timer_backend_t *backend;
+    swbt_btstack_input_report_timer_hid_sender_t hid_sender;
+    void *hid_sender_context;
     swbt_btstack_input_report_timer_state_provider_t state_provider;
     void *state_context;
     swbt_btstack_input_report_timer_report_tick_observer_t report_tick_observer;
