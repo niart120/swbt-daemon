@@ -87,7 +87,7 @@ Tidy status:
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | green | config address setters still normalize lowercase input to uppercase colon-separated text | regression | unit | no |
-| todo | invalid reconnect address still rejects config without partial update | regression | unit | no |
+| green | invalid reconnect address still rejects config without partial update | regression | unit | no |
 | todo | production active reconnect still converts effective text address into BTstack byte request with HID PSM values unchanged | regression | integration | no |
 | todo | learned address save after HID connection opened still writes uppercase text address to the configured target | regression | integration | no |
 | todo | active reconnect request failure still records failed hardware status without stopping the run loop | regression | integration | no |
@@ -114,6 +114,24 @@ TDD status:
 - notes: `swbt/daemon/switch_address.*` を追加し、config address setters は
   `swbt_daemon_switch_address_normalize()` 経由で text を正規化する。既存 config file
   regression と focused helper test の両方で lowercase to uppercase を確認した。
+
+TDD status:
+
+- source: `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md` and this
+  work unit.
+- use case: invalid reconnect address を受けた場合、config file apply は失敗し、既存
+  config value を部分更新しない。
+- item: invalid reconnect address still rejects config without partial update.
+- state: green.
+- commands:
+  - `just format`
+  - `$env:CTEST_ARGS='-R "daemon_switch_address_test|daemon_config_file_test" --output-on-failure'; just debug`
+- result:
+  - `just format`: pass.
+  - focused CTest: pass, 2/2 tests passed.
+- notes: `daemon_switch_address_test` に invalid input が destination を部分更新しない
+  regression を追加し、既存 `daemon_config_file_test` の invalid active reconnect
+  preservation checks と合わせて確認した。
 
 Expected checks:
 

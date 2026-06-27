@@ -21,8 +21,18 @@ static int lowercase_input_is_normalized_to_uppercase_colon_separated_text(void)
     return failed;
 }
 
+static int invalid_input_is_rejected_without_partial_destination_update(void) {
+    char text[SWBT_DAEMON_SWITCH_ADDRESS_TEXT_SIZE] = "AA:BB:CC:DD:EE:FF";
+    int failed = 0;
+    failed += expect_true(!swbt_daemon_switch_address_normalize(text, "not-an-address"),
+                          "reject invalid");
+    failed += expect_str_eq(text, "AA:BB:CC:DD:EE:FF", "unchanged text");
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += lowercase_input_is_normalized_to_uppercase_colon_separated_text();
+    failed += invalid_input_is_rejected_without_partial_destination_update();
     return failed == 0 ? 0 : 1;
 }
