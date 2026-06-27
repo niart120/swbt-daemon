@@ -86,7 +86,7 @@ Tidy status:
 | green | runner init still accepts ports with only IPC pump for initialization-time validation | regression | unit | no |
 | green | runner main still rejects ports missing required production callbacks before startup side effects | regression | unit | no |
 | green | BTstack bridge production ports validation remains free of daemon internal includes | regression | architecture | no |
-| todo | full fake production ports still pass validation and preserve existing startup sequence tests | regression | integration | no |
+| green | full fake production ports still pass validation and preserve existing startup sequence tests | regression | integration | no |
 
 ## 10. 検証
 
@@ -147,6 +147,24 @@ TDD status:
   - CTest boundary checks pass, 2/2 tests passed.
 - notes: `production_ports.*` は `daemon/process.h`、`daemon/ipc_runner.h`、
   `daemon/production_runner.h` を include していない。
+
+TDD status:
+
+- source: `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md` and this
+  work unit.
+- use case: full fake production ports は bridge 側 validation API で valid と判定され、
+  既存の production startup sequence tests も維持される。
+- item: full fake production ports still pass validation and preserve existing startup sequence
+  tests.
+- state: green.
+- commands:
+  - `just format`
+  - `$env:CTEST_ARGS='-R "btstack_production_ports_test|daemon_production_runner_test" --output-on-failure'; just debug`
+- result:
+  - `just format`: pass.
+  - CTest focused checks: pass, 2/2 tests passed.
+- notes: `btstack_production_ports_test` に full ports の direct validation check を追加し、
+  `daemon_production_runner_test` で startup sequence regression を再確認した。
 
 Expected checks:
 
