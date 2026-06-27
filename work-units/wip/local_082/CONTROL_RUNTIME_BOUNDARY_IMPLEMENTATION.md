@@ -265,7 +265,7 @@ Tidy status:
 |---|---|---|---|---|
 | refactor-done | runtime host starts HID/output/report runtime without IPC start callback | new | unit | no |
 | refactor-skipped | runtime host owns runtime resource state while leaving app lifetime and app-owned state outside runtime | new | unit/review | no |
-| todo | runtime host shutdown neutralizes state and stops runtime resources once | regression | unit | no |
+| refactor-skipped | runtime host shutdown neutralizes state and stops runtime resources once | regression | unit | no |
 | todo | daemon host starts IPC runner as daemon responsibility and delegates HID/report runtime to runtime host | regression | integration | no |
 | todo | control submit client state preserves IPC owner and sequence semantics | regression | unit | no |
 | todo | control submit state for direct API hides owner id and sequence from caller | new | unit | no |
@@ -279,17 +279,19 @@ TDD status:
 
 - source: user request, 2026-06-27。
 - use case: `swbt/control` と `swbt/runtime` の実装を新規 work unit として進める。
-- last item: runtime host owns runtime resource state while leaving app lifetime and app-owned state outside runtime。
+- last item: runtime host shutdown neutralizes state and stops runtime resources once。
 - state: refactor-skipped。
 - commands:
   - red: `just build-tests-debug`
-    - result: expected failure. `swbt_runtime_host_status_t` and `swbt_runtime_host_status` were not defined.
+    - result: pass.
+  - red: `CTEST_ARGS="-R runtime_host_test" just test-debug`
+    - result: expected failure. `runtime_host_stop` stopped resources but did not neutralize app controller state.
   - green: `just format`; `just build-tests-debug`; `CTEST_ARGS="-R runtime_host_test" just test-debug`
     - result: pass.
   - refactor: skipped.
-    - reason: the new status read is a direct copy of runtime-owned flags and no duplication or naming issue needed a separate structure change.
-- notes: second cycle added `swbt_runtime_host_status_t` and `swbt_runtime_host_status`. The test verifies runtime resource flags while app owner / sequence remain app-owned.
-- next red candidate: runtime host shutdown neutralizes state and stops runtime resources once。
+    - reason: the shutdown behavior is a single call through app revoke plus existing idempotent resource flags. No separate structure change was useful.
+- notes: third cycle added shutdown neutralization through app revoke. Runtime still does not own app state; it requests the app-owned revoke policy.
+- next red candidate: daemon host starts IPC runner as daemon responsibility and delegates HID/report runtime to runtime host。
 
 ## 10. 検証
 

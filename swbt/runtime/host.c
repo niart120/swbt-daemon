@@ -27,6 +27,13 @@ static void swbt_runtime_host_on_output_report(void *context, uint16_t hid_cid,
     (void)report;
 }
 
+static void swbt_runtime_host_store_neutral(swbt_runtime_host_t *runtime) {
+    (void)swbt_app_revoke(runtime->app, (swbt_app_revoke_options_t){
+                                            .reason = SWBT_APP_REVOKE_SHUTDOWN,
+                                            .client_id = 0u,
+                                        });
+}
+
 swbt_runtime_host_result_t swbt_runtime_host_init(swbt_runtime_host_t *runtime,
                                                   const swbt_runtime_host_config_t *config,
                                                   const swbt_runtime_host_backend_t *backend,
@@ -95,6 +102,8 @@ void swbt_runtime_host_stop(swbt_runtime_host_t *runtime) {
     if (runtime == NULL || !runtime->initialized) {
         return;
     }
+
+    swbt_runtime_host_store_neutral(runtime);
 
     if (runtime->report_timer_started) {
         runtime->backend->report_timer_stop(runtime->backend_context);
