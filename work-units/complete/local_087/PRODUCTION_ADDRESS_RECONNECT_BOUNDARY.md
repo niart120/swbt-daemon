@@ -193,11 +193,13 @@ TDD status:
 - notes: `active_reconnect_failure_reports_failed_state_without_stopping_run_loop` を含む
   existing runner integration で、分離後も failed status と run loop continuation を確認した。
 
-Expected checks:
+Completion checks:
 
-- `just build-debug`
-- `$env:CTEST_ARGS='-R "daemon_config_file_test|daemon_launch_options_test|daemon_cli_test|daemon_production_runner_test" --output-on-failure'; just test-debug`
-- `just windows-cross`
+- `just debug`: pass, 54/54 tests passed.
+- `just windows-cross`: pass, `swbt-daemon.exe` linked.
+- `rg -n "parse_switch_address|format_switch_address|persist_learned|request_active_reconnect|active_reconnect_failed|hex_nibble" swbt\daemon\production_runner.c`:
+  no matches. Address parse/format と active reconnect request/failure handling は
+  runner-local helper から分離済み。
 
 ## 11. 実機実行条件
 
@@ -213,8 +215,8 @@ pairing-free reconnect、link key DB policy、実機 reconnect success の確認
 
 ## 13. チェックリスト
 
-- [ ] address helper の owner を daemon config representation として記録した。
-- [ ] config address validation と production byte conversion を helper 経由へ寄せた。
-- [ ] active reconnect と learned address 保存を runner から分離した。
-- [ ] TDD Test List の検証を実行し、結果を記録した。
-- [ ] 実機未実行理由を維持した。
+- [x] address helper の owner を daemon config representation として記録した。
+- [x] config address validation と production byte conversion を helper 経由へ寄せた。
+- [x] active reconnect と learned address 保存を runner から分離した。
+- [x] TDD Test List の検証を実行し、結果を記録した。
+- [x] 実機未実行理由を維持した。
