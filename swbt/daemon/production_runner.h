@@ -10,6 +10,7 @@
 #include "btstack_bridge/production_ports.h"
 #include "daemon/process.h"
 #include "daemon/ipc_runner.h"
+#include "daemon/production_hid_session.h"
 #include "daemon/production_report_timer.h"
 
 #define SWBT_DAEMON_PRODUCTION_HID_SERVICE_BUFFER_SIZE 512u
@@ -47,6 +48,7 @@ typedef struct {
     swbt_daemon_ipc_runner_t ipc_runner;
     swbt_btstack_device_t device;
     swbt_btstack_input_report_timer_adapter_t report_timer;
+    swbt_daemon_production_hid_session_t hid_session_bridge;
     swbt_daemon_production_report_timer_t report_timer_bridge;
     const swbt_btstack_production_ports_t *ports;
     void *ports_context;
