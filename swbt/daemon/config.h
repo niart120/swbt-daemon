@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "daemon/switch_address.h"
 #include "switch/switch_device_info.h"
 #include "switch/switch_report.h"
 
@@ -17,7 +18,7 @@ extern "C" {
 #define SWBT_DAEMON_DEFAULT_IPC_HEARTBEAT_TIMEOUT_MS 0u
 #define SWBT_DAEMON_DEFAULT_REPORT_PERIOD_US 8000u
 #define SWBT_DAEMON_CONFIG_IPC_HOST_SIZE 16u
-#define SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE 18u
+#define SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE SWBT_DAEMON_SWITCH_ADDRESS_TEXT_SIZE
 
 typedef struct {
     uint32_t report_period_us;

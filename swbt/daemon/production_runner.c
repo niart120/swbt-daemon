@@ -5,6 +5,7 @@
 
 #include "support/diagnostics.h"
 #include "btstack_bridge/hid_event.h"
+#include "daemon/production_reconnect.h"
 
 static swbt_daemon_production_runner_t *g_active_backend;
 
@@ -13,87 +14,6 @@ static void swbt_daemon_production_record_report_tick(
     void *context, uint64_t now_us,
     swbt_btstack_input_report_timer_report_send_result_t send_result);
 static void swbt_daemon_production_shutdown_on_main_thread(void *context);
-
-static bool swbt_daemon_production_hex_nibble(char value, uint8_t *out_nibble) {
-    if (out_nibble == NULL) {
-        return false;
-    }
-    if (value >= '0' && value <= '9') {
-        *out_nibble = (uint8_t)(value - '0');
-        return true;
-    }
-    if (value >= 'a' && value <= 'f') {
-        *out_nibble = (uint8_t)(value - 'a' + 10);
-        return true;
-    }
-    if (value >= 'A' && value <= 'F') {
-        *out_nibble = (uint8_t)(value - 'A' + 10);
-        return true;
-    }
-    return false;
-}
-
-static bool swbt_daemon_production_parse_switch_address(const char *text, uint8_t address[6]) {
-    if (text == NULL || address == NULL) {
-        return false;
-    }
-    if (strlen(text) != SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE - 1u) {
-        return false;
-    }
-
-    for (size_t index = 0u; index < 6u; ++index) {
-        const size_t offset = index * 3u;
-        uint8_t high = 0u;
-        uint8_t low = 0u;
-        if (!swbt_daemon_production_hex_nibble(text[offset], &high) ||
-            !swbt_daemon_production_hex_nibble(text[offset + 1u], &low)) {
-            return false;
-        }
-        if (index < 5u && text[offset + 2u] != ':') {
-            return false;
-        }
-        address[index] = (uint8_t)((uint8_t)(high << 4u) | low);
-    }
-    return text[SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE - 1u] == '\0';
-}
-
-static char swbt_daemon_production_hex_digit_upper(uint8_t value) {
-    return (char)(value < 10u ? (uint8_t)'0' + value : (uint8_t)'A' + (uint8_t)(value - 10u));
-}
-
-static void
-swbt_daemon_production_format_switch_address(const uint8_t address[6],
-                                             char text[SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE]) {
-    for (size_t index = 0u; index < 6u; ++index) {
-        const size_t offset = index * 3u;
-        text[offset] = swbt_daemon_production_hex_digit_upper((uint8_t)(address[index] >> 4u));
-        text[offset + 1u] =
-            swbt_daemon_production_hex_digit_upper((uint8_t)(address[index] & 0x0Fu));
-        if (index < 5u) {
-            text[offset + 2u] = ':';
-        }
-    }
-    text[SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE - 1u] = '\0';
-}
-
-static void
-swbt_daemon_production_persist_learned_switch_address(swbt_daemon_production_runner_t *backend,
-                                                      const uint8_t address[6]) {
-    char address_text[SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE];
-    swbt_daemon_config_file_result_t result;
-
-    if (backend == NULL || address == NULL || !backend->learned_switch_address_target_configured) {
-        return;
-    }
-
-    swbt_daemon_production_format_switch_address(address, address_text);
-    swbt_diagnostic_trace("production: learned switch address save");
-    result = swbt_daemon_config_save_active_reconnect_learned_switch_address(
-        &backend->config, &backend->learned_switch_address_target, address_text);
-    swbt_diagnostic_trace(result == SWBT_DAEMON_CONFIG_FILE_OK
-                              ? "production: learned switch address save ok"
-                              : "production: learned switch address save failed");
-}
 
 static int swbt_daemon_production_report_timer_send(void *context, uint16_t hid_cid,
                                                     const uint8_t *message, size_t message_size) {
@@ -260,7 +180,10 @@ static void swbt_daemon_production_hid_packet_handler(uint8_t packet_type, uint1
             return;
         }
         swbt_diagnostic_trace("production: hid connection opened");
-        swbt_daemon_production_persist_learned_switch_address(backend, event.address);
+        if (backend->learned_switch_address_target_configured) {
+            swbt_daemon_production_reconnect_save_learned_address(
+                &backend->config, &backend->learned_switch_address_target, event.address);
+        }
         (void)backend->ports->report_timer.start(
             backend->ports_context, &backend->report_timer,
             (swbt_btstack_input_report_timer_start_options_t){
@@ -512,53 +435,6 @@ static void swbt_daemon_production_power_off(swbt_daemon_production_runner_t *ba
     }
 }
 
-static void
-swbt_daemon_production_report_active_reconnect_failed(swbt_daemon_production_runner_t *backend) {
-    const swbt_domain_hardware_status_t failed_status = {
-        .adapter_state = SWBT_DOMAIN_HARDWARE_CHANNEL_UNAVAILABLE,
-        .switch_connection_state = SWBT_DOMAIN_HARDWARE_CHANNEL_FAILED,
-        .hid_channel_state = SWBT_DOMAIN_HARDWARE_CHANNEL_FAILED,
-    };
-
-    if (backend == NULL || backend->host == NULL) {
-        return;
-    }
-    (void)swbt_domain_set_hardware_status(swbt_daemon_process_app(backend->host), &failed_status);
-}
-
-static void
-swbt_daemon_production_request_active_reconnect(swbt_daemon_production_runner_t *backend) {
-    const char *switch_address = NULL;
-    swbt_btstack_device_connect_request_t request = {
-        .control_psm = SWBT_BTSTACK_PRODUCTION_HID_CONTROL_PSM,
-        .interrupt_psm = SWBT_BTSTACK_PRODUCTION_HID_INTERRUPT_PSM,
-    };
-    uint16_t hid_cid = 0u;
-    int result;
-
-    if (backend == NULL) {
-        return;
-    }
-
-    switch_address = swbt_daemon_config_effective_reconnect_switch_address(&backend->config);
-    if (switch_address == NULL) {
-        return;
-    }
-    if (!swbt_daemon_production_parse_switch_address(switch_address, request.address)) {
-        swbt_diagnostic_trace("production: active reconnect address invalid");
-        swbt_daemon_production_report_active_reconnect_failed(backend);
-        return;
-    }
-
-    swbt_diagnostic_trace("production: active reconnect request");
-    result = swbt_btstack_device_connect(&backend->device, &request, &hid_cid);
-    swbt_diagnostic_trace(result == 0 ? "production: active reconnect request ok"
-                                      : "production: active reconnect request failed");
-    if (result != 0) {
-        swbt_daemon_production_report_active_reconnect_failed(backend);
-    }
-}
-
 static void swbt_daemon_production_finish_shutdown(swbt_daemon_production_runner_t *backend) {
     if (backend == NULL || !backend->initialized) {
         return;
@@ -661,7 +537,11 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shut
     swbt_diagnostic_trace("production: power on");
     result = swbt_daemon_production_power_on(backend);
     if (result == SWBT_DAEMON_PRODUCTION_OK) {
-        swbt_daemon_production_request_active_reconnect(backend);
+        swbt_daemon_production_reconnect_request_active(&(swbt_daemon_production_reconnect_t){
+            .config = &backend->config,
+            .device = &backend->device,
+            .app = swbt_daemon_process_app(&host),
+        });
         atomic_store(&backend->shutdown_requested, false);
         backend->shutdown_neutral_pending = false;
         if (shutdown_listener != NULL) {
