@@ -43,7 +43,7 @@ BTstack production adapter は `swbt/btstack_bridge/` に閉じ込め、BTstack 
 - `spec/references/btstack-hid-device-registration.md`
 - `spec/references/btstack-source-selection.md`
 - `spec/references/btstack-backend-build-matrix.md`
-- `spec/references/btstack-production-adapter.md`
+- `spec/references/btstack-production-ports.md`
 - `work-units/complete/local_012/BTSTACK_HID_DEVICE_REGISTRATION.md`
 - `work-units/complete/local_017/SWITCH_HID_DESCRIPTOR_CORE.md`
 - `swbt/btstack_bridge/README.md`
@@ -53,9 +53,9 @@ BTstack production adapter は `swbt/btstack_bridge/` に閉じ込め、BTstack 
 
 | 項目 | 値 | 根拠 | source | status |
 |---|---:|---|---|---|
-| BTstack HID Device setup API | `hid_create_sdp_record`, `hid_device_init`, `hid_device_register_packet_handler` | source fact | `spec/references/btstack-production-adapter.md` | recorded |
-| production adapter include/link set | `classic/hid_device.h`, `classic/sdp_server.h`, `classic/sdp_util.h`; selected BTstack include dirs only | source fact / implementation fact | `spec/references/btstack-production-adapter.md` | recorded |
-| SDP record length function | `de_get_len(const uint8_t *)` | source fact | `spec/references/btstack-production-adapter.md` | recorded |
+| BTstack HID Device setup API | `hid_create_sdp_record`, `hid_device_init`, `hid_device_register_packet_handler` | source fact | `spec/references/btstack-production-ports.md` | recorded |
+| production adapter include/link set | `classic/hid_device.h`, `classic/sdp_server.h`, `classic/sdp_util.h`; selected BTstack include dirs only | source fact / implementation fact | `spec/references/btstack-production-ports.md` | recorded |
+| SDP record length function | `de_get_len(const uint8_t *)` | source fact | `spec/references/btstack-production-ports.md` | recorded |
 | BTstack run loop ownership | BTstack-owning thread only | design policy | `swbt/btstack_bridge/README.md` | adapter must preserve boundary |
 | backend build matrix | `libusb` / `windows-winusb` build success | verification fact | `spec/references/btstack-backend-build-matrix.md` | prior record |
 | 実機 advertising / pairing | 未実行 | 実機根拠なし | `docs/hardware-test-log.md` | hardware-gated |
@@ -78,7 +78,7 @@ Windows native runtime 挙動は cross build だけでは証明しない。
 - `swbt/btstack_bridge/hid_device_btstack_adapter.c`
 - `tests/btstack_hid_device_btstack_adapter_test.c`
 - `CMakeLists.txt`
-- `spec/references/btstack-production-adapter.md`
+- `spec/references/btstack-production-ports.md`
 - `work-units/complete/local_018/BTSTACK_PRODUCTION_ADAPTER.md`
 
 ## 9. TDD Test List（TDD テスト一覧）

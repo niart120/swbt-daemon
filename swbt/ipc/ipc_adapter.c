@@ -96,7 +96,7 @@ static void swbt_ipc_adapter_copy_status(const swbt_ipc_status_t *status,
     out_status->hardware = status->hardware;
 }
 
-static void swbt_ipc_adapter_copy_app_status(const swbt_app_status_snapshot_t *status,
+static void swbt_ipc_adapter_copy_app_status(const swbt_domain_status_snapshot_t *status,
                                              swbt_ipc_status_t *out_status) {
     out_status->has_owner = status->has_owner;
     out_status->owner_client_id = status->owner_client_id;

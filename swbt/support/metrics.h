@@ -1,5 +1,5 @@
-#ifndef SWBT_CORE_METRICS_H
-#define SWBT_CORE_METRICS_H
+#ifndef SWBT_SUPPORT_METRICS_H
+#define SWBT_SUPPORT_METRICS_H
 
 #include <stdbool.h>
 #include <stdint.h>

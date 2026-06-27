@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include "../apps/swbt-debug-client/debug_client.h"
-#include "application/app.h"
+#include "domain/domain.h"
 #include "daemon/ipc_runner.h"
 #include "ipc/ipc_server.h"
 #include "switch/switch_controller_state.h"
@@ -52,7 +52,7 @@ static int send_and_serve(swbt_ipc_socket_t *client, swbt_daemon_ipc_runner_t *r
 
 static int test_rejects_non_loopback_bind(void) {
     swbt_daemon_ipc_runner_t runner;
-    swbt_app_t *app = swbt_app_create();
+    swbt_domain_t *app = swbt_domain_create();
     swbt_control_t control;
     swbt_daemon_ipc_runner_config_t config = {
         .host = "0.0.0.0",
@@ -71,13 +71,13 @@ static int test_rejects_non_loopback_bind(void) {
     failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, &control, &config),
                             SWBT_DAEMON_IPC_RUNNER_ERROR_UNSUPPORTED_BIND);
     swbt_daemon_ipc_runner_stop(&runner);
-    swbt_app_destroy(app);
+    swbt_domain_destroy(app);
     return failed;
 }
 
 static int test_exposes_loopback_endpoint_before_accept(void) {
     swbt_daemon_ipc_runner_t runner;
-    swbt_app_t *app = swbt_app_create();
+    swbt_domain_t *app = swbt_domain_create();
     swbt_control_t control;
     swbt_daemon_ipc_endpoint_t endpoint;
     const swbt_daemon_ipc_runner_config_t config = loopback_port_zero_config();
@@ -100,13 +100,13 @@ static int test_exposes_loopback_endpoint_before_accept(void) {
     failed += expect_false(swbt_daemon_ipc_runner_has_connection(&runner));
 
     swbt_daemon_ipc_runner_stop(&runner);
-    swbt_app_destroy(app);
+    swbt_domain_destroy(app);
     return failed;
 }
 
 static int test_poll_once_accepts_and_serves_when_ready(void) {
     swbt_daemon_ipc_runner_t runner;
-    swbt_app_t *app = swbt_app_create();
+    swbt_domain_t *app = swbt_domain_create();
     swbt_control_t control;
     swbt_daemon_ipc_endpoint_t endpoint;
     swbt_ipc_socket_t client;
@@ -145,13 +145,13 @@ static int test_poll_once_accepts_and_serves_when_ready(void) {
 
     swbt_ipc_socket_close(&client);
     swbt_daemon_ipc_runner_stop(&runner);
-    swbt_app_destroy(app);
+    swbt_domain_destroy(app);
     return failed;
 }
 
 static int test_debug_client_status_sequence_updates_application_state(void) {
     swbt_daemon_ipc_runner_t runner;
-    swbt_app_t *app = swbt_app_create();
+    swbt_domain_t *app = swbt_domain_create();
     swbt_control_t control;
     swbt_state_t read_state;
     swbt_daemon_ipc_endpoint_t endpoint;
@@ -208,7 +208,7 @@ static int test_debug_client_status_sequence_updates_application_state(void) {
     failed +=
         expect_eq_int(swbt_debug_client_receive_response(&client, response, sizeof(response)), 0);
     failed += expect_contains(response, "\"type\":\"state_accepted\"");
-    failed += expect_eq_int(swbt_app_read_controller_state(app, &read_state), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_domain_read_controller_state(app, &read_state), SWBT_DOMAIN_OK);
     failed += expect_eq_u32(read_state.buttons, SWBT_BUTTON_A | SWBT_BUTTON_X);
     failed += expect_eq_u16(read_state.lx, 1234u);
     failed += expect_eq_u16(read_state.ly, 2345u);
@@ -221,13 +221,13 @@ static int test_debug_client_status_sequence_updates_application_state(void) {
 
     swbt_ipc_socket_close(&client);
     swbt_daemon_ipc_runner_stop(&runner);
-    swbt_app_destroy(app);
+    swbt_domain_destroy(app);
     return failed;
 }
 
 static int test_stop_closes_connection_and_stores_neutral(void) {
     swbt_daemon_ipc_runner_t runner;
-    swbt_app_t *app = swbt_app_create();
+    swbt_domain_t *app = swbt_domain_create();
     swbt_control_t control;
     swbt_state_t read_state;
     swbt_daemon_ipc_endpoint_t endpoint;
@@ -280,18 +280,18 @@ static int test_stop_closes_connection_and_stores_neutral(void) {
     swbt_daemon_ipc_runner_stop(&runner);
     failed += expect_false(swbt_daemon_ipc_runner_is_running(&runner));
     failed += expect_false(swbt_daemon_ipc_runner_has_connection(&runner));
-    failed += expect_eq_int(swbt_app_read_controller_state(app, &read_state), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_domain_read_controller_state(app, &read_state), SWBT_DOMAIN_OK);
     failed += expect_eq_u32(read_state.buttons, 0u);
     failed += expect_eq_u16(read_state.lx, 2048u);
 
     swbt_ipc_socket_close(&client);
-    swbt_app_destroy(app);
+    swbt_domain_destroy(app);
     return failed;
 }
 
 static int test_poll_once_at_heartbeat_timeout_stores_neutral(void) {
     swbt_daemon_ipc_runner_t runner;
-    swbt_app_t *app = swbt_app_create();
+    swbt_domain_t *app = swbt_domain_create();
     swbt_control_t control;
     swbt_state_t read_state;
     swbt_daemon_ipc_endpoint_t endpoint;
@@ -350,25 +350,25 @@ static int test_poll_once_at_heartbeat_timeout_stores_neutral(void) {
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed +=
         expect_eq_int(swbt_debug_client_receive_response(&client, response, sizeof(response)), 0);
-    failed += expect_eq_int(swbt_app_read_controller_state(app, &read_state), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_domain_read_controller_state(app, &read_state), SWBT_DOMAIN_OK);
     failed += expect_eq_u32(read_state.buttons, SWBT_BUTTON_A);
 
     failed += expect_eq_int(swbt_daemon_ipc_runner_poll_once_at(&runner, 1149u),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed += expect_true(swbt_daemon_ipc_runner_has_connection(&runner));
-    failed += expect_eq_int(swbt_app_read_controller_state(app, &read_state), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_domain_read_controller_state(app, &read_state), SWBT_DOMAIN_OK);
     failed += expect_eq_u32(read_state.buttons, SWBT_BUTTON_A);
 
     failed += expect_eq_int(swbt_daemon_ipc_runner_poll_once_at(&runner, 1150u),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed += expect_false(swbt_daemon_ipc_runner_has_connection(&runner));
-    failed += expect_eq_int(swbt_app_read_controller_state(app, &read_state), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_domain_read_controller_state(app, &read_state), SWBT_DOMAIN_OK);
     failed += expect_eq_u32(read_state.buttons, 0u);
     failed += expect_eq_u16(read_state.lx, 2048u);
 
     swbt_ipc_socket_close(&client);
     swbt_daemon_ipc_runner_stop(&runner);
-    swbt_app_destroy(app);
+    swbt_domain_destroy(app);
     return failed;
 }
 

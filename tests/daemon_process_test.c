@@ -3,10 +3,10 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "application/app.h"
+#include "domain/domain.h"
 #include "btstack_bridge/output_report_handler.h"
 #include "daemon/config.h"
-#include "daemon/host.h"
+#include "daemon/process.h"
 #include "ipc/ipc_adapter.h"
 #include "switch/switch_controller_state.h"
 #include "switch/switch_device_info.h"
@@ -29,10 +29,10 @@ typedef struct {
     int report_timer_send_neutral_now_calls;
     int subcommand_reply_enqueue_calls;
     int read_device_info_calls;
-    swbt_app_t *app;
+    swbt_domain_t *app;
     swbt_control_t *control;
     const swbt_btstack_output_report_handler_t *output_handler;
-    swbt_daemon_host_state_provider_t state_provider;
+    swbt_daemon_process_state_provider_t state_provider;
     void *state_context;
     uint16_t reply_hid_cid;
     uint32_t now_ms;
@@ -146,7 +146,8 @@ static void fake_output_handler_stop(void *context) {
     fake->output_handler_stop_calls += 1;
 }
 
-static int fake_report_timer_start(void *context, swbt_daemon_host_state_provider_t state_provider,
+static int fake_report_timer_start(void *context,
+                                   swbt_daemon_process_state_provider_t state_provider,
                                    void *state_context) {
     fake_backend_t *fake = context;
     fake->report_timer_start_calls += 1;
@@ -189,8 +190,8 @@ static uint32_t fake_time_ms(void *context) {
     return ((fake_backend_t *)context)->now_ms;
 }
 
-static swbt_daemon_host_backend_t fake_backend(void) {
-    return (swbt_daemon_host_backend_t){
+static swbt_daemon_process_backend_t fake_backend(void) {
+    return (swbt_daemon_process_backend_t){
         .ipc_start = fake_ipc_start,
         .ipc_stop = fake_ipc_stop,
         .hid_register = fake_hid_register,
@@ -215,56 +216,58 @@ static swbt_state_t sample_state(void) {
 }
 
 static int invalid_config_rejects_without_opening_backends(void) {
-    swbt_daemon_host_t host;
+    swbt_daemon_process_t host;
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_backend_t fake;
-    const swbt_daemon_host_backend_t backend = fake_backend();
+    const swbt_daemon_process_backend_t backend = fake_backend();
 
     fake_backend_init(&fake);
     config.report_period_us = 0u;
 
     int failed = 0;
-    failed += expect_eq_int(swbt_daemon_host_init(&host, &config, &backend, &fake),
-                            SWBT_DAEMON_HOST_ERROR_INVALID_ARGUMENT);
+    failed += expect_eq_int(swbt_daemon_process_init(&host, &config, &backend, &fake),
+                            SWBT_DAEMON_PROCESS_ERROR_INVALID_ARGUMENT);
     failed += expect_eq_int(fake.ipc_start_calls, 0);
     failed += expect_eq_int(fake.hid_register_calls, 0);
     failed += expect_eq_int(fake.report_timer_start_calls, 0);
     return failed;
 }
 
-static int start_wires_application_hid_output_and_timer(void) {
-    swbt_daemon_host_t host;
+static int start_wires_domain_hid_output_and_timer(void) {
+    swbt_daemon_process_t host;
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_backend_t fake;
-    const swbt_daemon_host_backend_t backend = fake_backend();
+    const swbt_daemon_process_backend_t backend = fake_backend();
     const swbt_state_t state = sample_state();
     swbt_state_t read_state;
 
     fake_backend_init(&fake);
 
     int failed = 0;
-    failed +=
-        expect_eq_int(swbt_daemon_host_init(&host, &config, &backend, &fake), SWBT_DAEMON_HOST_OK);
-    failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK);
+    failed += expect_eq_int(swbt_daemon_process_init(&host, &config, &backend, &fake),
+                            SWBT_DAEMON_PROCESS_OK);
+    failed += expect_eq_int(swbt_daemon_process_start(&host), SWBT_DAEMON_PROCESS_OK);
     failed += expect_eq_int(fake.ipc_start_calls, 1);
     failed += expect_eq_int(fake.hid_register_calls, 1);
     failed += expect_eq_int(fake.output_handler_start_calls, 1);
     failed += expect_eq_int(fake.report_timer_start_calls, 1);
-    failed += expect_true(fake.app == swbt_daemon_host_app(&host));
-    failed += expect_true(fake.output_handler == swbt_daemon_host_output_handler(&host));
+    failed += expect_true(fake.app == swbt_daemon_process_app(&host));
+    failed += expect_true(fake.output_handler == swbt_daemon_process_output_handler(&host));
     failed += expect_true(fake.state_provider != NULL);
     failed += expect_true(fake.state_context != &host);
 
-    failed += expect_eq_int(swbt_app_acquire(swbt_daemon_host_app(&host), 1001u), SWBT_APP_OK);
-    failed += expect_eq_int(swbt_app_set_state(swbt_daemon_host_app(&host),
-                                               (swbt_app_set_state_options_t){
-                                                   .client_id = 1001u,
-                                                   .state = &state,
-                                                   .sequence = 7u,
-                                               }),
-                            SWBT_APP_OK);
+    failed +=
+        expect_eq_int(swbt_domain_acquire(swbt_daemon_process_app(&host), 1001u), SWBT_DOMAIN_OK);
+    failed += expect_eq_int(swbt_domain_set_state(swbt_daemon_process_app(&host),
+                                                  (swbt_domain_set_state_options_t){
+                                                      .client_id = 1001u,
+                                                      .state = &state,
+                                                      .sequence = 7u,
+                                                  }),
+                            SWBT_DOMAIN_OK);
     failed += expect_eq_int(
-        swbt_app_read_controller_state(swbt_daemon_host_app(&host), &read_state), SWBT_APP_OK);
+        swbt_domain_read_controller_state(swbt_daemon_process_app(&host), &read_state),
+        SWBT_DOMAIN_OK);
     failed += expect_eq_u32(read_state.buttons, SWBT_BUTTON_A | SWBT_BUTTON_X);
     failed += expect_eq_u16(read_state.lx, 1234u);
     if (fake.state_provider == NULL) {
@@ -273,7 +276,7 @@ static int start_wires_application_hid_output_and_timer(void) {
         failed += expect_eq_u16(fake.state_provider(fake.state_context).ly, 2345u);
     }
 
-    swbt_daemon_host_destroy(&host);
+    swbt_daemon_process_destroy(&host);
     return failed;
 }
 
@@ -292,19 +295,19 @@ static int output_report_dispatcher_response_enqueues_reply(void) {
         SWBT_SWITCH_SUBCOMMAND_SET_REPORT_MODE,
         0x30u,
     };
-    swbt_daemon_host_t host;
+    swbt_daemon_process_t host;
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_backend_t fake;
-    const swbt_daemon_host_backend_t backend = fake_backend();
+    const swbt_daemon_process_backend_t backend = fake_backend();
 
     fake_backend_init(&fake);
 
     int failed = 0;
-    failed +=
-        expect_eq_int(swbt_daemon_host_init(&host, &config, &backend, &fake), SWBT_DAEMON_HOST_OK);
-    failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK);
+    failed += expect_eq_int(swbt_daemon_process_init(&host, &config, &backend, &fake),
+                            SWBT_DAEMON_PROCESS_OK);
+    failed += expect_eq_int(swbt_daemon_process_start(&host), SWBT_DAEMON_PROCESS_OK);
     failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
-                                swbt_daemon_host_output_handler(&host),
+                                swbt_daemon_process_output_handler(&host),
                                 (swbt_btstack_output_report_handle_options_t){
                                     .hid_cid = 0x0042u,
                                     .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
@@ -321,7 +324,7 @@ static int output_report_dispatcher_response_enqueues_reply(void) {
     failed += expect_eq_int(fake.reply_report[13], SWBT_SWITCH_SUBCOMMAND_REPLY_ACK_SIMPLE);
     failed += expect_eq_int(fake.reply_report[14], SWBT_SWITCH_SUBCOMMAND_SET_REPORT_MODE);
 
-    swbt_daemon_host_destroy(&host);
+    swbt_daemon_process_destroy(&host);
     return failed;
 }
 
@@ -340,10 +343,10 @@ static int output_report_device_info_uses_backend_identity(void) {
         SWBT_SWITCH_SUBCOMMAND_REQUEST_DEVICE_INFO,
     };
     const uint8_t address[] = {0x00u, 0x1Bu, 0xDCu, 0xF9u, 0x9Fu, 0x7Du};
-    swbt_daemon_host_t host;
+    swbt_daemon_process_t host;
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_backend_t fake;
-    const swbt_daemon_host_backend_t backend = fake_backend();
+    const swbt_daemon_process_backend_t backend = fake_backend();
 
     fake_backend_init(&fake);
     for (size_t index = 0; index < sizeof(address); ++index) {
@@ -351,11 +354,11 @@ static int output_report_device_info_uses_backend_identity(void) {
     }
 
     int failed = 0;
-    failed +=
-        expect_eq_int(swbt_daemon_host_init(&host, &config, &backend, &fake), SWBT_DAEMON_HOST_OK);
-    failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK);
+    failed += expect_eq_int(swbt_daemon_process_init(&host, &config, &backend, &fake),
+                            SWBT_DAEMON_PROCESS_OK);
+    failed += expect_eq_int(swbt_daemon_process_start(&host), SWBT_DAEMON_PROCESS_OK);
     failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
-                                swbt_daemon_host_output_handler(&host),
+                                swbt_daemon_process_output_handler(&host),
                                 (swbt_btstack_output_report_handle_options_t){
                                     .hid_cid = 0x0042u,
                                     .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
@@ -374,11 +377,11 @@ static int output_report_device_info_uses_backend_identity(void) {
                           address[index]);
     }
 
-    swbt_daemon_host_destroy(&host);
+    swbt_daemon_process_destroy(&host);
     return failed;
 }
 
-static int output_report_rumble_updates_application_status(void) {
+static int output_report_rumble_updates_domain_status(void) {
     const uint8_t active_rumble[SWBT_SWITCH_RUMBLE_DATA_SIZE] = {
         0x04u, 0x01u, 0x80u, 0x41u, 0x08u, 0x01u, 0x80u, 0x42u,
     };
@@ -394,20 +397,20 @@ static int output_report_rumble_updates_application_status(void) {
         0x80u,
         0x42u,
     };
-    swbt_daemon_host_t host;
+    swbt_daemon_process_t host;
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_backend_t fake;
-    const swbt_daemon_host_backend_t backend = fake_backend();
-    swbt_app_status_snapshot_t status;
+    const swbt_daemon_process_backend_t backend = fake_backend();
+    swbt_domain_status_snapshot_t status;
 
     fake_backend_init(&fake);
 
     int failed = 0;
-    failed +=
-        expect_eq_int(swbt_daemon_host_init(&host, &config, &backend, &fake), SWBT_DAEMON_HOST_OK);
-    failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK);
+    failed += expect_eq_int(swbt_daemon_process_init(&host, &config, &backend, &fake),
+                            SWBT_DAEMON_PROCESS_OK);
+    failed += expect_eq_int(swbt_daemon_process_start(&host), SWBT_DAEMON_PROCESS_OK);
     failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
-                                swbt_daemon_host_output_handler(&host),
+                                swbt_daemon_process_output_handler(&host),
                                 (swbt_btstack_output_report_handle_options_t){
                                     .hid_cid = 0x0042u,
                                     .report_type = SWBT_BTSTACK_HID_REPORT_TYPE_OUTPUT,
@@ -417,29 +420,29 @@ static int output_report_rumble_updates_application_status(void) {
                                 }),
                             SWBT_BTSTACK_OUTPUT_REPORT_OK);
 
-    failed +=
-        expect_eq_int(swbt_app_read_status(swbt_daemon_host_app(&host), &status), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_domain_read_status(swbt_daemon_process_app(&host), &status),
+                            SWBT_DOMAIN_OK);
     failed += expect_true(status.rumble.updated);
     failed += expect_eq_int((int)status.rumble.updated_at_ms, 4321);
     failed += expect_payload_eq(status.rumble.raw, active_rumble);
     failed += expect_eq_int(fake.subcommand_reply_enqueue_calls, 0);
 
-    swbt_daemon_host_destroy(&host);
+    swbt_daemon_process_destroy(&host);
     return failed;
 }
 
 static int noop_backend_status_marks_hardware_channels_unavailable(void) {
-    swbt_daemon_host_t host;
+    swbt_daemon_process_t host;
     swbt_daemon_config_t config = swbt_daemon_config_default();
     swbt_ipc_status_t status;
 
     int failed = 0;
-    failed +=
-        expect_eq_int(swbt_daemon_host_init(&host, &config, swbt_daemon_host_noop_backend(), NULL),
-                      SWBT_DAEMON_HOST_OK);
-    failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK);
-    failed += expect_eq_int(swbt_ipc_adapter_get_status(swbt_daemon_host_control(&host), &status),
-                            SWBT_IPC_OK);
+    failed += expect_eq_int(
+        swbt_daemon_process_init(&host, &config, swbt_daemon_process_noop_backend(), NULL),
+        SWBT_DAEMON_PROCESS_OK);
+    failed += expect_eq_int(swbt_daemon_process_start(&host), SWBT_DAEMON_PROCESS_OK);
+    failed += expect_eq_int(
+        swbt_ipc_adapter_get_status(swbt_daemon_process_control(&host), &status), SWBT_IPC_OK);
     failed += expect_eq_int((int)status.daemon.backend, (int)SWBT_IPC_DAEMON_BACKEND_NOOP);
     failed +=
         expect_eq_int((int)status.daemon.lifecycle_state, (int)SWBT_IPC_DAEMON_LIFECYCLE_RUNNING);
@@ -450,98 +453,102 @@ static int noop_backend_status_marks_hardware_channels_unavailable(void) {
     failed += expect_eq_int((int)status.hardware.hid_channel_state,
                             (int)SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE);
 
-    swbt_daemon_host_destroy(&host);
+    swbt_daemon_process_destroy(&host);
     return failed;
 }
 
 static int send_neutral_now_clears_owner_and_flushes_report_timer(void) {
-    swbt_daemon_host_t host;
+    swbt_daemon_process_t host;
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_backend_t fake;
-    const swbt_daemon_host_backend_t backend = fake_backend();
+    const swbt_daemon_process_backend_t backend = fake_backend();
     const swbt_state_t state = sample_state();
     swbt_state_t read_state;
 
     fake_backend_init(&fake);
 
     int failed = 0;
+    failed += expect_eq_int(swbt_daemon_process_init(&host, &config, &backend, &fake),
+                            SWBT_DAEMON_PROCESS_OK);
+    failed += expect_eq_int(swbt_daemon_process_start(&host), SWBT_DAEMON_PROCESS_OK);
     failed +=
-        expect_eq_int(swbt_daemon_host_init(&host, &config, &backend, &fake), SWBT_DAEMON_HOST_OK);
-    failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK);
-    failed += expect_eq_int(swbt_app_acquire(swbt_daemon_host_app(&host), 1001u), SWBT_APP_OK);
-    failed += expect_eq_int(swbt_app_set_state(swbt_daemon_host_app(&host),
-                                               (swbt_app_set_state_options_t){
-                                                   .client_id = 1001u,
-                                                   .state = &state,
-                                                   .sequence = 7u,
-                                               }),
-                            SWBT_APP_OK);
+        expect_eq_int(swbt_domain_acquire(swbt_daemon_process_app(&host), 1001u), SWBT_DOMAIN_OK);
+    failed += expect_eq_int(swbt_domain_set_state(swbt_daemon_process_app(&host),
+                                                  (swbt_domain_set_state_options_t){
+                                                      .client_id = 1001u,
+                                                      .state = &state,
+                                                      .sequence = 7u,
+                                                  }),
+                            SWBT_DOMAIN_OK);
 
-    failed += expect_eq_int(swbt_daemon_host_send_neutral_now(&host), SWBT_DAEMON_HOST_OK);
+    failed += expect_eq_int(swbt_daemon_process_send_neutral_now(&host), SWBT_DAEMON_PROCESS_OK);
 
     failed += expect_eq_int(fake.report_timer_send_neutral_now_calls, 1);
     failed += expect_eq_int(
-        swbt_app_read_controller_state(swbt_daemon_host_app(&host), &read_state), SWBT_APP_OK);
+        swbt_domain_read_controller_state(swbt_daemon_process_app(&host), &read_state),
+        SWBT_DOMAIN_OK);
     failed += expect_eq_u32(read_state.buttons, 0u);
     failed += expect_eq_u16(read_state.lx, 2048u);
 
-    swbt_daemon_host_destroy(&host);
+    swbt_daemon_process_destroy(&host);
     return failed;
 }
 
 static int shutdown_neutralizes_state_and_stops_resources_once(void) {
-    swbt_daemon_host_t host;
+    swbt_daemon_process_t host;
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_backend_t fake;
-    const swbt_daemon_host_backend_t backend = fake_backend();
+    const swbt_daemon_process_backend_t backend = fake_backend();
     const swbt_state_t state = sample_state();
     swbt_state_t read_state;
 
     fake_backend_init(&fake);
 
     int failed = 0;
+    failed += expect_eq_int(swbt_daemon_process_init(&host, &config, &backend, &fake),
+                            SWBT_DAEMON_PROCESS_OK);
+    failed += expect_eq_int(swbt_daemon_process_start(&host), SWBT_DAEMON_PROCESS_OK);
     failed +=
-        expect_eq_int(swbt_daemon_host_init(&host, &config, &backend, &fake), SWBT_DAEMON_HOST_OK);
-    failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK);
-    failed += expect_eq_int(swbt_app_acquire(swbt_daemon_host_app(&host), 1001u), SWBT_APP_OK);
-    failed += expect_eq_int(swbt_app_set_state(swbt_daemon_host_app(&host),
-                                               (swbt_app_set_state_options_t){
-                                                   .client_id = 1001u,
-                                                   .state = &state,
-                                                   .sequence = 7u,
-                                               }),
-                            SWBT_APP_OK);
+        expect_eq_int(swbt_domain_acquire(swbt_daemon_process_app(&host), 1001u), SWBT_DOMAIN_OK);
+    failed += expect_eq_int(swbt_domain_set_state(swbt_daemon_process_app(&host),
+                                                  (swbt_domain_set_state_options_t){
+                                                      .client_id = 1001u,
+                                                      .state = &state,
+                                                      .sequence = 7u,
+                                                  }),
+                            SWBT_DOMAIN_OK);
 
-    swbt_daemon_host_stop(&host);
-    swbt_daemon_host_stop(&host);
+    swbt_daemon_process_stop(&host);
+    swbt_daemon_process_stop(&host);
 
     failed += expect_eq_int(fake.report_timer_stop_calls, 1);
     failed += expect_eq_int(fake.output_handler_stop_calls, 1);
     failed += expect_eq_int(fake.hid_stop_calls, 1);
     failed += expect_eq_int(fake.ipc_stop_calls, 1);
     failed += expect_eq_int(
-        swbt_app_read_controller_state(swbt_daemon_host_app(&host), &read_state), SWBT_APP_OK);
+        swbt_domain_read_controller_state(swbt_daemon_process_app(&host), &read_state),
+        SWBT_DOMAIN_OK);
     failed += expect_eq_u32(read_state.buttons, 0u);
     failed += expect_eq_u16(read_state.lx, 2048u);
-    failed += expect_false(swbt_daemon_host_is_running(&host));
+    failed += expect_false(swbt_daemon_process_is_running(&host));
 
-    swbt_daemon_host_destroy(&host);
+    swbt_daemon_process_destroy(&host);
     return failed;
 }
 
 static int backend_failure_cleans_up_started_resources(void) {
-    swbt_daemon_host_t host;
+    swbt_daemon_process_t host;
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_backend_t fake;
-    const swbt_daemon_host_backend_t backend = fake_backend();
+    const swbt_daemon_process_backend_t backend = fake_backend();
 
     fake_backend_init(&fake);
     fake.report_timer_start_result = -7;
 
     int failed = 0;
-    failed +=
-        expect_eq_int(swbt_daemon_host_init(&host, &config, &backend, &fake), SWBT_DAEMON_HOST_OK);
-    failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_ERROR_BACKEND);
+    failed += expect_eq_int(swbt_daemon_process_init(&host, &config, &backend, &fake),
+                            SWBT_DAEMON_PROCESS_OK);
+    failed += expect_eq_int(swbt_daemon_process_start(&host), SWBT_DAEMON_PROCESS_ERROR_BACKEND);
     failed += expect_eq_int(fake.ipc_start_calls, 1);
     failed += expect_eq_int(fake.hid_register_calls, 1);
     failed += expect_eq_int(fake.output_handler_start_calls, 1);
@@ -550,21 +557,21 @@ static int backend_failure_cleans_up_started_resources(void) {
     failed += expect_eq_int(fake.output_handler_stop_calls, 1);
     failed += expect_eq_int(fake.hid_stop_calls, 1);
     failed += expect_eq_int(fake.ipc_stop_calls, 1);
-    failed += expect_false(swbt_daemon_host_is_running(&host));
+    failed += expect_false(swbt_daemon_process_is_running(&host));
 
-    swbt_daemon_host_destroy(&host);
+    swbt_daemon_process_destroy(&host);
     return failed;
 }
 
 static int main_with_backend_returns_host_exit_without_hardware_backend(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_backend_t fake;
-    const swbt_daemon_host_backend_t backend = fake_backend();
+    const swbt_daemon_process_backend_t backend = fake_backend();
 
     fake_backend_init(&fake);
 
     int failed = 0;
-    failed += expect_eq_int(swbt_daemon_main_with_host_backend(&config, &backend, &fake), 0);
+    failed += expect_eq_int(swbt_daemon_main_with_process_backend(&config, &backend, &fake), 0);
     failed += expect_eq_int(fake.ipc_start_calls, 1);
     failed += expect_eq_int(fake.hid_register_calls, 1);
     failed += expect_eq_int(fake.report_timer_start_calls, 1);
@@ -673,10 +680,10 @@ int main(void) {
     failed += config_applies_swbt_pro_device_info_profile();
     failed += config_rejects_unknown_device_info_profile();
     failed += invalid_config_rejects_without_opening_backends();
-    failed += start_wires_application_hid_output_and_timer();
+    failed += start_wires_domain_hid_output_and_timer();
     failed += output_report_dispatcher_response_enqueues_reply();
     failed += output_report_device_info_uses_backend_identity();
-    failed += output_report_rumble_updates_application_status();
+    failed += output_report_rumble_updates_domain_status();
     failed += noop_backend_status_marks_hardware_channels_unavailable();
     failed += send_neutral_now_clears_owner_and_flushes_report_timer();
     failed += shutdown_neutralizes_state_and_stops_resources_once();

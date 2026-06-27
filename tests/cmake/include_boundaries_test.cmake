@@ -20,16 +20,16 @@ endfunction()
 
 # Target sources still receive private source-tree include paths. These absence checks cover
 # forbidden implementation includes that public include-root compile probes cannot detect.
-file(GLOB_RECURSE swbt_application_files
-    "${SWBT_SOURCE_DIR}/swbt/application/*.c"
-    "${SWBT_SOURCE_DIR}/swbt/application/*.h"
+file(GLOB_RECURSE swbt_domain_files
+    "${SWBT_SOURCE_DIR}/swbt/domain/*.c"
+    "${SWBT_SOURCE_DIR}/swbt/domain/*.h"
 )
-foreach(path IN LISTS swbt_application_files)
+foreach(path IN LISTS swbt_domain_files)
     file(RELATIVE_PATH relative_path "${SWBT_SOURCE_DIR}" "${path}")
     swbt_assert_file_not_match("${relative_path}" "#include \"(btstack_bridge|classic|daemon|ipc)/"
-                               "application boundary")
+                               "domain boundary")
     swbt_assert_file_not_match("${relative_path}" "#include \"(bluetooth|btstack|gap|hci|l2cap)"
-                               "application BTstack header boundary")
+                               "domain BTstack header boundary")
 endforeach()
 
 file(GLOB_RECURSE swbt_protocol_files
@@ -38,7 +38,7 @@ file(GLOB_RECURSE swbt_protocol_files
 )
 foreach(path IN LISTS swbt_protocol_files)
     file(RELATIVE_PATH relative_path "${SWBT_SOURCE_DIR}" "${path}")
-    swbt_assert_file_not_match("${relative_path}" "#include \"(application|btstack_bridge|core|daemon|ipc)/"
+    swbt_assert_file_not_match("${relative_path}" "#include \"(domain|btstack_bridge|support|daemon|ipc)/"
                                "protocol boundary")
     swbt_assert_file_not_match("${relative_path}" "#include \"(bluetooth|btstack|classic|gap|hci|l2cap)"
                                "protocol BTstack header boundary")
@@ -51,19 +51,19 @@ file(GLOB_RECURSE swbt_btstack_bridge_files
 foreach(path IN LISTS swbt_btstack_bridge_files)
     file(RELATIVE_PATH relative_path "${SWBT_SOURCE_DIR}" "${path}")
     swbt_assert_file_not_match("${relative_path}"
-                               "#include \"(ipc/|daemon/(host|ipc_runner)\\.h)"
+                               "#include \"(ipc/|daemon/(process|ipc_runner)\\.h)"
                                "BTstack bridge IPC internal include boundary")
 endforeach()
 
-swbt_assert_file_not_match("swbt/btstack_bridge/production_btstack.c"
+swbt_assert_file_not_match("swbt/btstack_bridge/production_btstack_impl.c"
                            "#include \"daemon/ipc_runner.h\""
                            "BTstack production adapter IPC runner include boundary")
-swbt_assert_file_not_match("swbt/btstack_bridge/production_btstack.c"
+swbt_assert_file_not_match("swbt/btstack_bridge/production_btstack_impl.c"
                            "swbt_daemon_ipc_runner"
                            "BTstack production adapter IPC runner type boundary")
-swbt_assert_file_not_match("swbt/btstack_bridge/production_btstack.h"
-                           "daemon/production_backend.h"
-                           "BTstack production adapter production backend struct boundary")
+swbt_assert_file_not_match("swbt/btstack_bridge/production_btstack_impl.h"
+                           "daemon/production_runner.h"
+                           "BTstack production implementation daemon runner struct boundary")
 
 file(GLOB_RECURSE swbt_runtime_files
     "${SWBT_SOURCE_DIR}/swbt/runtime/*.c"
@@ -91,18 +91,18 @@ endforeach()
 
 # These checks cover CMake topology. Public include-root compile probes cover include visibility,
 # but they do not prove the intended target names and unit-test link targets remain in place.
-swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_application STATIC"
-                       "application target boundary")
+swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_domain STATIC"
+                       "domain target boundary")
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_runtime STATIC"
                        "runtime target boundary")
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_control STATIC"
                        "control target boundary")
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_ipc STATIC"
                        "IPC target boundary")
-swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_btstack_adapter STATIC"
-                       "BTstack adapter target boundary")
-swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_daemon_host STATIC"
-                       "daemon host target boundary")
+swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_btstack_bridge STATIC"
+                       "BTstack bridge target boundary")
+swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_daemon_process STATIC"
+                       "daemon process target boundary")
 swbt_assert_file_not_match("CMakeLists.txt"
                            "target_link_libraries\\(swbt_runtime[^\\)]*swbt_ipc"
                            "runtime target IPC link boundary")
@@ -115,14 +115,14 @@ swbt_assert_file_not_match("CMakeLists.txt"
                            "target_link_libraries\\(swbt[ \r\n][^\\)]*swbt_ipc"
                            "public C ABI IPC link boundary")
 swbt_assert_file_not_match("CMakeLists.txt"
-                           "target_link_libraries\\(swbt_application[^\\)]*swbt_btstack"
-                           "application target BTstack link boundary")
+                           "target_link_libraries\\(swbt_domain[^\\)]*swbt_btstack"
+                           "domain target BTstack link boundary")
 foreach(test_name
-        application_control_lease_test
-        application_command_test)
+        domain_lease_test
+        domain_command_test)
     swbt_assert_file_match("CMakeLists.txt"
-                           "target_link_libraries\\(${test_name} PRIVATE swbt_application\\)"
-                           "application test link boundary")
+                           "target_link_libraries\\(${test_name} PRIVATE swbt_domain\\)"
+                           "domain test link boundary")
 endforeach()
 swbt_assert_file_match("CMakeLists.txt"
                        "target_link_libraries\\(runtime_host_test PRIVATE swbt_runtime\\)"

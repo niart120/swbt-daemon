@@ -1,5 +1,5 @@
-#ifndef SWBT_BTSTACK_BRIDGE_PRODUCTION_ADAPTER_H
-#define SWBT_BTSTACK_BRIDGE_PRODUCTION_ADAPTER_H
+#ifndef SWBT_BTSTACK_BRIDGE_PRODUCTION_PORTS_H
+#define SWBT_BTSTACK_BRIDGE_PRODUCTION_PORTS_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -74,7 +74,7 @@ typedef struct {
     swbt_btstack_production_clock_port_t clock;
     swbt_btstack_production_power_port_t power;
     swbt_btstack_production_run_loop_port_t run_loop;
-} swbt_btstack_production_adapter_t;
+} swbt_btstack_production_ports_t;
 
 swbt_btstack_hid_registration_config_t swbt_btstack_production_hid_registration_config(void);
 

@@ -70,7 +70,7 @@ use case:
 
 | 項目 | 状態 | 扱い |
 |---|---|---|
-| HID Device registration API | recorded | `work-units/complete/local_018` と `spec/references/btstack-production-adapter.md` を使う。 |
+| HID Device registration API | recorded | `work-units/complete/local_018` と `spec/references/btstack-production-ports.md` を使う。 |
 | output report callbacks | recorded | `work-units/complete/local_019` と `spec/references/btstack-output-report-callbacks.md` を使う。 |
 | input report timer API | recorded | `work-units/complete/local_023` と `spec/references/btstack-periodic-input-report-core.md` を使う。 |
 | BTstack run loop startup / shutdown | recorded | `spec/references/btstack-daemon-entrypoint.md` に記録した。 |

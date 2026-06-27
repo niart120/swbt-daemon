@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "core/swbt_version.h"
+#include "support/swbt_version.h"
 #include "switch/switch_controller_state.h"
 
 int main(void) {

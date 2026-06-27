@@ -1,5 +1,5 @@
-#ifndef SWBT_CORE_DIAGNOSTICS_H
-#define SWBT_CORE_DIAGNOSTICS_H
+#ifndef SWBT_SUPPORT_DIAGNOSTICS_H
+#define SWBT_SUPPORT_DIAGNOSTICS_H
 
 #include <stdbool.h>
 

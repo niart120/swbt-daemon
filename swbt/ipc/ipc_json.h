@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "core/metrics.h"
+#include "support/metrics.h"
 #include "ipc/ipc_status.h"
 #include "switch/switch_controller_state.h"
 #include "switch/switch_rumble.h"

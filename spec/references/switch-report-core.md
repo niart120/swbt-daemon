@@ -26,7 +26,7 @@ recorded。
 | stick packing | 3 bytes per stick; `x = b0 | ((b1 & 0x0f) << 8)`, `y = (b1 >> 4) | (b2 << 4)` | source fact | dekuNukem `bluetooth_hid_notes.md:163-170` | stable for implementation |
 | 6-Axis payload | 3 frames; each frame is accel x/y/z followed by gyro x/y/z as `int16le` | source fact | dekuNukem `bluetooth_hid_notes.md:143-148`; Linux `hid-nintendo.c:455-470` | stable for implementation |
 | joycontrol misc/status bytes | `0x8e` battery/connection, `0x80` vibrator in one software implementation | implementation fact | joycontrol `report.py:37-88` | production default source; swbt builder takes caller-provided values |
-| daemon default report options | `0x8e` battery/connection, `0x80` vibrator | implementation policy based on joycontrol implementation fact; hardware observation in later bring-up | joycontrol `report.py:37-88`; `swbt/daemon/config.c`; `tests/daemon_host_test.c`; `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` | production daemon default; observed on CSR8510 A10 / Switch2 22.1.0 |
+| daemon default report options | `0x8e` battery/connection, `0x80` vibrator | implementation policy based on joycontrol implementation fact; hardware observation in later bring-up | joycontrol `report.py:37-88`; `swbt/daemon/config.c`; `tests/daemon_process_test.c`; `work-units/complete/local_037/WINDOWS_HARDWARE_BRINGUP.md` | production daemon default; observed on CSR8510 A10 / Switch2 22.1.0 |
 
 ## 4. 未解決事項
 

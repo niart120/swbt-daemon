@@ -93,7 +93,7 @@ use case:
 - `spec/references/README.md`
 - `spec/references/btstack-backend-build-matrix.md`
 - `spec/references/btstack-periodic-input-report-core.md`
-- `spec/references/btstack-production-adapter.md`
+- `spec/references/btstack-production-ports.md`
 - `spec/references/btstack-subcommand-reply-send-queue.md`
 - `spec/references/switch-hid-descriptor-core.md`
 - `spec/references/switch-report-core.md`

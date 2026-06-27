@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "application/app.h"
+#include "domain/domain.h"
 #include "runtime/host.h"
 #include "switch/switch_controller_state.h"
 
@@ -16,18 +16,18 @@ typedef enum {
 } swbt_control_result_t;
 
 typedef struct {
-    swbt_app_t *app;
+    swbt_domain_t *app;
     swbt_runtime_host_t *runtime;
 } swbt_control_config_t;
 
 typedef struct {
-    swbt_app_t *app;
+    swbt_domain_t *app;
     swbt_runtime_host_t *runtime;
     uint64_t next_direct_sequence;
 } swbt_control_t;
 
 typedef struct {
-    swbt_app_status_snapshot_t app;
+    swbt_domain_status_snapshot_t app;
     bool has_runtime_status;
     swbt_runtime_host_status_t runtime;
 } swbt_control_status_t;

@@ -7,20 +7,20 @@
 
 static btstack_packet_callback_registration_t g_swbt_hid_hci_event_registration;
 
-static void swbt_btstack_adapter_sdp_init(void *context) {
+static void swbt_btstack_bridge_sdp_init(void *context) {
     (void)context;
     sdp_init();
 }
 
-static uint32_t swbt_btstack_adapter_sdp_create_service_record_handle(void *context) {
+static uint32_t swbt_btstack_bridge_sdp_create_service_record_handle(void *context) {
     (void)context;
     return sdp_create_service_record_handle();
 }
 
 static void
-swbt_btstack_adapter_hid_create_sdp_record(void *context, uint8_t *service,
-                                           uint32_t service_record_handle,
-                                           const swbt_btstack_hid_sdp_record_config_t *params) {
+swbt_btstack_bridge_hid_create_sdp_record(void *context, uint8_t *service,
+                                          uint32_t service_record_handle,
+                                          const swbt_btstack_hid_sdp_record_config_t *params) {
     (void)context;
     hid_sdp_record_t record = {
         .hid_device_subclass = params->hid_device_subclass,
@@ -40,27 +40,27 @@ swbt_btstack_adapter_hid_create_sdp_record(void *context, uint8_t *service,
     hid_create_sdp_record(service, service_record_handle, &record);
 }
 
-static size_t swbt_btstack_adapter_sdp_record_len(void *context, const uint8_t *service) {
+static size_t swbt_btstack_bridge_sdp_record_len(void *context, const uint8_t *service) {
     (void)context;
     return (size_t)de_get_len(service);
 }
 
-static uint8_t swbt_btstack_adapter_sdp_register_service(void *context, const uint8_t *service) {
+static uint8_t swbt_btstack_bridge_sdp_register_service(void *context, const uint8_t *service) {
     (void)context;
     return sdp_register_service(service);
 }
 
-static void swbt_btstack_adapter_hid_device_init(void *context, bool boot_protocol_mode_supported,
-                                                 uint16_t hid_descriptor_len,
-                                                 const uint8_t *hid_descriptor) {
+static void swbt_btstack_bridge_hid_device_init(void *context, bool boot_protocol_mode_supported,
+                                                uint16_t hid_descriptor_len,
+                                                const uint8_t *hid_descriptor) {
     (void)context;
     hid_device_init(boot_protocol_mode_supported, hid_descriptor_len, hid_descriptor);
     hid_device_accept_truncated_hid_reports(true);
 }
 
 static void
-swbt_btstack_adapter_hid_device_register_packet_handler(void *context,
-                                                        swbt_btstack_packet_handler_t handler) {
+swbt_btstack_bridge_hid_device_register_packet_handler(void *context,
+                                                       swbt_btstack_packet_handler_t handler) {
     (void)context;
     g_swbt_hid_hci_event_registration.callback = handler;
     hci_add_event_handler(&g_swbt_hid_hci_event_registration);
@@ -69,14 +69,14 @@ swbt_btstack_adapter_hid_device_register_packet_handler(void *context,
 
 const swbt_btstack_hid_registration_backend_t *swbt_btstack_hid_registration_backend_btstack(void) {
     static const swbt_btstack_hid_registration_backend_t backend = {
-        .sdp_init = swbt_btstack_adapter_sdp_init,
-        .sdp_create_service_record_handle = swbt_btstack_adapter_sdp_create_service_record_handle,
-        .hid_create_sdp_record = swbt_btstack_adapter_hid_create_sdp_record,
-        .sdp_record_len = swbt_btstack_adapter_sdp_record_len,
-        .sdp_register_service = swbt_btstack_adapter_sdp_register_service,
-        .hid_device_init = swbt_btstack_adapter_hid_device_init,
+        .sdp_init = swbt_btstack_bridge_sdp_init,
+        .sdp_create_service_record_handle = swbt_btstack_bridge_sdp_create_service_record_handle,
+        .hid_create_sdp_record = swbt_btstack_bridge_hid_create_sdp_record,
+        .sdp_record_len = swbt_btstack_bridge_sdp_record_len,
+        .sdp_register_service = swbt_btstack_bridge_sdp_register_service,
+        .hid_device_init = swbt_btstack_bridge_hid_device_init,
         .hid_device_register_packet_handler =
-            swbt_btstack_adapter_hid_device_register_packet_handler,
+            swbt_btstack_bridge_hid_device_register_packet_handler,
     };
     return &backend;
 }

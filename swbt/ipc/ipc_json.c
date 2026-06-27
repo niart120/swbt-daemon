@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "core/swbt_version.h"
+#include "support/swbt_version.h"
 
 enum {
     SWBT_IPC_JSON_KEY_MAX = 32,

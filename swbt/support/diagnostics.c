@@ -1,4 +1,4 @@
-#include "core/diagnostics.h"
+#include "support/diagnostics.h"
 
 #include <stdio.h>
 

@@ -1,6 +1,6 @@
 #include "btstack_bridge/hid_device_registration.h"
 
-#include "core/diagnostics.h"
+#include "support/diagnostics.h"
 
 #define SWBT_BTSTACK_HID_SDP_RECORD_SCRATCH_SIZE 1024u
 

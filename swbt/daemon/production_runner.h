@@ -1,5 +1,5 @@
-#ifndef SWBT_DAEMON_PRODUCTION_BACKEND_H
-#define SWBT_DAEMON_PRODUCTION_BACKEND_H
+#ifndef SWBT_DAEMON_PRODUCTION_RUNNER_H
+#define SWBT_DAEMON_PRODUCTION_RUNNER_H
 
 #include <stdatomic.h>
 #include <stdbool.h>
@@ -7,8 +7,8 @@
 #include <stdint.h>
 
 #include "daemon/config.h"
-#include "btstack_bridge/production_adapter.h"
-#include "daemon/host.h"
+#include "btstack_bridge/production_ports.h"
+#include "daemon/process.h"
 #include "daemon/ipc_runner.h"
 
 #define SWBT_DAEMON_PRODUCTION_HID_SERVICE_BUFFER_SIZE 512u
@@ -46,9 +46,9 @@ typedef struct {
     swbt_daemon_ipc_runner_t ipc_runner;
     swbt_btstack_device_t device;
     swbt_btstack_input_report_timer_adapter_t report_timer;
-    const swbt_btstack_production_adapter_t *adapter;
-    void *adapter_context;
-    swbt_daemon_host_t *host;
+    const swbt_btstack_production_ports_t *ports;
+    void *ports_context;
+    swbt_daemon_process_t *host;
     uint8_t hid_service_buffer[SWBT_DAEMON_PRODUCTION_HID_SERVICE_BUFFER_SIZE];
     bool initialized;
     bool report_timer_initialized;
@@ -58,33 +58,33 @@ typedef struct {
     btstack_context_callback_registration_t shutdown_callback;
     atomic_bool hardware_powered;
     atomic_bool shutdown_requested;
-} swbt_daemon_production_backend_t;
+} swbt_daemon_production_runner_t;
 
-swbt_daemon_production_result_t swbt_daemon_production_backend_init(
-    swbt_daemon_production_backend_t *backend, const swbt_daemon_config_t *config,
-    const swbt_btstack_production_adapter_t *adapter, void *adapter_context);
+swbt_daemon_production_result_t swbt_daemon_production_runner_init(
+    swbt_daemon_production_runner_t *backend, const swbt_daemon_config_t *config,
+    const swbt_btstack_production_ports_t *ports, void *ports_context);
 
-bool swbt_daemon_production_backend_set_learned_switch_address_target(
-    swbt_daemon_production_backend_t *backend, const swbt_daemon_config_file_target_t *target);
+bool swbt_daemon_production_runner_set_learned_switch_address_target(
+    swbt_daemon_production_runner_t *backend, const swbt_daemon_config_file_target_t *target);
 
-bool swbt_daemon_production_backend_set_adapter_location_configured(
-    swbt_daemon_production_backend_t *backend);
+bool swbt_daemon_production_runner_set_adapter_location_configured(
+    swbt_daemon_production_runner_t *backend);
 
-const swbt_daemon_host_backend_t *swbt_daemon_production_host_backend(void);
+const swbt_daemon_process_backend_t *swbt_daemon_production_process_backend(void);
 
 swbt_daemon_production_result_t
-swbt_daemon_production_main_with_backend(swbt_daemon_production_backend_t *backend,
-                                         const swbt_daemon_hardware_approval_t *approval);
+swbt_daemon_production_main_with_runner(swbt_daemon_production_runner_t *backend,
+                                        const swbt_daemon_hardware_approval_t *approval);
 
-swbt_daemon_production_result_t swbt_daemon_production_main_with_backend_and_shutdown(
-    swbt_daemon_production_backend_t *backend, const swbt_daemon_hardware_approval_t *approval,
+swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shutdown(
+    swbt_daemon_production_runner_t *backend, const swbt_daemon_hardware_approval_t *approval,
     const swbt_daemon_shutdown_listener_t *shutdown_listener, void *shutdown_context);
 
 uint32_t
-swbt_daemon_production_backend_report_period_us(const swbt_daemon_production_backend_t *backend);
+swbt_daemon_production_runner_report_period_us(const swbt_daemon_production_runner_t *backend);
 
 swbt_daemon_ipc_runner_config_t
-swbt_daemon_production_backend_ipc_config(const swbt_daemon_production_backend_t *backend);
+swbt_daemon_production_runner_ipc_config(const swbt_daemon_production_runner_t *backend);
 
 bool swbt_daemon_hardware_approval_is_granted(const swbt_daemon_hardware_approval_t *approval);
 

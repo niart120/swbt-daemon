@@ -1,7 +1,7 @@
 // NOLINTNEXTLINE(bugprone-reserved-identifier): POSIX feature test macro.
 #define _POSIX_C_SOURCE 200112L
 
-#include "btstack_bridge/production_btstack.h"
+#include "btstack_bridge/production_btstack_impl.h"
 
 #include "hci.h"
 
@@ -64,7 +64,7 @@ static int missing_hci_dump_path_is_noop(void) {
 
 static int explicit_hci_dump_open_failure_rejects_platform_start(void) {
     int failed = 0;
-    const swbt_btstack_production_adapter_t *adapter = swbt_btstack_production_adapter();
+    const swbt_btstack_production_ports_t *adapter = swbt_btstack_production_ports_btstack();
 
     if (adapter == NULL || adapter->device.platform_start == NULL) {
         return 1;
@@ -78,7 +78,7 @@ static int explicit_hci_dump_open_failure_rejects_platform_start(void) {
 
 static int hci_dump_env_path_is_ignored_without_cli_configuration(void) {
     int failed = 0;
-    const swbt_btstack_production_adapter_t *adapter = swbt_btstack_production_adapter();
+    const swbt_btstack_production_ports_t *adapter = swbt_btstack_production_ports_btstack();
 
     if (adapter == NULL || adapter->device.platform_start == NULL ||
         adapter->device.platform_stop == NULL) {
@@ -97,7 +97,7 @@ static int hci_dump_env_path_is_ignored_without_cli_configuration(void) {
 static int link_key_db_path_creates_tlv_file_on_platform_start(void) {
     int failed = 0;
     const char *path = "btstack-link-key-db-test.tlv";
-    const swbt_btstack_production_adapter_t *adapter = swbt_btstack_production_adapter();
+    const swbt_btstack_production_ports_t *adapter = swbt_btstack_production_ports_btstack();
 
     if (adapter == NULL || adapter->device.platform_start == NULL ||
         adapter->device.platform_stop == NULL) {
@@ -119,7 +119,7 @@ static int link_key_db_path_creates_tlv_file_on_platform_start(void) {
 static int link_key_db_stores_link_key_notification(void) {
     int failed = 0;
     const char *path = "btstack-link-key-db-notification-test.tlv";
-    const swbt_btstack_production_adapter_t *adapter = swbt_btstack_production_adapter();
+    const swbt_btstack_production_ports_t *adapter = swbt_btstack_production_ports_btstack();
     uint8_t link_key_notification[] = {
         HCI_EVENT_LINK_KEY_NOTIFICATION,
         23,
