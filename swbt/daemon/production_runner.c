@@ -6,8 +6,6 @@
 #include "support/diagnostics.h"
 #include "daemon/production_reconnect.h"
 
-static void swbt_daemon_production_shutdown_on_main_thread(void *context);
-
 swbt_daemon_production_result_t swbt_daemon_production_runner_init(
     swbt_daemon_production_runner_t *backend, const swbt_daemon_config_t *config,
     const swbt_btstack_production_ports_t *ports, void *ports_context) {
@@ -83,59 +81,13 @@ static void swbt_daemon_production_power_off(swbt_daemon_production_runner_t *ba
     }
 }
 
-void swbt_daemon_production_runner_finish_shutdown(swbt_daemon_production_runner_t *backend) {
+static void swbt_daemon_production_runner_finish_shutdown(void *context) {
+    swbt_daemon_production_runner_t *backend = context;
     if (backend == NULL || !backend->initialized) {
         return;
     }
     swbt_daemon_production_power_off(backend);
     backend->ports->run_loop.trigger_exit(backend->ports_context);
-}
-
-static bool
-swbt_daemon_shutdown_listener_is_valid(const swbt_daemon_shutdown_listener_t *shutdown_listener) {
-    return shutdown_listener == NULL ||
-           (shutdown_listener->install != NULL && shutdown_listener->uninstall != NULL);
-}
-
-static void swbt_daemon_production_shutdown_on_main_thread(void *context) {
-    swbt_daemon_production_runner_t *backend = context;
-    if (backend == NULL || !backend->initialized) {
-        return;
-    }
-
-    if (backend->host != NULL) {
-        swbt_diagnostic_trace("production: shutdown neutral send");
-        const swbt_daemon_process_result_t neutral_result =
-            swbt_daemon_process_send_neutral_now(backend->host);
-        if (neutral_result == SWBT_DAEMON_PROCESS_OK) {
-            swbt_diagnostic_trace("production: shutdown neutral send ok");
-            swbt_daemon_production_runner_finish_shutdown(backend);
-        } else if (neutral_result == SWBT_DAEMON_PROCESS_PENDING) {
-            swbt_diagnostic_trace("production: shutdown neutral send pending");
-            backend->shutdown_neutral_pending = true;
-        } else {
-            swbt_diagnostic_trace("production: shutdown neutral send failed");
-            swbt_daemon_production_runner_finish_shutdown(backend);
-        }
-    } else {
-        swbt_daemon_production_runner_finish_shutdown(backend);
-    }
-}
-
-static void swbt_daemon_production_request_shutdown(void *context) {
-    swbt_daemon_production_runner_t *backend = context;
-    if (backend == NULL || !backend->initialized ||
-        atomic_exchange(&backend->shutdown_requested, true)) {
-        return;
-    }
-
-    swbt_diagnostic_trace("production: shutdown requested");
-    backend->shutdown_callback = (btstack_context_callback_registration_t){
-        .callback = swbt_daemon_production_shutdown_on_main_thread,
-        .context = backend,
-    };
-    backend->ports->run_loop.execute_on_main_thread(backend->ports_context,
-                                                    &backend->shutdown_callback);
 }
 
 swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shutdown(
@@ -147,7 +99,7 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shut
     bool shutdown_listener_installed = false;
 
     if (backend == NULL || !backend->initialized ||
-        !swbt_daemon_shutdown_listener_is_valid(shutdown_listener)) {
+        !swbt_daemon_production_shutdown_listener_is_valid(shutdown_listener)) {
         return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
     }
     (void)approval;
@@ -157,6 +109,16 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shut
     if (!backend->adapter_location_configured) {
         swbt_diagnostic_trace("production: adapter location required");
         return SWBT_DAEMON_PRODUCTION_ERROR_ADAPTER_LOCATION_REQUIRED;
+    }
+    if (!swbt_daemon_production_shutdown_init(
+            &backend->shutdown, &(swbt_daemon_production_shutdown_config_t){
+                                    .run_loop = &backend->ports->run_loop,
+                                    .port_context = backend->ports_context,
+                                    .host = &backend->host,
+                                    .finish = swbt_daemon_production_runner_finish_shutdown,
+                                    .finish_context = backend,
+                                })) {
+        return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
     }
 
     swbt_diagnostic_trace("production: host init");
@@ -190,11 +152,10 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shut
             .device = &backend->device,
             .app = swbt_daemon_process_app(&host),
         });
-        atomic_store(&backend->shutdown_requested, false);
-        backend->shutdown_neutral_pending = false;
+        swbt_daemon_production_shutdown_prepare(&backend->shutdown);
         if (shutdown_listener != NULL) {
-            if (shutdown_listener->install(shutdown_context,
-                                           swbt_daemon_production_request_shutdown, backend) != 0) {
+            if (swbt_daemon_production_shutdown_install_listener(
+                    &backend->shutdown, shutdown_listener, shutdown_context) != 0) {
                 result = SWBT_DAEMON_PRODUCTION_ERROR_RUNTIME;
             } else {
                 shutdown_listener_installed = true;
@@ -206,7 +167,7 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shut
             swbt_diagnostic_trace("production: run loop returned");
         }
         if (shutdown_listener_installed) {
-            shutdown_listener->uninstall(shutdown_context);
+            swbt_daemon_production_shutdown_uninstall_listener(shutdown_listener, shutdown_context);
         }
     }
 

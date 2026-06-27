@@ -263,6 +263,7 @@ add_library(swbt_daemon_process STATIC
     swbt/daemon/production_process_backend.c
     swbt/daemon/production_report_timer.c
     swbt/daemon/production_reconnect.c
+    swbt/daemon/production_shutdown.c
     swbt/daemon/production_runner.c
     swbt/daemon/process.c
     swbt/daemon/switch_address.c
@@ -820,6 +821,19 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME daemon_production_process_backend_test COMMAND daemon_production_process_backend_test)
 
+    add_executable(daemon_production_shutdown_test
+        tests/daemon_production_shutdown_test.c
+    )
+    target_link_libraries(daemon_production_shutdown_test PRIVATE swbt_daemon_process)
+    target_include_directories(daemon_production_shutdown_test
+        PRIVATE
+            ${swbt_btstack_selected_include_dirs}
+    )
+    swbt_apply_common_warnings(daemon_production_shutdown_test)
+    swbt_apply_sanitizers(daemon_production_shutdown_test)
+
+    add_test(NAME daemon_production_shutdown_test COMMAND daemon_production_shutdown_test)
+
     add_executable(daemon_production_hid_session_test
         tests/daemon_production_hid_session_test.c
     )
@@ -934,6 +948,7 @@ if(SWBT_BUILD_TESTS)
             daemon_ipc_runner_test
             daemon_production_runner_test
             daemon_production_process_backend_test
+            daemon_production_shutdown_test
             daemon_production_hid_session_test
             daemon_production_report_timer_test
             daemon_production_hid_sdp_record_test
