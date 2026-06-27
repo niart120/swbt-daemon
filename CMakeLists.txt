@@ -635,6 +635,15 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME btstack_production_hci_dump_test COMMAND btstack_production_hci_dump_test)
 
+    add_executable(btstack_production_ports_test
+        tests/btstack_production_ports_test.c
+    )
+    target_link_libraries(btstack_production_ports_test PRIVATE swbt_btstack_bridge)
+    swbt_apply_common_warnings(btstack_production_ports_test)
+    swbt_apply_sanitizers(btstack_production_ports_test)
+
+    add_test(NAME btstack_production_ports_test COMMAND btstack_production_ports_test)
+
     add_executable(btstack_output_report_handler_test
         tests/btstack_output_report_handler_test.c
     )
@@ -835,6 +844,7 @@ if(SWBT_BUILD_TESTS)
             btstack_hci_dump_text_test
             btstack_usb_adapter_location_test
             btstack_production_hci_dump_test
+            btstack_production_ports_test
             btstack_output_report_handler_test
             btstack_output_report_callbacks_test
             btstack_subcommand_reply_queue_test
