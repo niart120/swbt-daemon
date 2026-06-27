@@ -2,6 +2,11 @@
 
 #include "switch/switch_hid_descriptor.h"
 
+static bool swbt_btstack_production_ipc_pump_port_is_valid(
+    const swbt_btstack_production_ipc_pump_port_t *port) {
+    return port != NULL && port->start != NULL && port->stop != NULL;
+}
+
 swbt_btstack_hid_registration_config_t swbt_btstack_production_hid_registration_config(void) {
     return (swbt_btstack_hid_registration_config_t){
         .hid_device_subclass = 0x2508u,
@@ -19,4 +24,8 @@ swbt_btstack_hid_registration_config_t swbt_btstack_production_hid_registration_
         .device_name = "Pro Controller",
         .packet_handler = NULL,
     };
+}
+
+bool swbt_btstack_production_ports_has_ipc_pump(const swbt_btstack_production_ports_t *ports) {
+    return ports != NULL && swbt_btstack_production_ipc_pump_port_is_valid(&ports->ipc_pump);
 }

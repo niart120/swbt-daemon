@@ -78,4 +78,6 @@ typedef struct {
 
 swbt_btstack_hid_registration_config_t swbt_btstack_production_hid_registration_config(void);
 
+bool swbt_btstack_production_ports_has_ipc_pump(const swbt_btstack_production_ports_t *ports);
+
 #endif

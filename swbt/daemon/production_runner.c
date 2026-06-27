@@ -14,16 +14,6 @@ static void swbt_daemon_production_record_report_tick(
     swbt_btstack_input_report_timer_report_send_result_t send_result);
 static void swbt_daemon_production_shutdown_on_main_thread(void *context);
 
-static bool
-swbt_daemon_production_ipc_pump_port_is_valid(const swbt_btstack_production_ipc_pump_port_t *port) {
-    return port != NULL && port->start != NULL && port->stop != NULL;
-}
-
-static bool
-swbt_daemon_production_ports_have_ipc_pump(const swbt_btstack_production_ports_t *ports) {
-    return ports != NULL && swbt_daemon_production_ipc_pump_port_is_valid(&ports->ipc_pump);
-}
-
 static bool swbt_daemon_production_device_port_is_valid(const swbt_btstack_device_port_t *port) {
     return port != NULL && port->platform_start != NULL && port->platform_stop != NULL &&
            port->hid_register != NULL && port->hid_stop != NULL && port->connect != NULL &&
@@ -65,7 +55,7 @@ swbt_daemon_production_run_loop_port_is_valid(const swbt_btstack_production_run_
 }
 
 static bool swbt_daemon_production_ports_are_valid(const swbt_btstack_production_ports_t *ports) {
-    return swbt_daemon_production_ports_have_ipc_pump(ports) &&
+    return swbt_btstack_production_ports_has_ipc_pump(ports) &&
            swbt_daemon_production_device_port_is_valid(&ports->device) &&
            swbt_daemon_production_output_handler_port_is_valid(&ports->output_handler) &&
            swbt_daemon_production_report_timer_port_is_valid(&ports->report_timer) &&
@@ -222,7 +212,7 @@ swbt_daemon_production_result_t swbt_daemon_production_runner_init(
     swbt_daemon_production_runner_t *backend, const swbt_daemon_config_t *config,
     const swbt_btstack_production_ports_t *ports, void *ports_context) {
     if (backend == NULL || config == NULL || config->report_period_us == 0u ||
-        !swbt_daemon_production_ports_have_ipc_pump(ports)) {
+        !swbt_btstack_production_ports_has_ipc_pump(ports)) {
         return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
     }
 
