@@ -174,7 +174,9 @@ static int callbacks_report_running_and_poll_same_runner(void) {
     swbt_daemon_production_ipc_pump_t adapter;
     swbt_daemon_ipc_endpoint_t endpoint;
     swbt_ipc_socket_t client;
+    int start_result;
     bool client_open = false;
+    bool callbacks_ready;
     int failed = 0;
 
     failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK,
@@ -193,12 +195,16 @@ static int callbacks_report_running_and_poll_same_runner(void) {
         .port_context = &fake,
     };
 
-    failed +=
-        expect_eq_int(swbt_daemon_production_ipc_pump_start(&adapter, &control), 0, "pump start");
+    start_result = swbt_daemon_production_ipc_pump_start(&adapter, &control);
+    failed += expect_eq_int(start_result, 0, "pump start");
+    callbacks_ready = start_result == 0 && fake.captured_pump.is_running != NULL &&
+                      fake.captured_pump.poll_once_at != NULL;
     failed += expect_true(fake.captured_pump.is_running != NULL, "is running callback");
     failed += expect_true(fake.captured_pump.poll_once_at != NULL, "poll callback");
-    failed += expect_true(fake.captured_pump.is_running(fake.captured_pump.context),
-                          "callback reports running");
+    if (callbacks_ready) {
+        failed += expect_true(fake.captured_pump.is_running(fake.captured_pump.context),
+                              "callback reports running");
+    }
     failed += expect_eq_int(swbt_daemon_ipc_runner_endpoint(&runner, &endpoint),
                             SWBT_DAEMON_IPC_RUNNER_OK, "endpoint");
     swbt_ipc_socket_init(&client);
@@ -206,7 +212,9 @@ static int callbacks_report_running_and_poll_same_runner(void) {
         client_open = true;
     }
     failed += expect_true(client_open, "client connected");
-    fake.captured_pump.poll_once_at(fake.captured_pump.context, 1000u);
+    if (callbacks_ready && client_open) {
+        fake.captured_pump.poll_once_at(fake.captured_pump.context, 1000u);
+    }
     failed += expect_true(swbt_daemon_ipc_runner_has_connection(&runner), "connection accepted");
 
     if (client_open) {
