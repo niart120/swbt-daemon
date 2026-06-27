@@ -77,6 +77,7 @@ Tidy status:
 - `swbt/daemon/config.h`
 - `swbt/daemon/production_reconnect.*`
 - `swbt/daemon/production_runner.c`
+- `tests/daemon_switch_address_test.c`
 - `tests/daemon_config_file_test.c`
 - `tests/daemon_production_runner_test.c`
 - `CMakeLists.txt`
@@ -85,7 +86,7 @@ Tidy status:
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | config address setters still normalize lowercase input to uppercase colon-separated text | regression | unit | no |
+| green | config address setters still normalize lowercase input to uppercase colon-separated text | regression | unit | no |
 | todo | invalid reconnect address still rejects config without partial update | regression | unit | no |
 | todo | production active reconnect still converts effective text address into BTstack byte request with HID PSM values unchanged | regression | integration | no |
 | todo | learned address save after HID connection opened still writes uppercase text address to the configured target | regression | integration | no |
@@ -93,7 +94,26 @@ Tidy status:
 
 ## 10. 検証
 
-not run yet.
+TDD status:
+
+- source: `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md` and this
+  work unit.
+- use case: daemon config representation の address text は lowercase input を受けても
+  uppercase colon-separated text として保存される。
+- item: config address setters still normalize lowercase input to uppercase colon-separated text.
+- state: green.
+- red:
+  - command: `just build-debug`
+  - result: fail as expected. `daemon/config.h` が `daemon/switch_address.h` を include し、
+    helper が未実装のため compile failure。
+- green:
+  - command: `just format`
+  - result: pass.
+  - command: `$env:CTEST_ARGS='-R "daemon_switch_address_test|daemon_config_file_test" --output-on-failure'; just debug`
+  - result: pass, 2/2 tests passed.
+- notes: `swbt/daemon/switch_address.*` を追加し、config address setters は
+  `swbt_daemon_switch_address_normalize()` 経由で text を正規化する。既存 config file
+  regression と focused helper test の両方で lowercase to uppercase を確認した。
 
 Expected checks:
 

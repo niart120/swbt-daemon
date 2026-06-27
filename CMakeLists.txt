@@ -260,6 +260,7 @@ add_library(swbt_daemon_process STATIC
     swbt/daemon/launch_options.c
     swbt/daemon/production_runner.c
     swbt/daemon/process.c
+    swbt/daemon/switch_address.c
 )
 swbt_configure_module_public_includes(swbt_daemon_process MODULES daemon)
 target_link_libraries(swbt_daemon_process
@@ -724,6 +725,15 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME daemon_config_file_test COMMAND daemon_config_file_test)
 
+    add_executable(daemon_switch_address_test
+        tests/daemon_switch_address_test.c
+    )
+    target_link_libraries(daemon_switch_address_test PRIVATE swbt_daemon_process)
+    swbt_apply_common_warnings(daemon_switch_address_test)
+    swbt_apply_sanitizers(daemon_switch_address_test)
+
+    add_test(NAME daemon_switch_address_test COMMAND daemon_switch_address_test)
+
     add_executable(daemon_launch_options_test
         tests/daemon_launch_options_test.c
     )
@@ -853,6 +863,7 @@ if(SWBT_BUILD_TESTS)
             daemon_process_test
             runtime_host_test
             daemon_config_file_test
+            daemon_switch_address_test
             daemon_launch_options_test
             daemon_cli_test
             architecture_journey_test

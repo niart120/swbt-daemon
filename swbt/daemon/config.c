@@ -17,57 +17,13 @@ bool swbt_daemon_config_set_ipc_host(swbt_daemon_config_t *config, const char *h
     return host[index] == '\0';
 }
 
-static bool swbt_daemon_config_hex_digit_to_upper(char value, char *out_value) {
-    if (out_value == NULL) {
-        return false;
-    }
-    if (value >= '0' && value <= '9') {
-        *out_value = value;
-        return true;
-    }
-    if (value >= 'a' && value <= 'f') {
-        *out_value = (char)(value - 'a' + 'A');
-        return true;
-    }
-    if (value >= 'A' && value <= 'F') {
-        *out_value = value;
-        return true;
-    }
-    return false;
-}
-
-static bool swbt_daemon_config_set_switch_address(char dest[SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE],
-                                                  const char *address) {
-    if (dest == NULL || address == NULL) {
-        return false;
-    }
-    for (size_t index = 0u; index + 1u < SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE; ++index) {
-        if (address[index] == '\0') {
-            return false;
-        }
-        if ((index + 1u) % 3u == 0u) {
-            if (address[index] != ':') {
-                return false;
-            }
-            dest[index] = ':';
-        } else if (!swbt_daemon_config_hex_digit_to_upper(address[index], &dest[index])) {
-            return false;
-        }
-    }
-    if (address[SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE - 1u] != '\0') {
-        return false;
-    }
-    dest[SWBT_DAEMON_CONFIG_SWITCH_ADDRESS_SIZE - 1u] = '\0';
-    return true;
-}
-
 bool swbt_daemon_config_set_active_reconnect_explicit_switch_address(swbt_daemon_config_t *config,
                                                                      const char *address) {
     if (config == NULL) {
         return false;
     }
-    return swbt_daemon_config_set_switch_address(config->active_reconnect_explicit_switch_address,
-                                                 address);
+    return swbt_daemon_switch_address_normalize(config->active_reconnect_explicit_switch_address,
+                                                address);
 }
 
 bool swbt_daemon_config_set_active_reconnect_learned_switch_address(swbt_daemon_config_t *config,
@@ -75,8 +31,8 @@ bool swbt_daemon_config_set_active_reconnect_learned_switch_address(swbt_daemon_
     if (config == NULL) {
         return false;
     }
-    return swbt_daemon_config_set_switch_address(config->active_reconnect_learned_switch_address,
-                                                 address);
+    return swbt_daemon_switch_address_normalize(config->active_reconnect_learned_switch_address,
+                                                address);
 }
 
 const char *
