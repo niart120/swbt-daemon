@@ -14,57 +14,6 @@ static void swbt_daemon_production_record_report_tick(
     swbt_btstack_input_report_timer_report_send_result_t send_result);
 static void swbt_daemon_production_shutdown_on_main_thread(void *context);
 
-static bool swbt_daemon_production_device_port_is_valid(const swbt_btstack_device_port_t *port) {
-    return port != NULL && port->platform_start != NULL && port->platform_stop != NULL &&
-           port->hid_register != NULL && port->hid_stop != NULL && port->connect != NULL &&
-           port->send != NULL;
-}
-
-static bool swbt_daemon_production_output_handler_port_is_valid(
-    const swbt_btstack_production_output_handler_port_t *port) {
-    return port != NULL && port->start != NULL && port->stop != NULL;
-}
-
-static bool swbt_daemon_production_report_timer_port_is_valid(
-    const swbt_btstack_production_report_timer_port_t *port) {
-    return port != NULL && port->init != NULL && port->start != NULL &&
-           port->on_can_send_now != NULL && port->enqueue_subcommand_reply != NULL &&
-           port->stop != NULL && port->send_neutral_now != NULL;
-}
-
-static bool swbt_daemon_production_controller_port_is_valid(
-    const swbt_btstack_production_controller_port_t *port) {
-    return port != NULL && port->confirm_ssp_user_confirmation != NULL &&
-           port->read_controller_address != NULL;
-}
-
-static bool
-swbt_daemon_production_clock_port_is_valid(const swbt_btstack_production_clock_port_t *port) {
-    return port != NULL && port->time_ms != NULL;
-}
-
-static bool
-swbt_daemon_production_power_port_is_valid(const swbt_btstack_production_power_port_t *port) {
-    return port != NULL && port->on != NULL && port->off != NULL;
-}
-
-static bool
-swbt_daemon_production_run_loop_port_is_valid(const swbt_btstack_production_run_loop_port_t *port) {
-    return port != NULL && port->execute != NULL && port->execute_on_main_thread != NULL &&
-           port->trigger_exit != NULL;
-}
-
-static bool swbt_daemon_production_ports_are_valid(const swbt_btstack_production_ports_t *ports) {
-    return swbt_btstack_production_ports_has_ipc_pump(ports) &&
-           swbt_daemon_production_device_port_is_valid(&ports->device) &&
-           swbt_daemon_production_output_handler_port_is_valid(&ports->output_handler) &&
-           swbt_daemon_production_report_timer_port_is_valid(&ports->report_timer) &&
-           swbt_daemon_production_controller_port_is_valid(&ports->controller) &&
-           swbt_daemon_production_clock_port_is_valid(&ports->clock) &&
-           swbt_daemon_production_power_port_is_valid(&ports->power) &&
-           swbt_daemon_production_run_loop_port_is_valid(&ports->run_loop);
-}
-
 static bool swbt_daemon_production_hex_nibble(char value, uint8_t *out_nibble) {
     if (out_nibble == NULL) {
         return false;
@@ -678,7 +627,7 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shut
         return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
     }
     (void)approval;
-    if (!swbt_daemon_production_ports_are_valid(backend->ports)) {
+    if (!swbt_btstack_production_ports_is_valid(backend->ports)) {
         return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
     }
     if (!backend->adapter_location_configured) {

@@ -30,8 +30,15 @@ static int ipc_pump_only_ports_pass_initialization_validation(void) {
     return expect_true(swbt_btstack_production_ports_has_ipc_pump(&ports), "ipc pump validation");
 }
 
+static int ipc_pump_only_ports_fail_startup_validation(void) {
+    const swbt_btstack_production_ports_t ports = ipc_pump_only_ports();
+    return expect_true(!swbt_btstack_production_ports_is_valid(&ports),
+                       "startup validation rejects IPC-only ports");
+}
+
 int main(void) {
     int failed = 0;
     failed += ipc_pump_only_ports_pass_initialization_validation();
+    failed += ipc_pump_only_ports_fail_startup_validation();
     return failed == 0 ? 0 : 1;
 }

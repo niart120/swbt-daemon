@@ -84,7 +84,7 @@ Tidy status:
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | green | runner init still accepts ports with only IPC pump for initialization-time validation | regression | unit | no |
-| todo | runner main still rejects ports missing required production callbacks before startup side effects | regression | unit | no |
+| green | runner main still rejects ports missing required production callbacks before startup side effects | regression | unit | no |
 | todo | BTstack bridge production ports validation remains free of daemon internal includes | regression | architecture | no |
 | todo | full fake production ports still pass validation and preserve existing startup sequence tests | regression | integration | no |
 
@@ -109,6 +109,27 @@ TDD status:
   - result: pass, 2/2 tests passed.
 - notes: `swbt_btstack_production_ports_has_ipc_pump()` を `production_ports.*` に追加し、
   runner init と runner main の IPC pump check をこの API 経由に差し替えた。
+
+TDD status:
+
+- source: `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md` and this
+  work unit.
+- use case: runner main は startup side effects の前に required production callbacks を
+  検証し、callback 欠落時は既存の invalid argument path を維持する。
+- item: runner main still rejects ports missing required production callbacks before startup side
+  effects.
+- state: green.
+- red:
+  - command: `just build-debug`
+  - result: fail as expected. `swbt_btstack_production_ports_is_valid` の prototype がなく、
+    `btstack_production_ports_test` が implicit declaration で compile failure。
+- green:
+  - command: `just format`
+  - result: pass.
+  - command: `$env:CTEST_ARGS='-R "btstack_production_ports_test|daemon_production_runner_test" --output-on-failure'; just debug`
+  - result: pass, 2/2 tests passed.
+- notes: startup-time callback validator 群を `production_ports.c` へ移し、runner main は
+  `swbt_btstack_production_ports_is_valid()` を呼ぶだけにした。
 
 Expected checks:
 
