@@ -7,6 +7,7 @@ static int expect_true(bool actual, const char *label) {
     return actual ? 0 : 1;
 }
 
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): Test expectation helper.
 static int expect_str_eq(const char *actual, const char *expected, const char *label) {
     (void)label;
     return actual != NULL && expected != NULL && strcmp(actual, expected) == 0 ? 0 : 1;
