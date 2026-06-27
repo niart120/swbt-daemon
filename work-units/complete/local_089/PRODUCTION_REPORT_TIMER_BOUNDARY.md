@@ -91,7 +91,7 @@ Tidy status:
 
 ## 10. 検証
 
-Partial.
+Complete.
 
 TDD status:
 
@@ -132,14 +132,21 @@ TDD status:
   immediate `0`、pending `1`、error `-7` をそのまま返す。subcommand reply enqueue は
   `report_timer` port に `hid_cid` と report bytes を渡すことを module test で確認した。
 
-Expected checks:
+Completion verification:
 
-- `just build-debug`
-- `$env:CTEST_ARGS='-R "daemon_production_runner_test|report_metrics_test" --output-on-failure'; just test-debug`
+- `just debug`: pass、56/56。
+- `just windows-cross`: pass。
+- `rg -n "swbt_btstack_device_send|swbt_daemon_production_record_report_tick|swbt_daemon_production_report_send_result|send_neutral_now|enqueue_subcommand_reply" swbt\daemon\production_runner.c swbt\daemon\production_report_timer.c`:
+  report timer の device send、metrics mapping、neutral send、subcommand reply port
+  委譲は `production_report_timer.c` にある。`production_runner.c` には process
+  callback から `production_report_timer` へ委譲する薄い wrapper と shutdown neutral
+  request だけが残る。
+- `git diff --check main..HEAD`: pass。
 
 ## 11. 実機実行条件
 
-実機実行は不要 if this remains a structure change.
+実機実行は不要。この work unit は report timer bridge の配置変更であり、report period、
+report bytes、BTstack send-ready scheduling、Switch-facing behavior を変更していない。
 
 Do not change report period, report bytes, BTstack send-ready scheduling, or Switch-facing behavior in this work unit.
 
@@ -151,8 +158,8 @@ Report timing or packet behavior changes are explicitly outside this work unit a
 
 ## 13. チェックリスト
 
-- [ ] report timer bridge を runner から分離した。
-- [ ] metrics observer behavior を維持した。
-- [ ] neutral send and reply enqueue behavior を維持した。
-- [ ] TDD Test List の検証を実行し、結果を記録した。
-- [ ] 実機未実行理由を維持した。
+- [x] report timer bridge を runner から分離した。
+- [x] metrics observer behavior を維持した。
+- [x] neutral send and reply enqueue behavior を維持した。
+- [x] TDD Test List の検証を実行し、結果を記録した。
+- [x] 実機未実行理由を維持した。
