@@ -1,6 +1,7 @@
 #ifndef SWBT_CONTROL_CONTROL_H
 #define SWBT_CONTROL_CONTROL_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "application/app.h"
@@ -25,6 +26,12 @@ typedef struct {
     uint64_t next_direct_sequence;
 } swbt_control_t;
 
+typedef struct {
+    swbt_app_status_snapshot_t app;
+    bool has_runtime_status;
+    swbt_runtime_host_status_t runtime;
+} swbt_control_status_t;
+
 swbt_control_result_t swbt_control_init(swbt_control_t *control,
                                         const swbt_control_config_t *config);
 
@@ -37,5 +44,8 @@ swbt_control_result_t swbt_control_submit_client_state(swbt_control_t *control, 
                                                        uint64_t sequence);
 
 swbt_control_result_t swbt_control_submit_state(swbt_control_t *control, const swbt_state_t *state);
+
+swbt_control_result_t swbt_control_get_status(const swbt_control_t *control,
+                                              swbt_control_status_t *out_status);
 
 #endif

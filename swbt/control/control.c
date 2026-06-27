@@ -86,3 +86,23 @@ swbt_control_result_t swbt_control_submit_state(swbt_control_t *control,
                                              .sequence = control->next_direct_sequence,
                                          }));
 }
+
+swbt_control_result_t swbt_control_get_status(const swbt_control_t *control,
+                                              swbt_control_status_t *out_status) {
+    if (control == NULL || control->app == NULL || out_status == NULL) {
+        return SWBT_CONTROL_ERROR_INVALID_ARGUMENT;
+    }
+
+    *out_status = (swbt_control_status_t){0};
+    if (swbt_app_read_status(control->app, &out_status->app) != SWBT_APP_OK) {
+        return SWBT_CONTROL_ERROR_INVALID_ARGUMENT;
+    }
+    if (control->runtime == NULL) {
+        return SWBT_CONTROL_OK;
+    }
+    if (swbt_runtime_host_status(control->runtime, &out_status->runtime) != SWBT_RUNTIME_HOST_OK) {
+        return SWBT_CONTROL_ERROR_INVALID_ARGUMENT;
+    }
+    out_status->has_runtime_status = true;
+    return SWBT_CONTROL_OK;
+}
