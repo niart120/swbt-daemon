@@ -264,7 +264,7 @@ Tidy status:
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | refactor-done | runtime host starts HID/output/report runtime without IPC start callback | new | unit | no |
-| todo | runtime host owns runtime resource state while leaving app lifetime and app-owned state outside runtime | new | unit/review | no |
+| refactor-skipped | runtime host owns runtime resource state while leaving app lifetime and app-owned state outside runtime | new | unit/review | no |
 | todo | runtime host shutdown neutralizes state and stops runtime resources once | regression | unit | no |
 | todo | daemon host starts IPC runner as daemon responsibility and delegates HID/report runtime to runtime host | regression | integration | no |
 | todo | control submit client state preserves IPC owner and sequence semantics | regression | unit | no |
@@ -279,17 +279,17 @@ TDD status:
 
 - source: user request, 2026-06-27。
 - use case: `swbt/control` と `swbt/runtime` の実装を新規 work unit として進める。
-- last item: runtime host starts HID/output/report runtime without IPC start callback。
-- state: refactor-done。
+- last item: runtime host owns runtime resource state while leaving app lifetime and app-owned state outside runtime。
+- state: refactor-skipped。
 - commands:
   - red: `just build-tests-debug`
-    - result: expected failure. `tests/runtime_host_test.c` failed to compile because `runtime/host.h` did not exist.
+    - result: expected failure. `swbt_runtime_host_status_t` and `swbt_runtime_host_status` were not defined.
   - green: `just format`; `just build-tests-debug`; `CTEST_ARGS="-R runtime_host_test" just test-debug`
     - result: pass.
-  - refactor: moved `swbt_runtime` CMake target definition after `swbt_btstack_adapter`; `just build-tests-debug`; `just format-check`; `CTEST_ARGS="-R runtime_host_test" just test-debug`
-    - result: pass.
-- notes: first cycle added `swbt/runtime/host.*`, `swbt_runtime`, and `runtime_host_test`. The runtime backend contract has no `ipc_start` / `ipc_stop` callback.
-- next red candidate: runtime host owns runtime resource state while leaving app lifetime and app-owned state outside runtime。
+  - refactor: skipped.
+    - reason: the new status read is a direct copy of runtime-owned flags and no duplication or naming issue needed a separate structure change.
+- notes: second cycle added `swbt_runtime_host_status_t` and `swbt_runtime_host_status`. The test verifies runtime resource flags while app owner / sequence remain app-owned.
+- next red candidate: runtime host shutdown neutralizes state and stops runtime resources once。
 
 ## 10. 検証
 

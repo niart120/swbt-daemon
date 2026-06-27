@@ -115,6 +115,22 @@ bool swbt_runtime_host_is_running(const swbt_runtime_host_t *runtime) {
     return runtime != NULL && runtime->running;
 }
 
+swbt_runtime_host_result_t swbt_runtime_host_status(const swbt_runtime_host_t *runtime,
+                                                    swbt_runtime_host_status_t *out_status) {
+    if (runtime == NULL || out_status == NULL) {
+        return SWBT_RUNTIME_HOST_ERROR_INVALID_ARGUMENT;
+    }
+
+    *out_status = (swbt_runtime_host_status_t){
+        .initialized = runtime->initialized,
+        .running = runtime->running,
+        .hid_registered = runtime->hid_registered,
+        .output_handler_started = runtime->output_handler_started,
+        .report_timer_started = runtime->report_timer_started,
+    };
+    return SWBT_RUNTIME_HOST_OK;
+}
+
 swbt_btstack_output_report_handler_t *
 swbt_runtime_host_output_handler(swbt_runtime_host_t *runtime) {
     return runtime == NULL ? NULL : &runtime->output_handler;

@@ -39,6 +39,14 @@ typedef struct {
 } swbt_runtime_host_config_t;
 
 typedef struct {
+    bool initialized;
+    bool running;
+    bool hid_registered;
+    bool output_handler_started;
+    bool report_timer_started;
+} swbt_runtime_host_status_t;
+
+typedef struct {
     const swbt_runtime_host_backend_t *backend;
     void *backend_context;
     swbt_app_t *app;
@@ -62,6 +70,9 @@ swbt_runtime_host_result_t swbt_runtime_host_send_neutral_now(swbt_runtime_host_
 void swbt_runtime_host_stop(swbt_runtime_host_t *runtime);
 
 bool swbt_runtime_host_is_running(const swbt_runtime_host_t *runtime);
+
+swbt_runtime_host_result_t swbt_runtime_host_status(const swbt_runtime_host_t *runtime,
+                                                    swbt_runtime_host_status_t *out_status);
 
 swbt_btstack_output_report_handler_t *
 swbt_runtime_host_output_handler(swbt_runtime_host_t *runtime);

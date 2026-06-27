@@ -149,8 +149,66 @@ static int start_wires_hid_output_and_report_runtime_without_ipc_callback(void) 
     return failed;
 }
 
+static int runtime_status_tracks_resources_without_owning_application_state(void) {
+    swbt_runtime_host_t runtime;
+    swbt_app_t *app = swbt_app_create();
+    fake_runtime_backend_t fake = {0};
+    const swbt_runtime_host_backend_t backend = fake_backend();
+    const swbt_state_t state = sample_state();
+    swbt_runtime_host_status_t status;
+    swbt_app_status_snapshot_t app_status;
+
+    int failed = 0;
+    failed += expect_true(app != NULL);
+    failed += expect_eq_int(swbt_app_acquire(app, 1001u), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_set_state(app,
+                                               (swbt_app_set_state_options_t){
+                                                   .client_id = 1001u,
+                                                   .state = &state,
+                                                   .sequence = 7u,
+                                               }),
+                            SWBT_APP_OK);
+    failed += expect_eq_int(swbt_runtime_host_init(&runtime,
+                                                   &(swbt_runtime_host_config_t){
+                                                       .app = app,
+                                                   },
+                                                   &backend, &fake),
+                            SWBT_RUNTIME_HOST_OK);
+
+    failed += expect_eq_int(swbt_runtime_host_status(&runtime, &status), SWBT_RUNTIME_HOST_OK);
+    failed += expect_true(status.initialized);
+    failed += expect_true(!status.running);
+    failed += expect_true(!status.hid_registered);
+    failed += expect_true(!status.output_handler_started);
+    failed += expect_true(!status.report_timer_started);
+
+    failed += expect_eq_int(swbt_runtime_host_start(&runtime), SWBT_RUNTIME_HOST_OK);
+    failed += expect_eq_int(swbt_runtime_host_status(&runtime, &status), SWBT_RUNTIME_HOST_OK);
+    failed += expect_true(status.running);
+    failed += expect_true(status.hid_registered);
+    failed += expect_true(status.output_handler_started);
+    failed += expect_true(status.report_timer_started);
+
+    failed += expect_eq_int(swbt_app_read_status(app, &app_status), SWBT_APP_OK);
+    failed += expect_true(app_status.has_owner);
+    failed += expect_eq_int((int)app_status.owner_client_id, 1001);
+    failed += expect_eq_int((int)app_status.last_sequence, 7);
+
+    swbt_runtime_host_stop(&runtime);
+    failed += expect_eq_int(swbt_runtime_host_status(&runtime, &status), SWBT_RUNTIME_HOST_OK);
+    failed += expect_true(!status.running);
+    failed += expect_true(!status.hid_registered);
+    failed += expect_true(!status.output_handler_started);
+    failed += expect_true(!status.report_timer_started);
+    failed += expect_eq_int(swbt_app_read_status(app, &app_status), SWBT_APP_OK);
+
+    swbt_app_destroy(app);
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += start_wires_hid_output_and_report_runtime_without_ipc_callback();
+    failed += runtime_status_tracks_resources_without_owning_application_state();
     return failed == 0 ? 0 : 1;
 }
