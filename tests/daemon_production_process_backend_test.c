@@ -121,6 +121,9 @@ static int process_backend_table_exposes_production_backend_status(void) {
 
     int failed = 0;
     failed += expect_true(backend != NULL, "backend");
+    if (backend == NULL) {
+        return failed;
+    }
     failed += expect_eq_int((int)backend->daemon_backend,
                             (int)SWBT_DOMAIN_DAEMON_BACKEND_PRODUCTION, "daemon backend");
     return failed;
