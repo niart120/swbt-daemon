@@ -272,24 +272,24 @@ Tidy status:
 | refactor-skipped | control get status combines app-owned status and runtime status without changing IPC JSON status | regression | integration | no |
 | refactor-skipped | IPC adapter delegates acquire/release/set_state/get_status to control instead of app direct calls | regression | integration | no |
 | refactor-skipped | public C ABI exposes open/close/submit_state/submit_neutral/get_status and does not link swbt_ipc | new | unit/build | no |
-| todo | CMake include boundary tests recognize swbt_control and swbt_runtime targets | regression | build | no |
+| refactor-skipped | CMake include boundary tests recognize swbt_control and swbt_runtime targets | regression | build | no |
 | todo | old daemon_host backend no longer requires ipc_start/ipc_stop in runtime backend contract | characterization | review | no |
 
 TDD status:
 
 - source: user request, 2026-06-27。
 - use case: `swbt/control` と `swbt/runtime` の実装を新規 work unit として進める。
-- last item: public C ABI exposes open/close/submit_state/submit_neutral/get_status and does not link swbt_ipc。
+- last item: CMake include boundary tests recognize swbt_control and swbt_runtime targets。
 - state: refactor-skipped。
 - commands:
-  - red: `just build-tests-debug`
-    - result: expected failure. `tests/swbt_c_api_test.c` included only `swbt.h` and required `swbt_t`, `swbt_open`, `swbt_close`, `swbt_submit_state`, `swbt_submit_neutral`, `swbt_get_status`, and public controller state / result types that did not exist yet.
-  - green: `just format`; `just build-tests-debug`; `CTEST_ARGS="-R \"^(swbt_c_api_test|include_boundaries_cmake_test)$\"" just test-debug`
+  - red: `CTEST_ARGS="-R \"^compile_include_boundaries_cmake_test$\"" just test-debug`
+    - result: expected failure. `daemon/host.h` included `control/control.h`, while the compile include boundary probe did not expose `swbt_control` and `swbt_runtime` public include roots.
+  - green: `CTEST_ARGS="-R \"^(compile_include_boundaries_cmake_test|include_boundaries_cmake_test)$\"" just test-debug`
     - result: pass.
   - refactor: skipped.
-    - reason: public C ABI smoke surface、`swbt_control_submit_neutral`、shared target link / PIC 対応までで item の観測可能な振る舞いを満たした。残りは compile include boundary item として分離する。
-- notes: ninth cycle added public `swbt_controller_state_t` / button flags, `swbt_open` / `close` / `submit_state` / `submit_neutral` / `get_status`, and kept owner id / sequence out of public status. `swbt` links `swbt_control` and does not link `swbt_ipc`; static targets flowing into `swbt` are built with PIC for Linux shared library linkage.
-- next red candidate: CMake include boundary tests recognize swbt_control and swbt_runtime targets。
+    - reason: this cycle updated only CMake boundary tests and compile probes. No production code cleanup was needed.
+- notes: tenth cycle added `swbt_control` and `swbt_runtime` target existence checks, direct daemon/IPC include absence checks for control/runtime, public include-root compile probes, and daemon host probe include roots for the new dependencies.
+- next red candidate: old daemon_host backend no longer requires ipc_start/ipc_stop in runtime backend contract。
 
 ## 10. 検証
 
@@ -316,6 +316,8 @@ TDD status:
 - `CTEST_ARGS="-R \"control_test|ipc_json_test|ipc_server_test|daemon_ipc_runner_test|daemon_host_test|architecture_journey_test|daemon_production_backend_test\"" just test-debug`
   - result: pass。7/7 tests passed。
 - `CTEST_ARGS="-R \"^(swbt_c_api_test|include_boundaries_cmake_test)$\"" just test-debug`
+  - result: pass。2/2 tests passed。
+- `CTEST_ARGS="-R \"^(compile_include_boundaries_cmake_test|include_boundaries_cmake_test)$\"" just test-debug`
   - result: pass。2/2 tests passed。
 
 予定:
@@ -353,7 +355,7 @@ TDD status:
 - [x] daemon host を runtime host + IPC runner の利用者へ薄くした。
 - [x] IPC adapter / runner を control 経由に移した。
 - [x] public C ABI minimal operation を追加した。
-- [ ] CMake target と include boundary を更新した。
+- [x] CMake target と include boundary を更新した。
 - [ ] relevant tests を追加または更新した。`control_test` は追加済み。direct API、status、IPC delegation、public C ABI、include boundary は未完了。
 - [ ] 検証コマンドと結果を記録した。
 - [ ] 実機未実行理由を維持または実機実行条件を更新した。

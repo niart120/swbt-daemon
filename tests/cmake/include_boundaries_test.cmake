@@ -65,16 +65,46 @@ swbt_assert_file_not_match("swbt/btstack_bridge/production_btstack.h"
                            "daemon/production_backend.h"
                            "BTstack production adapter production backend struct boundary")
 
+file(GLOB_RECURSE swbt_runtime_files
+    "${SWBT_SOURCE_DIR}/swbt/runtime/*.c"
+    "${SWBT_SOURCE_DIR}/swbt/runtime/*.h"
+)
+foreach(path IN LISTS swbt_runtime_files)
+    file(RELATIVE_PATH relative_path "${SWBT_SOURCE_DIR}" "${path}")
+    swbt_assert_file_not_match("${relative_path}" "#include \"(daemon|ipc)/"
+                               "runtime daemon/IPC include boundary")
+endforeach()
+
+file(GLOB_RECURSE swbt_control_files
+    "${SWBT_SOURCE_DIR}/swbt/control/*.c"
+    "${SWBT_SOURCE_DIR}/swbt/control/*.h"
+)
+foreach(path IN LISTS swbt_control_files)
+    file(RELATIVE_PATH relative_path "${SWBT_SOURCE_DIR}" "${path}")
+    swbt_assert_file_not_match("${relative_path}" "#include \"(daemon|ipc)/"
+                               "control daemon/IPC include boundary")
+endforeach()
+
 # These checks cover CMake topology. Public include-root compile probes cover include visibility,
 # but they do not prove the intended target names and unit-test link targets remain in place.
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_application STATIC"
                        "application target boundary")
+swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_runtime STATIC"
+                       "runtime target boundary")
+swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_control STATIC"
+                       "control target boundary")
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_ipc STATIC"
                        "IPC target boundary")
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_btstack_adapter STATIC"
                        "BTstack adapter target boundary")
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_daemon_host STATIC"
                        "daemon host target boundary")
+swbt_assert_file_not_match("CMakeLists.txt"
+                           "target_link_libraries\\(swbt_runtime[^\\)]*swbt_ipc"
+                           "runtime target IPC link boundary")
+swbt_assert_file_not_match("CMakeLists.txt"
+                           "target_link_libraries\\(swbt_control[^\\)]*swbt_ipc"
+                           "control target IPC link boundary")
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt SHARED"
                        "public C ABI target boundary")
 swbt_assert_file_not_match("CMakeLists.txt"
@@ -90,6 +120,12 @@ foreach(test_name
                            "target_link_libraries\\(${test_name} PRIVATE swbt_application\\)"
                            "application test link boundary")
 endforeach()
+swbt_assert_file_match("CMakeLists.txt"
+                       "target_link_libraries\\(runtime_host_test PRIVATE swbt_runtime\\)"
+                       "runtime test link boundary")
+swbt_assert_file_match("CMakeLists.txt"
+                       "target_link_libraries\\(control_test PRIVATE swbt_control\\)"
+                       "control test link boundary")
 
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_switch_protocol STATIC"
                        "protocol target boundary")
