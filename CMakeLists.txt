@@ -258,6 +258,7 @@ add_library(swbt_daemon_process STATIC
     swbt/daemon/cli.c
     swbt/daemon/ipc_runner.c
     swbt/daemon/launch_options.c
+    swbt/daemon/production_ipc_pump.c
     swbt/daemon/production_reconnect.c
     swbt/daemon/production_runner.c
     swbt/daemon/process.c
@@ -744,6 +745,15 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME daemon_production_reconnect_test COMMAND daemon_production_reconnect_test)
 
+    add_executable(daemon_production_ipc_pump_test
+        tests/daemon_production_ipc_pump_test.c
+    )
+    target_link_libraries(daemon_production_ipc_pump_test PRIVATE swbt_daemon_process)
+    swbt_apply_common_warnings(daemon_production_ipc_pump_test)
+    swbt_apply_sanitizers(daemon_production_ipc_pump_test)
+
+    add_test(NAME daemon_production_ipc_pump_test COMMAND daemon_production_ipc_pump_test)
+
     add_executable(daemon_launch_options_test
         tests/daemon_launch_options_test.c
     )
@@ -875,6 +885,7 @@ if(SWBT_BUILD_TESTS)
             daemon_config_file_test
             daemon_switch_address_test
             daemon_production_reconnect_test
+            daemon_production_ipc_pump_test
             daemon_launch_options_test
             daemon_cli_test
             architecture_journey_test
