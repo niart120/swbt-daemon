@@ -292,7 +292,7 @@ TDD status:
 
 ## 10. 検証
 
-一部実行。
+完了。
 
 実行:
 
@@ -320,13 +320,10 @@ TDD status:
   - result: pass。2/2 tests passed。
 - `CTEST_ARGS="-R \"^include_boundaries_cmake_test$\"" just test-debug`
   - result: pass。1/1 tests passed。
-
-予定:
-
-- targeted CTests for new runtime/control tests。
-- `just debug`。
-- 変更範囲が CMake include boundary に触れる場合は relevant CMake tests。
-- 実装が shared target `swbt` に触れた後は `just windows-cross` も候補にする。
+- `just debug`
+  - result: pass。50/50 tests passed。
+- `just windows-cross`
+  - result: pass。windows-mingw-debug configure / build が成功した。
 
 ## 11. 実機実行条件
 
@@ -350,7 +347,7 @@ TDD status:
 - [x] implementation completion を work unit の完了条件にした。
 - [x] TDD Test List を作成した。
 - [x] 事前妥当性評価を記録した。
-- [ ] `swbt/runtime` を実装した。初期 start path、shutdown neutral、runtime-owned state status、daemon host delegation は実装済み。control / public C ABI から使う status 合成は未完了。
+- [x] `swbt/runtime` を実装した。初期 start path、shutdown neutral、runtime-owned state status、daemon host delegation は実装済み。
 - [x] `swbt/runtime` が runtime-owned state を持ち、app lifetime と app-owned state を所有または公開しないことを検証した。
 - [x] `swbt/control` を実装した。client state submit、direct submit、status 合成、IPC adapter delegation は実装済み。
 - [x] daemon host を runtime host + IPC runner の利用者へ薄くした。
@@ -358,6 +355,6 @@ TDD status:
 - [x] public C ABI minimal operation を追加した。
 - [x] CMake target と include boundary を更新した。
 - [x] relevant tests を追加または更新した。
-- [ ] 検証コマンドと結果を記録した。
-- [ ] 実機未実行理由を維持または実機実行条件を更新した。
-- [ ] work unit record を complete へ移した。
+- [x] 検証コマンドと結果を記録した。
+- [x] 実機未実行理由を維持または実機実行条件を更新した。
+- [x] work unit record を complete へ移した。
