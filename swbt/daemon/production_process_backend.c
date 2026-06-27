@@ -4,6 +4,7 @@
 #include "daemon/production_ipc_pump.h"
 #include "daemon/production_report_timer.h"
 #include "daemon/production_runner.h"
+#include "daemon/production_shutdown.h"
 
 static int swbt_daemon_production_ipc_start(void *context, swbt_control_t *control) {
     swbt_daemon_production_runner_t *backend = context;
@@ -49,7 +50,7 @@ swbt_daemon_production_report_timer_from_backend(swbt_daemon_production_runner_t
 }
 
 static void swbt_daemon_production_hid_session_finish_shutdown(void *context) {
-    swbt_daemon_production_runner_finish_shutdown(context);
+    swbt_daemon_production_shutdown_finish(context);
 }
 
 static swbt_daemon_production_hid_session_t *
@@ -64,14 +65,14 @@ swbt_daemon_production_hid_session_from_backend(swbt_daemon_production_runner_t 
         .device = &backend->device,
         .report_timer = &backend->report_timer,
         .report_timer_initialized = &backend->report_timer_initialized,
-        .shutdown_neutral_pending = &backend->shutdown_neutral_pending,
+        .shutdown_neutral_pending = &backend->shutdown.neutral_pending,
         .learned_switch_address_target = &backend->learned_switch_address_target,
         .learned_switch_address_target_configured =
             &backend->learned_switch_address_target_configured,
         .service_buffer = backend->hid_service_buffer,
         .service_buffer_size = sizeof(backend->hid_service_buffer),
         .finish_shutdown = swbt_daemon_production_hid_session_finish_shutdown,
-        .finish_shutdown_context = backend,
+        .finish_shutdown_context = &backend->shutdown,
     };
     return &backend->hid_session_bridge;
 }

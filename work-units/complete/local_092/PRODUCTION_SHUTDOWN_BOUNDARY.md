@@ -45,11 +45,12 @@ shutdown は lifecycle の一部だが、pending neutral state と main-thread c
 ## 5. 関連 spec / docs
 
 - `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md`
-- `work-units/wip/local_090/PRODUCTION_HID_SESSION_BOUNDARY.md`
+- `work-units/complete/local_090/PRODUCTION_HID_SESSION_BOUNDARY.md`
 - `work-units/complete/local_058/SHUTDOWN_NEUTRAL_RETRY_FAILURE.md`
 - `work-units/complete/local_057/ARCHITECTURE_CUTOVER_H1.md`
 - `docs/status.md`
 - `tests/daemon_production_runner_test.c`
+- `tests/daemon_production_shutdown_test.c`
 
 ## 6. 根拠監査
 
@@ -76,47 +77,59 @@ Tidy status:
 
 - `swbt/daemon/production_shutdown.*`
 - `swbt/daemon/production_runner.c`
-- `swbt/daemon/production_hid_session.*`
+- `swbt/daemon/production_process_backend.c`
 - `tests/daemon_production_runner_test.c`
+- `tests/daemon_production_hid_session_test.c`
+- `tests/daemon_production_shutdown_test.c`
 - `CMakeLists.txt`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | stop request still sends neutral before power-off and run-loop exit | regression | integration | no |
-| todo | shutdown after JSON state still sends trailing neutral before power-off | regression | integration | no |
-| todo | pending stop request still finishes after CAN_SEND_NOW success | regression | integration | no |
-| todo | pending stop request still finishes after CAN_SEND_NOW failure | regression | integration | no |
-| todo | repeated stop request still does not power off twice | regression | integration | no |
-| todo | shutdown listener install / uninstall order remains unchanged | regression | integration | no |
+| done | stop request still sends neutral before power-off and run-loop exit | regression | integration | no |
+| done | shutdown after JSON state still sends trailing neutral before power-off | regression | integration | no |
+| done | pending stop request still finishes after CAN_SEND_NOW success | regression | integration | no |
+| done | pending stop request still finishes after CAN_SEND_NOW failure | regression | integration | no |
+| done | repeated stop request still does not power off twice | regression | integration | no |
+| done | shutdown listener install / uninstall order remains unchanged | regression | integration | no |
 
 ## 10. 検証
 
-not run yet.
+Red:
 
-Expected checks:
+- `just build-debug`: `tests/daemon_production_shutdown_test.c` 追加後、`daemon/production_shutdown.h` 不在で想定通り失敗した。
+
+Green / 完了検証:
 
 - `just build-debug`
-- `$env:CTEST_ARGS='-R "daemon_production_runner_test" --output-on-failure'; just test-debug`
+- `$env:CTEST_ARGS='-R "daemon_production_shutdown_test|daemon_production_runner_test|daemon_production_hid_session_test" --output-on-failure'; just test-debug`
 - `just windows-cross`
+- `just verify`
+
+結果:
+
+- `just build-debug`: pass.
+- `$env:CTEST_ARGS='-R "daemon_production_shutdown_test|daemon_production_runner_test|daemon_production_hid_session_test" --output-on-failure'; just test-debug`: pass, 3/3.
+- `just windows-cross`: pass.
+- `just verify`: pass.
 
 ## 11. 実機実行条件
 
-実機実行は不要 if shutdown ordering is preserved.
+実機実行は未実行。
 
-If shutdown neutral ordering changes, this work unit must stop and become a behavior change requiring hardware gate review.
+理由: shutdown ordering、HCI power-off order、BTstack run loop trigger semantics は既存の順序を維持した。変更は production shutdown scheduling と pending state の配置変更であり、Bluetooth adapter open、HID advertising、report loop、Switch-facing packet values は変更していない。
 
 ## 12. 先送り事項
 
-none.
+なし。
 
 Any new shutdown policy change is outside this structure change and should be a separate source, not a deferred item here.
 
 ## 13. チェックリスト
 
-- [ ] shutdown helper を runner から分離した。
-- [ ] pending neutral state transitions を維持した。
-- [ ] power-off / trigger-exit ordering を維持した。
-- [ ] TDD Test List の検証を実行し、結果を記録した。
-- [ ] 実機未実行理由を維持した。
+- [x] shutdown helper を runner から分離した。
+- [x] pending neutral state transitions を維持した。
+- [x] power-off / trigger-exit ordering を維持した。
+- [x] TDD Test List の検証を実行し、結果を記録した。
+- [x] 実機未実行理由を維持した。

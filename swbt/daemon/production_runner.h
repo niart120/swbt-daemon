@@ -13,6 +13,7 @@
 #include "daemon/production_hid_session.h"
 #include "daemon/production_process_backend.h"
 #include "daemon/production_report_timer.h"
+#include "daemon/production_shutdown.h"
 
 #define SWBT_DAEMON_PRODUCTION_HID_SERVICE_BUFFER_SIZE 512u
 
@@ -35,14 +36,6 @@ typedef struct {
     const char *hardware_approved;
 } swbt_daemon_hardware_approval_env_t;
 
-typedef void (*swbt_daemon_shutdown_request_t)(void *context);
-
-typedef struct {
-    int (*install)(void *context, swbt_daemon_shutdown_request_t request_shutdown,
-                   void *request_context);
-    void (*uninstall)(void *context);
-} swbt_daemon_shutdown_listener_t;
-
 typedef struct {
     swbt_daemon_config_t config;
     swbt_daemon_config_file_target_t learned_switch_address_target;
@@ -51,18 +44,16 @@ typedef struct {
     swbt_btstack_input_report_timer_adapter_t report_timer;
     swbt_daemon_production_hid_session_t hid_session_bridge;
     swbt_daemon_production_report_timer_t report_timer_bridge;
+    swbt_daemon_production_shutdown_t shutdown;
     const swbt_btstack_production_ports_t *ports;
     void *ports_context;
     swbt_daemon_process_t *host;
     uint8_t hid_service_buffer[SWBT_DAEMON_PRODUCTION_HID_SERVICE_BUFFER_SIZE];
     bool initialized;
     bool report_timer_initialized;
-    bool shutdown_neutral_pending;
     bool learned_switch_address_target_configured;
     bool adapter_location_configured;
-    btstack_context_callback_registration_t shutdown_callback;
     atomic_bool hardware_powered;
-    atomic_bool shutdown_requested;
 } swbt_daemon_production_runner_t;
 
 swbt_daemon_production_result_t swbt_daemon_production_runner_init(
@@ -74,8 +65,6 @@ bool swbt_daemon_production_runner_set_learned_switch_address_target(
 
 bool swbt_daemon_production_runner_set_adapter_location_configured(
     swbt_daemon_production_runner_t *backend);
-
-void swbt_daemon_production_runner_finish_shutdown(swbt_daemon_production_runner_t *backend);
 
 swbt_daemon_production_result_t
 swbt_daemon_production_main_with_runner(swbt_daemon_production_runner_t *backend,
