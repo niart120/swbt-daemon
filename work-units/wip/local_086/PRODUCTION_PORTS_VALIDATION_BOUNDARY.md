@@ -85,7 +85,7 @@ Tidy status:
 |---|---|---|---|---|
 | green | runner init still accepts ports with only IPC pump for initialization-time validation | regression | unit | no |
 | green | runner main still rejects ports missing required production callbacks before startup side effects | regression | unit | no |
-| todo | BTstack bridge production ports validation remains free of daemon internal includes | regression | architecture | no |
+| green | BTstack bridge production ports validation remains free of daemon internal includes | regression | architecture | no |
 | todo | full fake production ports still pass validation and preserve existing startup sequence tests | regression | integration | no |
 
 ## 10. 検証
@@ -130,6 +130,23 @@ TDD status:
   - result: pass, 2/2 tests passed.
 - notes: startup-time callback validator 群を `production_ports.c` へ移し、runner main は
   `swbt_btstack_production_ports_is_valid()` を呼ぶだけにした。
+
+TDD status:
+
+- source: `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md` and this
+  work unit.
+- use case: BTstack bridge の production ports validation は daemon internal type を
+  include せず、bridge 側の table contract として維持される。
+- item: BTstack bridge production ports validation remains free of daemon internal includes.
+- state: green.
+- commands:
+  - `rg -n "#include \"daemon/" swbt\btstack_bridge\production_ports.h swbt\btstack_bridge\production_ports.c`
+  - `$env:CTEST_ARGS='-R "include_boundaries_cmake_test|compile_include_boundaries_cmake_test" --output-on-failure'; just test-debug`
+- result:
+  - `rg` は no matches。daemon internal include はない。
+  - CTest boundary checks pass, 2/2 tests passed.
+- notes: `production_ports.*` は `daemon/process.h`、`daemon/ipc_runner.h`、
+  `daemon/production_runner.h` を include していない。
 
 Expected checks:
 
