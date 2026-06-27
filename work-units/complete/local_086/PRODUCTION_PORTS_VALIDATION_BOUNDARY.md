@@ -166,11 +166,13 @@ TDD status:
 - notes: `btstack_production_ports_test` に full ports の direct validation check を追加し、
   `daemon_production_runner_test` で startup sequence regression を再確認した。
 
-Expected checks:
+Completion checks:
 
-- `just build-debug`
-- `$env:CTEST_ARGS='-R "daemon_production_runner_test|include_boundaries_test|compile_include_boundaries_test" --output-on-failure'; just test-debug`
-- `rg -n "#include \"daemon/" swbt/btstack_bridge/production_ports.*`
+- `just debug`: pass, 52/52 tests passed.
+- `rg -n "port_is_valid|ports_are_valid" swbt\daemon\production_runner.c`: no matches.
+  Runner 側に移動前の static validator 群は残っていない。
+- `rg -n "#include \"daemon/" swbt\btstack_bridge\production_ports.h swbt\btstack_bridge\production_ports.c`:
+  no matches. `production_ports.*` は daemon internal header を include していない。
 
 ## 11. 実機実行条件
 
@@ -186,8 +188,8 @@ none.
 
 ## 13. チェックリスト
 
-- [ ] production ports validation API を追加した。
-- [ ] runner から static validator 群を削除した。
-- [ ] BTstack bridge から daemon internal type を参照していないことを確認した。
-- [ ] TDD Test List の検証を実行し、結果を記録した。
-- [ ] 実機未実行理由を維持した。
+- [x] production ports validation API を追加した。
+- [x] runner から static validator 群を削除した。
+- [x] BTstack bridge から daemon internal type を参照していないことを確認した。
+- [x] TDD Test List の検証を実行し、結果を記録した。
+- [x] 実機未実行理由を維持した。
