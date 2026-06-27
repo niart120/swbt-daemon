@@ -16,6 +16,14 @@ typedef struct {
     int report_timer_stop_calls;
 } fake_runtime_backend_t;
 
+typedef struct {
+    uint32_t buttons;
+    uint16_t lx;
+    uint64_t last_sequence;
+    uint64_t accepted;
+    uint64_t rejected;
+} expected_app_status_t;
+
 static int expect_true(bool value) {
     return value ? 0 : 1;
 }
@@ -106,19 +114,18 @@ static swbt_runtime_host_backend_t fake_runtime_backend(void) {
     };
 }
 
-static int expect_status(const swbt_app_t *app, uint32_t buttons, uint16_t lx,
-                         uint64_t last_sequence, uint64_t accepted, uint64_t rejected) {
+static int expect_status(const swbt_app_t *app, expected_app_status_t expected) {
     swbt_app_status_snapshot_t status;
     int failed = 0;
 
     failed += expect_eq_int(swbt_app_read_status(app, &status), SWBT_APP_OK);
     failed += expect_true(status.has_owner);
     failed += expect_eq_u32(status.owner_client_id, 1001u);
-    failed += expect_eq_u64(status.last_sequence, last_sequence);
-    failed += expect_eq_u32(status.state.buttons, buttons);
-    failed += expect_eq_u16(status.state.lx, lx);
-    failed += expect_eq_u64(status.metrics.ipc_state_accepted, accepted);
-    failed += expect_eq_u64(status.metrics.ipc_state_rejected, rejected);
+    failed += expect_eq_u64(status.last_sequence, expected.last_sequence);
+    failed += expect_eq_u32(status.state.buttons, expected.buttons);
+    failed += expect_eq_u16(status.state.lx, expected.lx);
+    failed += expect_eq_u64(status.metrics.ipc_state_accepted, expected.accepted);
+    failed += expect_eq_u64(status.metrics.ipc_state_rejected, expected.rejected);
     return failed;
 }
 
@@ -142,17 +149,35 @@ static int submit_client_state_preserves_owner_and_sequence_semantics(void) {
     state.lx = 1234u;
     failed += expect_eq_int(swbt_control_submit_client_state(&control, 2002u, &state, 77u),
                             SWBT_CONTROL_ERROR_NOT_OWNER);
-    failed += expect_status(app, 0u, 2048u, 0u, 0u, 1u);
+    failed += expect_status(app, (expected_app_status_t){
+                                     .buttons = 0u,
+                                     .lx = 2048u,
+                                     .last_sequence = 0u,
+                                     .accepted = 0u,
+                                     .rejected = 1u,
+                                 });
 
     failed += expect_eq_int(swbt_control_submit_client_state(&control, 1001u, &state, 77u),
                             SWBT_CONTROL_OK);
-    failed += expect_status(app, SWBT_BUTTON_A, 1234u, 77u, 1u, 1u);
+    failed += expect_status(app, (expected_app_status_t){
+                                     .buttons = SWBT_BUTTON_A,
+                                     .lx = 1234u,
+                                     .last_sequence = 77u,
+                                     .accepted = 1u,
+                                     .rejected = 1u,
+                                 });
 
     state.buttons = SWBT_BUTTON_B;
     state.lx = 3456u;
     failed += expect_eq_int(swbt_control_submit_client_state(&control, 1001u, &state, 76u),
                             SWBT_CONTROL_OK);
-    failed += expect_status(app, SWBT_BUTTON_A, 1234u, 77u, 1u, 2u);
+    failed += expect_status(app, (expected_app_status_t){
+                                     .buttons = SWBT_BUTTON_A,
+                                     .lx = 1234u,
+                                     .last_sequence = 77u,
+                                     .accepted = 1u,
+                                     .rejected = 2u,
+                                 });
 
     swbt_app_destroy(app);
     return failed;

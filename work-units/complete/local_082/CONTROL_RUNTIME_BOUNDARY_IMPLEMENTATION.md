@@ -324,6 +324,8 @@ TDD status:
   - result: pass。50/50 tests passed。
 - `just windows-cross`
   - result: pass。windows-mingw-debug configure / build が成功した。
+- `just verify`
+  - result: pass。format-check、clang-tidy、fresh debug build/test、ASan、Windows cross build が成功した。
 
 ## 11. 実機実行条件
 

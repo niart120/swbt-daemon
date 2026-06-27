@@ -142,7 +142,11 @@ static int start_wires_hid_output_and_report_runtime_without_ipc_callback(void) 
                                                    .sequence = 7u,
                                                }),
                             SWBT_APP_OK);
-    failed += expect_eq_u16(fake.state_provider(fake.state_context).ly, 2345u);
+    if (fake.state_provider == NULL) {
+        failed += 1;
+    } else {
+        failed += expect_eq_u16(fake.state_provider(fake.state_context).ly, 2345u);
+    }
 
     swbt_runtime_host_stop(&runtime);
     swbt_app_destroy(app);
