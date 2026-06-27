@@ -174,14 +174,14 @@ runtime API:
 ```c
 typedef struct swbt_runtime_host swbt_runtime_host_t;
 
-swbt_runtime_result_t swbt_runtime_host_init(swbt_runtime_host_t *runtime,
-                                             const swbt_runtime_config_t *config,
-                                             const swbt_runtime_backend_t *backend,
-                                             void *backend_context);
-swbt_runtime_result_t swbt_runtime_host_start(swbt_runtime_host_t *runtime);
-swbt_runtime_result_t swbt_runtime_host_send_neutral_now(swbt_runtime_host_t *runtime);
+swbt_runtime_host_result_t
+swbt_runtime_host_init(swbt_runtime_host_t *runtime,
+                       const swbt_runtime_host_config_t *config,
+                       const swbt_runtime_host_backend_t *backend,
+                       void *backend_context);
+swbt_runtime_host_result_t swbt_runtime_host_start(swbt_runtime_host_t *runtime);
+swbt_runtime_host_result_t swbt_runtime_host_send_neutral_now(swbt_runtime_host_t *runtime);
 void swbt_runtime_host_stop(swbt_runtime_host_t *runtime);
-swbt_runtime_status_t swbt_runtime_host_status(const swbt_runtime_host_t *runtime);
 ```
 
 public C ABI:
@@ -263,7 +263,7 @@ Tidy status:
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | runtime host starts HID/output/report runtime without IPC start callback | new | unit | no |
+| refactor-done | runtime host starts HID/output/report runtime without IPC start callback | new | unit | no |
 | todo | runtime host owns runtime resource state while leaving app lifetime and app-owned state outside runtime | new | unit/review | no |
 | todo | runtime host shutdown neutralizes state and stops runtime resources once | regression | unit | no |
 | todo | daemon host starts IPC runner as daemon responsibility and delegates HID/report runtime to runtime host | regression | integration | no |
@@ -279,12 +279,32 @@ TDD status:
 
 - source: user request, 2026-06-27。
 - use case: `swbt/control` と `swbt/runtime` の実装を新規 work unit として進める。
-- state: todo。
-- next red candidate: runtime host starts HID/output/report runtime without IPC start callback。
+- last item: runtime host starts HID/output/report runtime without IPC start callback。
+- state: refactor-done。
+- commands:
+  - red: `just build-tests-debug`
+    - result: expected failure. `tests/runtime_host_test.c` failed to compile because `runtime/host.h` did not exist.
+  - green: `just format`; `just build-tests-debug`; `CTEST_ARGS="-R runtime_host_test" just test-debug`
+    - result: pass.
+  - refactor: moved `swbt_runtime` CMake target definition after `swbt_btstack_adapter`; `just build-tests-debug`; `just format-check`; `CTEST_ARGS="-R runtime_host_test" just test-debug`
+    - result: pass.
+- notes: first cycle added `swbt/runtime/host.*`, `swbt_runtime`, and `runtime_host_test`. The runtime backend contract has no `ipc_start` / `ipc_stop` callback.
+- next red candidate: runtime host owns runtime resource state while leaving app lifetime and app-owned state outside runtime。
 
 ## 10. 検証
 
-未実行。
+一部実行。
+
+実行:
+
+- `just format`
+  - result: pass。
+- `just format-check`
+  - result: pass。
+- `just build-tests-debug`
+  - result: pass。`swbt_runtime` と `runtime_host_test` を含む debug unit test target build が成功した。
+- `CTEST_ARGS="-R runtime_host_test" just test-debug`
+  - result: pass。1/1 tests passed。
 
 予定:
 
@@ -315,7 +335,7 @@ TDD status:
 - [x] implementation completion を work unit の完了条件にした。
 - [x] TDD Test List を作成した。
 - [x] 事前妥当性評価を記録した。
-- [ ] `swbt/runtime` を実装した。
+- [ ] `swbt/runtime` を実装した。初期 start path は実装済み。shutdown neutral、runtime-owned state status、daemon host delegation は未完了。
 - [ ] `swbt/runtime` が runtime-owned state を持ち、app lifetime と app-owned state を所有または公開しないことを検証した。
 - [ ] `swbt/control` を実装した。
 - [ ] daemon host を runtime host + IPC runner の利用者へ薄くした。

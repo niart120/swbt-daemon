@@ -225,6 +225,14 @@ target_link_libraries(swbt_btstack_adapter PUBLIC swbt_application swbt_switch_p
 swbt_apply_common_warnings(swbt_btstack_adapter)
 swbt_apply_sanitizers(swbt_btstack_adapter)
 
+add_library(swbt_runtime STATIC
+    swbt/runtime/host.c
+)
+swbt_configure_module_public_includes(swbt_runtime MODULES runtime)
+target_link_libraries(swbt_runtime PUBLIC swbt_application swbt_btstack_adapter swbt_support)
+swbt_apply_common_warnings(swbt_runtime)
+swbt_apply_sanitizers(swbt_runtime)
+
 add_library(swbt_daemon_host STATIC
     swbt/daemon/config.c
     swbt/daemon/config_file.cpp
@@ -651,6 +659,15 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME daemon_host_test COMMAND daemon_host_test)
 
+    add_executable(runtime_host_test
+        tests/runtime_host_test.c
+    )
+    target_link_libraries(runtime_host_test PRIVATE swbt_runtime)
+    swbt_apply_common_warnings(runtime_host_test)
+    swbt_apply_sanitizers(runtime_host_test)
+
+    add_test(NAME runtime_host_test COMMAND runtime_host_test)
+
     add_executable(daemon_config_file_test
         tests/daemon_config_file_test.c
     )
@@ -774,6 +791,7 @@ if(SWBT_BUILD_TESTS)
             btstack_input_report_timer_adapter_test
             btstack_input_report_scheduler_test
             daemon_host_test
+            runtime_host_test
             daemon_config_file_test
             daemon_launch_options_test
             daemon_cli_test
