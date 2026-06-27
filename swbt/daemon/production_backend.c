@@ -241,6 +241,15 @@ bool swbt_daemon_production_backend_set_learned_switch_address_target(
     return true;
 }
 
+bool swbt_daemon_production_backend_set_adapter_location_configured(
+    swbt_daemon_production_backend_t *backend) {
+    if (backend == NULL || !backend->initialized) {
+        return false;
+    }
+    backend->adapter_location_configured = true;
+    return true;
+}
+
 static bool swbt_daemon_production_ipc_runner_is_running(void *context) {
     return swbt_daemon_ipc_runner_is_running((const swbt_daemon_ipc_runner_t *)context);
 }
@@ -686,6 +695,10 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_backend_and_shu
     (void)approval;
     if (!swbt_daemon_production_adapter_is_valid(backend->adapter)) {
         return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
+    }
+    if (!backend->adapter_location_configured) {
+        swbt_diagnostic_trace("production: adapter location required");
+        return SWBT_DAEMON_PRODUCTION_ERROR_ADAPTER_LOCATION_REQUIRED;
     }
 
     swbt_diagnostic_trace("production: host init");

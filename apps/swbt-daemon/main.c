@@ -137,11 +137,21 @@ static int swbt_daemon_run_production(const swbt_daemon_launch_config_t *launch_
         swbt_diagnostic_trace("production: hci dump path invalid");
         return 1;
     }
+    if (launch_config->adapter_location_configured &&
+        swbt_btstack_production_adapter_location_configure(launch_config->adapter_location) != 0) {
+        swbt_diagnostic_trace("production: adapter location invalid");
+        return 1;
+    }
     swbt_diagnostic_trace("production: backend init");
     if (swbt_daemon_production_backend_init(&backend, &launch_config->config,
                                             swbt_btstack_production_adapter(),
                                             NULL) != SWBT_DAEMON_PRODUCTION_OK) {
         swbt_diagnostic_trace("production: backend init failed");
+        return 1;
+    }
+    if (launch_config->adapter_location_configured &&
+        !swbt_daemon_production_backend_set_adapter_location_configured(&backend)) {
+        swbt_diagnostic_trace("production: adapter location state invalid");
         return 1;
     }
     if (launch_config->learned_switch_address_target_configured &&

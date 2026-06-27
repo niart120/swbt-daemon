@@ -1051,3 +1051,25 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: `tmp/hardware/local_073/20260626-205341-link-key-db-sleep-resume-existing`
 - cleanup: pass。Button A smoke 後に neutral state を accepted させ、`CTRL_BREAK_EVENT` で daemon は exit code `0`、forced stop `false`、crash dump なしで終了した
 - notes: config file 上の raw Switch address、HCI dump 上の raw address、raw link key value は表示、転記していない。この rerun は、`experimental` 名称撤去後も保存済み link key DB を使った outgoing reconnect が新規 pairing なしで HID open へ到達することを確認した hardware observation である
+
+## 2026-06-27: local_077 Windows WinUSB adapter location open probe
+
+- OS: Microsoft Windows 11 Pro、Version `10.0.26200`、Build `26200`、64-bit
+- environment: Windows native PowerShell、swbt branch `work/local-077-adapter-selector-guard`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Class `USBDevice`、Service `WinUSB`、Provider `libwdi`、INF `oem75.inf`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: git HEAD `40da2b7296f9513cce713b34ecf6ee7e4f66a0bb` plus uncommitted `local_077` changes
+- Switch firmware: not applicable。この probe では Switch 本体を操作していない
+- approval scope: ユーザ承認済み。CSR8510 A10、WinUSB、`--adapter-location`、adapter open、HCI power on、短時間の HID advertising 可能性、trace / HCI dump 保存、Ctrl+Break cleanup 確認。Switch pairing、Switch 操作、IPC input、report loop の入力反映確認は含めない
+- environment variables: `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: `tmp/hardware/local_077/run-adapter-location-open.ps1` を実行した。selector は `winusb:PCIROOT(0)#PCI(0201)#PCI(0000)#PCI(0C00)#PCI(0000)#USBROOT(0)#USB(9)#USB(1)`。script は `DEVPKEY_Device_LocationPaths` に selector suffix が含まれ、Service が `WinUSB` であることを確認してから `build/windows-mingw-debug/swbt-daemon.exe --backend production --adapter-location <selector> --trace-path <artifact>\daemon-trace.txt --hci-dump-path <artifact>\hci-dump.txt --crash-dump-path <artifact>\crash.dmp` を起動した
+- result: pass。trace は `btstack: hci power on ok`、`production: run loop execute`、`btstack: hci power off`、`host: stop done` を各 `1` 件記録した。summary は `hci_power_on_ok_count=1`、`hci_power_on_failed_count=0`、`switch_connection_opened_count=0`、`daemon_exit_code=0`、`daemon_forced=false`、`crash_dump_exists=false`。HCI dump は non-matching USB device interface `16` 件を `Location Path does not match selector` で除外し、`vid_0a12&pid_0001#9&12127a34&0&1` を `Opening USB device` して `usb_open: done, r = 0` まで到達した。HCI dump 上の local name は `CSR8510 A10`
+- daemon log: daemon stdout / stderr log はなし。`daemon-trace.txt` と `hci-dump.txt` を正本にする
+- artifact root: `tmp/hardware/local_077/20260627-161745-adapter-location-open`
+- cleanup: pass。script は `btstack: hci power on ok` 確認後 3 秒で `CTRL_BREAK_EVENT` を送り、daemon は exit code `0`、forced stop `false`、crash dump なしで終了した
+- notes: この entry は `--adapter-location` による Windows WinUSB の runtime selector 観測であり、Switch connection、pairing、IPC input、report loop の実機成功を示すものではない
