@@ -140,8 +140,8 @@ event listener が必要になった場合の再検討条件は `spec/dev-journa
 | refactor-skipped | timer adapter periodic report sends HIDP input message through caller-provided sender | new | unit | no |
 | refactor-skipped | timer adapter subcommand reply sends HIDP input message through the same sender without changing reply holdoff behavior | regression | unit | no |
 | refactor-skipped | timer adapter shutdown neutral sends HIDP input message through the same sender and preserves pending retry behavior | regression | unit | no |
-| todo | production backend wires report timer sender to `swbt_btstack_device_send` | new | integration | no |
-| todo | no production path calls `swbt_btstack_hid_port_send_report` directly except the production device port implementation | regression | build/review | no |
+| refactor-skipped | production backend wires report timer sender to `swbt_btstack_device_send` | new | integration | no |
+| green | no production path calls `swbt_btstack_hid_port_send_report` directly except the production device port implementation | regression | build/review | no |
 | deferred | `open` / `listen` split for platform open vs incoming HID readiness | deferred | unit/integration | no |
 | deferred | device event listener registration for typed BTstack HID events | deferred | unit/integration | no |
 
@@ -149,20 +149,28 @@ TDD status:
 
 - source: user request, 2026-06-27。
 - use case: production の report send path まで device API 経由にする。packet / event 抽象と `open` / `listen` 分割はこの work unit では扱わない。
-- item: timer adapter subcommand reply sends HIDP input message through the same sender without changing reply holdoff behavior / timer adapter shutdown neutral sends HIDP input message through the same sender and preserves pending retry behavior。
+- item: production backend wires report timer sender to `swbt_btstack_device_send`。
 - state: refactor-skipped。
 - commands:
-  - red: not applicable。
-    - reason: previous cycle の sender injection は共通 `send_hidp_input_report` 経路に入ったため、reply / neutral は実装済みだった。この cycle は regression test でその共有経路を固定した。
-  - green: `CTEST_ARGS="-R \"^btstack_input_report_timer_adapter_test$\" --output-on-failure" just test-debug`
+  - red: `just build-tests-debug`
+    - result: pass。追加 test は compile できた。
+  - red: `CTEST_ARGS="-R \"^daemon_production_backend_test$\" --output-on-failure" just test-debug`
+    - result: expected fail。`timer hid sender configured` が false、fake device send は 0 calls。
+  - green: `just build-tests-debug`
+    - result: pass。
+  - green: `CTEST_ARGS="-R \"^daemon_production_backend_test$\" --output-on-failure" just test-debug`
     - result: pass。1/1 tests passed。
   - format: `just format`
     - result: pass。
-  - verification after format: `CTEST_ARGS="-R \"^btstack_input_report_timer_adapter_test$\" --output-on-failure" just test-debug`
-    - result: pass。1/1 tests passed。
+  - verification after format: `CTEST_ARGS="-R \"^(btstack_input_report_timer_adapter_test|daemon_production_backend_test|btstack_device_test)$\" --output-on-failure" just test-debug`
+    - result: pass。3/3 tests passed。
+  - review: `rg -n "swbt_btstack_hid_port_send_report" swbt tests api CMakeLists.txt tests/cmake`
+    - result: direct calls are limited to `hid_port` implementation/header/tests, `input_report_timer_adapter.c` fallback, and `production_btstack.c` production device port implementation。
+  - debug: `just debug`
+    - result: pass。50/50 tests passed。
   - refactor: skipped。
-    - reason: test fixture の helper 追加だけで、production wiring は次 item に残す。
-- previous item:
+    - reason: production wiring は static sender の追加と timer config への注入だけで完了した。`open` / `listen`、event listener、public C ABI、report bytes、timer policy に触れる構造変更はこの work unit の範囲外。
+- completed previous items:
   - item: timer adapter periodic report sends HIDP input message through caller-provided sender。
   - state: refactor-skipped。
   - red: `just build-tests-debug`
@@ -175,7 +183,16 @@ TDD status:
     - result: pass。
   - verification after format: `CTEST_ARGS="-R \"^btstack_input_report_timer_adapter_test$\" --output-on-failure" just test-debug`
     - result: pass。1/1 tests passed。
-- next red candidate: production backend wires report timer sender to `swbt_btstack_device_send`。
+  - item: timer adapter subcommand reply sends HIDP input message through the same sender without changing reply holdoff behavior / timer adapter shutdown neutral sends HIDP input message through the same sender and preserves pending retry behavior。
+  - state: refactor-skipped。
+  - red: not applicable。
+    - reason: previous cycle の sender injection は共通 `send_hidp_input_report` 経路に入ったため、reply / neutral は実装済みだった。この cycle は regression test でその共有経路を固定した。
+  - green: `CTEST_ARGS="-R \"^btstack_input_report_timer_adapter_test$\" --output-on-failure" just test-debug`
+    - result: pass。1/1 tests passed。
+  - format: `just format`
+    - result: pass。
+  - verification after format: `CTEST_ARGS="-R \"^btstack_input_report_timer_adapter_test$\" --output-on-failure" just test-debug`
+    - result: pass。1/1 tests passed。
 
 ## 10. 検証
 
@@ -194,12 +211,27 @@ TDD status:
 - `CTEST_ARGS="-R \"^btstack_input_report_timer_adapter_test$\" --output-on-failure" just test-debug`
   - result: pass。formatter 後も 1/1 tests passed。
 
-今後予定:
-
-- targeted `just test-debug` with `btstack_input_report_timer_adapter_test|daemon_production_backend_test|btstack_device_test`
+- `just build-tests-debug`
+  - result: pass。production timer sender integration test 追加後も debug unit test target build が成功した。
+- `CTEST_ARGS="-R \"^daemon_production_backend_test$\" --output-on-failure" just test-debug`
+  - result: expected fail。`timer hid sender configured` が false、fake device send は 0 calls。
+- `just build-tests-debug`
+  - result: pass。production backend の sender 実装後に debug unit test target build が成功した。
+- `CTEST_ARGS="-R \"^daemon_production_backend_test$\" --output-on-failure" just test-debug`
+  - result: pass。1/1 tests passed。
 - `just format`
+  - result: pass。
+- `CTEST_ARGS="-R \"^(btstack_input_report_timer_adapter_test|daemon_production_backend_test|btstack_device_test)$\" --output-on-failure" just test-debug`
+  - result: pass。3/3 tests passed。
+- `rg -n "swbt_btstack_hid_port_send_report" swbt tests api CMakeLists.txt tests/cmake`
+  - result: production report timer path の直接呼び出しはなし。direct calls are `hid_port` implementation/header/tests, `input_report_timer_adapter.c` fallback, and `production_btstack.c` production device port implementation。
 - `just debug`
-- 変更範囲に応じて `just verify`
+  - result: pass。50/50 tests passed。
+
+未実行:
+
+- `just verify`
+  - reason: local_080 は send path に絞った production backend / unit test 変更であり、`just debug` と targeted tests で debug build/test は通過済み。PR 前または pre-push では `just verify` を実行する。
 
 ## 11. 実機実行条件
 
@@ -238,9 +270,9 @@ TDD status:
 - [x] local_079 / local_082 後の前提で scope を見直した。
 - [x] `open` / `listen` 分割を local_080 の対象外へ移した。
 - [x] TDD Test List を send path に絞り直した。
-- [ ] red test を追加した。
-- [ ] timer adapter の sender 注入を実装した。
-- [ ] production report send path を `swbt_btstack_device_send` 経由にした。
-- [ ] targeted CTest を実行した。
-- [ ] 実機未実行理由を維持または更新した。
-- [ ] work unit record を更新した。
+- [x] red test を追加した。
+- [x] timer adapter の sender 注入を実装した。
+- [x] production report send path を `swbt_btstack_device_send` 経由にした。
+- [x] targeted CTest を実行した。
+- [x] 実機未実行理由を維持または更新した。
+- [x] work unit record を更新した。

@@ -53,6 +53,7 @@ typedef struct {
     int notify_report_tick_failure;
     int injected_json_result;
     int hid_send_calls;
+    int device_send_calls;
     int power_off_calls;
     int active_reconnect_connect_calls;
     int active_reconnect_connect_result;
@@ -63,8 +64,11 @@ typedef struct {
     int fire_can_send_after_shutdown_request;
     uint16_t timer_hid_cid;
     uint16_t last_hid_cid;
+    uint16_t last_device_hid_cid;
     uint16_t last_hid_message_len;
+    size_t last_device_message_size;
     uint8_t last_hid_message[1u + SWBT_SWITCH_STANDARD_FULL_REPORT_SIZE];
+    uint8_t last_device_message[1u + SWBT_SWITCH_STANDARD_FULL_REPORT_SIZE];
     uint8_t hid_send_button_bytes[8];
     uint8_t controller_address[6];
     uint8_t ssp_confirmation_address[6];
@@ -500,10 +504,17 @@ static swbt_btstack_production_ipc_pump_port_t fake_ipc_pump_port(void) {
 
 static int fake_device_send(void *context, uint16_t hid_cid, const uint8_t *message,
                             size_t message_size) {
-    (void)context;
-    (void)hid_cid;
-    (void)message;
-    (void)message_size;
+    fake_ops_t *fake = context;
+    if (fake == NULL || message == NULL || message_size > sizeof(fake->last_device_message)) {
+        return -1;
+    }
+
+    fake->device_send_calls += 1;
+    fake->last_device_hid_cid = hid_cid;
+    fake->last_device_message_size = message_size;
+    // The fake HID buffer capacity is checked before copying message bytes.
+    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+    memcpy(fake->last_device_message, message, message_size);
     return 0;
 }
 
@@ -1375,6 +1386,43 @@ static int hid_packet_handler_starts_sends_and_stops_timer(void) {
     return failed;
 }
 
+static int production_report_timer_sender_uses_device_send(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {0};
+    const swbt_btstack_production_adapter_t adapter = fake_backend_adapter();
+    swbt_daemon_production_backend_t backend;
+    swbt_daemon_host_t host;
+    const uint8_t message[] = {0xa1u, 0x30u, 0x01u, 0x02u};
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += expect_eq_int(
+        swbt_daemon_host_init(&host, &config, swbt_daemon_production_host_backend(), &backend),
+        SWBT_DAEMON_HOST_OK, "host init");
+    failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK, "host start");
+
+    failed +=
+        expect_true(fake.captured_timer_config.hid_sender != NULL, "timer hid sender configured");
+    if (fake.captured_timer_config.hid_sender != NULL) {
+        failed += expect_eq_int(
+            fake.captured_timer_config.hid_sender(fake.captured_timer_config.hid_sender_context,
+                                                  0x0042u, message, sizeof(message)),
+            0, "timer hid sender result");
+    }
+    failed += expect_eq_int(fake.device_send_calls, 1, "device send calls");
+    failed += expect_eq_u16(fake.last_device_hid_cid, 0x0042u, "device send cid");
+    failed += expect_eq_int((int)fake.last_device_message_size, (int)sizeof(message),
+                            "device send message size");
+    for (size_t index = 0; index < sizeof(message); ++index) {
+        failed += expect_eq_u8(fake.last_device_message[index], message[index],
+                               "device send message byte");
+    }
+
+    swbt_daemon_host_destroy(&host);
+    return failed;
+}
+
 static int hid_connection_opened_persists_learned_switch_address_to_config_target(void) {
     const char *path = "daemon-production-learned-switch-address.toml";
     swbt_daemon_config_t config = swbt_daemon_config_default();
@@ -1471,6 +1519,7 @@ int main(void) {
     failed += repeated_stop_request_does_not_power_off_twice();
     failed += report_period_and_ipc_config_are_exposed();
     failed += hid_packet_handler_starts_sends_and_stops_timer();
+    failed += production_report_timer_sender_uses_device_send();
     failed += hid_connection_opened_persists_learned_switch_address_to_config_target();
     failed += hid_packet_handler_confirms_ssp_user_confirmation();
     return failed == 0 ? 0 : 1;
