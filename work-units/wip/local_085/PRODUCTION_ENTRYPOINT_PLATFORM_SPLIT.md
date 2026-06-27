@@ -87,10 +87,30 @@ Tidy status:
 | todo | noop backend startup still avoids real BTstack production implementation | regression | unit/integration | no |
 | todo | production startup still configures link key DB, HCI dump, adapter location, learned address target, and shutdown listener before runner main | regression | integration | no |
 | todo | executable target links after moving app-local sources out of `main.c` | regression | build | no |
+| refactor-skipped | `main.c` no longer owns production BTstack wiring or platform process support | regression | source/build | no |
 
 ## 10. 検証
 
-not run yet.
+TDD status:
+
+- source: `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md` and this
+  work unit.
+- use case: daemon executable の起動経路を読む開発者が、`main.c` から production
+  concrete setup と platform process support を追わなくてよい。
+- item: `main.c` no longer owns production BTstack wiring or platform process support.
+- state: refactor-skipped.
+- red:
+  - command: `$env:CTEST_ARGS='-R production_entrypoint_boundary_cmake_test --output-on-failure'; just debug`
+  - result: fail as expected. `apps/swbt-daemon/production_entrypoint.c is missing`.
+- green:
+  - command: `$env:CTEST_ARGS='-R "production_entrypoint_boundary_cmake_test|daemon_cli_test|daemon_launch_options_test|daemon_production_runner_test|btstack_production_hci_dump_test" --output-on-failure'; just debug`
+  - result: pass, 5/5 tests passed.
+  - command: `just format`
+  - result: pass.
+  - command: same targeted `just debug` after formatting.
+  - result: pass, 5/5 tests passed.
+- notes: green 後の追加構造変更は行っていない。formatter のみで、refactor 本体は
+  skipped とした。
 
 Expected checks:
 

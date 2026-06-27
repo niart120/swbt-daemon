@@ -1,119 +1,14 @@
-#include <stdbool.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#if defined(_WIN32)
-#include <windows.h>
-#include <dbghelp.h>
-#endif
+#include "platform_process.h"
+#include "production_entrypoint.h"
 
-#include "btstack_bridge/production_btstack_impl.h"
 #include "support/diagnostics.h"
 #include "daemon/cli.h"
 #include "daemon/config.h"
 #include "daemon/process.h"
 #include "daemon/launch_options.h"
-#include "daemon/production_runner.h"
-
-#if defined(_WIN32)
-static swbt_daemon_shutdown_request_t g_swbt_daemon_shutdown_request;
-static void *g_swbt_daemon_shutdown_context;
-static const char *g_swbt_daemon_crash_dump_path;
-static volatile LONG g_swbt_daemon_crash_dump_written;
-
-static void swbt_daemon_write_crash_dump(EXCEPTION_POINTERS *exception_info) {
-    HANDLE file = INVALID_HANDLE_VALUE;
-    MINIDUMP_EXCEPTION_INFORMATION dump_exception;
-
-    if (!swbt_diagnostic_path_is_enabled(g_swbt_daemon_crash_dump_path)) {
-        return;
-    }
-    if (InterlockedExchange(&g_swbt_daemon_crash_dump_written, 1) != 0) {
-        return;
-    }
-
-    file = CreateFileA(g_swbt_daemon_crash_dump_path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
-                       FILE_ATTRIBUTE_NORMAL, NULL);
-    if (file == INVALID_HANDLE_VALUE) {
-        return;
-    }
-
-    dump_exception.ThreadId = GetCurrentThreadId();
-    dump_exception.ExceptionPointers = exception_info;
-    dump_exception.ClientPointers = FALSE;
-    (void)MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), file, MiniDumpNormal,
-                            &dump_exception, NULL, NULL);
-    CloseHandle(file);
-}
-
-static LONG WINAPI swbt_daemon_unhandled_exception_filter(EXCEPTION_POINTERS *exception_info) {
-    swbt_daemon_write_crash_dump(exception_info);
-    return EXCEPTION_EXECUTE_HANDLER;
-}
-
-static LONG WINAPI swbt_daemon_vectored_exception_handler(EXCEPTION_POINTERS *exception_info) {
-    if (exception_info != NULL && exception_info->ExceptionRecord != NULL &&
-        exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-        swbt_daemon_write_crash_dump(exception_info);
-    }
-    return EXCEPTION_CONTINUE_SEARCH;
-}
-
-static void swbt_daemon_install_crash_dump_handler(const char *path) {
-    g_swbt_daemon_crash_dump_path = path;
-    if (swbt_diagnostic_path_is_enabled(g_swbt_daemon_crash_dump_path)) {
-        (void)AddVectoredExceptionHandler(1, swbt_daemon_vectored_exception_handler);
-        SetUnhandledExceptionFilter(swbt_daemon_unhandled_exception_filter);
-    }
-}
-
-static BOOL WINAPI swbt_daemon_console_control_handler(DWORD control_type) {
-    switch (control_type) {
-    case CTRL_C_EVENT:
-    case CTRL_BREAK_EVENT:
-    case CTRL_CLOSE_EVENT:
-    case CTRL_SHUTDOWN_EVENT:
-        if (g_swbt_daemon_shutdown_request != NULL) {
-            g_swbt_daemon_shutdown_request(g_swbt_daemon_shutdown_context);
-        }
-        return TRUE;
-    default:
-        return FALSE;
-    }
-}
-
-static int swbt_daemon_install_process_shutdown_listener(
-    void *context, swbt_daemon_shutdown_request_t request_shutdown, void *request_context) {
-    (void)context;
-    g_swbt_daemon_shutdown_request = request_shutdown;
-    g_swbt_daemon_shutdown_context = request_context;
-    return SetConsoleCtrlHandler(swbt_daemon_console_control_handler, TRUE) ? 0 : -1;
-}
-
-static void swbt_daemon_uninstall_process_shutdown_listener(void *context) {
-    (void)context;
-    (void)SetConsoleCtrlHandler(swbt_daemon_console_control_handler, FALSE);
-    g_swbt_daemon_shutdown_request = NULL;
-    g_swbt_daemon_shutdown_context = NULL;
-}
-
-static const swbt_daemon_shutdown_listener_t *swbt_daemon_process_shutdown_listener(void) {
-    static const swbt_daemon_shutdown_listener_t listener = {
-        .install = swbt_daemon_install_process_shutdown_listener,
-        .uninstall = swbt_daemon_uninstall_process_shutdown_listener,
-    };
-    return &listener;
-}
-#else
-static void swbt_daemon_install_crash_dump_handler(const char *path) {
-    (void)path;
-}
-
-static const swbt_daemon_shutdown_listener_t *swbt_daemon_process_shutdown_listener(void) {
-    return NULL;
-}
-#endif
 
 static swbt_daemon_config_env_t swbt_daemon_config_env_from_process_env(void) {
     return (swbt_daemon_config_env_t){
@@ -126,57 +21,13 @@ static swbt_daemon_config_env_t swbt_daemon_config_env_from_process_env(void) {
     };
 }
 
-static int swbt_daemon_run_production(const swbt_daemon_launch_config_t *launch_config) {
-    swbt_daemon_production_runner_t backend;
-
-    if (swbt_btstack_production_link_key_db_configure(
-            launch_config->link_key_db_configured ? launch_config->link_key_db_path : NULL) != 0) {
-        swbt_diagnostic_trace("production: link key db path invalid");
-        return 1;
-    }
-    if (swbt_btstack_production_hci_dump_configure(launch_config->hci_dump_path) != 0) {
-        swbt_diagnostic_trace("production: hci dump path invalid");
-        return 1;
-    }
-    if (launch_config->adapter_location_configured &&
-        swbt_btstack_production_impl_configure_adapter_location(launch_config->adapter_location) !=
-            0) {
-        swbt_diagnostic_trace("production: adapter location invalid");
-        return 1;
-    }
-    swbt_diagnostic_trace("production: backend init");
-    if (swbt_daemon_production_runner_init(&backend, &launch_config->config,
-                                           swbt_btstack_production_ports_btstack(),
-                                           NULL) != SWBT_DAEMON_PRODUCTION_OK) {
-        swbt_diagnostic_trace("production: backend init failed");
-        return 1;
-    }
-    if (launch_config->adapter_location_configured &&
-        !swbt_daemon_production_runner_set_adapter_location_configured(&backend)) {
-        swbt_diagnostic_trace("production: adapter location state invalid");
-        return 1;
-    }
-    if (launch_config->learned_switch_address_target_configured &&
-        !swbt_daemon_production_runner_set_learned_switch_address_target(
-            &backend, &launch_config->learned_switch_address_target)) {
-        swbt_diagnostic_trace("production: learned switch address target invalid");
-        return 1;
-    }
-    swbt_diagnostic_trace("production: enter main");
-    return swbt_daemon_production_main_with_runner_and_shutdown(
-               &backend, NULL, swbt_daemon_process_shutdown_listener(), NULL) ==
-                   SWBT_DAEMON_PRODUCTION_OK
-               ? 0
-               : 1;
-}
-
 int main(int argc, char **argv) {
     swbt_daemon_cli_dispatch_result_t cli_result;
     swbt_daemon_launch_config_t launch_config;
     swbt_daemon_launch_options_t launch_options;
     const swbt_daemon_config_env_t config_env = swbt_daemon_config_env_from_process_env();
     const swbt_daemon_cli_ports_t cli_ports = {
-        .list_adapters = swbt_btstack_production_list_adapter_locations,
+        .list_adapters = swbt_daemon_production_entrypoint_list_adapter_locations,
         .config_env = &config_env,
     };
 
@@ -193,7 +44,7 @@ int main(int argc, char **argv) {
         swbt_diagnostic_trace("main: invalid CLI options");
         return 1;
     }
-    swbt_daemon_install_crash_dump_handler(launch_options.crash_dump_path);
+    swbt_daemon_platform_install_crash_dump_handler(launch_options.crash_dump_path);
     swbt_diagnostic_trace_set_path(launch_options.trace_path);
     if (!swbt_daemon_launch_config_prepare(&launch_config, &launch_options, &config_env)) {
         swbt_diagnostic_trace("main: invalid launch config");
@@ -202,7 +53,7 @@ int main(int argc, char **argv) {
     switch (launch_options.backend) {
     case SWBT_DAEMON_LAUNCH_BACKEND_PRODUCTION:
         swbt_diagnostic_trace("main: selected production backend");
-        return swbt_daemon_run_production(&launch_config);
+        return swbt_daemon_production_entrypoint_run(&launch_config);
     case SWBT_DAEMON_LAUNCH_BACKEND_NOOP:
         swbt_diagnostic_trace("main: selected noop backend");
         return swbt_daemon_main_with_process_backend(&launch_config.config,
