@@ -7,6 +7,7 @@
 
 #include "application/app.h"
 #include "btstack_bridge/output_report_handler.h"
+#include "control/control.h"
 #include "daemon/config.h"
 #include "runtime/host.h"
 #include "switch/switch_controller_state.h"
@@ -23,7 +24,7 @@ typedef swbt_state_t (*swbt_daemon_host_state_provider_t)(void *context);
 
 typedef struct {
     swbt_app_daemon_backend_t daemon_backend;
-    int (*ipc_start)(void *context, swbt_app_t *app);
+    int (*ipc_start)(void *context, swbt_control_t *control);
     void (*ipc_stop)(void *context);
     int (*hid_register)(void *context);
     void (*hid_stop)(void *context);
@@ -46,6 +47,7 @@ typedef struct {
     swbt_app_t *app;
     swbt_runtime_host_t runtime;
     swbt_runtime_host_backend_t runtime_backend;
+    swbt_control_t control;
     bool initialized;
     bool running;
     bool ipc_started;
@@ -66,6 +68,8 @@ void swbt_daemon_host_destroy(swbt_daemon_host_t *host);
 bool swbt_daemon_host_is_running(const swbt_daemon_host_t *host);
 
 swbt_app_t *swbt_daemon_host_app(swbt_daemon_host_t *host);
+
+swbt_control_t *swbt_daemon_host_control(swbt_daemon_host_t *host);
 
 swbt_btstack_output_report_handler_t *swbt_daemon_host_output_handler(swbt_daemon_host_t *host);
 

@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "application/app.h"
+#include "control/control.h"
 #include "ipc/ipc_json.h"
 #include "ipc/ipc_status.h"
 
@@ -49,7 +50,8 @@ typedef struct {
 typedef struct {
     swbt_ipc_socket_t listen_socket;
     swbt_app_t *default_app;
-    swbt_app_t *app;
+    swbt_control_t default_control;
+    swbt_control_t *control;
     uint32_t next_client_id;
     uint16_t bound_port;
     bool listening;
@@ -70,7 +72,8 @@ swbt_ipc_server_result_t swbt_ipc_socket_can_receive(const swbt_ipc_socket_t *so
                                                      bool *out_ready);
 
 swbt_ipc_server_result_t swbt_ipc_server_init(swbt_ipc_server_t *server);
-swbt_ipc_server_result_t swbt_ipc_server_bind_app(swbt_ipc_server_t *server, swbt_app_t *app);
+swbt_ipc_server_result_t swbt_ipc_server_bind_control(swbt_ipc_server_t *server,
+                                                      swbt_control_t *control);
 swbt_ipc_server_result_t swbt_ipc_server_listen(swbt_ipc_server_t *server,
                                                 swbt_ipc_server_listen_options_t options);
 uint16_t swbt_ipc_server_port(const swbt_ipc_server_t *server);

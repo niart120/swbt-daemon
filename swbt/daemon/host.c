@@ -145,6 +145,14 @@ swbt_daemon_host_result_t swbt_daemon_host_init(swbt_daemon_host_t *host,
         host->app = NULL;
         return SWBT_DAEMON_HOST_ERROR_INVALID_ARGUMENT;
     }
+    if (swbt_control_init(&host->control, &(swbt_control_config_t){
+                                              .app = host->app,
+                                              .runtime = &host->runtime,
+                                          }) != SWBT_CONTROL_OK) {
+        swbt_app_destroy(host->app);
+        host->app = NULL;
+        return SWBT_DAEMON_HOST_ERROR_INVALID_ARGUMENT;
+    }
 
     host->initialized = true;
     return SWBT_DAEMON_HOST_OK;
@@ -159,7 +167,7 @@ swbt_daemon_host_result_t swbt_daemon_host_start(swbt_daemon_host_t *host) {
     }
 
     swbt_diagnostic_trace("host: ipc start");
-    if (host->backend->ipc_start(host->backend_context, host->app) != 0) {
+    if (host->backend->ipc_start(host->backend_context, &host->control) != 0) {
         swbt_diagnostic_trace("host: ipc start failed");
         return SWBT_DAEMON_HOST_ERROR_BACKEND;
     }
@@ -223,13 +231,17 @@ swbt_app_t *swbt_daemon_host_app(swbt_daemon_host_t *host) {
     return host == NULL ? NULL : host->app;
 }
 
+swbt_control_t *swbt_daemon_host_control(swbt_daemon_host_t *host) {
+    return host == NULL ? NULL : &host->control;
+}
+
 swbt_btstack_output_report_handler_t *swbt_daemon_host_output_handler(swbt_daemon_host_t *host) {
     return host == NULL ? NULL : swbt_runtime_host_output_handler(&host->runtime);
 }
 
-static int swbt_daemon_noop_ipc_start(void *context, swbt_app_t *app) {
+static int swbt_daemon_noop_ipc_start(void *context, swbt_control_t *control) {
     (void)context;
-    (void)app;
+    (void)control;
     return 0;
 }
 

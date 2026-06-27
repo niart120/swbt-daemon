@@ -270,7 +270,7 @@ Tidy status:
 | refactor-skipped | control submit client state preserves IPC owner and sequence semantics | regression | unit | no |
 | refactor-skipped | control submit state for direct API hides owner id and sequence from caller | new | unit | no |
 | refactor-skipped | control get status combines app-owned status and runtime status without changing IPC JSON status | regression | integration | no |
-| todo | IPC adapter delegates acquire/release/set_state/get_status to control instead of app direct calls | regression | integration | no |
+| refactor-skipped | IPC adapter delegates acquire/release/set_state/get_status to control instead of app direct calls | regression | integration | no |
 | todo | public C ABI exposes open/close/submit_state/submit_neutral/get_status and does not link swbt_ipc | new | unit/build | no |
 | todo | CMake include boundary tests recognize swbt_control and swbt_runtime targets | regression | build | no |
 | todo | old daemon_host backend no longer requires ipc_start/ipc_stop in runtime backend contract | characterization | review | no |
@@ -279,17 +279,17 @@ TDD status:
 
 - source: user request, 2026-06-27。
 - use case: `swbt/control` と `swbt/runtime` の実装を新規 work unit として進める。
-- last item: control get status combines app-owned status and runtime status without changing IPC JSON status。
+- last item: IPC adapter delegates acquire/release/set_state/get_status to control instead of app direct calls。
 - state: refactor-skipped。
 - commands:
   - red: `just build-tests-debug`
-    - result: expected failure. `swbt_control_status_t` and `swbt_control_get_status` were not declared.
-  - green: `just format`; `just build-tests-debug`; `CTEST_ARGS="-R \"control_test|ipc_json_test\"" just test-debug`
+    - result: expected failure. `ipc_adapter.h` was switched to `swbt_control_t *`, while implementation and callers still passed `swbt_app_t *`.
+  - green: `just format`; `just build-tests-debug`; `CTEST_ARGS="-R \"control_test|ipc_json_test|ipc_server_test|daemon_ipc_runner_test|daemon_host_test|architecture_journey_test|daemon_production_backend_test\"" just test-debug`
     - result: pass.
   - refactor: skipped.
-    - reason: status synthesis is a direct aggregation of app snapshot plus runtime host status. The IPC adapter is still intentionally unchanged until the next IPC delegation item.
-- notes: seventh cycle added `swbt_control_status_t` and `swbt_control_get_status`. `control_test` covers the combined status; `ipc_json_test` covers that existing IPC JSON status remains unchanged.
-- next red candidate: IPC adapter delegates acquire/release/set_state/get_status to control instead of app direct calls。
+    - reason: this cycle changed the IPC boundary end-to-end: adapter, server, runner, daemon host, and production backend now pass `swbt_control_t *`. Additional cleanup would enter include-boundary and public C ABI items.
+- notes: eighth cycle moved IPC adapter operations to `swbt/control`, added control revoke/rejected helpers, changed `ipc_server` to bind control, and changed daemon IPC start to receive control from `daemon_host`.
+- next red candidate: public C ABI exposes open/close/submit_state/submit_neutral/get_status and does not link swbt_ipc。
 
 ## 10. 検証
 
@@ -313,6 +313,8 @@ TDD status:
   - result: pass。1/1 tests passed。
 - `CTEST_ARGS="-R \"control_test|ipc_json_test\"" just test-debug`
   - result: pass。2/2 tests passed。
+- `CTEST_ARGS="-R \"control_test|ipc_json_test|ipc_server_test|daemon_ipc_runner_test|daemon_host_test|architecture_journey_test|daemon_production_backend_test\"" just test-debug`
+  - result: pass。7/7 tests passed。
 
 予定:
 
@@ -345,9 +347,9 @@ TDD status:
 - [x] 事前妥当性評価を記録した。
 - [ ] `swbt/runtime` を実装した。初期 start path、shutdown neutral、runtime-owned state status、daemon host delegation は実装済み。control / public C ABI から使う status 合成は未完了。
 - [x] `swbt/runtime` が runtime-owned state を持ち、app lifetime と app-owned state を所有または公開しないことを検証した。
-- [ ] `swbt/control` を実装した。client state submit、direct submit、status 合成は実装済み。IPC adapter delegation は未完了。
+- [x] `swbt/control` を実装した。client state submit、direct submit、status 合成、IPC adapter delegation は実装済み。
 - [x] daemon host を runtime host + IPC runner の利用者へ薄くした。
-- [ ] IPC adapter / runner を control 経由に移した。
+- [x] IPC adapter / runner を control 経由に移した。
 - [ ] public C ABI minimal operation を追加した。
 - [ ] CMake target と include boundary を更新した。
 - [ ] relevant tests を追加または更新した。`control_test` は追加済み。direct API、status、IPC delegation、public C ABI、include boundary は未完了。

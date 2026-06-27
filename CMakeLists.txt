@@ -188,19 +188,6 @@ target_link_libraries(swbt_application PUBLIC swbt_support swbt_switch_protocol)
 swbt_apply_common_warnings(swbt_application)
 swbt_apply_sanitizers(swbt_application)
 
-add_library(swbt_ipc STATIC
-    swbt/ipc/ipc_adapter.c
-    swbt/ipc/ipc_json.c
-    swbt/ipc/ipc_server.c
-)
-swbt_configure_module_public_includes(swbt_ipc MODULES ipc)
-if(WIN32)
-    target_link_libraries(swbt_ipc PUBLIC ws2_32)
-endif()
-target_link_libraries(swbt_ipc PUBLIC swbt_application swbt_support)
-swbt_apply_common_warnings(swbt_ipc)
-swbt_apply_sanitizers(swbt_ipc)
-
 add_library(swbt_btstack_adapter STATIC
     swbt/btstack_bridge/production_adapter.c
     swbt/btstack_bridge/usb_adapter_location.c
@@ -240,6 +227,19 @@ swbt_configure_module_public_includes(swbt_control MODULES control)
 target_link_libraries(swbt_control PUBLIC swbt_application swbt_runtime)
 swbt_apply_common_warnings(swbt_control)
 swbt_apply_sanitizers(swbt_control)
+
+add_library(swbt_ipc STATIC
+    swbt/ipc/ipc_adapter.c
+    swbt/ipc/ipc_json.c
+    swbt/ipc/ipc_server.c
+)
+swbt_configure_module_public_includes(swbt_ipc MODULES ipc)
+if(WIN32)
+    target_link_libraries(swbt_ipc PUBLIC ws2_32)
+endif()
+target_link_libraries(swbt_ipc PUBLIC swbt_control swbt_support)
+swbt_apply_common_warnings(swbt_ipc)
+swbt_apply_sanitizers(swbt_ipc)
 
 add_library(swbt_daemon_host STATIC
     swbt/daemon/config.c

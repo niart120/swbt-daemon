@@ -51,6 +51,51 @@ swbt_control_result_t swbt_control_release_client(swbt_control_t *control, uint3
                                       }));
 }
 
+swbt_control_result_t swbt_control_disconnect_client(swbt_control_t *control, uint32_t client_id) {
+    if (control == NULL || control->app == NULL) {
+        return SWBT_CONTROL_ERROR_INVALID_ARGUMENT;
+    }
+
+    return swbt_control_map_app_result(
+        swbt_app_revoke(control->app, (swbt_app_revoke_options_t){
+                                          .reason = SWBT_APP_REVOKE_DISCONNECT,
+                                          .client_id = client_id,
+                                      }));
+}
+
+swbt_control_result_t swbt_control_heartbeat_timeout_client(swbt_control_t *control,
+                                                            uint32_t client_id) {
+    if (control == NULL || control->app == NULL) {
+        return SWBT_CONTROL_ERROR_INVALID_ARGUMENT;
+    }
+
+    return swbt_control_map_app_result(
+        swbt_app_revoke(control->app, (swbt_app_revoke_options_t){
+                                          .reason = SWBT_APP_REVOKE_HEARTBEAT_TIMEOUT,
+                                          .client_id = client_id,
+                                      }));
+}
+
+swbt_control_result_t swbt_control_shutdown(swbt_control_t *control) {
+    if (control == NULL || control->app == NULL) {
+        return SWBT_CONTROL_ERROR_INVALID_ARGUMENT;
+    }
+
+    return swbt_control_map_app_result(
+        swbt_app_revoke(control->app, (swbt_app_revoke_options_t){
+                                          .reason = SWBT_APP_REVOKE_SHUTDOWN,
+                                          .client_id = 0u,
+                                      }));
+}
+
+swbt_control_result_t swbt_control_record_state_update_rejected(swbt_control_t *control) {
+    if (control == NULL || control->app == NULL) {
+        return SWBT_CONTROL_ERROR_INVALID_ARGUMENT;
+    }
+
+    return swbt_control_map_app_result(swbt_app_record_state_update_rejected(control->app));
+}
+
 swbt_control_result_t swbt_control_submit_client_state(swbt_control_t *control, uint32_t client_id,
                                                        const swbt_state_t *state,
                                                        uint64_t sequence) {

@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "application/app.h"
+#include "control/control.h"
 #include "ipc/ipc_json.h"
 #include "ipc/ipc_status.h"
 
@@ -15,16 +15,18 @@ typedef enum {
     SWBT_IPC_ERROR_NOT_OWNER = -3,
 } swbt_ipc_result_t;
 
-swbt_ipc_json_result_t swbt_ipc_adapter_handle_line(swbt_app_t *app, uint32_t client_id,
+swbt_ipc_json_result_t swbt_ipc_adapter_handle_line(swbt_control_t *control, uint32_t client_id,
                                                     const char *line, char *response,
                                                     size_t response_size);
 
-swbt_ipc_result_t swbt_ipc_adapter_handle_disconnect(swbt_app_t *app, uint32_t client_id);
+swbt_ipc_result_t swbt_ipc_adapter_handle_disconnect(swbt_control_t *control, uint32_t client_id);
 
-swbt_ipc_result_t swbt_ipc_adapter_handle_heartbeat_timeout(swbt_app_t *app, uint32_t client_id);
+swbt_ipc_result_t swbt_ipc_adapter_handle_heartbeat_timeout(swbt_control_t *control,
+                                                            uint32_t client_id);
 
-swbt_ipc_result_t swbt_ipc_adapter_handle_shutdown(swbt_app_t *app);
+swbt_ipc_result_t swbt_ipc_adapter_handle_shutdown(swbt_control_t *control);
 
-swbt_ipc_result_t swbt_ipc_adapter_get_status(const swbt_app_t *app, swbt_ipc_status_t *out_status);
+swbt_ipc_result_t swbt_ipc_adapter_get_status(const swbt_control_t *control,
+                                              swbt_ipc_status_t *out_status);
 
 #endif

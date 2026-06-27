@@ -53,6 +53,7 @@ static int send_and_serve(swbt_ipc_socket_t *client, swbt_daemon_ipc_runner_t *r
 static int test_rejects_non_loopback_bind(void) {
     swbt_daemon_ipc_runner_t runner;
     swbt_app_t *app = swbt_app_create();
+    swbt_control_t control;
     swbt_daemon_ipc_runner_config_t config = {
         .host = "0.0.0.0",
         .port = 0u,
@@ -62,7 +63,12 @@ static int test_rejects_non_loopback_bind(void) {
     int failed = 0;
     failed += expect_true(app != NULL);
     failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
-    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, app, &config),
+    failed += expect_eq_int(swbt_control_init(&control,
+                                              &(swbt_control_config_t){
+                                                  .app = app,
+                                              }),
+                            SWBT_CONTROL_OK);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, &control, &config),
                             SWBT_DAEMON_IPC_RUNNER_ERROR_UNSUPPORTED_BIND);
     swbt_daemon_ipc_runner_stop(&runner);
     swbt_app_destroy(app);
@@ -72,13 +78,19 @@ static int test_rejects_non_loopback_bind(void) {
 static int test_exposes_loopback_endpoint_before_accept(void) {
     swbt_daemon_ipc_runner_t runner;
     swbt_app_t *app = swbt_app_create();
+    swbt_control_t control;
     swbt_daemon_ipc_endpoint_t endpoint;
     const swbt_daemon_ipc_runner_config_t config = loopback_port_zero_config();
 
     int failed = 0;
     failed += expect_true(app != NULL);
     failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
-    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, app, &config),
+    failed += expect_eq_int(swbt_control_init(&control,
+                                              &(swbt_control_config_t){
+                                                  .app = app,
+                                              }),
+                            SWBT_CONTROL_OK);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, &control, &config),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed += expect_eq_int(swbt_daemon_ipc_runner_endpoint(&runner, &endpoint),
                             SWBT_DAEMON_IPC_RUNNER_OK);
@@ -95,6 +107,7 @@ static int test_exposes_loopback_endpoint_before_accept(void) {
 static int test_poll_once_accepts_and_serves_when_ready(void) {
     swbt_daemon_ipc_runner_t runner;
     swbt_app_t *app = swbt_app_create();
+    swbt_control_t control;
     swbt_daemon_ipc_endpoint_t endpoint;
     swbt_ipc_socket_t client;
     char response[SWBT_IPC_JSON_RESPONSE_MAX];
@@ -103,7 +116,12 @@ static int test_poll_once_accepts_and_serves_when_ready(void) {
     int failed = 0;
     failed += expect_true(app != NULL);
     failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
-    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, app, &config),
+    failed += expect_eq_int(swbt_control_init(&control,
+                                              &(swbt_control_config_t){
+                                                  .app = app,
+                                              }),
+                            SWBT_CONTROL_OK);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, &control, &config),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed += expect_eq_int(swbt_daemon_ipc_runner_endpoint(&runner, &endpoint),
                             SWBT_DAEMON_IPC_RUNNER_OK);
@@ -134,6 +152,7 @@ static int test_poll_once_accepts_and_serves_when_ready(void) {
 static int test_debug_client_status_sequence_updates_application_state(void) {
     swbt_daemon_ipc_runner_t runner;
     swbt_app_t *app = swbt_app_create();
+    swbt_control_t control;
     swbt_state_t read_state;
     swbt_daemon_ipc_endpoint_t endpoint;
     swbt_ipc_socket_t client;
@@ -145,7 +164,12 @@ static int test_debug_client_status_sequence_updates_application_state(void) {
     int failed = 0;
     failed += expect_true(app != NULL);
     failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
-    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, app, &config),
+    failed += expect_eq_int(swbt_control_init(&control,
+                                              &(swbt_control_config_t){
+                                                  .app = app,
+                                              }),
+                            SWBT_CONTROL_OK);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, &control, &config),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed += expect_eq_int(swbt_daemon_ipc_runner_endpoint(&runner, &endpoint),
                             SWBT_DAEMON_IPC_RUNNER_OK);
@@ -204,6 +228,7 @@ static int test_debug_client_status_sequence_updates_application_state(void) {
 static int test_stop_closes_connection_and_stores_neutral(void) {
     swbt_daemon_ipc_runner_t runner;
     swbt_app_t *app = swbt_app_create();
+    swbt_control_t control;
     swbt_state_t read_state;
     swbt_daemon_ipc_endpoint_t endpoint;
     swbt_ipc_socket_t client;
@@ -215,7 +240,12 @@ static int test_stop_closes_connection_and_stores_neutral(void) {
     int failed = 0;
     failed += expect_true(app != NULL);
     failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
-    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, app, &config),
+    failed += expect_eq_int(swbt_control_init(&control,
+                                              &(swbt_control_config_t){
+                                                  .app = app,
+                                              }),
+                            SWBT_CONTROL_OK);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, &control, &config),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed += expect_eq_int(swbt_daemon_ipc_runner_endpoint(&runner, &endpoint),
                             SWBT_DAEMON_IPC_RUNNER_OK);
@@ -262,6 +292,7 @@ static int test_stop_closes_connection_and_stores_neutral(void) {
 static int test_poll_once_at_heartbeat_timeout_stores_neutral(void) {
     swbt_daemon_ipc_runner_t runner;
     swbt_app_t *app = swbt_app_create();
+    swbt_control_t control;
     swbt_state_t read_state;
     swbt_daemon_ipc_endpoint_t endpoint;
     swbt_ipc_socket_t client;
@@ -275,7 +306,12 @@ static int test_poll_once_at_heartbeat_timeout_stores_neutral(void) {
 
     failed += expect_true(app != NULL);
     failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK);
-    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, app, &config),
+    failed += expect_eq_int(swbt_control_init(&control,
+                                              &(swbt_control_config_t){
+                                                  .app = app,
+                                              }),
+                            SWBT_CONTROL_OK);
+    failed += expect_eq_int(swbt_daemon_ipc_runner_start(&runner, &control, &config),
                             SWBT_DAEMON_IPC_RUNNER_OK);
     failed += expect_eq_int(swbt_daemon_ipc_runner_endpoint(&runner, &endpoint),
                             SWBT_DAEMON_IPC_RUNNER_OK);

@@ -40,10 +40,28 @@ static int expect_status_core_unchanged(const swbt_ipc_status_t *actual,
 
 static int handle(swbt_app_t *app, uint32_t client_id, const char *line, char *response,
                   size_t response_size) {
+    swbt_control_t control;
+
     for (size_t index = 0; index < response_size; ++index) {
         response[index] = '\0';
     }
-    return swbt_ipc_adapter_handle_line(app, client_id, line, response, response_size);
+    if (swbt_control_init(&control, &(swbt_control_config_t){
+                                        .app = app,
+                                    }) != SWBT_CONTROL_OK) {
+        return SWBT_IPC_JSON_ERROR_INVALID_ARGUMENT;
+    }
+    return swbt_ipc_adapter_handle_line(&control, client_id, line, response, response_size);
+}
+
+static swbt_ipc_result_t get_status(swbt_app_t *app, swbt_ipc_status_t *out_status) {
+    swbt_control_t control;
+
+    if (swbt_control_init(&control, &(swbt_control_config_t){
+                                        .app = app,
+                                    }) != SWBT_CONTROL_OK) {
+        return SWBT_IPC_ERROR_INVALID_ARGUMENT;
+    }
+    return swbt_ipc_adapter_get_status(&control, out_status);
 }
 
 static int large_status_response_fits_response_buffer(void) {
@@ -198,7 +216,7 @@ static int malformed_json_corpus_is_rejected_without_state_mutation(void) {
         swbt_app_destroy(app);
         return 3;
     }
-    if (swbt_ipc_adapter_get_status(app, &baseline) != SWBT_IPC_OK) {
+    if (get_status(app, &baseline) != SWBT_IPC_OK) {
         swbt_app_destroy(app);
         return 4;
     }
@@ -219,7 +237,7 @@ static int malformed_json_corpus_is_rejected_without_state_mutation(void) {
             swbt_app_destroy(app);
             return 7;
         }
-        if (swbt_ipc_adapter_get_status(app, &current) != SWBT_IPC_OK) {
+        if (get_status(app, &current) != SWBT_IPC_OK) {
             swbt_app_destroy(app);
             return 8;
         }
@@ -264,7 +282,7 @@ int main(void) {
         expect_eq_u16(command.state.lx, 1234) || expect_eq_u16(command.state.ly, 2345)) {
         return 38;
     }
-    if (swbt_ipc_adapter_get_status(app, &status_after_decode) != SWBT_IPC_OK) {
+    if (get_status(app, &status_after_decode) != SWBT_IPC_OK) {
         return 39;
     }
     if (status_after_decode.has_owner || expect_eq_u32(status_after_decode.state.buttons, 0) ||
@@ -289,7 +307,7 @@ int main(void) {
         expect_contains(response, "\"message\":\"message is not a complete JSON object\"")) {
         return 44;
     }
-    if (swbt_ipc_adapter_get_status(app, &status_after_decode) != SWBT_IPC_OK) {
+    if (get_status(app, &status_after_decode) != SWBT_IPC_OK) {
         return 45;
     }
     if (status_after_decode.has_owner || expect_eq_u32(status_after_decode.state.buttons, 0) ||
@@ -310,7 +328,7 @@ int main(void) {
         codec_error.error_code != SWBT_IPC_ERROR_CODE_INVALID_STATE) {
         return 48;
     }
-    if (swbt_ipc_adapter_get_status(app, &status_after_decode) != SWBT_IPC_OK) {
+    if (get_status(app, &status_after_decode) != SWBT_IPC_OK) {
         return 49;
     }
     if (status_after_decode.has_owner || expect_eq_u32(status_after_decode.state.buttons, 0) ||
@@ -364,7 +382,7 @@ int main(void) {
         expect_contains(response, "\"request_id\":\"s2\"")) {
         return 9;
     }
-    if (swbt_ipc_adapter_get_status(app, &status) != SWBT_IPC_OK) {
+    if (get_status(app, &status) != SWBT_IPC_OK) {
         return 52;
     }
     if (expect_eq_u64(status.metrics.ipc_state_rejected, 1u) ||
@@ -386,7 +404,7 @@ int main(void) {
         expect_contains(response, "\"seq\":77")) {
         return 11;
     }
-    if (swbt_ipc_adapter_get_status(app, &status) != SWBT_IPC_OK) {
+    if (get_status(app, &status) != SWBT_IPC_OK) {
         return 12;
     }
     if (expect_eq_u32(status.state.buttons, SWBT_BUTTON_A) ||
@@ -439,7 +457,7 @@ int main(void) {
         expect_contains(response, "\"request_id\":\"bad-state\"")) {
         return 17;
     }
-    if (swbt_ipc_adapter_get_status(app, &status) != SWBT_IPC_OK) {
+    if (get_status(app, &status) != SWBT_IPC_OK) {
         return 18;
     }
     if (expect_eq_u16(status.state.lx, 1234) || status.last_seq != 77) {
@@ -459,7 +477,7 @@ int main(void) {
         expect_contains(response, "\"request_id\":\"bad-state-object\"")) {
         return 21;
     }
-    if (swbt_ipc_adapter_get_status(app, &status) != SWBT_IPC_OK) {
+    if (get_status(app, &status) != SWBT_IPC_OK) {
         return 22;
     }
     if (expect_eq_u16(status.state.lx, 1234) || status.last_seq != 77) {
@@ -479,7 +497,7 @@ int main(void) {
         expect_contains(response, "\"seq\":76")) {
         return 34;
     }
-    if (swbt_ipc_adapter_get_status(app, &status) != SWBT_IPC_OK) {
+    if (get_status(app, &status) != SWBT_IPC_OK) {
         return 35;
     }
     if (expect_eq_u32(status.state.buttons, SWBT_BUTTON_A) ||
@@ -499,7 +517,7 @@ int main(void) {
         expect_contains(response, "\"request_id\":\"r1\"")) {
         return 25;
     }
-    if (swbt_ipc_adapter_get_status(app, &status) != SWBT_IPC_OK) {
+    if (get_status(app, &status) != SWBT_IPC_OK) {
         return 26;
     }
     if (status.has_owner || expect_eq_u32(status.state.buttons, 0) ||

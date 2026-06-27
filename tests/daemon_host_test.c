@@ -30,6 +30,7 @@ typedef struct {
     int subcommand_reply_enqueue_calls;
     int read_device_info_calls;
     swbt_app_t *app;
+    swbt_control_t *control;
     const swbt_btstack_output_report_handler_t *output_handler;
     swbt_daemon_host_state_provider_t state_provider;
     void *state_context;
@@ -109,10 +110,11 @@ static void fake_backend_init(fake_backend_t *fake) {
     fake->now_ms = 4321u;
 }
 
-static int fake_ipc_start(void *context, swbt_app_t *app) {
+static int fake_ipc_start(void *context, swbt_control_t *control) {
     fake_backend_t *fake = context;
     fake->ipc_start_calls += 1;
-    fake->app = app;
+    fake->control = control;
+    fake->app = control == NULL ? NULL : control->app;
     return fake->ipc_start_result;
 }
 
@@ -436,7 +438,7 @@ static int noop_backend_status_marks_hardware_channels_unavailable(void) {
         expect_eq_int(swbt_daemon_host_init(&host, &config, swbt_daemon_host_noop_backend(), NULL),
                       SWBT_DAEMON_HOST_OK);
     failed += expect_eq_int(swbt_daemon_host_start(&host), SWBT_DAEMON_HOST_OK);
-    failed += expect_eq_int(swbt_ipc_adapter_get_status(swbt_daemon_host_app(&host), &status),
+    failed += expect_eq_int(swbt_ipc_adapter_get_status(swbt_daemon_host_control(&host), &status),
                             SWBT_IPC_OK);
     failed += expect_eq_int((int)status.daemon.backend, (int)SWBT_IPC_DAEMON_BACKEND_NOOP);
     failed +=

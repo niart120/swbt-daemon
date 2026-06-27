@@ -341,8 +341,8 @@ static void fake_power_off(void *context) {
 static void fake_handle_json_line(fake_ops_t *fake, uint32_t client_id, const char *line) {
     char response[SWBT_IPC_JSON_RESPONSE_MAX];
 
-    if (fake == NULL || fake->ipc_runner == NULL || fake->ipc_runner->server.app == NULL ||
-        swbt_ipc_adapter_handle_line(fake->ipc_runner->server.app, client_id, line, response,
+    if (fake == NULL || fake->ipc_runner == NULL || fake->ipc_runner->server.control == NULL ||
+        swbt_ipc_adapter_handle_line(fake->ipc_runner->server.control, client_id, line, response,
                                      sizeof(response)) != SWBT_IPC_JSON_OK) {
         if (fake != NULL) {
             fake->injected_json_result = 1;
@@ -397,29 +397,29 @@ static void fake_run_loop_execute(void *context) {
     fake_ops_t *fake = context;
     record_step(fake, STEP_RUN_LOOP_EXECUTE);
     fake->status_during_run_loop_result =
-        fake->ipc_runner == NULL || fake->ipc_runner->server.app == NULL
+        fake->ipc_runner == NULL || fake->ipc_runner->server.control == NULL
             ? SWBT_IPC_ERROR_INVALID_ARGUMENT
-            : swbt_ipc_adapter_get_status(fake->ipc_runner->server.app,
+            : swbt_ipc_adapter_get_status(fake->ipc_runner->server.control,
                                           &fake->status_during_run_loop);
     if (fake->inject_json_state_during_run_loop && fake->ipc_runner != NULL &&
-        fake->ipc_runner->server.app != NULL) {
+        fake->ipc_runner->server.control != NULL) {
         fake->injected_json_result = 0;
         fake_handle_acquire(fake, 1001u, "journey-acquire");
         fake_handle_button_a_state(fake, 1001u, "000003e9", "journey-state");
         fake_emit_hid_opened(fake);
         fake_emit_can_send(fake);
-        fake->status_after_report_result =
-            swbt_ipc_adapter_get_status(fake->ipc_runner->server.app, &fake->status_after_report);
+        fake->status_after_report_result = swbt_ipc_adapter_get_status(
+            fake->ipc_runner->server.control, &fake->status_after_report);
     }
     if (fake->inject_disconnect_reacquire_during_run_loop && fake->ipc_runner != NULL &&
-        fake->ipc_runner->server.app != NULL) {
+        fake->ipc_runner->server.control != NULL) {
         fake->injected_json_result = 0;
         fake_handle_acquire(fake, 1001u, "journey-acquire");
         fake_handle_button_a_state(fake, 1001u, "000003e9", "journey-state");
         fake_emit_hid_opened(fake);
         fake_emit_can_send(fake);
 
-        if (swbt_ipc_adapter_handle_disconnect(fake->ipc_runner->server.app, 1001u) !=
+        if (swbt_ipc_adapter_handle_disconnect(fake->ipc_runner->server.control, 1001u) !=
             SWBT_IPC_OK) {
             fake->injected_json_result = 1;
         }
@@ -650,6 +650,7 @@ static int ipc_pump_port_starts_without_unrelated_btstack_abilities(void) {
     const swbt_btstack_production_adapter_t adapter = fake_ipc_pump_only_adapter();
     swbt_daemon_production_backend_t backend;
     swbt_app_t *app = swbt_app_create();
+    swbt_control_t control;
     const swbt_daemon_host_backend_t *host_backend = swbt_daemon_production_host_backend();
     const swbt_daemon_production_result_t init_result =
         swbt_daemon_production_backend_init(&backend, &config, &adapter, &fake);
@@ -657,9 +658,14 @@ static int ipc_pump_port_starts_without_unrelated_btstack_abilities(void) {
     int failed = 0;
     failed += expect_eq_int(init_result, SWBT_DAEMON_PRODUCTION_OK, "init");
     failed += expect_true(app != NULL, "app created");
+    failed += expect_eq_int(swbt_control_init(&control,
+                                              &(swbt_control_config_t){
+                                                  .app = app,
+                                              }),
+                            SWBT_CONTROL_OK, "control init");
     failed += expect_true(host_backend != NULL, "host backend");
     if (init_result == SWBT_DAEMON_PRODUCTION_OK && app != NULL && host_backend != NULL) {
-        failed += expect_eq_int(host_backend->ipc_start(&backend, app), 0, "ipc start");
+        failed += expect_eq_int(host_backend->ipc_start(&backend, &control), 0, "ipc start");
         failed += expect_eq_int(fake.ipc_start_calls, 1, "ipc start calls");
         failed += expect_eq_int(fake.platform_start_calls, 0, "platform not started");
         failed += expect_eq_int(fake.hid_register_calls, 0, "hid not registered");

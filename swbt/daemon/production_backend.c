@@ -252,14 +252,14 @@ static void swbt_daemon_production_ipc_runner_poll_once_at(void *context, uint32
     (void)swbt_daemon_ipc_runner_poll_once_at((swbt_daemon_ipc_runner_t *)context, now_ms);
 }
 
-static int swbt_daemon_production_ipc_start(void *context, swbt_app_t *app) {
+static int swbt_daemon_production_ipc_start(void *context, swbt_control_t *control) {
     swbt_daemon_production_backend_t *backend = context;
     swbt_btstack_production_ipc_pump_t pump;
 
     if (backend == NULL || !backend->initialized) {
         return -1;
     }
-    if (swbt_daemon_ipc_runner_start(&backend->ipc_runner, app, &backend->ipc_runner.config) !=
+    if (swbt_daemon_ipc_runner_start(&backend->ipc_runner, control, &backend->ipc_runner.config) !=
         SWBT_DAEMON_IPC_RUNNER_OK) {
         return -1;
     }
