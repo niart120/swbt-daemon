@@ -10,6 +10,7 @@
 
 #include "btstack_bridge/production_btstack.h"
 #include "core/diagnostics.h"
+#include "daemon/cli.h"
 #include "daemon/config.h"
 #include "daemon/host.h"
 #include "daemon/launch_options.h"
@@ -169,12 +170,22 @@ static int swbt_daemon_run_production(const swbt_daemon_launch_config_t *launch_
 }
 
 int main(int argc, char **argv) {
+    swbt_daemon_cli_dispatch_result_t cli_result;
     swbt_daemon_launch_config_t launch_config;
     swbt_daemon_launch_options_t launch_options;
     const swbt_daemon_config_env_t config_env = swbt_daemon_config_env_from_process_env();
+    const swbt_daemon_cli_ports_t cli_ports = {
+        .list_adapters = swbt_btstack_production_list_adapter_locations,
+        .config_env = &config_env,
+    };
 
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
+    cli_result = swbt_daemon_cli_dispatch_with_ports(argc, (const char *const *)argv, stdout,
+                                                     stderr, &cli_ports);
+    if (cli_result.handled) {
+        return cli_result.exit_code;
+    }
     swbt_diagnostic_trace("main: entered");
     if (swbt_daemon_launch_options_parse(&launch_options, argc, (const char *const *)argv) !=
         SWBT_DAEMON_LAUNCH_OPTIONS_OK) {

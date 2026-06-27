@@ -227,6 +227,7 @@ swbt_apply_sanitizers(swbt_btstack_adapter)
 add_library(swbt_daemon_host STATIC
     swbt/daemon/config.c
     swbt/daemon/config_file.cpp
+    swbt/daemon/cli.c
     swbt/daemon/ipc_runner.c
     swbt/daemon/launch_options.c
     swbt/daemon/production_backend.c
@@ -310,6 +311,8 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME swbt_smoke_test COMMAND swbt_smoke_test)
     add_test(NAME swbt_daemon_noop_smoke_test COMMAND swbt-daemon --backend noop)
+    add_test(NAME swbt_daemon_help_test COMMAND swbt-daemon help)
+    add_test(NAME swbt_daemon_config_smoke_test COMMAND swbt-daemon config --backend noop)
     add_test(
         NAME btstack_sources_cmake_test
         COMMAND
@@ -652,6 +655,15 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME daemon_launch_options_test COMMAND daemon_launch_options_test)
 
+    add_executable(daemon_cli_test
+        tests/daemon_cli_test.c
+    )
+    target_link_libraries(daemon_cli_test PRIVATE swbt_daemon_host)
+    swbt_apply_common_warnings(daemon_cli_test)
+    swbt_apply_sanitizers(daemon_cli_test)
+
+    add_test(NAME daemon_cli_test COMMAND daemon_cli_test)
+
     add_executable(architecture_journey_test
         tests/architecture_journey_test.c
     )
@@ -749,6 +761,7 @@ if(SWBT_BUILD_TESTS)
             daemon_host_test
             daemon_config_file_test
             daemon_launch_options_test
+            daemon_cli_test
             architecture_journey_test
             daemon_ipc_runner_test
             daemon_production_backend_test

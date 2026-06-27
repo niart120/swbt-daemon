@@ -1,6 +1,8 @@
 #include "btstack_bridge/production_btstack.h"
 
+#include <stdio.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "btstack_bridge/classic_discovery.h"
@@ -24,6 +26,18 @@
 #include "l2cap.h"
 
 #include <stdlib.h>
+
+#if defined(SWBT_BACKEND_LIBUSB)
+#include <libusb.h>
+#endif
+
+#if defined(SWBT_BACKEND_WINDOWS_WINUSB)
+#include <windows.h>
+#include <SetupAPI.h>
+#ifndef SPDRP_LOCATION_PATHS
+#define SPDRP_LOCATION_PATHS 0x00000023
+#endif
+#endif
 
 #if defined(SWBT_BACKEND_WINDOWS_WINUSB)
 int hci_transport_usb_set_location_path(const char *location_path);
@@ -208,6 +222,346 @@ int swbt_btstack_production_adapter_location_configure(const char *location) {
                    SWBT_BTSTACK_USB_ADAPTER_LOCATION_OK
                ? 0
                : -1;
+}
+
+#if defined(SWBT_BACKEND_LIBUSB)
+static void swbt_btstack_production_write_uint(FILE *out, unsigned int value) {
+    char buffer[16];
+
+    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+    if (out == NULL || snprintf(buffer, sizeof(buffer), "%u", value) < 0) {
+        return;
+    }
+    fputs(buffer, out);
+}
+
+static void swbt_btstack_production_write_int(FILE *out, int value) {
+    char buffer[16];
+
+    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+    if (out == NULL || snprintf(buffer, sizeof(buffer), "%d", value) < 0) {
+        return;
+    }
+    fputs(buffer, out);
+}
+
+static void swbt_btstack_production_write_hex16(FILE *out, unsigned int value) {
+    char buffer[8];
+
+    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+    if (out == NULL || snprintf(buffer, sizeof(buffer), "0x%04x", value & 0xffffu) < 0) {
+        return;
+    }
+    fputs(buffer, out);
+}
+
+static void swbt_btstack_production_write_hex8(FILE *out, unsigned int value) {
+    char buffer[6];
+
+    // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+    if (out == NULL || snprintf(buffer, sizeof(buffer), "0x%02x", value & 0xffu) < 0) {
+        return;
+    }
+    fputs(buffer, out);
+}
+
+static bool swbt_btstack_production_libusb_is_known_bluetooth_device(uint16_t vendor_id,
+                                                                     uint16_t product_id) {
+    static const uint16_t known_bluetooth_devices[] = {
+        0x0a5c, 0x21e8, 0x0b05, 0x17cb, 0x0a5c, 0x22be, 0x2fe3, 0x0100, 0x2fe3, 0x000b,
+    };
+
+    for (size_t index = 0u; index + 1u < sizeof(known_bluetooth_devices) / sizeof(uint16_t);
+         index += 2u) {
+        if (known_bluetooth_devices[index] == vendor_id &&
+            known_bluetooth_devices[index + 1u] == product_id) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool swbt_btstack_production_libusb_is_bluetooth_device(
+    const struct libusb_device_descriptor *descriptor) {
+    if (descriptor == NULL) {
+        return false;
+    }
+    return (descriptor->bDeviceClass == 0xE0u && descriptor->bDeviceSubClass == 0x01u &&
+            descriptor->bDeviceProtocol == 0x01u) ||
+           swbt_btstack_production_libusb_is_known_bluetooth_device(descriptor->idVendor,
+                                                                    descriptor->idProduct);
+}
+
+static void
+swbt_btstack_production_libusb_write_selector(FILE *out, libusb_device *device,
+                                              const struct libusb_device_descriptor *descriptor,
+                                              const uint8_t *ports, int port_count) {
+    fputs("libusb:", out);
+    swbt_btstack_production_write_uint(out, (unsigned int)libusb_get_bus_number(device));
+    fputc(':', out);
+    for (int index = 0; index < port_count; ++index) {
+        if (index > 0) {
+            fputc('.', out);
+        }
+        swbt_btstack_production_write_uint(out, (unsigned int)ports[index]);
+    }
+    fputs(" vid=", out);
+    swbt_btstack_production_write_hex16(out, (unsigned int)descriptor->idVendor);
+    fputs(" pid=", out);
+    swbt_btstack_production_write_hex16(out, (unsigned int)descriptor->idProduct);
+    fputs(" class=", out);
+    swbt_btstack_production_write_hex8(out, (unsigned int)descriptor->bDeviceClass);
+    fputs(" subclass=", out);
+    swbt_btstack_production_write_hex8(out, (unsigned int)descriptor->bDeviceSubClass);
+    fputs(" protocol=", out);
+    swbt_btstack_production_write_hex8(out, (unsigned int)descriptor->bDeviceProtocol);
+    fputc('\n', out);
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): adapter inventory stream pair.
+static int swbt_btstack_production_list_libusb_adapter_locations(FILE *out, FILE *err) {
+    libusb_device **devices = NULL;
+    ssize_t device_count = 0;
+    int candidate_count = 0;
+    int result = 0;
+
+    if (out == NULL) {
+        return -1;
+    }
+    result = libusb_init(NULL);
+    if (result != 0) {
+        if (err != NULL) {
+            fputs("libusb_init failed: ", err);
+            swbt_btstack_production_write_int(err, result);
+            fputc('\n', err);
+        }
+        return -1;
+    }
+    device_count = libusb_get_device_list(NULL, &devices);
+    if (device_count < 0) {
+        if (err != NULL) {
+            fputs("libusb_get_device_list failed: ", err);
+            swbt_btstack_production_write_int(err, (int)device_count);
+            fputc('\n', err);
+        }
+        libusb_exit(NULL);
+        return -1;
+    }
+
+    for (ssize_t index = 0; index < device_count; ++index) {
+        struct libusb_device_descriptor descriptor;
+        uint8_t ports[SWBT_BTSTACK_USB_ADAPTER_LOCATION_MAX_PORTS] = {0};
+        int port_count = 0;
+        libusb_device *device = devices[index];
+
+        if (libusb_get_device_descriptor(device, &descriptor) != 0 ||
+            !swbt_btstack_production_libusb_is_bluetooth_device(&descriptor)) {
+            continue;
+        }
+        port_count =
+            libusb_get_port_numbers(device, ports, SWBT_BTSTACK_USB_ADAPTER_LOCATION_MAX_PORTS);
+        if (port_count <= 0 || port_count > SWBT_BTSTACK_USB_ADAPTER_LOCATION_MAX_PORTS) {
+            continue;
+        }
+        swbt_btstack_production_libusb_write_selector(out, device, &descriptor, ports, port_count);
+        ++candidate_count;
+    }
+
+    if (candidate_count == 0) {
+        fputs("No libusb Bluetooth adapter-location candidates found.\n", out);
+    }
+    libusb_free_device_list(devices, 1);
+    libusb_exit(NULL);
+    return 0;
+}
+#endif
+
+#if defined(SWBT_BACKEND_WINDOWS_WINUSB)
+static const GUID SWBT_GUID_DEVINTERFACE_USB_DEVICE = {
+    0xA5DCBF10L,
+    0x6530,
+    0x11D2,
+    {0x90, 0x1F, 0x00, 0xC0, 0x4F, 0xB9, 0x51, 0xED},
+};
+
+static int swbt_btstack_production_winusb_read_registry_property(HDEVINFO device_info,
+                                                                 PSP_DEVINFO_DATA device_data,
+                                                                 DWORD property, char **out_value,
+                                                                 DWORD *out_property_type) {
+    DWORD property_type = 0;
+    DWORD required_size = 0;
+    char *value = NULL;
+
+    if (out_value == NULL || out_property_type == NULL) {
+        return -1;
+    }
+    *out_value = NULL;
+    *out_property_type = 0;
+    if (SetupDiGetDeviceRegistryPropertyA(device_info, device_data, property, &property_type, NULL,
+                                          0, &required_size)) {
+        return 0;
+    }
+    if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || required_size == 0u) {
+        return 0;
+    }
+
+    value = calloc((size_t)required_size + 2u, sizeof(char));
+    if (value == NULL) {
+        return -1;
+    }
+    if (!SetupDiGetDeviceRegistryPropertyA(device_info, device_data, property, &property_type,
+                                           (PBYTE)value, required_size, NULL)) {
+        free(value);
+        return -1;
+    }
+    *out_value = value;
+    *out_property_type = property_type;
+    return 1;
+}
+
+static bool swbt_btstack_production_winusb_service_is_winusb(const char *service,
+                                                             DWORD property_type) {
+    return service != NULL && property_type == REG_SZ && strcmp(service, "WinUSB") == 0;
+}
+
+static void swbt_btstack_production_winusb_write_selector(FILE *out, const char *location_path,
+                                                          const char *hardware_id) {
+    fputs("winusb:", out);
+    fputs(location_path, out);
+    fputs(" service=WinUSB", out);
+    if (hardware_id != NULL && hardware_id[0] != '\0') {
+        fputs(" hardware_id=", out);
+        fputs(hardware_id, out);
+    }
+    fputc('\n', out);
+}
+
+static int swbt_btstack_production_winusb_write_location_paths(FILE *out,
+                                                               const char *location_paths,
+                                                               DWORD property_type,
+                                                               const char *hardware_id) {
+    int count = 0;
+
+    if (location_paths == NULL) {
+        return 0;
+    }
+    if (property_type == REG_SZ) {
+        swbt_btstack_production_winusb_write_selector(out, location_paths, hardware_id);
+        return 1;
+    }
+    if (property_type != REG_MULTI_SZ) {
+        return 0;
+    }
+    for (const char *cursor = location_paths; cursor[0] != '\0'; cursor += strlen(cursor) + 1u) {
+        swbt_btstack_production_winusb_write_selector(out, cursor, hardware_id);
+        ++count;
+    }
+    return count;
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): adapter inventory stream pair.
+static int swbt_btstack_production_list_winusb_adapter_locations(FILE *out, FILE *err) {
+    HDEVINFO device_info = INVALID_HANDLE_VALUE;
+    DWORD member_index = 0;
+    int candidate_count = 0;
+
+    if (out == NULL) {
+        return -1;
+    }
+
+    device_info = SetupDiGetClassDevsA(&SWBT_GUID_DEVINTERFACE_USB_DEVICE, NULL, NULL,
+                                       DIGCF_DEVICEINTERFACE | DIGCF_PRESENT);
+    if (device_info == INVALID_HANDLE_VALUE) {
+        if (err != NULL) {
+            fputs("SetupDiGetClassDevsA failed\n", err);
+        }
+        return -1;
+    }
+
+    for (;;) {
+        SP_DEVICE_INTERFACE_DATA interface_data;
+        SP_DEVINFO_DATA device_data;
+        PSP_DEVICE_INTERFACE_DETAIL_DATA_A detail_data = NULL;
+        DWORD required_size = 0;
+        char *service = NULL;
+        char *location_paths = NULL;
+        char *hardware_id = NULL;
+        DWORD service_type = 0;
+        DWORD location_type = 0;
+        DWORD hardware_id_type = 0;
+
+        memset(&interface_data, 0, sizeof(interface_data));
+        interface_data.cbSize = sizeof(interface_data);
+        if (!SetupDiEnumDeviceInterfaces(device_info, NULL,
+                                         (LPGUID)&SWBT_GUID_DEVINTERFACE_USB_DEVICE, member_index,
+                                         &interface_data)) {
+            if (GetLastError() != ERROR_NO_MORE_ITEMS && err != NULL) {
+                fputs("SetupDiEnumDeviceInterfaces failed\n", err);
+            }
+            break;
+        }
+        ++member_index;
+
+        (void)SetupDiGetDeviceInterfaceDetailA(device_info, &interface_data, NULL, 0,
+                                               &required_size, NULL);
+        if (required_size == 0u) {
+            continue;
+        }
+        detail_data = calloc(1u, required_size);
+        if (detail_data == NULL) {
+            SetupDiDestroyDeviceInfoList(device_info);
+            return -1;
+        }
+        memset(&device_data, 0, sizeof(device_data));
+        device_data.cbSize = sizeof(device_data);
+        detail_data->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_A);
+        if (!SetupDiGetDeviceInterfaceDetailA(device_info, &interface_data, detail_data,
+                                              required_size, NULL, &device_data)) {
+            free(detail_data);
+            continue;
+        }
+
+        if (swbt_btstack_production_winusb_read_registry_property(
+                device_info, &device_data, SPDRP_SERVICE, &service, &service_type) > 0 &&
+            swbt_btstack_production_winusb_service_is_winusb(service, service_type) &&
+            swbt_btstack_production_winusb_read_registry_property(
+                device_info, &device_data, SPDRP_LOCATION_PATHS, &location_paths, &location_type) >
+                0) {
+            (void)swbt_btstack_production_winusb_read_registry_property(
+                device_info, &device_data, SPDRP_HARDWAREID, &hardware_id, &hardware_id_type);
+            (void)hardware_id_type;
+            candidate_count += swbt_btstack_production_winusb_write_location_paths(
+                out, location_paths, location_type, hardware_id);
+        }
+
+        free(hardware_id);
+        free(location_paths);
+        free(service);
+        free(detail_data);
+    }
+
+    if (candidate_count == 0) {
+        fputs("No WinUSB adapter-location candidates found.\n", out);
+    }
+    SetupDiDestroyDeviceInfoList(device_info);
+    return 0;
+}
+#endif
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): public adapter inventory callback ABI.
+int swbt_btstack_production_list_adapter_locations(void *context, FILE *out, FILE *err) {
+    (void)context;
+#if defined(SWBT_BACKEND_LIBUSB)
+    return swbt_btstack_production_list_libusb_adapter_locations(out, err);
+#elif defined(SWBT_BACKEND_WINDOWS_WINUSB)
+    return swbt_btstack_production_list_winusb_adapter_locations(out, err);
+#else
+    (void)out;
+    if (err != NULL) {
+        fputs("adapter inventory is not supported by this build\n", err);
+    }
+    return -1;
+#endif
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): BTstack packet handler ABI.
