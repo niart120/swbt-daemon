@@ -84,7 +84,7 @@ Tidy status:
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
 | green | management commands still return before production startup composition is invoked | regression | unit/integration | no |
-| todo | noop backend startup still avoids real BTstack production implementation | regression | unit/integration | no |
+| green | noop backend startup still avoids real BTstack production implementation | regression | unit/integration | no |
 | todo | production startup still configures link key DB, HCI dump, adapter location, learned address target, and shutdown listener before runner main | regression | integration | no |
 | todo | executable target links after moving app-local sources out of `main.c` | regression | build | no |
 | refactor-skipped | `main.c` no longer owns production BTstack wiring or platform process support | regression | source/build | no |
@@ -123,6 +123,19 @@ TDD status:
 - command: `$env:CTEST_ARGS='-R "daemon_cli_test|swbt_daemon_help_test|swbt_daemon_config_smoke_test" --output-on-failure'; just test-debug`
 - result: pass, 3/3 tests passed.
 - notes: この item は既存の CLI behavior の regression check。追加実装は不要。
+
+TDD status:
+
+- source: `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md` and this
+  work unit.
+- use case: `--backend noop` は production entrypoint 分割後も real BTstack setup を通らず、
+  daemon process の noop backend で起動する。
+- item: noop backend startup still avoids real BTstack production implementation.
+- state: green.
+- command: `$env:CTEST_ARGS='-R "swbt_daemon_noop_smoke_test|daemon_launch_options_test" --output-on-failure'; just test-debug`
+- result: pass, 2/2 tests passed.
+- notes: source boundary test と合わせ、`main.c` の noop branch が production
+  entrypoint を経由しないことを確認した。
 
 Expected checks:
 
