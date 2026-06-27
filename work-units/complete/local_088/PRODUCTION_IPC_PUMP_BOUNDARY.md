@@ -72,9 +72,10 @@ Tidy status:
 
 - `swbt/daemon/production_ipc_pump.*`
 - `swbt/daemon/production_runner.c`
-- `swbt/daemon/production_process_backend.*` if already introduced
+- `tests/daemon_production_ipc_pump_test.c`
 - `tests/daemon_production_runner_test.c`
 - `tests/daemon_ipc_runner_test.c`
+- `tests/cmake/include_boundaries_test.cmake`
 - `CMakeLists.txt`
 
 ## 9. TDD Test List（TDD テスト一覧）
@@ -175,6 +176,16 @@ TDD status:
   absence check を追加した。既存の daemon IPC runner include 禁止と合わせ、BTstack bridge へ
   daemon IPC runner knowledge が入らないことを確認した。
 
+Completion checks:
+
+- `just debug`: pass, 55/55 tests passed.
+- `just windows-cross`: pass, `swbt-daemon.exe` linked.
+- `rg -n "swbt_daemon_ipc_runner_(start|stop|is_running|poll_once_at)" swbt/daemon/production_runner.c`:
+  no matches. IPC runner start / stop / callback glue は runner-local helper から分離済み。
+- `rg -n "swbt_daemon_ipc_runner|daemon/ipc_runner.h" swbt/btstack_bridge`: no matches.
+  BTstack bridge へ daemon IPC runner knowledge は入っていない。
+- `git diff --check main..HEAD`: pass.
+
 ## 11. 実機実行条件
 
 実機実行は不要。
@@ -189,8 +200,8 @@ IPC protocol or transport changes are outside this work unit and are not created
 
 ## 13. チェックリスト
 
-- [ ] IPC pump adapter を runner から分離した。
-- [ ] start failure cleanup order を維持した。
-- [ ] BTstack bridge include boundary を確認した。
-- [ ] TDD Test List の検証を実行し、結果を記録した。
-- [ ] 実機未実行理由を維持した。
+- [x] IPC pump adapter を runner から分離した。
+- [x] start failure cleanup order を維持した。
+- [x] BTstack bridge include boundary を確認した。
+- [x] TDD Test List の検証を実行し、結果を記録した。
+- [x] 実機未実行理由を維持した。
