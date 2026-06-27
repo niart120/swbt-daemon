@@ -5,6 +5,7 @@
 
 #include "support/diagnostics.h"
 #include "btstack_bridge/hid_event.h"
+#include "daemon/production_ipc_pump.h"
 #include "daemon/production_reconnect.h"
 
 static swbt_daemon_production_runner_t *g_active_backend;
@@ -117,45 +118,33 @@ bool swbt_daemon_production_runner_set_adapter_location_configured(
     return true;
 }
 
-static bool swbt_daemon_production_ipc_runner_is_running(void *context) {
-    return swbt_daemon_ipc_runner_is_running((const swbt_daemon_ipc_runner_t *)context);
-}
-
-static void swbt_daemon_production_ipc_runner_poll_once_at(void *context, uint32_t now_ms) {
-    (void)swbt_daemon_ipc_runner_poll_once_at((swbt_daemon_ipc_runner_t *)context, now_ms);
-}
-
 static int swbt_daemon_production_ipc_start(void *context, swbt_control_t *control) {
     swbt_daemon_production_runner_t *backend = context;
-    swbt_btstack_production_ipc_pump_t pump;
+    swbt_daemon_production_ipc_pump_t ipc_pump;
 
     if (backend == NULL || !backend->initialized) {
         return -1;
     }
-    if (swbt_daemon_ipc_runner_start(&backend->ipc_runner, control, &backend->ipc_runner.config) !=
-        SWBT_DAEMON_IPC_RUNNER_OK) {
-        return -1;
-    }
-
-    pump = (swbt_btstack_production_ipc_pump_t){
-        .is_running = swbt_daemon_production_ipc_runner_is_running,
-        .poll_once_at = swbt_daemon_production_ipc_runner_poll_once_at,
-        .context = &backend->ipc_runner,
+    ipc_pump = (swbt_daemon_production_ipc_pump_t){
+        .runner = &backend->ipc_runner,
+        .port = &backend->ports->ipc_pump,
+        .port_context = backend->ports_context,
     };
-    if (backend->ports->ipc_pump.start(backend->ports_context, &pump) != 0) {
-        swbt_daemon_ipc_runner_stop(&backend->ipc_runner);
-        return -1;
-    }
-    return 0;
+    return swbt_daemon_production_ipc_pump_start(&ipc_pump, control);
 }
 
 static void swbt_daemon_production_ipc_stop(void *context) {
     swbt_daemon_production_runner_t *backend = context;
+    swbt_daemon_production_ipc_pump_t ipc_pump;
     if (backend == NULL || !backend->initialized) {
         return;
     }
-    backend->ports->ipc_pump.stop(backend->ports_context);
-    swbt_daemon_ipc_runner_stop(&backend->ipc_runner);
+    ipc_pump = (swbt_daemon_production_ipc_pump_t){
+        .runner = &backend->ipc_runner,
+        .port = &backend->ports->ipc_pump,
+        .port_context = backend->ports_context,
+    };
+    swbt_daemon_production_ipc_pump_stop(&ipc_pump);
 }
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters): BTstack packet handler ABI.

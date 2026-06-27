@@ -81,7 +81,7 @@ Tidy status:
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | production IPC start still starts daemon IPC runner before BTstack IPC pump start | regression | integration | no |
+| green | production IPC start still starts daemon IPC runner before BTstack IPC pump start | regression | integration | no |
 | todo | BTstack IPC pump start failure still stops daemon IPC runner | regression | integration | no |
 | todo | production IPC stop still stops BTstack IPC pump before daemon IPC runner stop | regression | integration | no |
 | todo | pump callbacks still report running state and poll the same IPC runner instance | regression | unit/integration | no |
@@ -89,12 +89,29 @@ Tidy status:
 
 ## 10. 検証
 
-not run yet.
+TDD status:
 
-Expected checks:
-
-- `just build-debug`
-- `$env:CTEST_ARGS='-R "daemon_production_runner_test|daemon_ipc_runner_test|include_boundaries_test" --output-on-failure'; just test-debug`
+- source: `work-units/wip/local_084/PRODUCTION_RUNNER_DECOMPOSITION_PLAN.md` and this
+  work unit.
+- use case: daemon IPC runner の start 後に、同じ runner instance を BTstack IPC pump
+  port へ渡す glue を production runner から分離する。
+- item: production IPC start still starts daemon IPC runner before BTstack IPC pump start.
+- state: green.
+- red:
+  - command: `just build-debug`
+  - result: fail as expected. `daemon_production_ipc_pump_test` が
+    `daemon/production_ipc_pump.h` を要求し、header 未実装で compile failure。
+- green:
+  - command: `just format`
+  - result: pass.
+  - command: `just build-debug`
+  - result: pass.
+  - command: `$env:CTEST_ARGS='-R "daemon_production_ipc_pump_test|daemon_production_runner_test|daemon_ipc_runner_test" --output-on-failure'; just test-debug`
+  - result: pass, 3/3 tests passed.
+- notes: `swbt/daemon/production_ipc_pump.*` を追加し、daemon IPC runner start と
+  BTstack IPC pump port への adapter 作成を runner から分離した。new adapter test は
+  pump start 時に runner が running で、pump context が同じ runner instance であることを
+  確認する。既存 production runner integration でも startup order を確認した。
 
 ## 11. 実機実行条件
 
