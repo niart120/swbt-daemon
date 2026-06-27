@@ -1,6 +1,8 @@
 #include "daemon/production_process_backend.h"
 
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #include "domain/domain.h"
@@ -9,7 +11,9 @@
 typedef struct {
     int output_handler_start_calls;
     int output_handler_stop_calls;
+    int read_controller_address_calls;
     swbt_btstack_output_report_handler_t *output_handler;
+    uint8_t controller_address[6];
 } fake_ops_t;
 
 static int expect_true(bool value, const char *label) {
@@ -27,6 +31,16 @@ static int expect_eq_int(int actual, int expected, const char *label) {
         // Test diagnostics write to stderr with no retained buffer.
         // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(stderr, "%s: expected %d, got %d\n", label, expected, actual);
+        return 1;
+    }
+    return 0;
+}
+
+static int expect_eq_u8(uint8_t actual, uint8_t expected, const char *label) {
+    if (actual != expected) {
+        // Test diagnostics write to stderr with no retained buffer.
+        // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+        fprintf(stderr, "%s: expected %u, got %u\n", label, (unsigned)expected, (unsigned)actual);
         return 1;
     }
     return 0;
@@ -54,6 +68,15 @@ static void fake_output_handler_stop(void *context) {
     fake->output_handler_stop_calls += 1;
 }
 
+static int fake_read_controller_address(void *context, uint8_t address[6]) {
+    fake_ops_t *fake = context;
+    fake->read_controller_address_calls += 1;
+    for (size_t index = 0; index < sizeof(fake->controller_address); ++index) {
+        address[index] = fake->controller_address[index];
+    }
+    return 0;
+}
+
 static swbt_btstack_production_ports_t fake_ports(void) {
     return (swbt_btstack_production_ports_t){
         .ipc_pump =
@@ -65,6 +88,10 @@ static swbt_btstack_production_ports_t fake_ports(void) {
             {
                 .start = fake_output_handler_start,
                 .stop = fake_output_handler_stop,
+            },
+        .controller =
+            {
+                .read_controller_address = fake_read_controller_address,
             },
     };
 }
@@ -99,9 +126,45 @@ static int process_backend_routes_output_handler_start_and_stop(void) {
     return failed;
 }
 
+static int process_backend_reads_configured_device_info_and_controller_address(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {
+        .controller_address = {0x01u, 0x23u, 0x45u, 0x67u, 0x89u, 0xABu},
+    };
+    const swbt_btstack_production_ports_t ports = fake_ports();
+    const swbt_daemon_process_backend_t *process_backend = swbt_daemon_production_process_backend();
+    swbt_daemon_production_runner_t runner;
+    swbt_switch_device_info_t device_info = {0};
+
+    config.device_info.firmware_version[0] = 0x12u;
+    config.device_info.firmware_version[1] = 0x34u;
+    config.device_info.controller_type = 0x03u;
+    config.device_info.tail_unknown = 0x02u;
+    config.device_info.color_source = 0x01u;
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_runner_init(&runner, &config, &ports, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "runner init");
+    failed += expect_eq_int(process_backend->read_device_info(&runner, &device_info), 0,
+                            "read device info");
+
+    failed += expect_eq_int(fake.read_controller_address_calls, 1, "read controller address calls");
+    failed += expect_eq_u8(device_info.firmware_version[0], 0x12u, "firmware version 0");
+    failed += expect_eq_u8(device_info.firmware_version[1], 0x34u, "firmware version 1");
+    failed += expect_eq_u8(device_info.controller_type, 0x03u, "controller type");
+    failed += expect_eq_u8(device_info.tail_unknown, 0x02u, "tail unknown");
+    failed += expect_eq_u8(device_info.color_source, 0x01u, "color source");
+    for (size_t index = 0; index < sizeof(fake.controller_address); ++index) {
+        failed += expect_eq_u8(device_info.bluetooth_address[index], fake.controller_address[index],
+                               "controller address");
+    }
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
     failed += process_backend_table_exposes_production_backend_status();
     failed += process_backend_routes_output_handler_start_and_stop();
+    failed += process_backend_reads_configured_device_info_and_controller_address();
     return failed == 0 ? 0 : 1;
 }
