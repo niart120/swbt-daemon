@@ -19,12 +19,12 @@ static bool swbt_daemon_config_is_valid(const swbt_daemon_config_t *config) {
 
 static swbt_state_t swbt_daemon_host_read_state(void *context) {
     swbt_daemon_host_t *host = context;
-    swbt_app_snapshot_t snapshot;
+    swbt_state_t state;
 
-    if (host == NULL || swbt_app_snapshot(host->app, &snapshot) != SWBT_APP_OK) {
+    if (host == NULL || swbt_app_read_controller_state(host->app, &state) != SWBT_APP_OK) {
         return swbt_state_neutral();
     }
-    return snapshot.state;
+    return state;
 }
 
 static void swbt_daemon_host_on_output_report(void *context, uint16_t hid_cid,

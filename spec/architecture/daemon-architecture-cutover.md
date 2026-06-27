@@ -382,13 +382,20 @@ void swbt_app_dispatch(
     const swbt_event_t *event
 );
 
-swbt_app_result_t swbt_app_snapshot(
+swbt_app_result_t swbt_app_read_controller_state(
     const swbt_app_t *app,
-    swbt_app_snapshot_t *snapshot
+    swbt_state_t *out_state
+);
+
+swbt_app_result_t swbt_app_read_status(
+    const swbt_app_t *app,
+    swbt_app_status_snapshot_t *out_status
 );
 ```
 
 adapter は `swbt_app_t` の field を直接参照しない。
+report scheduler は `swbt_app_read_controller_state` で latest controller state だけを読む。
+IPC status や後続の public C ABI status は、`swbt_app_read_status` の app-owned status と runtime / link status の合成として扱う。
 
 ## 5. 削除対象
 

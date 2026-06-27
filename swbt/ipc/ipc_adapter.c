@@ -97,16 +97,16 @@ static void swbt_ipc_adapter_copy_status(const swbt_ipc_status_t *status,
     out_status->hardware = status->hardware;
 }
 
-static void swbt_ipc_adapter_copy_snapshot(const swbt_app_snapshot_t *snapshot,
-                                           swbt_ipc_status_t *out_status) {
-    out_status->has_owner = snapshot->has_owner;
-    out_status->owner_client_id = snapshot->owner_client_id;
-    out_status->last_seq = snapshot->last_sequence;
-    out_status->state = snapshot->state;
-    out_status->rumble = snapshot->rumble;
-    out_status->metrics = snapshot->metrics;
-    out_status->daemon = snapshot->daemon;
-    out_status->hardware = snapshot->hardware;
+static void swbt_ipc_adapter_copy_app_status(const swbt_app_status_snapshot_t *status,
+                                             swbt_ipc_status_t *out_status) {
+    out_status->has_owner = status->has_owner;
+    out_status->owner_client_id = status->owner_client_id;
+    out_status->last_seq = status->last_sequence;
+    out_status->state = status->state;
+    out_status->rumble = status->rumble;
+    out_status->metrics = status->metrics;
+    out_status->daemon = status->daemon;
+    out_status->hardware = status->hardware;
 }
 
 static void swbt_ipc_adapter_error_from_command(const swbt_ipc_command_t *command,
@@ -267,14 +267,14 @@ swbt_ipc_result_t swbt_ipc_adapter_handle_shutdown(swbt_app_t *app) {
 
 swbt_ipc_result_t swbt_ipc_adapter_get_status(const swbt_app_t *app,
                                               swbt_ipc_status_t *out_status) {
-    swbt_app_snapshot_t snapshot;
+    swbt_app_status_snapshot_t status;
 
     if (app == NULL || out_status == NULL) {
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
-    if (swbt_app_snapshot(app, &snapshot) != SWBT_APP_OK) {
+    if (swbt_app_read_status(app, &status) != SWBT_APP_OK) {
         return SWBT_IPC_ERROR_INVALID_ARGUMENT;
     }
-    swbt_ipc_adapter_copy_snapshot(&snapshot, out_status);
+    swbt_ipc_adapter_copy_app_status(&status, out_status);
     return SWBT_IPC_OK;
 }

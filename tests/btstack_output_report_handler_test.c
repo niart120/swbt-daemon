@@ -234,7 +234,7 @@ static int test_parsed_reports_can_feed_rumble_status(void) {
         SWBT_SWITCH_SUBCOMMAND_SET_REPORT_MODE,
     };
     swbt_app_t *app = swbt_app_create();
-    swbt_app_snapshot_t snapshot;
+    swbt_app_status_snapshot_t status;
     rumble_status_capture_t capture = {
         .app = app,
         .now_ms = 100u,
@@ -254,11 +254,11 @@ static int test_parsed_reports_can_feed_rumble_status(void) {
                                     .report_size = sizeof(rumble_only_report),
                                 }),
                             SWBT_BTSTACK_OUTPUT_REPORT_OK);
-    failed += expect_eq_int(swbt_app_snapshot(app, &snapshot), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_read_status(app, &status), SWBT_APP_OK);
     failed += expect_eq_int(capture.calls, 1);
-    failed += expect_true(snapshot.rumble.updated);
-    failed += expect_eq_u64(snapshot.rumble.updated_at_ms, 100u);
-    failed += expect_payload(snapshot.rumble.raw, active_rumble);
+    failed += expect_true(status.rumble.updated);
+    failed += expect_eq_u64(status.rumble.updated_at_ms, 100u);
+    failed += expect_payload(status.rumble.raw, active_rumble);
 
     capture.now_ms = 200u;
     failed += expect_eq_int(swbt_btstack_output_report_handler_handle(
@@ -271,10 +271,10 @@ static int test_parsed_reports_can_feed_rumble_status(void) {
                                     .report_size = sizeof(rumble_and_subcommand_report),
                                 }),
                             SWBT_BTSTACK_OUTPUT_REPORT_OK);
-    failed += expect_eq_int(swbt_app_snapshot(app, &snapshot), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_read_status(app, &status), SWBT_APP_OK);
     failed += expect_eq_int(capture.calls, 2);
-    failed += expect_eq_u64(snapshot.rumble.updated_at_ms, 200u);
-    failed += expect_payload(snapshot.rumble.raw, SWBT_SWITCH_RUMBLE_NEUTRAL_PAYLOAD);
+    failed += expect_eq_u64(status.rumble.updated_at_ms, 200u);
+    failed += expect_payload(status.rumble.raw, SWBT_SWITCH_RUMBLE_NEUTRAL_PAYLOAD);
     swbt_app_destroy(app);
     return failed;
 }
@@ -284,7 +284,7 @@ static int test_invalid_output_report_does_not_change_rumble_status(void) {
         0x00u,
     };
     swbt_app_t *app = swbt_app_create();
-    swbt_app_snapshot_t snapshot;
+    swbt_app_status_snapshot_t status;
     rumble_status_capture_t capture = {
         .app = app,
         .now_ms = 300u,
@@ -304,10 +304,10 @@ static int test_invalid_output_report_does_not_change_rumble_status(void) {
                                     .report_size = sizeof(payload),
                                 }),
                             SWBT_BTSTACK_OUTPUT_REPORT_ERROR_PARSE_FAILED);
-    failed += expect_eq_int(swbt_app_snapshot(app, &snapshot), SWBT_APP_OK);
+    failed += expect_eq_int(swbt_app_read_status(app, &status), SWBT_APP_OK);
     failed += expect_eq_int(capture.calls, 0);
-    failed += expect_false(snapshot.rumble.updated);
-    failed += expect_payload(snapshot.rumble.raw, SWBT_SWITCH_RUMBLE_NEUTRAL_PAYLOAD);
+    failed += expect_false(status.rumble.updated);
+    failed += expect_payload(status.rumble.raw, SWBT_SWITCH_RUMBLE_NEUTRAL_PAYLOAD);
     swbt_app_destroy(app);
     return failed;
 }

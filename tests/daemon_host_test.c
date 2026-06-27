@@ -236,7 +236,7 @@ static int start_wires_application_hid_output_and_timer(void) {
     fake_backend_t fake;
     const swbt_daemon_host_backend_t backend = fake_backend();
     const swbt_state_t state = sample_state();
-    swbt_app_snapshot_t snapshot;
+    swbt_state_t read_state;
 
     fake_backend_init(&fake);
 
@@ -261,9 +261,10 @@ static int start_wires_application_hid_output_and_timer(void) {
                                                    .sequence = 7u,
                                                }),
                             SWBT_APP_OK);
-    failed += expect_eq_int(swbt_app_snapshot(swbt_daemon_host_app(&host), &snapshot), SWBT_APP_OK);
-    failed += expect_eq_u32(snapshot.state.buttons, SWBT_BUTTON_A | SWBT_BUTTON_X);
-    failed += expect_eq_u16(snapshot.state.lx, 1234u);
+    failed += expect_eq_int(
+        swbt_app_read_controller_state(swbt_daemon_host_app(&host), &read_state), SWBT_APP_OK);
+    failed += expect_eq_u32(read_state.buttons, SWBT_BUTTON_A | SWBT_BUTTON_X);
+    failed += expect_eq_u16(read_state.lx, 1234u);
     if (fake.state_provider == NULL) {
         failed += 1;
     } else {
@@ -395,7 +396,7 @@ static int output_report_rumble_updates_application_status(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_backend_t fake;
     const swbt_daemon_host_backend_t backend = fake_backend();
-    swbt_app_snapshot_t snapshot;
+    swbt_app_status_snapshot_t status;
 
     fake_backend_init(&fake);
 
@@ -414,10 +415,11 @@ static int output_report_rumble_updates_application_status(void) {
                                 }),
                             SWBT_BTSTACK_OUTPUT_REPORT_OK);
 
-    failed += expect_eq_int(swbt_app_snapshot(swbt_daemon_host_app(&host), &snapshot), SWBT_APP_OK);
-    failed += expect_true(snapshot.rumble.updated);
-    failed += expect_eq_int((int)snapshot.rumble.updated_at_ms, 4321);
-    failed += expect_payload_eq(snapshot.rumble.raw, active_rumble);
+    failed +=
+        expect_eq_int(swbt_app_read_status(swbt_daemon_host_app(&host), &status), SWBT_APP_OK);
+    failed += expect_true(status.rumble.updated);
+    failed += expect_eq_int((int)status.rumble.updated_at_ms, 4321);
+    failed += expect_payload_eq(status.rumble.raw, active_rumble);
     failed += expect_eq_int(fake.subcommand_reply_enqueue_calls, 0);
 
     swbt_daemon_host_destroy(&host);
@@ -456,7 +458,7 @@ static int send_neutral_now_clears_owner_and_flushes_report_timer(void) {
     fake_backend_t fake;
     const swbt_daemon_host_backend_t backend = fake_backend();
     const swbt_state_t state = sample_state();
-    swbt_app_snapshot_t snapshot;
+    swbt_state_t read_state;
 
     fake_backend_init(&fake);
 
@@ -476,9 +478,10 @@ static int send_neutral_now_clears_owner_and_flushes_report_timer(void) {
     failed += expect_eq_int(swbt_daemon_host_send_neutral_now(&host), SWBT_DAEMON_HOST_OK);
 
     failed += expect_eq_int(fake.report_timer_send_neutral_now_calls, 1);
-    failed += expect_eq_int(swbt_app_snapshot(swbt_daemon_host_app(&host), &snapshot), SWBT_APP_OK);
-    failed += expect_eq_u32(snapshot.state.buttons, 0u);
-    failed += expect_eq_u16(snapshot.state.lx, 2048u);
+    failed += expect_eq_int(
+        swbt_app_read_controller_state(swbt_daemon_host_app(&host), &read_state), SWBT_APP_OK);
+    failed += expect_eq_u32(read_state.buttons, 0u);
+    failed += expect_eq_u16(read_state.lx, 2048u);
 
     swbt_daemon_host_destroy(&host);
     return failed;
@@ -490,7 +493,7 @@ static int shutdown_neutralizes_state_and_stops_resources_once(void) {
     fake_backend_t fake;
     const swbt_daemon_host_backend_t backend = fake_backend();
     const swbt_state_t state = sample_state();
-    swbt_app_snapshot_t snapshot;
+    swbt_state_t read_state;
 
     fake_backend_init(&fake);
 
@@ -514,9 +517,10 @@ static int shutdown_neutralizes_state_and_stops_resources_once(void) {
     failed += expect_eq_int(fake.output_handler_stop_calls, 1);
     failed += expect_eq_int(fake.hid_stop_calls, 1);
     failed += expect_eq_int(fake.ipc_stop_calls, 1);
-    failed += expect_eq_int(swbt_app_snapshot(swbt_daemon_host_app(&host), &snapshot), SWBT_APP_OK);
-    failed += expect_eq_u32(snapshot.state.buttons, 0u);
-    failed += expect_eq_u16(snapshot.state.lx, 2048u);
+    failed += expect_eq_int(
+        swbt_app_read_controller_state(swbt_daemon_host_app(&host), &read_state), SWBT_APP_OK);
+    failed += expect_eq_u32(read_state.buttons, 0u);
+    failed += expect_eq_u16(read_state.lx, 2048u);
     failed += expect_false(swbt_daemon_host_is_running(&host));
 
     swbt_daemon_host_destroy(&host);
