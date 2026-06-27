@@ -271,7 +271,7 @@ Tidy status:
 | refactor-skipped | control submit state for direct API hides owner id and sequence from caller | new | unit | no |
 | refactor-skipped | control get status combines app-owned status and runtime status without changing IPC JSON status | regression | integration | no |
 | refactor-skipped | IPC adapter delegates acquire/release/set_state/get_status to control instead of app direct calls | regression | integration | no |
-| todo | public C ABI exposes open/close/submit_state/submit_neutral/get_status and does not link swbt_ipc | new | unit/build | no |
+| refactor-skipped | public C ABI exposes open/close/submit_state/submit_neutral/get_status and does not link swbt_ipc | new | unit/build | no |
 | todo | CMake include boundary tests recognize swbt_control and swbt_runtime targets | regression | build | no |
 | todo | old daemon_host backend no longer requires ipc_start/ipc_stop in runtime backend contract | characterization | review | no |
 
@@ -279,17 +279,17 @@ TDD status:
 
 - source: user request, 2026-06-27。
 - use case: `swbt/control` と `swbt/runtime` の実装を新規 work unit として進める。
-- last item: IPC adapter delegates acquire/release/set_state/get_status to control instead of app direct calls。
+- last item: public C ABI exposes open/close/submit_state/submit_neutral/get_status and does not link swbt_ipc。
 - state: refactor-skipped。
 - commands:
   - red: `just build-tests-debug`
-    - result: expected failure. `ipc_adapter.h` was switched to `swbt_control_t *`, while implementation and callers still passed `swbt_app_t *`.
-  - green: `just format`; `just build-tests-debug`; `CTEST_ARGS="-R \"control_test|ipc_json_test|ipc_server_test|daemon_ipc_runner_test|daemon_host_test|architecture_journey_test|daemon_production_backend_test\"" just test-debug`
+    - result: expected failure. `tests/swbt_c_api_test.c` included only `swbt.h` and required `swbt_t`, `swbt_open`, `swbt_close`, `swbt_submit_state`, `swbt_submit_neutral`, `swbt_get_status`, and public controller state / result types that did not exist yet.
+  - green: `just format`; `just build-tests-debug`; `CTEST_ARGS="-R \"^(swbt_c_api_test|include_boundaries_cmake_test)$\"" just test-debug`
     - result: pass.
   - refactor: skipped.
-    - reason: this cycle changed the IPC boundary end-to-end: adapter, server, runner, daemon host, and production backend now pass `swbt_control_t *`. Additional cleanup would enter include-boundary and public C ABI items.
-- notes: eighth cycle moved IPC adapter operations to `swbt/control`, added control revoke/rejected helpers, changed `ipc_server` to bind control, and changed daemon IPC start to receive control from `daemon_host`.
-- next red candidate: public C ABI exposes open/close/submit_state/submit_neutral/get_status and does not link swbt_ipc。
+    - reason: public C ABI smoke surface、`swbt_control_submit_neutral`、shared target link / PIC 対応までで item の観測可能な振る舞いを満たした。残りは compile include boundary item として分離する。
+- notes: ninth cycle added public `swbt_controller_state_t` / button flags, `swbt_open` / `close` / `submit_state` / `submit_neutral` / `get_status`, and kept owner id / sequence out of public status. `swbt` links `swbt_control` and does not link `swbt_ipc`; static targets flowing into `swbt` are built with PIC for Linux shared library linkage.
+- next red candidate: CMake include boundary tests recognize swbt_control and swbt_runtime targets。
 
 ## 10. 検証
 
@@ -315,6 +315,8 @@ TDD status:
   - result: pass。2/2 tests passed。
 - `CTEST_ARGS="-R \"control_test|ipc_json_test|ipc_server_test|daemon_ipc_runner_test|daemon_host_test|architecture_journey_test|daemon_production_backend_test\"" just test-debug`
   - result: pass。7/7 tests passed。
+- `CTEST_ARGS="-R \"^(swbt_c_api_test|include_boundaries_cmake_test)$\"" just test-debug`
+  - result: pass。2/2 tests passed。
 
 予定:
 
@@ -350,7 +352,7 @@ TDD status:
 - [x] `swbt/control` を実装した。client state submit、direct submit、status 合成、IPC adapter delegation は実装済み。
 - [x] daemon host を runtime host + IPC runner の利用者へ薄くした。
 - [x] IPC adapter / runner を control 経由に移した。
-- [ ] public C ABI minimal operation を追加した。
+- [x] public C ABI minimal operation を追加した。
 - [ ] CMake target と include boundary を更新した。
 - [ ] relevant tests を追加または更新した。`control_test` は追加済み。direct API、status、IPC delegation、public C ABI、include boundary は未完了。
 - [ ] 検証コマンドと結果を記録した。

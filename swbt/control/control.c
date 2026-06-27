@@ -132,6 +132,12 @@ swbt_control_result_t swbt_control_submit_state(swbt_control_t *control,
                                          }));
 }
 
+swbt_control_result_t swbt_control_submit_neutral(swbt_control_t *control) {
+    const swbt_state_t neutral = swbt_state_neutral();
+
+    return swbt_control_submit_state(control, &neutral);
+}
+
 swbt_control_result_t swbt_control_get_status(const swbt_control_t *control,
                                               swbt_control_status_t *out_status) {
     if (control == NULL || control->app == NULL || out_status == NULL) {

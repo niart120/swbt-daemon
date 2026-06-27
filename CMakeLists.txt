@@ -228,6 +228,17 @@ target_link_libraries(swbt_control PUBLIC swbt_application swbt_runtime)
 swbt_apply_common_warnings(swbt_control)
 swbt_apply_sanitizers(swbt_control)
 
+set_target_properties(
+    swbt_switch_protocol
+    swbt_support
+    swbt_application
+    swbt_btstack_adapter
+    swbt_runtime
+    swbt_control
+    PROPERTIES
+        POSITION_INDEPENDENT_CODE ON
+)
+
 add_library(swbt_ipc STATIC
     swbt/ipc/ipc_adapter.c
     swbt/ipc/ipc_json.c
@@ -286,7 +297,7 @@ if(SWBT_BUILD_SHARED)
     add_library(swbt SHARED
         api/swbt_c_api.c
     )
-    target_link_libraries(swbt PRIVATE swbt_support)
+    target_link_libraries(swbt PRIVATE swbt_control swbt_support)
     target_include_directories(swbt
         PUBLIC
             "${CMAKE_CURRENT_SOURCE_DIR}/api"
@@ -776,6 +787,17 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME diagnostics_test COMMAND diagnostics_test)
 
+    if(SWBT_BUILD_SHARED)
+        add_executable(swbt_c_api_test
+            tests/swbt_c_api_test.c
+        )
+        target_link_libraries(swbt_c_api_test PRIVATE swbt)
+        swbt_apply_common_warnings(swbt_c_api_test)
+        swbt_apply_sanitizers(swbt_c_api_test)
+
+        add_test(NAME swbt_c_api_test COMMAND swbt_c_api_test)
+    endif()
+
     add_custom_target(swbt_unit_tests
         DEPENDS
             swbt_smoke_test
@@ -822,4 +844,7 @@ if(SWBT_BUILD_TESTS)
             diagnostics_test
             swbt-daemon
     )
+    if(SWBT_BUILD_SHARED)
+        add_dependencies(swbt_unit_tests swbt_c_api_test)
+    endif()
 endif()

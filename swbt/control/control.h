@@ -54,6 +54,8 @@ swbt_control_result_t swbt_control_submit_client_state(swbt_control_t *control, 
 
 swbt_control_result_t swbt_control_submit_state(swbt_control_t *control, const swbt_state_t *state);
 
+swbt_control_result_t swbt_control_submit_neutral(swbt_control_t *control);
+
 swbt_control_result_t swbt_control_get_status(const swbt_control_t *control,
                                               swbt_control_status_t *out_status);
 

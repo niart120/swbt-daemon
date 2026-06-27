@@ -75,6 +75,11 @@ swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_btstack_adapter STAT
                        "BTstack adapter target boundary")
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_daemon_host STATIC"
                        "daemon host target boundary")
+swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt SHARED"
+                       "public C ABI target boundary")
+swbt_assert_file_not_match("CMakeLists.txt"
+                           "target_link_libraries\\(swbt[ \r\n][^\\)]*swbt_ipc"
+                           "public C ABI IPC link boundary")
 swbt_assert_file_not_match("CMakeLists.txt"
                            "target_link_libraries\\(swbt_application[^\\)]*swbt_btstack"
                            "application target BTstack link boundary")
