@@ -40,6 +40,8 @@ option(SWBT_ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
 set(SWBT_BACKEND "libusb" CACHE STRING "Backend: libusb or windows-winusb")
 set_property(CACHE SWBT_BACKEND PROPERTY STRINGS libusb windows-winusb)
 set(SWBT_REPORT_PERIOD_US "8000" CACHE STRING "Default HID report period")
+set(SWBT_VERSION_SUFFIX "-dev" CACHE STRING "Suffix appended to the project version for runtime reports")
+set(SWBT_VERSION_STRING "${PROJECT_VERSION}${SWBT_VERSION_SUFFIX}")
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -176,6 +178,7 @@ add_library(swbt_support STATIC
     swbt/support/metrics.c
 )
 swbt_configure_module_public_includes(swbt_support MODULES support)
+target_compile_definitions(swbt_support PRIVATE SWBT_VERSION_STRING="${SWBT_VERSION_STRING}")
 swbt_apply_common_warnings(swbt_support)
 swbt_apply_sanitizers(swbt_support)
 
