@@ -84,6 +84,7 @@ swbt-debug-client
 - `work-units/complete/local_106/RELEASE_PACKAGE_AND_SMOKE.md`
 - `work-units/complete/local_107/RELEASE_GITHUB_ACTIONS.md`
 - `work-units/complete/local_108/RELEASE_CANDIDATE_VALIDATION.md`
+- `work-units/complete/local_109/RELEASE_README_READY.md`
 - `work-units/complete/local_104/README_USER_DEVELOPMENT_DOC_SPLIT.md`
 - `work-units/complete/local_103/RELEASE_ARTIFACT_LICENSE_BOUNDARY.md`
 - `work-units/complete/local_102/RELEASE_READINESS_PLAN.md`
