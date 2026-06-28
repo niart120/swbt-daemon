@@ -70,13 +70,22 @@ Tidy status:
 - classification: structure change
 - decision: tidy first
 - reason: helper rename に入る前に、target が generic daemon process と production path をどう分けるかを固定する。
-- verification: CMake boundary tests、targeted daemon / production tests、必要に応じて `just debug`。
+- verification: CMake boundary tests、`just debug`、`just asan`、`just windows-cross`。
 
 guardrail:
 
 - target を増やすだけでは完了にしない。新 target は既存 target の責務を狭めるか、不要 target を削除する必要がある。
 - `swbt_daemon_process` が production-specific source を持ち続ける判断をする場合は、なぜ target 分割より読みやすいかを record に残す。
 - `swbt` public C ABI target が `swbt_ipc` や production implementation へ link しない境界は維持する。
+
+実施結果:
+
+- before: `swbt_daemon_process` は config、CLI、IPC runner、launch options、process、switch address に加えて `production_*.c` と `production_shutdown.c` を同じ source list に持っていた。
+- after: `swbt_daemon_process` は generic daemon process / config / CLI / IPC runner / launch options / switch address の target とした。
+- after: `swbt_daemon_production_runner` を追加し、production runner、production IPC pump、production process backend、HID session、report timer、reconnect、shutdown をこの target に寄せた。
+- after: `swbt-daemon` executable と production helper tests は `swbt_daemon_production_runner` を明示的に link する。generic daemon tests は `swbt_daemon_process` のままにした。
+- after: `swbt_daemon_process` の generated public include root から `daemon/production_*.h` と `daemon/shutdown_listener.h` を除外し、production 側 include root にだけ公開した。
+- 不要な aggregate / compatibility target は存在しなかったため削除対象はなかった。代わりに、既存 target の責務を狭め、名前だけの wrapper target は追加していない。
 
 ## 8. 対象ファイル
 
@@ -85,30 +94,30 @@ guardrail:
 - `tests/cmake/include_boundaries_test.cmake`
 - `tests/cmake/compile_include_boundaries_test.cmake`
 - `tests/cmake/architecture_absence_test.cmake`
-- `tests/*daemon*_test.c`
-- `docs/status.md` if current target names change
-- `spec/architecture/daemon-architecture-cutover.md` if architecture target names change
+
+reviewed but not changed:
+
+- `tests/*daemon*_test.c`: test source は変更せず、link target だけを CMake で切り替えた。
+- `docs/status.md`: current target names を説明する記述はなかった。
+- `spec/architecture/daemon-architecture-cutover.md`: architecture spec の責務文を変える必要はなかった。
 
 ## 9. TDD Test List（TDD テスト一覧）
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | generic daemon process tests link only the target needed for daemon process behavior | regression | build | no |
-| todo | production runner / production helper tests link the production-specific target explicitly | regression | build | no |
-| todo | public C ABI target remains free of `swbt_ipc` and production implementation link dependencies | regression | build/architecture | no |
-| todo | obsolete aggregate or compatibility targets are absent from CMake after cleanup | regression | build/review | no |
-| todo | CMake include boundary probes still pass with the new target include roots | regression | architecture | no |
+| green | generic daemon process tests link only the target needed for daemon process behavior | regression | build | no |
+| green | production runner / production helper tests link the production-specific target explicitly | regression | build | no |
+| green | public C ABI target remains free of `swbt_ipc` and production implementation link dependencies | regression | build/architecture | no |
+| green | obsolete aggregate or compatibility targets are absent from CMake after cleanup | regression | build/review | no |
+| green | CMake include boundary probes still pass with the new target include roots | regression | architecture | no |
 
 ## 10. 検証
 
-not run yet.
-
-予定:
-
-- `rg -n "add_library\\(swbt_|target_link_libraries\\(" CMakeLists.txt`
-- `$env:CTEST_ARGS='-R "include_boundaries_cmake_test|compile_include_boundaries_cmake_test|architecture_absence_test|daemon_process_test|daemon_production_runner_test|daemon_production_process_backend_test" --output-on-failure'; just test-debug`
-- `just debug` if CMake target topology changes broadly
-- `just windows-cross` if executable link topology changes
+- `rg -n "add_library\\(swbt_daemon_process STATIC|add_library\\(swbt_daemon_production_runner STATIC|target_link_libraries\\(daemon_production|swbt_daemon_production_runner|swbt_daemon_process" CMakeLists.txt tests/cmake`: pass. `swbt_daemon_process` と `swbt_daemon_production_runner` の source grouping と test link target を確認した。
+- `git diff --check`: pass.
+- `just debug`: pass. `linux-debug` configure/build、CTest 59/59 passed.
+- `just asan`: pass. `linux-asan` configure/build、CTest 59/59 passed.
+- `just windows-cross`: pass. `windows-mingw-debug` configure/build passed.
 
 ## 11. 実機実行条件
 
@@ -124,9 +133,9 @@ helper rename と app / daemon boundary cleanup は `local_096` で扱う。
 
 ## 13. チェックリスト
 
-- [ ] `swbt_daemon_process` target の責務を棚卸しした。
-- [ ] production-specific source の target boundary を整理した。
-- [ ] 不要な aggregate / compatibility target が残っていないことを確認した。
-- [ ] executable と tests の link target を更新した。
-- [ ] CMake / include boundary 検証結果を記録した。
-- [ ] 実機未実行理由を維持した。
+- [x] `swbt_daemon_process` target の責務を棚卸しした。
+- [x] production-specific source の target boundary を整理した。
+- [x] 不要な aggregate / compatibility target が残っていないことを確認した。
+- [x] executable と tests の link target を更新した。
+- [x] CMake / include boundary 検証結果を記録した。
+- [x] 実機未実行理由を維持した。
