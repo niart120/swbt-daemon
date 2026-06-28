@@ -105,6 +105,7 @@ source から use case への判断:
 | local_101 post-HID no-button observation | post-graceful source から HID open 後に Button A を送らず観測した 2 runs は、Switch output report `a2 01` と swbt subcommand reply `a1 21` が始まり、reason `0x13` は出なかった | `tmp/hardware/local_101/20260628-213316-active-reconnect-post-hid-observe`, `tmp/hardware/local_101/20260628-213730-active-reconnect-post-hid-observe` | hardware observation |
 | local_101 immediate post-graceful held-shutdown rerun | no-button observation 直後の held Button A shutdown rerun 2 runs は、どちらも `Create_connection` 後に `Connection_complete` が出ず、HID open 未達だった | `tmp/hardware/local_100/20260628-213436-shutdown-active-reconnect-graceful-disconnect`, `tmp/hardware/local_100/20260628-213757-shutdown-active-reconnect-graceful-disconnect` | hardware observation |
 | local_101 delayed post-graceful held-shutdown rerun | 60 秒待機後の held Button A shutdown rerun は HID open、Switch output report `a2 01`、shutdown neutral、HID disconnect closed まで到達した | `tmp/hardware/local_100/20260628-214137-shutdown-active-reconnect-graceful-disconnect` | hardware observation |
+| local_101 create-connection timeout fail/retry pattern | successful graceful disconnect artifact からの first active reconnect attempt が `Create_connection` 後に `Connection_complete` 未達で fail し、同じ source artifact の retry が HID open と Switch output report `a2 01` へ進む pattern を 4 組観測した | `tmp/hardware/local_101/20260628-215231-active-reconnect-post-hid-observe`, `20260628-215529-active-reconnect-post-hid-observe`, `20260628-215603-active-reconnect-post-hid-observe`, `20260628-215829-active-reconnect-post-hid-observe`, `20260628-215902-active-reconnect-post-hid-observe`, `20260628-220124-active-reconnect-post-hid-observe`, `20260628-220300-active-reconnect-post-hid-observe`, `20260628-220515-active-reconnect-post-hid-observe` | hardware observation |
 | swbt link key notification handling | configured link key DB が open の間、non-null `HCI_EVENT_LINK_KEY_NOTIFICATION` は `gap_store_link_key_for_bd_addr()` へ渡される | `swbt/btstack_bridge/production_btstack_impl.c:569-592` | implementation fact |
 | BTstack TLV duplicate address handling | `btstack_link_key_db_tlv_put_link_key()` は既存 address の `tag_for_addr` を empty / oldest tag より優先して保存する | `vendor/btstack/src/classic/btstack_link_key_db_tlv.c:119-176` | source fact |
 | swbt link key DB refresh characterization | 同じ address へ 2 回の `HCI_EVENT_LINK_KEY_NOTIFICATION` を emit すると、2 回目の link key / key type を `gap_get_link_key_for_bd_addr()` で読める | `tests/btstack_production_hci_dump_test.c:174-268` | software observation |
@@ -156,7 +157,8 @@ Change Grip/Order で実登録が走った場合、daemon が `--link-key-db` co
 | green | controlled re-pair with configured link key DB refreshes TLV before active reconnect retest | characterization | hardware | yes |
 | green | hardware run reaches HID open and Button A smoke with saved link key DB and no incoming pairing | regression | hardware | yes |
 | green | post-HID-open reason `0x13` active reconnect close is characterized against Switch output-report start and local disconnect evidence | characterization | hardware/artifact | yes |
-| todo | post-graceful-disconnect immediate active reconnect timing is characterized separately from reason `0x13` remote close | characterization | hardware | yes |
+| green | post-graceful-disconnect immediate active reconnect timing is characterized separately from reason `0x13` remote close | characterization | hardware | yes |
+| todo | Create Connection completion timeout is surfaced as an active reconnect failure and can be retried without confusing it with authentication or L2CAP failure | characterization/regression | unit/integration | no |
 | deferred | local_100 shutdown graceful disconnect final hardware run resumes after active reconnect is available | characterization | hardware | yes |
 
 ## 10. 検証
@@ -348,6 +350,30 @@ Refactor status:
 - change: none。
 - unchanged behavior: production code は変えていない。`tmp/hardware/local_101/run-active-reconnect-post-hid-observe.ps1` は観測用 script であり、daemon behavior は変えていない。
 - verification: existing artifact comparison and hardware artifacts。
+
+TDD status:
+- source: user request, 2026-06-28: reason `0x13` 追跡の次として、graceful disconnect 後の active reconnect timing を実機で追う。
+- use case: maintainer は active reconnect が `Create_connection` 後に `Connection_complete` 未達で止まる failure を、reason `0x13`、link key / authentication failure、L2CAP security failure と分けて説明できる。
+- item: post-graceful-disconnect immediate active reconnect timing is characterized separately from reason `0x13` remote close。
+- state: green。
+- commands:
+  - `& .\tmp\hardware\local_101\run-active-reconnect-post-hid-observe.ps1 -SourceArtifactPath .\tmp\hardware\local_100\20260628-214137-shutdown-active-reconnect-graceful-disconnect -PostHidObserveMs 5000`
+  - `& .\tmp\hardware\local_101\run-active-reconnect-post-hid-observe.ps1 -SourceArtifactPath .\tmp\hardware\local_100\20260628-214137-shutdown-active-reconnect-graceful-disconnect -PostHidObserveMs 5000`
+  - `& .\tmp\hardware\local_101\run-active-reconnect-post-hid-observe.ps1 -SourceArtifactPath .\tmp\hardware\local_101\20260628-215529-active-reconnect-post-hid-observe -PostHidObserveMs 5000`
+  - `& .\tmp\hardware\local_101\run-active-reconnect-post-hid-observe.ps1 -SourceArtifactPath .\tmp\hardware\local_101\20260628-215529-active-reconnect-post-hid-observe -PostHidObserveMs 5000`
+  - `& .\tmp\hardware\local_101\run-active-reconnect-post-hid-observe.ps1 -SourceArtifactPath .\tmp\hardware\local_101\20260628-215829-active-reconnect-post-hid-observe -PostHidObserveMs 5000`
+  - `& .\tmp\hardware\local_101\run-active-reconnect-post-hid-observe.ps1 -SourceArtifactPath .\tmp\hardware\local_101\20260628-215829-active-reconnect-post-hid-observe -PostHidObserveMs 5000`
+  - `Start-Sleep -Seconds 60`
+  - `& .\tmp\hardware\local_101\run-active-reconnect-post-hid-observe.ps1 -SourceArtifactPath .\tmp\hardware\local_101\20260628-220124-active-reconnect-post-hid-observe -PostHidObserveMs 5000`
+  - `& .\tmp\hardware\local_101\run-active-reconnect-post-hid-observe.ps1 -SourceArtifactPath .\tmp\hardware\local_101\20260628-220124-active-reconnect-post-hid-observe -PostHidObserveMs 5000`
+- result: `20260628-215231...`、`20260628-215603...`、`20260628-215902...`、`20260628-220300...` は fail。いずれも `active_reconnect_request_ok_count=1`、`hid_connection_opened_count=0`、`responding_to_link_key_request_count=0`、`l2cap_open_status_0_count=0` で、HCI dump は `Create_connection` を記録したが `Connection_complete` へ進んでいない。同じ source artifact の retry `20260628-215529...`、`20260628-215829...`、`20260628-220124...`、`20260628-220515...` は pass し、HID open、Switch output report `a2 01`、swbt subcommand reply `a1 21` まで進んだ。
+- notes: failure は reason `0x13` remote close より前の段階であり、link key request、authentication、L2CAP open へ到達していない。待機時間だけでは pass / fail を説明できなかった。次の software item は、Create Connection completion timeout を active reconnect failure として trace / retry policy に載せるか、少なくとも authentication / L2CAP failure と混同しない形で観測できるようにすること。
+
+Refactor status:
+- decision: refactor-skipped。
+- change: none。
+- unchanged behavior: production code は変えていない。実機 artifact と記録のみ。
+- verification: hardware artifacts。
 
 ## 11. 実機実行条件
 
