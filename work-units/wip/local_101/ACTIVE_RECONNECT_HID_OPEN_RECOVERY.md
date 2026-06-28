@@ -102,6 +102,9 @@ source から use case への判断:
 | local_100 post-graceful active reconnect remote close | `Connection_complete(status=0)`, link key response, `hci_emit_security_level 2`, PSM `0x11` / `0x13` open status `0x0` 後、outgoing neutral `a1 30` 12 件の後に `data=050400470013` で切断された。Switch output report `a2 01` と swbt subcommand reply `a1 21` は出ていない | `tmp/hardware/local_100/20260628-210911-shutdown-active-reconnect-graceful-disconnect/hci-dump.txt:128-241`, `summary.json` | hardware observation |
 | absence of local disconnect request in local_100 post-graceful reconnect | `disconnect_from_hid_host_count=0`、`shutdown_disconnect_requested_count=0`、HCI dump 内に local HCI disconnect command `data=0604...` と `Disconnect from HID Host` marker はない | `tmp/hardware/local_100/20260628-210911-shutdown-active-reconnect-graceful-disconnect/summary.json`, `hci-dump.txt`, `daemon-trace.txt:44-52` | hardware observation |
 | local_101 success contrast after HID open | 同じ refreshed TLV 由来の success run は PSM open 後、neutral `a1 30` 数件の後に Switch output report `a2 01` を受け、swbt は `a1 21` subcommand replies と Button A smoke へ進んだ | `tmp/hardware/local_101/20260628-204952-active-reconnect-hid-open-recovery/hci-dump.txt:227-295`, `summary.json` | hardware observation |
+| local_101 post-HID no-button observation | post-graceful source から HID open 後に Button A を送らず観測した 2 runs は、Switch output report `a2 01` と swbt subcommand reply `a1 21` が始まり、reason `0x13` は出なかった | `tmp/hardware/local_101/20260628-213316-active-reconnect-post-hid-observe`, `tmp/hardware/local_101/20260628-213730-active-reconnect-post-hid-observe` | hardware observation |
+| local_101 immediate post-graceful held-shutdown rerun | no-button observation 直後の held Button A shutdown rerun 2 runs は、どちらも `Create_connection` 後に `Connection_complete` が出ず、HID open 未達だった | `tmp/hardware/local_100/20260628-213436-shutdown-active-reconnect-graceful-disconnect`, `tmp/hardware/local_100/20260628-213757-shutdown-active-reconnect-graceful-disconnect` | hardware observation |
+| local_101 delayed post-graceful held-shutdown rerun | 60 秒待機後の held Button A shutdown rerun は HID open、Switch output report `a2 01`、shutdown neutral、HID disconnect closed まで到達した | `tmp/hardware/local_100/20260628-214137-shutdown-active-reconnect-graceful-disconnect` | hardware observation |
 | swbt link key notification handling | configured link key DB が open の間、non-null `HCI_EVENT_LINK_KEY_NOTIFICATION` は `gap_store_link_key_for_bd_addr()` へ渡される | `swbt/btstack_bridge/production_btstack_impl.c:569-592` | implementation fact |
 | BTstack TLV duplicate address handling | `btstack_link_key_db_tlv_put_link_key()` は既存 address の `tag_for_addr` を empty / oldest tag より優先して保存する | `vendor/btstack/src/classic/btstack_link_key_db_tlv.c:119-176` | source fact |
 | swbt link key DB refresh characterization | 同じ address へ 2 回の `HCI_EVENT_LINK_KEY_NOTIFICATION` を emit すると、2 回目の link key / key type を `gap_get_link_key_for_bd_addr()` で読める | `tests/btstack_production_hci_dump_test.c:174-268` | software observation |
@@ -152,7 +155,8 @@ Change Grip/Order で実登録が走った場合、daemon が `--link-key-db` co
 | green | hardware run reproduces or clears current failure boundary without Change Grip/Order or incoming pairing | characterization | hardware | yes |
 | green | controlled re-pair with configured link key DB refreshes TLV before active reconnect retest | characterization | hardware | yes |
 | green | hardware run reaches HID open and Button A smoke with saved link key DB and no incoming pairing | regression | hardware | yes |
-| todo | post-HID-open reason `0x13` active reconnect close is characterized against Switch output-report start and local disconnect evidence | characterization | hardware/artifact | yes |
+| green | post-HID-open reason `0x13` active reconnect close is characterized against Switch output-report start and local disconnect evidence | characterization | hardware/artifact | yes |
+| todo | post-graceful-disconnect immediate active reconnect timing is characterized separately from reason `0x13` remote close | characterization | hardware | yes |
 | deferred | local_100 shutdown graceful disconnect final hardware run resumes after active reconnect is available | characterization | hardware | yes |
 
 ## 10. 検証
@@ -322,7 +326,7 @@ TDD status:
 - source: user request, 2026-06-28: post-graceful-disconnect reconnect evaluation の reason `0x13` close は `local_101` で原因追跡する。`local_100` は local disconnect request 残りの否定までを扱う。
 - use case: maintainer は HID open 後の remote close を、link key / authentication failure、local disconnect request carryover、Switch output report 開始前の remote-side termination に分けて説明できる。
 - item: post-HID-open reason `0x13` active reconnect close is characterized against Switch output-report start and local disconnect evidence。
-- state: todo。
+- state: green。
 - commands:
   - `Get-Content tmp\hardware\local_100\20260628-210911-shutdown-active-reconnect-graceful-disconnect\summary.json`
   - `Get-Content tmp\hardware\local_101\20260628-204952-active-reconnect-hid-open-recovery\summary.json`
@@ -330,14 +334,20 @@ TDD status:
   - `rg -n "Connection_complete|responding to link key request|have link key db|hci_emit_security_level|L2CAP_EVENT_CHANNEL_OPENED|packet type=0x04.*data=050400|L2CAP_EVENT_CHANNEL_CLOSED|Connection closed|a1 30|a2 01|Button" tmp\hardware\local_101\20260628-204952-active-reconnect-hid-open-recovery\hci-dump.txt tmp\hardware\local_101\20260628-204952-active-reconnect-hid-open-recovery\daemon-trace.txt`
   - `Get-Content tmp\hardware\local_100\20260628-210911-shutdown-active-reconnect-graceful-disconnect\hci-dump.txt | Select-Object -Skip 220 -First 35`
   - `Get-Content tmp\hardware\local_101\20260628-204952-active-reconnect-hid-open-recovery\hci-dump.txt | Select-Object -Skip 220 -First 45`
-- result: initial characterization started。`local_100` post-graceful reconnect close run は `Connection_complete(status=0)`、link key response、`hci_emit_security_level 2`、PSM `0x11` / `0x13` open status `0x0` までは到達しており、link key / authentication failure ではない。HCI dump は outgoing neutral `a1 30` を 12 件送った後、`data=050400470013` で remote-side termination を記録した。Switch output report `a2 01` と swbt subcommand reply `a1 21` は出ていない。`disconnect_from_hid_host_count=0`、`shutdown_disconnect_requested_count=0` で、local disconnect request carryover の痕跡もない。
-- notes: `local_101` success run は同じ HID open 直後の段階から Switch output report `a2 01` を受け、`a1 21` subcommand replies と Button A smoke へ進んだ。したがって次の原因追跡は、post-graceful-disconnect 状態または run timing が Switch の controller setup output-report sequence を開始させない条件に寄っているかを見る。現時点では Switch UI / policy / timing のどれかとは断定しない。
+  - `& .\tmp\hardware\local_101\run-active-reconnect-post-hid-observe.ps1 -SourceArtifactPath .\tmp\hardware\local_100\20260628-210030-shutdown-active-reconnect-graceful-disconnect -PostHidObserveMs 5000`
+  - `& .\tmp\hardware\local_100\run-shutdown-graceful-disconnect-active-reconnect.ps1 -SourceArtifactPath .\tmp\hardware\local_101\20260628-213316-active-reconnect-post-hid-observe`
+  - `& .\tmp\hardware\local_101\run-active-reconnect-post-hid-observe.ps1 -SourceArtifactPath .\tmp\hardware\local_101\20260628-213316-active-reconnect-post-hid-observe -PostHidObserveMs 5000`
+  - `& .\tmp\hardware\local_100\run-shutdown-graceful-disconnect-active-reconnect.ps1 -SourceArtifactPath .\tmp\hardware\local_101\20260628-213730-active-reconnect-post-hid-observe`
+  - `Start-Sleep -Seconds 60`
+  - `& .\tmp\hardware\local_100\run-shutdown-graceful-disconnect-active-reconnect.ps1 -SourceArtifactPath .\tmp\hardware\local_101\20260628-213730-active-reconnect-post-hid-observe`
+- result: `local_100` post-graceful reconnect close run は `Connection_complete(status=0)`、link key response、`hci_emit_security_level 2`、PSM `0x11` / `0x13` open status `0x0` までは到達しており、link key / authentication failure ではない。HCI dump は outgoing neutral `a1 30` を 12 件送った後、`data=050400470013` で remote-side termination を記録した。Switch output report `a2 01` と swbt subcommand reply `a1 21` は出ていない。`disconnect_from_hid_host_count=0`、`shutdown_disconnect_requested_count=0` で、local disconnect request carryover の痕跡もない。追加の no-button observation は `20260628-213316-active-reconnect-post-hid-observe` と `20260628-213730-active-reconnect-post-hid-observe` の 2 回とも pass し、Switch output report `a2 01` と swbt `a1 21` が始まり、reason `0x13` は `0` 件だった。
+- notes: post-graceful source artifact だけで Switch output report 開始前 close へ固定的に落ちるわけではない。即時 held Button A shutdown rerun は `20260628-213436...` と `20260628-213757...` の 2 回とも `Connection_complete` 未達で fail したが、60 秒待機後の `20260628-214137...` は pass した。現時点の有力な追跡対象は local disconnect request carryover ではなく、graceful disconnect 後の短時間 active reconnect timing / Switch 側受け入れ状態である。reason `0x13` 自体は今回の追跡 run では再現していない。
 
 Refactor status:
 - decision: refactor-skipped。
 - change: none。
-- unchanged behavior: source audit と artifact 比較のみ。production code、script、docs/hardware-test-log には触れていない。
-- verification: existing artifact comparison。
+- unchanged behavior: production code は変えていない。`tmp/hardware/local_101/run-active-reconnect-post-hid-observe.ps1` は観測用 script であり、daemon behavior は変えていない。
+- verification: existing artifact comparison and hardware artifacts。
 
 ## 11. 実機実行条件
 
