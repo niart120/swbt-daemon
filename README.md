@@ -1,104 +1,111 @@
 # swbt-daemon
 
-`swbt-daemon` は、Nintendo Switch に Bluetooth Classic HID Device として接続し、Pro Controller 相当の入力を送る daemon です。
+`swbt-daemon` は、Nintendo Switch に Bluetooth Classic HID Device として接続し、Pro Controller 相当の入力を送るデーモンです。外部クライアントから受け取ったコントローラー状態を Switch へ送信します。
 
-daemon は local IPC でコントローラー状態の snapshot を受け取り、Switch Pro Controller protocol と BTstack HID Device backend へ渡します。daemon protocol は現在状態を受け取る設計であり、`tap`、`duration_ms`、`sequence`、`at_ms` のような時間指定 macro は扱いません。
+## ダウンロード
 
-## 現在の状態
+リリース版は [GitHub Releases](https://github.com/niart120/swbt-daemon/releases) から入手します。
 
-現時点では GitHub Release の binary artifact はまだ提供していません。初回 release の準備は [Release Build And Publish Plan](spec/operations/release-build-and-publish.md) に沿って進めます。
+Windows 版には、デーモン本体の `swbt-daemon.exe`、動作確認用の `swbt-debug-client.exe`、README、ライセンス文書、第三者ライセンス表記が入っています。
 
-確認済みの範囲:
+ソースからビルドする場合は [Development](docs/development.md) を参照してください。
 
-- Windows native
+## 対応状況
+
+確認済み:
+
+- Windows + WinUSB
 - CSR8510 A10 USB Bluetooth ドングル
-- WinUSB driver
-- Switch 2 firmware `22.1.0`
-- `windows-winusb` backend
-- pairing、HID L2CAP open、subcommand reply、Switch UI への入力反映
-- owner disconnect、heartbeat timeout、shutdown 時の neutral fail-safe
-- pairing-free active reconnect の一部条件
+- Switch 2 ファームウェア `22.1.0`
+- Switch とのペアリング
+- Switch への入力反映
+- 切断時や終了時のニュートラル入力復帰
 
-未確認または未実装の範囲:
+未確認または未実装:
 
 - 初代 Switch、Switch Lite、Switch OLED
 - CSR8510 A10 以外の USB Bluetooth ドングル
-- Linux + libusb 実機経路
-- 厳密な latency、jitter、取りこぼし率
-- 複数 controller 同時接続
+- Linux + libusb での Switch 接続
+- 複数コントローラー同時接続
 - NFC / IR MCU / amiibo の意味処理
-- rumble 周波数 / 振幅の意味変換
 
-詳しい状態表は [docs/status.md](docs/status.md) を参照してください。実機ログは [docs/hardware-test-log.md](docs/hardware-test-log.md) に記録しています。
+詳しい状態表は [Current State And Support Matrix](docs/status.md) を参照してください。
 
-## 実機安全境界
+## 利用時の注意事項
 
-実機へ触れる起動では、専用 USB Bluetooth ドングルを使ってください。内蔵 Bluetooth や普段使いのドングルを対象にしないでください。
+Windows では、Switch 接続に使う専用の USB Bluetooth ドングルを用意し、ドライバーを WinUSB に切り替える必要があります。内蔵 Bluetooth や普段使いのドングルはこの用途に使わないでください。
 
-production backend は `--adapter-location` がない場合、Bluetooth アダプターを開く前に失敗します。Windows では `swbt-daemon adapters` で候補を確認し、`winusb:<location-path>` selector を指定します。
+ドライバーの切り替えには [Zadig](https://zadig.akeo.ie/) を利用できます。Zadig は外部ツールです。利用によって生じた問題について、本プロジェクトは責任を負いません。Zadig で WinUSB に切り替えるのは、上記の専用 USB Bluetooth ドングルのドライバーだけにしてください。
 
-実機実行では、次の範囲を人間が明示してから実行します。
+ドングルは、確認済みの CSR8510 A10 チップ搭載品を推奨します。CSR8510 A10 以外の USB Bluetooth ドングルは未確認です。
 
-- Bluetooth adapter open
-- Switch pairing
-- HID advertising
-- report loop
-- IPC input
-- cleanup confirmation
+ドングルを接続して WinUSB に切り替えた後、`swbt-daemon adapters` で `winusb:<location-path>` を確認します。Switch に接続する起動では、この値を `--adapter-location` に指定します。指定しない場合、`swbt-daemon` は Bluetooth アダプターを開く前に終了します。
 
-## 入手と準備
+Switch に接続する前に、次の項目を確認してください。
 
-binary artifact は初回 release 整備後に GitHub Release へ置く予定です。今は source から build してください。
+- 使用する専用 USB Bluetooth ドングル
+- ドライバーが WinUSB に切り替わっていること
+- `winusb:<location-path>` の値
+- Switch とペアリングを開始してよいこと
+- 入力送信を開始してよいこと
+- 終了時に `swbt-daemon` を停止し、Switch 側に不要な接続が残っていないこと
 
-```console
-git submodule update --init --recursive
-```
+## 起動と確認
 
-開発環境、build、test、Git hooks は [docs/development.md](docs/development.md) に分けています。
-
-## 管理コマンド
-
-Bluetooth アダプターを開かずに確認できるコマンド:
+確認用コマンド:
 
 ```console
+# ヘルプを表示する
 swbt-daemon help
+
+# Windows で指定できる winusb:<location-path> の候補を表示する
 swbt-daemon adapters
+
+# Bluetooth アダプターを開かずに設定を確認する
 swbt-daemon config --backend noop
+
+# Bluetooth アダプターを開かずに起動できることを確認する
 swbt-daemon --backend noop
 ```
 
-Windows 実機起動の形:
+ここで確認した `winusb:<location-path>` は、Switch に接続する起動で `--adapter-location` に指定します。
+
+Windows で Switch に接続する起動例:
 
 ```console
 swbt-daemon --adapter-location winusb:<location-path> --config swbt-daemon.toml --link-key-db swbt-link-key.tlv --trace-path trace.txt --hci-dump-path hci-dump.txt
 ```
 
-`--trace-path` と `--hci-dump-path` は、startup、pairing、HID、cleanup の根拠を残すために使います。
+引数:
 
-## IPC と診断用 client
+- `--adapter-location winusb:<location-path>`: 必須。`swbt-daemon adapters` で確認した専用ドングルを指定します。
+- `--config swbt-daemon.toml`: 任意。設定ファイルを使う場合に指定します。
+- `--link-key-db swbt-link-key.tlv`: 任意。Switch との接続情報を保存し、再接続に使う場合に指定します。
+- `--trace-path trace.txt`: 任意。`swbt-daemon` の診断ログを保存します。
+- `--hci-dump-path hci-dump.txt`: 任意。Bluetooth 通信の調査用ログを保存します。
 
-daemon は JSON Lines over local IPC を使います。クライアントは現在の controller state snapshot を送り、daemon は最後に受け取った状態を report loop へ反映します。
+## 入力の送信
 
-診断用 client:
+`swbt-daemon` はローカル IPC で現在のコントローラー状態を受け取り、Switch へ送信します。
+
+動作確認用クライアントの例:
 
 ```console
 swbt-debug-client --port 37637 --button a --hold-ms 1000
 ```
 
-`swbt-debug-client` は診断用です。安定した automation API としては daemon IPC v1 を参照してください。
-
-- [Daemon IPC v1](spec/protocols/daemon-ipc-v1.md)
+IPC の形式は [Daemon IPC v1](spec/protocols/daemon-ipc-v1.md) を参照してください。
 
 ## ライセンス
 
-Original `swbt-daemon` project files are licensed under the MIT License. See [LICENSE](LICENSE).
+`swbt-daemon` のコードと文書は MIT License です。詳しくは [LICENSE](LICENSE) を参照してください。
 
-BTstack is a third-party dependency with its own license terms. Builds and source distributions that include or link BTstack are also subject to the BTstack license. Such builds are intended for personal, non-commercial use unless a separate commercial BTstack license is obtained from BlueKitchen.
+Windows 配布物は BTstack を含むため、BTstack のライセンス条件も適用されます。BTstack を含む配布物は、BlueKitchen から別の商用ライセンスを得ていない限り、個人・非商用利用を前提にしてください。
 
-See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [Release License Boundary](spec/operations/release-license-boundary.md).
+第三者ライセンス表記は [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) を参照してください。
 
 ## 開発者向け情報
 
 - [Development](docs/development.md)
-- [Operations specs](spec/operations/README.md)
-- [Architecture spec](spec/architecture/daemon-architecture-cutover.md)
+- [Current State And Support Matrix](docs/status.md)
+- [Daemon IPC v1](spec/protocols/daemon-ipc-v1.md)

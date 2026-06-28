@@ -206,8 +206,8 @@ work-units/             work unit records
 
 ## リリース作業
 
-Release 整備は [spec/operations/release-build-and-publish.md](../spec/operations/release-build-and-publish.md) の milestone に従う。
+Release build、package layout、license / notice gate は [spec/operations/release-build-and-publish.md](../spec/operations/release-build-and-publish.md) と [spec/operations/release-license-boundary.md](../spec/operations/release-license-boundary.md) に従う。
 
 `.github/workflows/release.yml` は `v*` tag push で `just verify-ci`、`just package-windows-release`、Windows package smoke を実行し、draft GitHub Release へ zip と checksum を添付する。
 
-tag push と GitHub Release publish は実行前に明示承認を必要とする。M5 時点の workflow は draft release を作るが、公開は M7 の承認後に行う。
+tag push と GitHub Release publish は別の承認境界として扱う。tag push は release workflow を起動して draft release を作る。draft release の assets、checksum、license / notice、実機状態または未実行理由を確認してから publish する。
