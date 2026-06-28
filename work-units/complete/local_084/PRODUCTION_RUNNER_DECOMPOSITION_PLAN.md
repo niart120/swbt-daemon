@@ -88,28 +88,26 @@ Tidy status:
 
 ## 8. 対象ファイル
 
-- `work-units/wip/local_085/PRODUCTION_ENTRYPOINT_PLATFORM_SPLIT.md`
-- `work-units/wip/local_086/PRODUCTION_PORTS_VALIDATION_BOUNDARY.md`
-- `work-units/wip/local_087/PRODUCTION_ADDRESS_RECONNECT_BOUNDARY.md`
-- `work-units/wip/local_088/PRODUCTION_IPC_PUMP_BOUNDARY.md`
-- `work-units/wip/local_089/PRODUCTION_REPORT_TIMER_BOUNDARY.md`
-- `work-units/wip/local_090/PRODUCTION_HID_SESSION_BOUNDARY.md`
-- `work-units/wip/local_091/PRODUCTION_PROCESS_BACKEND_TABLE_BOUNDARY.md`
-- `work-units/wip/local_092/PRODUCTION_SHUTDOWN_BOUNDARY.md`
-- `work-units/wip/local_093/PRODUCTION_RUNNER_HEADER_FINALIZATION.md`
+- `work-units/complete/local_085/PRODUCTION_ENTRYPOINT_PLATFORM_SPLIT.md`
+- `work-units/complete/local_086/PRODUCTION_PORTS_VALIDATION_BOUNDARY.md`
+- `work-units/complete/local_087/PRODUCTION_ADDRESS_RECONNECT_BOUNDARY.md`
+- `work-units/complete/local_088/PRODUCTION_IPC_PUMP_BOUNDARY.md`
+- `work-units/complete/local_089/PRODUCTION_REPORT_TIMER_BOUNDARY.md`
+- `work-units/complete/local_090/PRODUCTION_HID_SESSION_BOUNDARY.md`
+- `work-units/complete/local_091/PRODUCTION_PROCESS_BACKEND_TABLE_BOUNDARY.md`
+- `work-units/complete/local_092/PRODUCTION_SHUTDOWN_BOUNDARY.md`
+- `work-units/complete/local_093/PRODUCTION_RUNNER_HEADER_FINALIZATION.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | milestone work unit records define non-overlapping completion criteria for production runner decomposition | characterization | docs/review | no |
-| todo | each milestone record states that already-created later milestones are not repeated as deferred work | characterization | docs/review | no |
-| todo | overall endpoint preserves CLI, IPC JSON, HID bytes, report period, BTstack source selection, and shutdown neutral ordering | regression | docs/review | no |
-| todo | decomposition series closes only after `local_085` through `local_093` complete without unassigned deferred items | regression | docs/review | no |
+| done | milestone work unit records define non-overlapping completion criteria for production runner decomposition | characterization | docs/review | no |
+| done | each milestone record states that already-created later milestones are not repeated as deferred work | characterization | docs/review | no |
+| done | overall endpoint preserves CLI, IPC JSON, HID bytes, report period, BTstack source selection, and shutdown neutral ordering | regression | docs/review | no |
+| done | decomposition series closes only after `local_085` through `local_093` complete without unassigned deferred items | regression | docs/review | no |
 
 ## 10. 検証
-
-not run yet.
 
 record 作成時:
 
@@ -122,6 +120,17 @@ record 作成時:
   - result: all 10 expected record files exist.
 - trailing whitespace scan across all 10 new Markdown files
   - result: no matches.
+
+completion closeout:
+
+- `Get-ChildItem -Path work-units\complete\local_085 ... work-units\complete\local_093 -File`
+  - result: all 9 milestone record files exist under `work-units/complete`.
+- incomplete-marker scan across `work-units\complete\local_085` through `work-units\complete\local_093`
+  - result: no matches.
+- stale WIP reference and incomplete-marker scan against this parent record
+  - result: found stale WIP paths, `todo` TDD status, and the final unchecked checklist item before closeout. This closeout update resolves them.
+- `git diff --check`
+  - result: pass. Git reported the existing LF to CRLF working-copy warning for this Markdown file, with no whitespace error.
 
 ## 11. 実機実行条件
 
@@ -142,4 +151,4 @@ none.
 - [x] 各 record の TDD Test List が use case に結び付いている。
 - [x] 全体の終着点と milestone order が記録されている。
 - [x] record 作成後の `rg` 確認結果を記録した。
-- [ ] `local_085` から `local_093` の完了後、この parent record を complete へ移すか判断した。
+- [x] `local_085` から `local_093` の完了後、この parent record を complete へ移すか判断した。
