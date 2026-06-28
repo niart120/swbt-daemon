@@ -74,7 +74,36 @@ cmake -E copy_if_different "$repo_root/vendor/toml11/LICENSE" "$stage_dir/licens
 swbt_commit=$(git -C "$repo_root" rev-parse HEAD)
 btstack_status=$(git -C "$repo_root" submodule status vendor/btstack | sed 's/^[[:space:]]*//')
 toml11_status=$(git -C "$repo_root" submodule status vendor/toml11 | sed 's/^[[:space:]]*//')
-if [ -n "$(git -C "$repo_root" status --short)" ]; then
+
+mark_safe_directory() {
+    path=$1
+    if [ -d "$path" ] && ! git config --global --get-all safe.directory | grep -Fx -- "$path" >/dev/null 2>&1; then
+        git config --global --add safe.directory "$path"
+    fi
+}
+
+path_has_meaningful_changes() {
+    path=$1
+    if ! git -C "$path" diff --quiet --ignore-cr-at-eol -- .; then
+        return 0
+    fi
+    if ! git -C "$path" diff --cached --quiet --ignore-cr-at-eol -- .; then
+        return 0
+    fi
+    if [ -n "$(git -C "$path" ls-files --others --exclude-standard)" ]; then
+        return 0
+    fi
+    return 1
+}
+
+mark_safe_directory "$repo_root/vendor/btstack"
+mark_safe_directory "$repo_root/vendor/toml11"
+
+if ! git -C "$repo_root" diff --quiet --ignore-cr-at-eol --ignore-submodules=dirty -- . ||
+    ! git -C "$repo_root" diff --cached --quiet --ignore-cr-at-eol --ignore-submodules=dirty -- . ||
+    [ -n "$(git -C "$repo_root" ls-files --others --exclude-standard)" ] ||
+    path_has_meaningful_changes "$repo_root/vendor/btstack" ||
+    path_has_meaningful_changes "$repo_root/vendor/toml11"; then
     worktree_dirty=true
 else
     worktree_dirty=false
