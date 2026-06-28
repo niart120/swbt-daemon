@@ -45,9 +45,13 @@ _clean-unix:
 _clean-windows:
     @& git -C "{{justfile_directory()}}" clean -fdX -- build/ 'cmake-build-*'; exit $LASTEXITCODE
 
-# List configured CMake presets.
+# Print configured CMake presets.
 list-presets:
     @just --justfile "{{justfile()}}" _run-or-delegate list-presets
+
+# Check that CMake presets can be read.
+check-presets:
+    @just --justfile "{{justfile()}}" _run-or-delegate check-presets
 
 # Configure linux-debug.
 configure-debug:
@@ -151,6 +155,9 @@ _prepare-workspace-in-container: _require-devcontainer
     @workspace="$(pwd)"; if ! git config --global --get-all safe.directory | grep -Fx -- "$workspace" >/dev/null 2>&1; then git config --global --add safe.directory "$workspace"; fi
 
 _list-presets-in-container: _prepare-workspace-in-container
+    cmake --list-presets
+
+_check-presets-in-container: _prepare-workspace-in-container
     cmake --list-presets >/dev/null
 
 _configure-debug-in-container: _prepare-workspace-in-container
@@ -190,10 +197,10 @@ _debug-fresh-in-container: _prepare-workspace-in-container
     just --justfile "{{justfile()}}" _test-debug-in-container
 
 _format-in-container: _prepare-workspace-in-container
-    scripts/format.sh
+    bash scripts/format.sh
 
 _format-check-in-container: _prepare-workspace-in-container
-    scripts/check-format.sh
+    bash scripts/check-format.sh
 
 _tidy-in-container: _prepare-workspace-in-container
     cmake --fresh --preset linux-clang-tidy

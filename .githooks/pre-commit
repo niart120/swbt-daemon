@@ -12,8 +12,8 @@ cd "$repo_root"
 echo "[pre-commit] git diff --cached --check"
 git diff --cached --check
 
-echo "[pre-commit] just list-presets"
-just list-presets
+echo "[pre-commit] just check-presets"
+just check-presets
 
 staged_c_source=0
 for path in $(git diff --cached --name-only --diff-filter=ACMR -- api apps swbt tests); do
