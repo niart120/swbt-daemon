@@ -44,6 +44,20 @@
         "SWBT_BACKEND": "windows-winusb",
         "SWBT_BUILD_TESTS": "ON"
       }
+    },
+    {
+      "name": "windows-mingw-release",
+      "displayName": "Windows MinGW Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/windows-mingw-release",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/mingw-w64-x86_64.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SWBT_BACKEND": "windows-winusb",
+        "SWBT_BUILD_TESTS": "OFF",
+        "SWBT_BUILD_SHARED": "OFF",
+        "SWBT_VERSION_SUFFIX": ""
+      }
     }
   ],
   "buildPresets": [
@@ -62,6 +76,10 @@
     {
       "name": "windows-mingw-debug",
       "configurePreset": "windows-mingw-debug"
+    },
+    {
+      "name": "windows-mingw-release",
+      "configurePreset": "windows-mingw-release"
     }
   ],
   "testPresets": [

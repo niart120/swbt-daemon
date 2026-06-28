@@ -101,6 +101,22 @@ asan:
 windows-cross:
     @just --justfile "{{justfile()}}" _run-or-delegate windows-cross
 
+# Configure windows-mingw-release.
+configure-windows-release:
+    @just --justfile "{{justfile()}}" _run-or-delegate configure-windows-release
+
+# Configure and build windows-mingw-release.
+build-windows-release:
+    @just --justfile "{{justfile()}}" _run-or-delegate build-windows-release
+
+# Build the initial Windows release executables.
+release-build:
+    @just --justfile "{{justfile()}}" _run-or-delegate release-build
+
+# Build and package the initial Windows release zip.
+package-windows-release:
+    @just --justfile "{{justfile()}}" _run-or-delegate package-windows-release
+
 # Run format-check, clang-tidy, debug, ASan, and Windows cross build.
 verify:
     @just --justfile "{{justfile()}}" _run-or-delegate verify
@@ -214,6 +230,19 @@ _asan-in-container: _prepare-workspace-in-container
 _windows-cross-in-container: _prepare-workspace-in-container
     cmake --fresh --preset windows-mingw-debug
     cmake --build --preset windows-mingw-debug
+
+_configure-windows-release-in-container: _prepare-workspace-in-container
+    cmake --fresh --preset windows-mingw-release
+
+_build-windows-release-in-container: _prepare-workspace-in-container
+    just --justfile "{{justfile()}}" _configure-windows-release-in-container
+    @parallel="${SWBT_BUILD_PARALLEL_LEVEL:-}"; if [ -n "$parallel" ]; then cmake --build --preset windows-mingw-release --target swbt-daemon swbt-debug-client --parallel "$parallel"; else cmake --build --preset windows-mingw-release --target swbt-daemon swbt-debug-client; fi
+
+_release-build-in-container: _build-windows-release-in-container
+
+_package-windows-release-in-container: _prepare-workspace-in-container
+    just --justfile "{{justfile()}}" _build-windows-release-in-container
+    bash scripts/package-windows-release.sh
 
 _verify-in-container: _prepare-workspace-in-container
     just --justfile "{{justfile()}}" _format-check-in-container
