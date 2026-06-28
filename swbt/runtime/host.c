@@ -58,23 +58,58 @@ static void swbt_runtime_host_store_neutral(swbt_runtime_host_t *runtime) {
                                            });
 }
 
+static int swbt_runtime_host_read_status_for_control(void *context,
+                                                     swbt_control_runtime_status_t *out_status) {
+    swbt_runtime_host_t *runtime = context;
+
+    if (runtime == NULL || out_status == NULL) {
+        return -1;
+    }
+
+    *out_status = (swbt_control_runtime_status_t){
+        .initialized = runtime->initialized,
+        .running = runtime->running,
+        .hid_registered = runtime->hid_registered,
+        .output_handler_started = runtime->output_handler_started,
+        .report_timer_started = runtime->report_timer_started,
+    };
+    return 0;
+}
+
 swbt_runtime_host_result_t swbt_runtime_host_init(swbt_runtime_host_t *runtime,
                                                   const swbt_runtime_host_config_t *config,
                                                   const swbt_runtime_host_backend_t *backend,
                                                   void *backend_context) {
-    if (runtime == NULL || config == NULL || config->app == NULL ||
-        !swbt_runtime_backend_is_valid(backend)) {
+    if (runtime == NULL || config == NULL || !swbt_runtime_backend_is_valid(backend)) {
         return SWBT_RUNTIME_HOST_ERROR_INVALID_ARGUMENT;
     }
 
     *runtime = (swbt_runtime_host_t){0};
     runtime->backend = backend;
     runtime->backend_context = backend_context;
-    runtime->app = config->app;
+    runtime->app = swbt_domain_create();
+    if (runtime->app == NULL) {
+        return SWBT_RUNTIME_HOST_ERROR_INVALID_ARGUMENT;
+    }
+    if (swbt_domain_set_daemon_status(runtime->app, &config->daemon_status) != SWBT_DOMAIN_OK) {
+        swbt_domain_destroy(runtime->app);
+        runtime->app = NULL;
+        return SWBT_RUNTIME_HOST_ERROR_INVALID_ARGUMENT;
+    }
     runtime->report_options = config->report_options;
     runtime->device_info = config->device_info;
     swbt_btstack_output_report_handler_init(&runtime->output_handler,
                                             swbt_runtime_host_on_output_report, runtime);
+    if (swbt_control_init(&runtime->control,
+                          &(swbt_control_config_t){
+                              .app = runtime->app,
+                              .read_runtime_status = swbt_runtime_host_read_status_for_control,
+                              .runtime_status_context = runtime,
+                          }) != SWBT_CONTROL_OK) {
+        swbt_domain_destroy(runtime->app);
+        runtime->app = NULL;
+        return SWBT_RUNTIME_HOST_ERROR_INVALID_ARGUMENT;
+    }
     runtime->initialized = true;
     return SWBT_RUNTIME_HOST_OK;
 }
@@ -148,6 +183,16 @@ void swbt_runtime_host_stop(swbt_runtime_host_t *runtime) {
     runtime->running = false;
 }
 
+void swbt_runtime_host_destroy(swbt_runtime_host_t *runtime) {
+    if (runtime == NULL) {
+        return;
+    }
+
+    swbt_runtime_host_stop(runtime);
+    swbt_domain_destroy(runtime->app);
+    *runtime = (swbt_runtime_host_t){0};
+}
+
 bool swbt_runtime_host_is_running(const swbt_runtime_host_t *runtime) {
     return runtime != NULL && runtime->running;
 }
@@ -171,4 +216,12 @@ swbt_runtime_host_result_t swbt_runtime_host_status(const swbt_runtime_host_t *r
 swbt_btstack_output_report_handler_t *
 swbt_runtime_host_output_handler(swbt_runtime_host_t *runtime) {
     return runtime == NULL ? NULL : &runtime->output_handler;
+}
+
+swbt_domain_t *swbt_runtime_host_app(swbt_runtime_host_t *runtime) {
+    return runtime == NULL ? NULL : runtime->app;
+}
+
+swbt_control_t *swbt_runtime_host_control(swbt_runtime_host_t *runtime) {
+    return runtime == NULL ? NULL : &runtime->control;
 }

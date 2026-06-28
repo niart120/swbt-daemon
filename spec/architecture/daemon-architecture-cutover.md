@@ -49,8 +49,8 @@ daemon の論理状態、IPC transport、BTstack bridge、daemon process composi
 - BTstack bridge は daemon / IPC internal type を参照しない。
 - host が startup、shutdown、cleanup、power、run loop、platform listener の順序を所有する。
 - JSON Lines IPC と public C ABI は、owner、sequence、neutral、status 合成の意味論を `swbt/control` 経由に集約する。`swbt/control` は direct API 用の synthetic client id と sequence allocator を持ってよいが、authoritative な owner、latest sequence、controller state は `swbt_domain_t` に残す。
-- `swbt/runtime` は IPC を含まない runtime resource lifecycle と runtime-owned state を持つ。runtime が所有してよいのは initialized/running、HID registration、output handler、report timer などの resource state であり、app lifetime、controller ownership、latest sequence、controller state の authoritative owner にはならない。
-- daemon process は IPC runner と runtime host の composition root である。IPC start / stop は daemon process backend contract に残し、runtime backend contract に入れない。
+- `swbt/runtime` は IPC を含まない runtime host 境界である。runtime host は `swbt_domain_t` lifetime、`swbt_control_t`、HID registration、output handler、report timer、runtime resource status をまとめて所有する。ただし controller ownership、latest sequence、controller state の authoritative writer は `swbt/domain` に残す。
+- daemon process は process lifecycle 境界である。IPC start / stop は daemon process backend contract に残し、runtime backend contract に入れない。daemon process は runtime host から得た `swbt_control_t *` で IPC runner を開始し、runtime host の start / stop と daemon lifecycle status 更新を順序付ける。HID / output / report timer / subcommand の runtime callbacks は `swbt_daemon_process_backend_t` に再定義しない。
 - public C ABI target `swbt` は `swbt/control` を通り、`swbt_ipc` に link しない。初期 public C ABI は local state operation に限定し、Bluetooth adapter open、HCI power on、pairing、advertising、connect success を public contract として固定しない。
 - `swbt_core` を互換 aggregate target として残さない。production executable と test は必要 target を直接 link する。
 - 旧 symbol、旧 header、旧 target、旧 test の不存在を acceptance に含める。
@@ -77,6 +77,7 @@ daemon の論理状態、IPC transport、BTstack bridge、daemon process composi
 - `work-units/complete/local_055/REARCHITECTURE_CUTOVER_ACCEPTANCE_AND_CLEANUP.md`
 - `work-units/complete/local_079/DEVICE_LIFECYCLE_API.md`
 - `work-units/complete/local_082/CONTROL_RUNTIME_BOUNDARY_IMPLEMENTATION.md`
+- `work-units/complete/local_097/RUNTIME_HOST_COMPOSITION_OWNERSHIP.md`
 
 ## 7. 実装状態
 
@@ -90,6 +91,7 @@ daemon の論理状態、IPC transport、BTstack bridge、daemon process composi
 - 2026-06-27 の `local_079` で、BTstack bridge に caller-owned `swbt_btstack_device_t` と `open` / `connect` / `send` / `recv` / `close` の device lifecycle API を追加した。production runner は platform start、HID register、active reconnect、HID event decode、HID / platform close を device API 経由で呼ぶ。これは internal BTstack bridge API であり、`api/swbt.h` の public C ABI ではない。Switch-facing bytes、report period、BTstack source selection、HID registration config 値、shutdown neutral ordering は変更していない。
 - 2026-06-27 の `local_082` で、`swbt/control` と `swbt/runtime` を追加した。IPC adapter / runner と public C ABI は control operation を通り、daemon process は IPC runner と runtime host を構成する。runtime host は IPC start / stop を持たず、HID registration、output handler、report timer、neutral shutdown、runtime resource status を扱う。shared target `swbt` は `swbt_control` に link し、`swbt_ipc` には link しない。この変更は IPC JSON wire format、Switch-facing bytes、report period、BTstack source selection、shutdown neutral ordering を変更していない。
 - 2026-06-28 の `local_083` で、現行 module 名を `swbt/domain`、`swbt/support`、`swbt_daemon_process`、`swbt_daemon_production_runner`、`swbt_btstack_production_ports_t`、`swbt_btstack_production_impl` に整理した。これは rename / placement cleanup であり、IPC JSON wire format、Switch-facing bytes、report period、BTstack source selection、shutdown neutral ordering を変更していない。
+- 2026-06-28 の `local_097` で、runtime host を `swbt_domain_t` lifetime、`swbt_control_t`、runtime resource lifecycle の composition owner に変更した。`swbt/control` から `runtime/host.h` への具象 include を外し、runtime status は callback で読む。daemon process は `swbt_runtime_host_control()` と `swbt_runtime_host_app()` を使い、process-owned `app` / `control` / runtime backend wrapper table と `swbt_daemon_process_runtime_*` wrapper 群を持たない。`swbt_daemon_process_backend_t` は daemon backend status、IPC start / stop、runtime backend pointer に縮小した。この変更は IPC JSON wire format、public C ABI の外部形、Switch-facing bytes、report period、BTstack source selection、shutdown neutral ordering を変更していない。
 - 2026-06-25 の `local_065` cleanup 後、`swbt-bond-<local-bdaddr>.tlv` と TLV-backed Classic link key DB 経路は現行 tree から削除済みである。daemon restart / sleep-resume の実機観測では既存 bond reconnect ではなく再 pairing になったため、bond cache は release 互換を約束する外部契約に格上げしない。調査記録は `spec/archive/bond-cache-persistence.md` を参照する。
 - 「8. 採用した外部レビュー本文」内の未完了表記は、採用時点の作業指示として残す。現在の実装状態はこの章、`local_056`、`local_057`、`docs/status.md` を正とする。
 - 外部契約を破壊する必要が出た場合は、同じ PR に変更理由と migration note を含める。

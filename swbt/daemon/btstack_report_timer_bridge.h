@@ -20,9 +20,9 @@ typedef struct {
     bool *initialized;
 } swbt_daemon_btstack_report_timer_bridge_t;
 
-int swbt_daemon_btstack_report_timer_bridge_start(
-    swbt_daemon_btstack_report_timer_bridge_t *timer,
-    swbt_daemon_process_state_provider_t state_provider, void *state_context);
+int swbt_daemon_btstack_report_timer_bridge_start(swbt_daemon_btstack_report_timer_bridge_t *timer,
+                                                  swbt_runtime_state_provider_t state_provider,
+                                                  void *state_context);
 
 void swbt_daemon_btstack_report_timer_bridge_stop(swbt_daemon_btstack_report_timer_bridge_t *timer);
 

@@ -56,7 +56,7 @@ static void swbt_daemon_production_record_report_tick(
 
 static swbt_btstack_input_report_timer_adapter_config_t
 swbt_daemon_btstack_report_timer_bridge_config(swbt_daemon_btstack_report_timer_bridge_t *timer,
-                                               swbt_daemon_process_state_provider_t state_provider,
+                                               swbt_runtime_state_provider_t state_provider,
                                                void *state_context) {
     return (swbt_btstack_input_report_timer_adapter_config_t){
         .backend = NULL,
@@ -74,9 +74,9 @@ swbt_daemon_btstack_report_timer_bridge_config(swbt_daemon_btstack_report_timer_
     };
 }
 
-int swbt_daemon_btstack_report_timer_bridge_start(
-    swbt_daemon_btstack_report_timer_bridge_t *timer,
-    swbt_daemon_process_state_provider_t state_provider, void *state_context) {
+int swbt_daemon_btstack_report_timer_bridge_start(swbt_daemon_btstack_report_timer_bridge_t *timer,
+                                                  swbt_runtime_state_provider_t state_provider,
+                                                  void *state_context) {
     if (!swbt_daemon_btstack_report_timer_bridge_is_valid(timer)) {
         return -1;
     }

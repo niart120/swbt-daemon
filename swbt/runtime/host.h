@@ -7,6 +7,7 @@
 
 #include "domain/domain.h"
 #include "btstack_bridge/output_report_handler.h"
+#include "control/control.h"
 #include "switch/switch_controller_state.h"
 #include "switch/switch_device_info.h"
 
@@ -35,9 +36,9 @@ typedef struct {
 } swbt_runtime_host_backend_t;
 
 typedef struct {
-    swbt_domain_t *app;
     swbt_switch_report_options_t report_options;
     swbt_switch_device_info_t device_info;
+    swbt_domain_daemon_status_t daemon_status;
 } swbt_runtime_host_config_t;
 
 typedef struct {
@@ -52,6 +53,7 @@ typedef struct {
     const swbt_runtime_host_backend_t *backend;
     void *backend_context;
     swbt_domain_t *app;
+    swbt_control_t control;
     swbt_switch_report_options_t report_options;
     swbt_switch_device_info_t device_info;
     swbt_btstack_output_report_handler_t output_handler;
@@ -72,6 +74,7 @@ swbt_runtime_host_result_t swbt_runtime_host_start(swbt_runtime_host_t *runtime)
 swbt_runtime_host_result_t swbt_runtime_host_send_neutral_now(swbt_runtime_host_t *runtime);
 
 void swbt_runtime_host_stop(swbt_runtime_host_t *runtime);
+void swbt_runtime_host_destroy(swbt_runtime_host_t *runtime);
 
 bool swbt_runtime_host_is_running(const swbt_runtime_host_t *runtime);
 
@@ -80,5 +83,9 @@ swbt_runtime_host_result_t swbt_runtime_host_status(const swbt_runtime_host_t *r
 
 swbt_btstack_output_report_handler_t *
 swbt_runtime_host_output_handler(swbt_runtime_host_t *runtime);
+
+swbt_domain_t *swbt_runtime_host_app(swbt_runtime_host_t *runtime);
+
+swbt_control_t *swbt_runtime_host_control(swbt_runtime_host_t *runtime);
 
 #endif

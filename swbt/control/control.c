@@ -25,7 +25,8 @@ swbt_control_result_t swbt_control_init(swbt_control_t *control,
 
     *control = (swbt_control_t){
         .app = config->app,
-        .runtime = config->runtime,
+        .read_runtime_status = config->read_runtime_status,
+        .runtime_status_context = config->runtime_status_context,
         .next_direct_sequence = 0u,
     };
     return SWBT_CONTROL_OK;
@@ -148,10 +149,10 @@ swbt_control_result_t swbt_control_get_status(const swbt_control_t *control,
     if (swbt_domain_read_status(control->app, &out_status->app) != SWBT_DOMAIN_OK) {
         return SWBT_CONTROL_ERROR_INVALID_ARGUMENT;
     }
-    if (control->runtime == NULL) {
+    if (control->read_runtime_status == NULL) {
         return SWBT_CONTROL_OK;
     }
-    if (swbt_runtime_host_status(control->runtime, &out_status->runtime) != SWBT_RUNTIME_HOST_OK) {
+    if (control->read_runtime_status(control->runtime_status_context, &out_status->runtime) != 0) {
         return SWBT_CONTROL_ERROR_INVALID_ARGUMENT;
     }
     out_status->has_runtime_status = true;

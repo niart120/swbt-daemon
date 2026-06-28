@@ -90,6 +90,8 @@ foreach(path IN LISTS swbt_control_files)
     file(RELATIVE_PATH relative_path "${SWBT_SOURCE_DIR}" "${path}")
     swbt_assert_file_not_match("${relative_path}" "#include \"(daemon|ipc)/"
                                "control daemon/IPC include boundary")
+    swbt_assert_file_not_match("${relative_path}" "#include \"runtime/"
+                               "control runtime include boundary")
 endforeach()
 
 # These checks cover CMake topology. Public include-root compile probes cover include visibility,
