@@ -4,10 +4,12 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "btstack_bridge/device.h"
 #include "btstack_bridge/production_ports.h"
 #include "daemon/config.h"
+#include "support/diagnostics.h"
 
 typedef struct {
     int platform_start_calls;
@@ -80,6 +82,33 @@ static int expect_eq_u64(uint64_t actual, uint64_t expected, const char *label) 
     return 0;
 }
 
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+static int expect_file_contains(const char *path, const char *needle, const char *label) {
+    FILE *file = fopen(path, "rb");
+    char buffer[512];
+    size_t read = 0;
+    int result = 1;
+
+    if (file == NULL) {
+        // Test diagnostics write to stderr with no retained buffer.
+        // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+        fprintf(stderr, "%s: trace file missing\n", label);
+        return 1;
+    }
+    read = fread(buffer, 1, sizeof(buffer) - 1u, file);
+    fclose(file);
+    buffer[read] = '\0';
+    if (strstr(buffer, needle) != NULL) {
+        result = 0;
+    } else {
+        // Test diagnostics write to stderr with no retained buffer.
+        // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
+        fprintf(stderr, "%s: missing trace %s\n", label, needle);
+    }
+    remove(path);
+    return result;
+}
+
 static int fake_platform_start(void *context) {
     fake_ops_t *fake = context;
     fake->platform_start_calls += 1;
@@ -114,6 +143,12 @@ static int fake_connect(void *context, const swbt_btstack_device_connect_request
     return -1;
 }
 
+static int fake_disconnect(void *context, uint16_t hid_cid) {
+    (void)context;
+    (void)hid_cid;
+    return -1;
+}
+
 static int fake_send(void *context, uint16_t hid_cid, const uint8_t *message, size_t message_size) {
     (void)context;
     (void)hid_cid;
@@ -129,6 +164,7 @@ static swbt_btstack_device_port_t fake_device_port(void) {
         .hid_register = fake_hid_register,
         .hid_stop = fake_hid_stop,
         .connect = fake_connect,
+        .disconnect = fake_disconnect,
         .send = fake_send,
     };
 }
@@ -277,6 +313,55 @@ static int hid_session_connection_opened_starts_timer_with_hid_cid(void) {
     return failed;
 }
 
+static int hid_session_connection_open_failure_is_traced_without_starting_timer(void) {
+    const char *trace_path = "daemon-btstack-hid-open-failed-trace.log";
+    fake_ops_t fake = {
+        .clock_time_ms = 123u,
+    };
+    const swbt_btstack_device_port_t device_port = fake_device_port();
+    const swbt_btstack_production_report_timer_port_t timer_port = fake_report_timer_port();
+    const swbt_btstack_production_clock_port_t clock_port = fake_clock_port();
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    swbt_btstack_device_t device = {0};
+    swbt_btstack_input_report_timer_adapter_t timer = {0};
+    uint8_t service_buffer[512] = {0};
+    bool timer_initialized = true;
+    bool shutdown_pending = false;
+    uint8_t opened_event[] = {0xefu, 13u, 0x02u, 0x42u, 0x00u, 0x66u, 0u, 0u,
+                              0u,    0u,  0u,    0u,    0u,    0u,    1u};
+    swbt_daemon_btstack_hid_session_t session = {
+        .config = &config,
+        .device_port = &device_port,
+        .report_timer_port = &timer_port,
+        .clock_port = &clock_port,
+        .port_context = &fake,
+        .device = &device,
+        .report_timer = &timer,
+        .report_timer_initialized = &timer_initialized,
+        .shutdown_neutral_pending = &shutdown_pending,
+        .service_buffer = service_buffer,
+        .service_buffer_size = sizeof(service_buffer),
+        .finish_shutdown = fake_finish_shutdown,
+        .finish_shutdown_context = &fake,
+    };
+
+    int failed = 0;
+    (void)remove(trace_path);
+    swbt_diagnostic_trace_set_path(trace_path);
+    failed += expect_eq_int(swbt_daemon_btstack_hid_session_register(&session), 0, "register");
+    fake.captured_registration.packet_handler(0x04u, 0x0042u, opened_event, sizeof(opened_event));
+    swbt_diagnostic_trace_set_path(NULL);
+
+    failed += expect_eq_int(fake.timer_start_calls, 0, "timer start calls");
+    failed += expect_eq_int(fake.timer_can_send_calls, 0, "timer can send calls");
+    failed += expect_eq_int(fake.timer_stop_calls, 0, "timer stop calls");
+    failed += expect_file_contains(trace_path, "production: hid connection open failed",
+                                   "open failure trace");
+
+    swbt_daemon_btstack_hid_session_stop(&session);
+    return failed;
+}
+
 static int hid_session_can_send_now_completes_pending_shutdown_result(int can_send_result,
                                                                       const char *label) {
     fake_ops_t fake = {
@@ -411,6 +496,7 @@ int main(void) {
     int failed = 0;
     failed += hid_session_register_opens_and_stop_closes_device();
     failed += hid_session_connection_opened_starts_timer_with_hid_cid();
+    failed += hid_session_connection_open_failure_is_traced_without_starting_timer();
     failed += hid_session_can_send_now_completes_pending_shutdown_on_success_or_failure();
     failed += hid_session_connection_closed_stops_timer_and_completes_pending_shutdown();
     failed += hid_session_confirms_ssp_user_confirmation();

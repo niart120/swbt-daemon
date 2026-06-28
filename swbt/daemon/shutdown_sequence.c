@@ -27,6 +27,7 @@ bool swbt_daemon_shutdown_sequence_init(swbt_daemon_shutdown_sequence_t *shutdow
     shutdown->finish = config->finish;
     shutdown->finish_context = config->finish_context;
     shutdown->neutral_pending = false;
+    shutdown->disconnect_pending = false;
     shutdown->callback = (btstack_context_callback_registration_t){0};
     atomic_init(&shutdown->requested, false);
     return true;
@@ -39,6 +40,7 @@ void swbt_daemon_shutdown_sequence_prepare(swbt_daemon_shutdown_sequence_t *shut
 
     atomic_store(&shutdown->requested, false);
     shutdown->neutral_pending = false;
+    shutdown->disconnect_pending = false;
     shutdown->callback = (btstack_context_callback_registration_t){0};
 }
 

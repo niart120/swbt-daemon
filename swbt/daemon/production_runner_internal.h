@@ -24,6 +24,8 @@ struct swbt_daemon_production_runner {
     swbt_daemon_btstack_hid_session_t hid_session_bridge;
     swbt_daemon_btstack_report_timer_bridge_t report_timer_bridge;
     swbt_daemon_shutdown_sequence_t shutdown;
+    btstack_timer_source_t active_reconnect_timeout_timer;
+    btstack_timer_source_t shutdown_disconnect_timer;
     const swbt_btstack_production_ports_t *ports;
     void *ports_context;
     swbt_daemon_process_t *host;
@@ -32,7 +34,12 @@ struct swbt_daemon_production_runner {
     bool report_timer_initialized;
     bool learned_switch_address_target_configured;
     bool adapter_location_configured;
+    bool active_reconnect_timeout_timer_pending;
+    bool shutdown_disconnect_timer_pending;
     atomic_bool hardware_powered;
 };
+
+void swbt_daemon_production_runner_note_hid_open_completed(
+    swbt_daemon_production_runner_t *backend);
 
 #endif

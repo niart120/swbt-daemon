@@ -880,6 +880,14 @@ static int swbt_btstack_production_device_send(void *context, uint16_t hid_cid,
                : -1;
 }
 
+static int swbt_btstack_production_device_disconnect(void *context, uint16_t hid_cid) {
+    (void)context;
+    swbt_diagnostic_trace("btstack: hid disconnect request");
+    hid_device_disconnect(hid_cid);
+    swbt_diagnostic_trace("btstack: hid disconnect requested");
+    return 0;
+}
+
 static void swbt_btstack_production_run_loop_execute(void *context) {
     (void)context;
     btstack_run_loop_execute();
@@ -889,6 +897,38 @@ static void swbt_btstack_production_run_loop_execute_on_main_thread(
     void *context, btstack_context_callback_registration_t *callback_registration) {
     (void)context;
     btstack_run_loop_execute_on_main_thread(callback_registration);
+}
+
+static void
+swbt_btstack_production_run_loop_set_timer_handler(void *context, btstack_timer_source_t *timer,
+                                                   void (*process)(btstack_timer_source_t *timer)) {
+    (void)context;
+    btstack_run_loop_set_timer_handler(timer, process);
+}
+
+static void swbt_btstack_production_run_loop_set_timer_context(void *context,
+                                                               btstack_timer_source_t *timer,
+                                                               void *timer_context) {
+    (void)context;
+    btstack_run_loop_set_timer_context(timer, timer_context);
+}
+
+static void swbt_btstack_production_run_loop_set_timer(void *context, btstack_timer_source_t *timer,
+                                                       uint32_t timeout_ms) {
+    (void)context;
+    btstack_run_loop_set_timer(timer, timeout_ms);
+}
+
+static void swbt_btstack_production_run_loop_add_timer(void *context,
+                                                       btstack_timer_source_t *timer) {
+    (void)context;
+    btstack_run_loop_add_timer(timer);
+}
+
+static int swbt_btstack_production_run_loop_remove_timer(void *context,
+                                                         btstack_timer_source_t *timer) {
+    (void)context;
+    return btstack_run_loop_remove_timer(timer);
 }
 
 static void swbt_btstack_production_run_loop_trigger_exit(void *context) {
@@ -910,6 +950,7 @@ const swbt_btstack_production_ports_t *swbt_btstack_production_ports_btstack(voi
                 .hid_register = swbt_btstack_production_hid_register,
                 .hid_stop = swbt_btstack_production_hid_stop,
                 .connect = swbt_btstack_production_device_connect,
+                .disconnect = swbt_btstack_production_device_disconnect,
                 .send = swbt_btstack_production_device_send,
             },
         .output_handler =
@@ -945,6 +986,11 @@ const swbt_btstack_production_ports_t *swbt_btstack_production_ports_btstack(voi
             {
                 .execute = swbt_btstack_production_run_loop_execute,
                 .execute_on_main_thread = swbt_btstack_production_run_loop_execute_on_main_thread,
+                .set_timer_handler = swbt_btstack_production_run_loop_set_timer_handler,
+                .set_timer_context = swbt_btstack_production_run_loop_set_timer_context,
+                .set_timer = swbt_btstack_production_run_loop_set_timer,
+                .add_timer = swbt_btstack_production_run_loop_add_timer,
+                .remove_timer = swbt_btstack_production_run_loop_remove_timer,
                 .trigger_exit = swbt_btstack_production_run_loop_trigger_exit,
             },
     };

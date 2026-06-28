@@ -62,6 +62,12 @@ typedef struct {
     void (*execute)(void *context);
     void (*execute_on_main_thread)(void *context,
                                    btstack_context_callback_registration_t *callback_registration);
+    void (*set_timer_handler)(void *context, btstack_timer_source_t *timer,
+                              void (*process)(btstack_timer_source_t *timer));
+    void (*set_timer_context)(void *context, btstack_timer_source_t *timer, void *timer_context);
+    void (*set_timer)(void *context, btstack_timer_source_t *timer, uint32_t timeout_ms);
+    void (*add_timer)(void *context, btstack_timer_source_t *timer);
+    int (*remove_timer)(void *context, btstack_timer_source_t *timer);
     void (*trigger_exit)(void *context);
 } swbt_btstack_production_run_loop_port_t;
 

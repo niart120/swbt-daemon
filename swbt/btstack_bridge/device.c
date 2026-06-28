@@ -5,7 +5,7 @@
 static bool swbt_btstack_device_port_is_valid(const swbt_btstack_device_port_t *port) {
     return port != NULL && port->platform_start != NULL && port->platform_stop != NULL &&
            port->hid_register != NULL && port->hid_stop != NULL && port->connect != NULL &&
-           port->send != NULL;
+           port->disconnect != NULL && port->send != NULL;
 }
 
 swbt_btstack_device_result_t swbt_btstack_device_init(swbt_btstack_device_t *device,
@@ -67,6 +67,20 @@ swbt_btstack_device_connect(swbt_btstack_device_t *device,
     return device->port->connect(device->port_context, request, out_hid_cid) == 0
                ? SWBT_BTSTACK_DEVICE_OK
                : SWBT_BTSTACK_DEVICE_ERROR_CONNECT_FAILED;
+}
+
+swbt_btstack_device_result_t swbt_btstack_device_disconnect(swbt_btstack_device_t *device,
+                                                            uint16_t hid_cid) {
+    if (device == NULL || !device->initialized) {
+        return SWBT_BTSTACK_DEVICE_ERROR_INVALID_ARGUMENT;
+    }
+    if (!device->hid_registered) {
+        return SWBT_BTSTACK_DEVICE_ERROR_CLOSED;
+    }
+
+    return device->port->disconnect(device->port_context, hid_cid) == 0
+               ? SWBT_BTSTACK_DEVICE_OK
+               : SWBT_BTSTACK_DEVICE_ERROR_DISCONNECT_FAILED;
 }
 
 swbt_btstack_device_result_t swbt_btstack_device_send(swbt_btstack_device_t *device,

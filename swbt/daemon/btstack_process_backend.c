@@ -54,6 +54,10 @@ static void swbt_daemon_btstack_hid_session_finish_shutdown(void *context) {
     swbt_daemon_shutdown_sequence_finish(context);
 }
 
+static void swbt_daemon_btstack_hid_session_note_hid_open_completed(void *context) {
+    swbt_daemon_production_runner_note_hid_open_completed(context);
+}
+
 static swbt_daemon_btstack_hid_session_t *
 swbt_daemon_btstack_hid_session_from_backend(swbt_daemon_production_runner_t *backend) {
     backend->hid_session_bridge = (swbt_daemon_btstack_hid_session_t){
@@ -67,11 +71,14 @@ swbt_daemon_btstack_hid_session_from_backend(swbt_daemon_production_runner_t *ba
         .report_timer = &backend->report_timer,
         .report_timer_initialized = &backend->report_timer_initialized,
         .shutdown_neutral_pending = &backend->shutdown.neutral_pending,
+        .shutdown_disconnect_pending = &backend->shutdown.disconnect_pending,
         .learned_switch_address_target = &backend->learned_switch_address_target,
         .learned_switch_address_target_configured =
             &backend->learned_switch_address_target_configured,
         .service_buffer = backend->hid_service_buffer,
         .service_buffer_size = sizeof(backend->hid_service_buffer),
+        .hid_open_completed = swbt_daemon_btstack_hid_session_note_hid_open_completed,
+        .hid_open_completed_context = backend,
         .finish_shutdown = swbt_daemon_btstack_hid_session_finish_shutdown,
         .finish_shutdown_context = &backend->shutdown,
     };

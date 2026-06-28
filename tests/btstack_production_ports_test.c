@@ -47,6 +47,12 @@ static int fake_connect(void *context, const swbt_btstack_device_connect_request
     return 0;
 }
 
+static int fake_disconnect(void *context, uint16_t hid_cid) {
+    (void)context;
+    (void)hid_cid;
+    return 0;
+}
+
 static int fake_send(void *context, uint16_t hid_cid, const uint8_t *message, size_t message_size) {
     (void)context;
     (void)hid_cid;
@@ -150,6 +156,38 @@ static void fake_run_loop_execute_on_main_thread(
     (void)callback_registration;
 }
 
+static void fake_run_loop_set_timer_handler(void *context, btstack_timer_source_t *timer,
+                                            void (*process)(btstack_timer_source_t *timer)) {
+    (void)context;
+    (void)timer;
+    (void)process;
+}
+
+static void fake_run_loop_set_timer_context(void *context, btstack_timer_source_t *timer,
+                                            void *timer_context) {
+    (void)context;
+    (void)timer;
+    (void)timer_context;
+}
+
+static void fake_run_loop_set_timer(void *context, btstack_timer_source_t *timer,
+                                    uint32_t timeout_ms) {
+    (void)context;
+    (void)timer;
+    (void)timeout_ms;
+}
+
+static void fake_run_loop_add_timer(void *context, btstack_timer_source_t *timer) {
+    (void)context;
+    (void)timer;
+}
+
+static int fake_run_loop_remove_timer(void *context, btstack_timer_source_t *timer) {
+    (void)context;
+    (void)timer;
+    return 0;
+}
+
 static void fake_run_loop_trigger_exit(void *context) {
     (void)context;
 }
@@ -178,6 +216,7 @@ static swbt_btstack_production_ports_t full_ports(void) {
                 .hid_register = fake_hid_register,
                 .hid_stop = fake_hid_stop,
                 .connect = fake_connect,
+                .disconnect = fake_disconnect,
                 .send = fake_send,
             },
         .output_handler =
@@ -212,6 +251,11 @@ static swbt_btstack_production_ports_t full_ports(void) {
             {
                 .execute = fake_run_loop_execute,
                 .execute_on_main_thread = fake_run_loop_execute_on_main_thread,
+                .set_timer_handler = fake_run_loop_set_timer_handler,
+                .set_timer_context = fake_run_loop_set_timer_context,
+                .set_timer = fake_run_loop_set_timer,
+                .add_timer = fake_run_loop_add_timer,
+                .remove_timer = fake_run_loop_remove_timer,
                 .trigger_exit = fake_run_loop_trigger_exit,
             },
     };

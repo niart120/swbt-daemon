@@ -10,7 +10,7 @@ static bool swbt_btstack_production_ipc_pump_port_is_valid(
 static bool swbt_btstack_production_device_port_is_valid(const swbt_btstack_device_port_t *port) {
     return port != NULL && port->platform_start != NULL && port->platform_stop != NULL &&
            port->hid_register != NULL && port->hid_stop != NULL && port->connect != NULL &&
-           port->send != NULL;
+           port->disconnect != NULL && port->send != NULL;
 }
 
 static bool swbt_btstack_production_output_handler_port_is_valid(
@@ -44,6 +44,8 @@ swbt_btstack_production_power_port_is_valid(const swbt_btstack_production_power_
 static bool swbt_btstack_production_run_loop_port_is_valid(
     const swbt_btstack_production_run_loop_port_t *port) {
     return port != NULL && port->execute != NULL && port->execute_on_main_thread != NULL &&
+           port->set_timer_handler != NULL && port->set_timer_context != NULL &&
+           port->set_timer != NULL && port->add_timer != NULL && port->remove_timer != NULL &&
            port->trigger_exit != NULL;
 }
 

@@ -20,6 +20,7 @@ typedef enum {
     SWBT_BTSTACK_DEVICE_ERROR_CONNECT_FAILED = -4,
     SWBT_BTSTACK_DEVICE_ERROR_SEND_FAILED = -5,
     SWBT_BTSTACK_DEVICE_ERROR_RECV_FAILED = -6,
+    SWBT_BTSTACK_DEVICE_ERROR_DISCONNECT_FAILED = -7,
 } swbt_btstack_device_result_t;
 
 typedef struct {
@@ -36,6 +37,7 @@ typedef struct {
     void (*hid_stop)(void *context);
     int (*connect)(void *context, const swbt_btstack_device_connect_request_t *request,
                    uint16_t *out_hid_cid);
+    int (*disconnect)(void *context, uint16_t hid_cid);
     int (*send)(void *context, uint16_t hid_cid, const uint8_t *message, size_t message_size);
 } swbt_btstack_device_port_t;
 
@@ -64,6 +66,9 @@ swbt_btstack_device_result_t
 swbt_btstack_device_connect(swbt_btstack_device_t *device,
                             const swbt_btstack_device_connect_request_t *request,
                             uint16_t *out_hid_cid);
+
+swbt_btstack_device_result_t swbt_btstack_device_disconnect(swbt_btstack_device_t *device,
+                                                            uint16_t hid_cid);
 
 swbt_btstack_device_result_t swbt_btstack_device_send(swbt_btstack_device_t *device,
                                                       uint16_t hid_cid, const uint8_t *message,

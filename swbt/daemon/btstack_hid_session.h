@@ -10,6 +10,7 @@
 #include "daemon/config.h"
 
 typedef void (*swbt_daemon_btstack_hid_session_finish_shutdown_t)(void *context);
+typedef void (*swbt_daemon_btstack_hid_session_hid_open_completed_t)(void *context);
 
 typedef struct {
     swbt_daemon_config_t *config;
@@ -22,10 +23,13 @@ typedef struct {
     swbt_btstack_input_report_timer_adapter_t *report_timer;
     bool *report_timer_initialized;
     bool *shutdown_neutral_pending;
+    bool *shutdown_disconnect_pending;
     swbt_daemon_config_file_target_t *learned_switch_address_target;
     bool *learned_switch_address_target_configured;
     uint8_t *service_buffer;
     size_t service_buffer_size;
+    swbt_daemon_btstack_hid_session_hid_open_completed_t hid_open_completed;
+    void *hid_open_completed_context;
     swbt_daemon_btstack_hid_session_finish_shutdown_t finish_shutdown;
     void *finish_shutdown_context;
 } swbt_daemon_btstack_hid_session_t;
