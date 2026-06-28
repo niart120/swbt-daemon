@@ -105,6 +105,12 @@ static int fake_device_connect(void *context, const swbt_btstack_device_connect_
     return 0;
 }
 
+static int fake_device_disconnect(void *context, uint16_t hid_cid) {
+    (void)context;
+    (void)hid_cid;
+    return 0;
+}
+
 static int fake_device_send(void *context, uint16_t hid_cid, const uint8_t *message,
                             size_t message_size) {
     fake_ops_t *fake = context;
@@ -187,6 +193,7 @@ static swbt_btstack_device_port_t fake_device_port(void) {
         .hid_register = fake_hid_register,
         .hid_stop = fake_hid_stop,
         .connect = fake_device_connect,
+        .disconnect = fake_device_disconnect,
         .send = fake_device_send,
     };
 }

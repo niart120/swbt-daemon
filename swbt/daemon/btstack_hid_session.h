@@ -22,6 +22,7 @@ typedef struct {
     swbt_btstack_input_report_timer_adapter_t *report_timer;
     bool *report_timer_initialized;
     bool *shutdown_neutral_pending;
+    bool *shutdown_disconnect_pending;
     swbt_daemon_config_file_target_t *learned_switch_address_target;
     bool *learned_switch_address_target_configured;
     uint8_t *service_buffer;

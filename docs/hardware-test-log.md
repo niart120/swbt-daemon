@@ -1073,3 +1073,164 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: `tmp/hardware/local_077/20260627-161745-adapter-location-open`
 - cleanup: pass。script は `btstack: hci power on ok` 確認後 3 秒で `CTRL_BREAK_EVENT` を送り、daemon は exit code `0`、forced stop `false`、crash dump なしで終了した
 - notes: この entry は `--adapter-location` による Windows WinUSB の runtime selector 観測であり、Switch connection、pairing、IPC input、report loop の実機成功を示すものではない
+
+## 2026-06-28: local_100 shutdown graceful disconnect first run on Switch2
+
+- OS: Microsoft Windows 11 Pro、Version `10.0.26200`、Build `26200`、64-bit
+- environment: Windows native PowerShell、swbt branch `work/local-100-shutdown-disconnect`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Class `USBDevice`、Service `WinUSB`、Provider `libwdi`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: git HEAD `ee8ef30d5c15bdb7adfaee17a904fd9653786392` plus uncommitted `local_100` working tree diff
+- Switch firmware: Switch2 `22.1.0`。既存実機環境の継続値であり、今回の artifact では本体画面を再読していない
+- approval scope: ユーザ承認済み。CSR8510 A10、WinUSB、adapter open、HID advertising、Switch pairing or reconnect、`8000 us` report loop、Button A held owner 中の daemon shutdown graceful disconnect、HCI dump / diagnostic trace / crash dump path 保存、cleanup 確認
+- environment variables: `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`
+- daemon arguments: `--backend production --adapter-location winusb:PCIROOT(0)#PCI(0201)#PCI(0000)#PCI(0C00)#PCI(0000)#USBROOT(0)#USB(9)#USB(1) --trace-path <artifact>/daemon-trace.txt --hci-dump-path <artifact>/hci-dump.txt --crash-dump-path <artifact>/crash.dmp`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: `just windows-cross` で current diff 入り Windows build を更新した後、`tmp/hardware/local_100/run-shutdown-graceful-disconnect.ps1` を実行した。script は CSR8510 A10 の Service が `WinUSB`、`DEVPKEY_Device_LocationPaths` が selector と一致することを確認してから daemon を `CREATE_NEW_PROCESS_GROUP` 付きで起動した。HCI dump の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` が `2` 件になるまで待ち、`swbt-debug-client.exe --port 37637 --button a --seq 1 --hold-ms 1000 --skip-release` と `--seq 2` を実行した。その後、daemon IPC へ直接 `hello`、`acquire`、`set_state(seq=3, buttons=8)` を送り、TCP connection を保持したまま `GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT)` で daemon shutdown を要求した
+- result: first graceful disconnect hardware run pass with a follow-up. run log は L2CAP open count `2`、seq1 / seq2 client exit code `0`、seq3 held owner `state_accepted`、daemon exit code `0` を記録した。trace は `production: shutdown neutral send`、`production: shutdown neutral send ok`、`production: shutdown hid disconnect request`、`btstack: hid disconnect request`、`btstack: hid disconnect requested`、`btstack: hci power off`、`production: run loop returned` の順を記録した。HCI dump は `pairing complete, status 00` `1` 件、PSM `0x11` / `0x13` の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` `2` 件、BTstack `invalid size` `0` 件、`non-registered handle` `0` 件だった。outgoing standard full input report `a1 30` は `306` 件で、buttons は neutral `000000` `208` 件、Button A `080000` `98` 件だった。末尾は line `914` Button A `080000`、line `916` trailing neutral `000000`、line `917` `hid_device.c.1001: Disconnect from HID Host`、line `918` `hci_power_control: 0`、line `922` / `927` `L2CAP_EVENT_CHANNEL_CLOSED` の順である
+- daemon log: daemon stdout / stderr log は未作成。`daemon-trace.txt`、`hci-dump.txt`、`hci-analysis-summary.json`、`shutdown-graceful-disconnect-run-log.txt` を正本にする
+- artifact root: `tmp/hardware/local_100/20260628-184530-shutdown-graceful-disconnect`
+- cleanup: pass。daemon は `CTRL_BREAK_EVENT` 後に exit code `0` で終了した。trace は HCI power-off、run loop returned、host stop、device close、HCI close、run loop deinit、HCI dump close、host stop done まで到達した。crash dump は作成されず、`Get-Process swbt-daemon` は空だった
+- notes: この run は trailing neutral と HID disconnect request が HCI power-off 前に入ることを確認した。一方で、L2CAP channel closed は HCI dump 上で最初の `hci_power_control: 0` の後に出ている。したがって、`closed event を確認してから HCI power-off へ進む` 挙動はまだ未達であり、`local_100` の次 TDD item で bounded wait / timeout を固定する必要がある
+
+## 2026-06-28: local_100 shutdown graceful disconnect closed-wait rerun with pairing-screen confound
+
+- OS: Microsoft Windows 11 Pro、Version `10.0.26200`、Build `26200`、64-bit
+- environment: Windows native PowerShell、swbt branch `work/local-100-shutdown-disconnect`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Class `USBDevice`、Service `WinUSB`、Provider `libwdi`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: git HEAD `ee8ef30d5c15bdb7adfaee17a904fd9653786392` plus uncommitted `local_100` working tree diff
+- Switch firmware: Switch2 `22.1.0`。既存実機環境の継続値であり、今回の artifact では本体画面を再読していない
+- approval scope: ユーザ承認済み。CSR8510 A10、WinUSB、adapter open、HID advertising、Switch pairing or reconnect、`8000 us` report loop、Button A held owner 中の daemon shutdown graceful disconnect、HCI dump / diagnostic trace / crash dump path 保存、cleanup 確認
+- environment variables: `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`
+- daemon arguments: `--backend production --adapter-location winusb:PCIROOT(0)#PCI(0201)#PCI(0000)#PCI(0C00)#PCI(0000)#USBROOT(0)#USB(9)#USB(1) --trace-path <artifact>/daemon-trace.txt --hci-dump-path <artifact>/hci-dump.txt --crash-dump-path <artifact>/crash.dmp`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: `just windows-cross` で current diff 入り Windows build を更新した後、`tmp/hardware/local_100/run-shutdown-graceful-disconnect.ps1` を実行した。HCI dump の `L2CAP_EVENT_CHANNEL_OPENED status 0x0` が `2` 件になるまで待ち、`swbt-debug-client.exe --port 37637 --button a --seq 1 --hold-ms 1000 --skip-release` と `--seq 2` を実行した。その後、daemon IPC へ直接 `hello`、`acquire`、`set_state(seq=3, buttons=8)` を送り、TCP connection を保持したまま `GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT)` で daemon shutdown を要求した
+- result: cleanup behavior の観測としては pass だが、final hardware acceptance には使わない。trace は `production: shutdown neutral send ok`、`production: shutdown hid disconnect requested`、`production: shutdown hid disconnect closed`、`btstack: hci power off`、`production: run loop returned` の順を記録した。HCI dump では `Disconnect from HID Host` が line `942`、`L2CAP_EVENT_CHANNEL_CLOSED` が line `949` / `957`、最初の `hci_power_control: 0` が line `958` であり、closed は HCI power-off request 前に出た。一方で、HCI dump は `Connection_incoming` `3` 件、`pairing complete, status 00` `1` 件も記録した。operator observation として、controller connection 確立後に Switch 側が Change Grip/Order 画面へ遷移していた可能性がある
+- daemon log: daemon stdout / stderr log は未作成。`daemon-trace.txt`、`hci-dump.txt`、`shutdown-graceful-disconnect-run-log.txt` を正本にする
+- artifact root: `tmp/hardware/local_100/20260628-193109-shutdown-graceful-disconnect`
+- cleanup: pass。daemon は `CTRL_BREAK_EVENT` 後に exit code `0` で終了した。trace は HCI power-off、run loop returned、host stop、device close、HCI close、run loop deinit、HCI dump close、host stop done まで到達した。crash dump は作成されず、script の emergency cleanup は発火しなかった
+- notes: この run は `closed event wait` 実装が trace / HCI dump 上で働いたことを示すが、incoming pairing / Change Grip/Order 画面の影響を除外できない。次の final hardware run は保存済み `swbt-daemon.toml` / `swbt-link-key.tlv` を使う active reconnect 手順にし、`Connection_incoming=0`、`pairing complete, status 00=0`、`responding to link key request>=1`、`have link key db: 1>=1` を acceptance condition にする
+
+## 2026-06-28: local_100 active reconnect shutdown graceful disconnect attempts without Grip Order
+
+- OS: Microsoft Windows 11 Pro、Version `10.0.26200`、Build `26200`、64-bit
+- environment: Windows native PowerShell、swbt branch `work/local-100-shutdown-disconnect`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Class `USBDevice`、Service `WinUSB`、Provider `libwdi`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: git HEAD `ee8ef30d5c15bdb7adfaee17a904fd9653786392` plus uncommitted `local_100` working tree diff
+- Switch firmware: Switch2 `22.1.0`。既存実機環境の継続値であり、今回の artifact では本体画面を再読していない
+- approval scope: ユーザ承認済み。CSR8510 A10、WinUSB、保存済み `swbt-daemon.toml` / `swbt-link-key.tlv` の再利用、Switch HOME から sleep / resume 済み状態での active reconnect request、Change Grip/Order 操作なし、HCI dump / diagnostic trace / crash dump path 保存、cleanup 確認。HID open 後に held Button A shutdown graceful disconnect を行う計画だったが、HID open 未達のため shutdown disconnect へは進んでいない
+- environment variables: `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`
+- daemon arguments: `--backend production --adapter-location winusb:PCIROOT(0)#PCI(0201)#PCI(0000)#PCI(0C00)#PCI(0000)#USBROOT(0)#USB(9)#USB(1) --config <artifact>/swbt-daemon.toml --link-key-db <artifact>/swbt-link-key.tlv --trace-path <artifact>/daemon-trace.txt --hci-dump-path <artifact>/hci-dump.txt --crash-dump-path <artifact>/crash.dmp`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: `tmp/hardware/local_100/run-shutdown-graceful-disconnect-active-reconnect.ps1` を 2 回実行した。script は `tmp/hardware/local_073/20260626-195716-link-key-db-reconnect-retest` の保存済み `swbt-daemon.toml` と `swbt-link-key.tlv` を新 artifact へコピーし、Switch 側を Change Grip/Order へ遷移させずに `production: active reconnect request ok` と `production: hid connection opened` を待つ。operator は実行前に Switch を sleep / resume 済みと報告した
+- result: active reconnect 条件は未達。1 回目 `20260628-194019-shutdown-active-reconnect-graceful-disconnect` は `active reconnect request ok` を記録したが、120 秒内に `production: hid connection opened` は出なかった。HCI dump は `Create_connection` を記録し、`Connection_complete`、`Connection_incoming`、`pairing started`、`pairing complete, status 00`、`L2CAP_EVENT_CHANNEL_OPENED`、`responding to link key request` は出なかった。2 回目 `20260628-194325-shutdown-active-reconnect-graceful-disconnect` は `active reconnect request ok`、`Connection_complete(status=0)`、`responding to link key request`、`have link key db: 1` までは進んだが、`HCI_EVENT_AUTHENTICATION_COMPLETE status 0x05` 後に security level `0` となり、control PSM `0x11` の `L2CAP_EVENT_CHANNEL_OPENED status 0x66` で止まった。`production: hid connection opened` は出なかった。2 回目も `Connection_incoming`、`pairing started`、`pairing complete, status 00` は `0` 件だった
+- daemon log: daemon stdout / stderr log は未作成。各 artifact の `daemon-trace.txt`、`hci-dump.txt`、`summary.json`、`run-log.txt` を正本にする
+- artifact root: `tmp/hardware/local_100/20260628-194019-shutdown-active-reconnect-graceful-disconnect`, `tmp/hardware/local_100/20260628-194325-shutdown-active-reconnect-graceful-disconnect`
+- cleanup: mixed。1 回目は script 改善前で、HID open timeout 後に emergency `Stop-Process` で停止した。`Get-Process swbt-daemon` は空で、crash dump は作成されていない。2 回目は failure cleanup として `CTRL_BREAK_EVENT` を送り、daemon は exit code `0` で終了した。trace は shutdown neutral send failed、HCI power-off、run loop returned、host stop、device close、HCI close、link key DB close、run loop deinit、HCI dump close、host stop done まで到達した。2 回目も crash dump は作成されていない
+- notes: この entry は Change Grip/Order / incoming pairing の混入を除外できたが、shutdown graceful disconnect の観測には到達していない。失敗点は保存済み link key DB の有無ではなく、active reconnect request 後に link key response までは進み、その後の認証で security level が `2` に上がらない段階である。BTstack source 上、authentication status `0x05` は `ERROR_CODE_AUTHENTICATION_FAILURE`、L2CAP status `0x66` は `L2CAP_CONNECTION_RESPONSE_RESULT_REFUSED_SECURITY` である。この work unit の shutdown cleanup 実装判断とは分けて扱う
+
+## 2026-06-28: local_101 active reconnect HID open recovery rerun without Grip Order
+
+- OS: Microsoft Windows 11 Pro、Version `10.0.26200`、Build `26200`、64-bit
+- environment: Windows native PowerShell、swbt branch `work/local-101-active-reconnect-hid-open-recovery`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Class `USBDevice`、Service `WinUSB`、Provider `libwdi`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: git HEAD `ee8ef30d5c15bdb7adfaee17a904fd9653786392` plus uncommitted `local_100` / `local_101` working tree diff
+- Switch firmware: Switch2 `22.1.0`。既存実機環境の継続値であり、今回の artifact では本体画面を再読していない
+- approval scope: ユーザ承認済み。CSR8510 A10、WinUSB、adapter open、保存済み TOML config / TLV-backed Classic link key DB の再利用、Switch HOME から sleep / resume 済み状態での active reconnect request、Change Grip/Order 操作なし、Button A smoke、neutral shutdown、HCI dump / diagnostic trace / crash dump path 保存、cleanup 確認
+- environment variables: `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`
+- daemon arguments: `--backend production --adapter-location winusb:PCIROOT(0)#PCI(0201)#PCI(0000)#PCI(0C00)#PCI(0000)#USBROOT(0)#USB(9)#USB(1) --config <artifact>/swbt-daemon.toml --link-key-db <artifact>/swbt-link-key.tlv --trace-path <artifact>/daemon-trace.txt --hci-dump-path <artifact>/hci-dump.txt --crash-dump-path <artifact>/crash.dmp`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: `just windows-cross` で current diff 入り Windows build を更新した後、`tmp/hardware/local_101/run-active-reconnect-hid-open-recovery.ps1` を実行した。script は `tmp/hardware/local_073/20260626-195716-link-key-db-reconnect-retest` の保存済み `swbt-daemon.toml` と `swbt-link-key.tlv` を新 artifact へコピーし、Switch 側を Change Grip/Order へ遷移させずに `production: active reconnect request ok` と `production: hid connection opened` を待つ。HID open 後に Button A smoke を行う設計だったが、HID open 未達のため Button A smoke へは進んでいない
+- result: active reconnect HID open recovery は fail。summary は `active_reconnect_request_ok_count=1`、`link_key_db_open_ok_count=1`、`hid_connection_opened_count=0`、`hid_connection_open_failed_count=1`、`responding_to_link_key_request_count=1`、`have_link_key_db_1_count=1`、`security_level_2_count=0`、`security_level_0_count=1`、`connection_incoming_count=0`、`pairing_started_count=0`、`pairing_complete_status_00_count=0`、`l2cap_open_status_0_count=0`、`l2cap_open_status_66_count=1`、`button_smoke_ran=false`、`pass=false` を記録した。HCI dump は outgoing `Connection_complete(status=0)` 後に link key request へ応答し、その後 `hci_emit_security_level 0` と control PSM `0x11` の `L2CAP_EVENT_CHANNEL_OPENED status 0x66` で止まった
+- daemon log: daemon stdout / stderr log は未作成。`daemon-trace.txt`、`hci-dump.txt`、`summary.json`、`run-log.txt` を正本にする
+- artifact root: `tmp/hardware/local_101/20260628-202504-active-reconnect-hid-open-recovery`
+- cleanup: pass。HID open timeout 後、script は failure cleanup として IPC neutral client を exit code `0` で実行し、`CTRL_BREAK_EVENT` を送った。daemon は exit code `0` で終了した。trace は shutdown neutral send failed、HCI power-off、run loop returned、host stop、device close、HCI close、link key DB close、run loop deinit、HCI dump close、host stop done まで到達した。crash dump は作成されていない
+- notes: この run は `local_100` の 2 回目 active reconnect failure と同じ失敗境界を再現した。Change Grip/Order / incoming pairing の混入は観測されていない。保存済み TLV は存在し、BTstack は link key request に応答しているため、失敗点は DB open や active reconnect request ではなく、保存済み key による認証後に security level が `2` へ上がらない段階である。次の実機手順は、`--link-key-db` configured の daemon で controlled re-pair を行って TLV を更新し、その artifact から active reconnect を再試験することを候補にする
+
+## 2026-06-28: local_101 controlled re-pair attempt without incoming connection
+
+- OS: Microsoft Windows 11 Pro、Version `10.0.26200`、Build `26200`、64-bit
+- environment: Windows native PowerShell、swbt branch `work/local-101-active-reconnect-hid-open-recovery`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Class `USBDevice`、Service `WinUSB`、Provider `libwdi`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: git HEAD `ee8ef30d5c15bdb7adfaee17a904fd9653786392` plus uncommitted `local_100` / `local_101` working tree diff
+- Switch firmware: Switch2 `22.1.0`。既存実機環境の継続値であり、今回の artifact では本体画面を再読していない
+- approval scope: ユーザ承認済み。CSR8510 A10、WinUSB、adapter open、HID advertising、Switch Change Grip/Order controlled re-pair、保存済み TLV-backed Classic link key DB の再利用と更新、neutral shutdown、HCI dump / diagnostic trace / crash dump path 保存、cleanup 確認
+- environment variables: `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`
+- daemon arguments: `--backend production --adapter-location winusb:PCIROOT(0)#PCI(0201)#PCI(0000)#PCI(0C00)#PCI(0000)#USBROOT(0)#USB(9)#USB(1) --config <artifact>/swbt-daemon.toml --link-key-db <artifact>/swbt-link-key.tlv --trace-path <artifact>/repair-trace.txt --hci-dump-path <artifact>/repair-hci-dump.txt --crash-dump-path <artifact>/repair-crash.dmp`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: `tmp/hardware/local_101/run-controlled-repair-refresh-link-key-db.ps1` を実行した。script は blank config と、`tmp/hardware/local_073/20260626-195716-link-key-db-reconnect-retest` からコピーした stale TLV を使い、active reconnect を発火させずに incoming re-pair を待つ設計である
+- result: controlled re-pair は未達。summary は `link_key_db_open_ok_count=1`、`hid_connection_opened_count=0`、`stored_link_key_notification_count=0`、`learned_switch_address_save_ok_count=0`、`connection_incoming_count=0`、`pairing_started_count=0`、`pairing_complete_status_00_count=0`、`tlv_hash_changed=false`、`pass=false` を記録した。HCI dump は adapter open、HCI init、HID L2CAP service registration、HCI working state まで到達したが、Switch からの `Connection_incoming` はなかった
+- daemon log: daemon stdout / stderr log は未作成。`repair-trace.txt`、`repair-hci-dump.txt`、`summary.json`、`run-log.txt` を正本にする
+- artifact root: `tmp/hardware/local_101/20260628-203457-controlled-repair-refresh-link-key-db`
+- cleanup: pass。HID open timeout 後、script は failure cleanup として IPC neutral client を exit code `0` で実行し、`CTRL_BREAK_EVENT` を送った。daemon は exit code `0` で終了した。crash dump は作成されていない
+- notes: この attempt は link key refresh の成否を判断できない。失敗点は daemon の link key DB 更新処理ではなく、re-pair の incoming connection が発生しなかった段階である。次回は Switch 側を Change Grip/Order で登録待ち状態にしてから同じ script を再実行する。HID open 待ち時間の延長は根拠が薄いため、次 run 前に `180000 ms` へ戻した
+
+## 2026-06-28: local_101 controlled re-pair refreshes link key DB
+
+- OS: Microsoft Windows 11 Pro、Version `10.0.26200`、Build `26200`、64-bit
+- environment: Windows native PowerShell、swbt branch `work/local-101-active-reconnect-hid-open-recovery`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Class `USBDevice`、Service `WinUSB`、Provider `libwdi`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: git HEAD `ee8ef30d5c15bdb7adfaee17a904fd9653786392` plus uncommitted `local_100` / `local_101` working tree diff
+- Switch firmware: Switch2 `22.1.0`。既存実機環境の継続値であり、今回の artifact では本体画面を再読していない
+- approval scope: ユーザ承認済み。CSR8510 A10、WinUSB、adapter open、HID advertising、Switch Change Grip/Order controlled re-pair、保存済み TLV-backed Classic link key DB の再利用と更新、neutral shutdown、HCI dump / diagnostic trace / crash dump path 保存、cleanup 確認
+- environment variables: `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`
+- daemon arguments: `--backend production --adapter-location winusb:PCIROOT(0)#PCI(0201)#PCI(0000)#PCI(0C00)#PCI(0000)#USBROOT(0)#USB(9)#USB(1) --config <artifact>/swbt-daemon.toml --link-key-db <artifact>/swbt-link-key.tlv --trace-path <artifact>/repair-trace.txt --hci-dump-path <artifact>/repair-hci-dump.txt --crash-dump-path <artifact>/repair-crash.dmp`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: user は Switch 側を登録待ち状態にした。`tmp/hardware/local_101/run-controlled-repair-refresh-link-key-db.ps1` を実行した。script は blank config と、`tmp/hardware/local_073/20260626-195716-link-key-db-reconnect-retest` からコピーした stale TLV を使い、active reconnect を発火させずに incoming re-pair を待つ。前回延長した HID open 待ち時間は `180000 ms` へ戻した。この run では Button A smoke を送っていない
+- result: controlled re-pair は pass。summary は `link_key_db_open_ok_count=1`、`hid_connection_opened_count=1`、`stored_link_key_notification_count=1`、`learned_switch_address_save_ok_count=1`、`connection_incoming_count=1`、`pairing_started_count=1`、`pairing_complete_status_00_count=1`、`l2cap_open_status_0_count=2`、`tlv_length_before=88`、`tlv_length_after=128`、`tlv_hash_changed=true`、`pass=true` を記録した。trace は `btstack: link key db stored notification`、`production: hid connection opened`、`production: learned switch address save ok` を記録した
+- daemon log: daemon stdout / stderr log は未作成。`repair-trace.txt`、`repair-hci-dump.txt`、`summary.json`、`run-log.txt` を正本にする
+- artifact root: `tmp/hardware/local_101/20260628-204328-controlled-repair-refresh-link-key-db`
+- cleanup: pass。script は IPC neutral client を exit code `0` で実行し、`CTRL_BREAK_EVENT` を送った。daemon は exit code `0` で終了した。trace は shutdown neutral send ok、shutdown hid disconnect requested、hid connection closed、shutdown hid disconnect closed、HCI power-off、link key DB close、HCI dump close、host stop done まで到達した。crash dump は作成されていない
+- notes: この artifact は refreshed TLV と learned address を含むため、次の active reconnect 再試験の source artifact として扱える。raw Switch address と raw link key value は本文へ転記しない
+
+## 2026-06-28: local_101 active reconnect retest with refreshed link key DB
+
+- OS: Microsoft Windows 11 Pro、Version `10.0.26200`、Build `26200`、64-bit
+- environment: Windows native PowerShell、swbt branch `work/local-101-active-reconnect-hid-open-recovery`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Class `USBDevice`、Service `WinUSB`、Provider `libwdi`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: git HEAD `ee8ef30d5c15bdb7adfaee17a904fd9653786392` plus uncommitted `local_100` / `local_101` working tree diff
+- Switch firmware: Switch2 `22.1.0`。既存実機環境の継続値であり、今回の artifact では本体画面を再読していない
+- approval scope: ユーザ承認済み。CSR8510 A10、WinUSB、adapter open、refreshed TOML config / TLV-backed Classic link key DB の再利用、Switch HOME から sleep / resume 済み状態での active reconnect request、Change Grip/Order 操作なし、Button A smoke、neutral shutdown、HCI dump / diagnostic trace / crash dump path 保存、cleanup 確認
+- environment variables: `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`
+- daemon arguments: `--backend production --adapter-location winusb:PCIROOT(0)#PCI(0201)#PCI(0000)#PCI(0C00)#PCI(0000)#USBROOT(0)#USB(9)#USB(1) --config <artifact>/swbt-daemon.toml --link-key-db <artifact>/swbt-link-key.tlv --trace-path <artifact>/daemon-trace.txt --hci-dump-path <artifact>/hci-dump.txt --crash-dump-path <artifact>/crash.dmp`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: user は Switch 側を HOME に戻し、sleep / resume 済みと報告した。`tmp/hardware/local_101/run-active-reconnect-hid-open-recovery.ps1 -SourceArtifactPath .\tmp\hardware\local_101\20260628-204328-controlled-repair-refresh-link-key-db` を実行した。script は refreshed `swbt-daemon.toml` と `swbt-link-key.tlv` を新 artifact へコピーし、Switch 側を Change Grip/Order へ遷移させずに `production: active reconnect request ok` と `production: hid connection opened` を待つ。HID open 後に Button A smoke と neutral shutdown を行う
+- result: 1 回目 `20260628-204721-active-reconnect-hid-open-recovery` は fail。`active_reconnect_request_ok_count=1`、`link_key_db_open_ok_count=1`、`hid_connection_opened_count=0`、`Connection_incoming=0`、`pairing_complete_status_00_count=0`。HCI dump は `Create_connection` を記録したが、`Connection_complete`、link key request、L2CAP open には進まなかった。2 回目 `20260628-204952-active-reconnect-hid-open-recovery` は pass。summary は `active_reconnect_request_ok_count=1`、`link_key_db_open_ok_count=1`、`hid_connection_opened_count=1`、`button_smoke_ran=true`、`responding_to_link_key_request_count=1`、`have_link_key_db_1_count=1`、`authentication_failure_count=0`、`security_level_2_count=1`、`security_level_0_count=0`、`connection_incoming_count=0`、`pairing_started_count=0`、`pairing_complete_status_00_count=0`、`l2cap_open_status_0_count=2`、`l2cap_open_status_66_count=0`、`input_report_a130_count=117`、`pass=true` を記録した
+- daemon log: daemon stdout / stderr log は未作成。各 artifact の `daemon-trace.txt`、`hci-dump.txt`、`summary.json`、`run-log.txt` を正本にする
+- artifact root: `tmp/hardware/local_101/20260628-204721-active-reconnect-hid-open-recovery`, `tmp/hardware/local_101/20260628-204952-active-reconnect-hid-open-recovery`
+- cleanup: pass。1 回目は HID open timeout 後、failure cleanup として IPC neutral client を exit code `0` で実行し、`CTRL_BREAK_EVENT` を送った。daemon は exit code `0`、crash dump なしで終了した。2 回目は Button A smoke exit code `0` 後、neutral client exit code `0`、`CTRL_BREAK_EVENT` で daemon exit code `0`、crash dump なし。2 回目 trace は shutdown neutral send ok、shutdown hid disconnect requested、hid connection closed、shutdown hid disconnect closed、link key DB close、HCI dump close、host stop done まで到達した
+- notes: refreshed TLV を使う active reconnect は、2 回目で incoming pairing なしに HID open と Button A smoke まで到達した。したがって `local_100` の shutdown graceful disconnect final hardware run は、`tmp/hardware/local_101/20260628-204328-controlled-repair-refresh-link-key-db` を source artifact として再開可能である。raw Switch address と raw link key value は本文へ転記しない

@@ -53,7 +53,11 @@ swbt_daemon_btstack_hid_session_handle_user_confirmation(swbt_daemon_btstack_hid
 static void
 swbt_daemon_btstack_hid_session_handle_connection_opened(swbt_daemon_btstack_hid_session_t *session,
                                                          const swbt_btstack_hid_event_t *event) {
-    if (!swbt_daemon_btstack_hid_session_report_timer_is_ready(session) || event->status != 0u) {
+    if (event->status != 0u) {
+        swbt_diagnostic_trace("production: hid connection open failed");
+        return;
+    }
+    if (!swbt_daemon_btstack_hid_session_report_timer_is_ready(session)) {
         return;
     }
 
@@ -99,6 +103,12 @@ static void swbt_daemon_btstack_hid_session_handle_connection_closed(
     if (session->shutdown_neutral_pending != NULL && *session->shutdown_neutral_pending) {
         swbt_diagnostic_trace("production: shutdown neutral pending connection closed");
         *session->shutdown_neutral_pending = false;
+        swbt_daemon_btstack_hid_session_finish_shutdown(session);
+        return;
+    }
+    if (session->shutdown_disconnect_pending != NULL && *session->shutdown_disconnect_pending) {
+        swbt_diagnostic_trace("production: shutdown hid disconnect closed");
+        *session->shutdown_disconnect_pending = false;
         swbt_daemon_btstack_hid_session_finish_shutdown(session);
     }
 }

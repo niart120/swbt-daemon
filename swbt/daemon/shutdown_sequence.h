@@ -25,6 +25,7 @@ typedef struct {
     swbt_daemon_shutdown_sequence_finish_t finish;
     void *finish_context;
     bool neutral_pending;
+    bool disconnect_pending;
     btstack_context_callback_registration_t callback;
     atomic_bool requested;
 } swbt_daemon_shutdown_sequence_t;

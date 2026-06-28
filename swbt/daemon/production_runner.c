@@ -7,6 +7,10 @@
 #include "daemon/process_internal.h"
 #include "daemon/active_reconnect.h"
 
+#define SWBT_DAEMON_SHUTDOWN_DISCONNECT_TIMEOUT_MS 250u
+
+static void swbt_daemon_production_runner_finish_shutdown(void *context);
+
 swbt_daemon_production_result_t swbt_daemon_production_runner_init(
     swbt_daemon_production_runner_t *backend, const swbt_daemon_config_t *config,
     const swbt_btstack_production_ports_t *ports, void *ports_context) {
@@ -62,11 +66,82 @@ static void swbt_daemon_production_power_off(swbt_daemon_production_runner_t *ba
     }
 }
 
+static void
+swbt_daemon_production_runner_stop_active_report_timer(swbt_daemon_production_runner_t *backend) {
+    if (backend != NULL && backend->report_timer.running) {
+        backend->ports->report_timer.stop(backend->ports_context, &backend->report_timer);
+    }
+}
+
+static void swbt_daemon_production_runner_cancel_shutdown_disconnect_timer(
+    swbt_daemon_production_runner_t *backend) {
+    if (backend != NULL && backend->shutdown_disconnect_timer_pending) {
+        (void)backend->ports->run_loop.remove_timer(backend->ports_context,
+                                                    &backend->shutdown_disconnect_timer);
+        backend->shutdown_disconnect_timer_pending = false;
+    }
+}
+
+static void
+swbt_daemon_production_runner_shutdown_disconnect_timeout(btstack_timer_source_t *timer) {
+    swbt_daemon_production_runner_t *backend =
+        timer == NULL ? NULL : (swbt_daemon_production_runner_t *)timer->context;
+    if (backend == NULL || !backend->initialized) {
+        return;
+    }
+    backend->shutdown_disconnect_timer_pending = false;
+    if (!backend->shutdown.disconnect_pending) {
+        return;
+    }
+
+    swbt_diagnostic_trace("production: shutdown hid disconnect timeout");
+    backend->shutdown.disconnect_pending = false;
+    swbt_daemon_production_runner_stop_active_report_timer(backend);
+    swbt_daemon_production_runner_finish_shutdown(backend);
+}
+
+static void swbt_daemon_production_runner_arm_shutdown_disconnect_timer(
+    swbt_daemon_production_runner_t *backend) {
+    if (backend == NULL || backend->shutdown_disconnect_timer_pending) {
+        return;
+    }
+
+    backend->ports->run_loop.set_timer_handler(
+        backend->ports_context, &backend->shutdown_disconnect_timer,
+        swbt_daemon_production_runner_shutdown_disconnect_timeout);
+    backend->ports->run_loop.set_timer_context(backend->ports_context,
+                                               &backend->shutdown_disconnect_timer, backend);
+    backend->ports->run_loop.set_timer(backend->ports_context, &backend->shutdown_disconnect_timer,
+                                       SWBT_DAEMON_SHUTDOWN_DISCONNECT_TIMEOUT_MS);
+    backend->ports->run_loop.add_timer(backend->ports_context, &backend->shutdown_disconnect_timer);
+    backend->shutdown_disconnect_timer_pending = true;
+}
+
 static void swbt_daemon_production_runner_finish_shutdown(void *context) {
     swbt_daemon_production_runner_t *backend = context;
     if (backend == NULL || !backend->initialized) {
         return;
     }
+    if (backend->report_timer.running) {
+        if (!backend->shutdown.disconnect_pending) {
+            swbt_diagnostic_trace("production: shutdown hid disconnect request");
+            backend->shutdown.disconnect_pending = true;
+            const swbt_btstack_device_result_t disconnect_result =
+                swbt_btstack_device_disconnect(&backend->device, backend->report_timer.hid_cid);
+            if (disconnect_result == SWBT_BTSTACK_DEVICE_OK) {
+                swbt_diagnostic_trace("production: shutdown hid disconnect requested");
+                swbt_daemon_production_runner_arm_shutdown_disconnect_timer(backend);
+                return;
+            }
+
+            swbt_diagnostic_trace("production: shutdown hid disconnect unavailable");
+            backend->shutdown.disconnect_pending = false;
+            swbt_daemon_production_runner_stop_active_report_timer(backend);
+        } else {
+            return;
+        }
+    }
+    swbt_daemon_production_runner_cancel_shutdown_disconnect_timer(backend);
     swbt_daemon_production_power_off(backend);
     backend->ports->run_loop.trigger_exit(backend->ports_context);
 }

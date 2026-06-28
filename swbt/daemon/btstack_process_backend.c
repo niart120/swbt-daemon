@@ -67,6 +67,7 @@ swbt_daemon_btstack_hid_session_from_backend(swbt_daemon_production_runner_t *ba
         .report_timer = &backend->report_timer,
         .report_timer_initialized = &backend->report_timer_initialized,
         .shutdown_neutral_pending = &backend->shutdown.neutral_pending,
+        .shutdown_disconnect_pending = &backend->shutdown.disconnect_pending,
         .learned_switch_address_target = &backend->learned_switch_address_target,
         .learned_switch_address_target_configured =
             &backend->learned_switch_address_target_configured,

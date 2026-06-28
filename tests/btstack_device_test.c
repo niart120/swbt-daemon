@@ -12,11 +12,14 @@ typedef struct {
     int hid_register_calls;
     int hid_stop_calls;
     int connect_calls;
+    int disconnect_calls;
     int send_calls;
     int hid_register_result;
     int connect_result;
+    int disconnect_result;
     int send_result;
     uint16_t hid_cid;
+    uint16_t disconnect_hid_cid;
     uint8_t send_message[8];
     size_t send_message_size;
     uint8_t connect_address[6];
@@ -110,6 +113,13 @@ static int fake_connect(void *context, const swbt_btstack_device_connect_request
     return fake->connect_result;
 }
 
+static int fake_disconnect(void *context, uint16_t hid_cid) {
+    fake_device_port_t *fake = context;
+    fake->disconnect_calls += 1;
+    fake->disconnect_hid_cid = hid_cid;
+    return fake->disconnect_result;
+}
+
 static int fake_send(void *context, uint16_t hid_cid, const uint8_t *message, size_t message_size) {
     fake_device_port_t *fake = context;
     fake->send_calls += 1;
@@ -128,6 +138,7 @@ static swbt_btstack_device_port_t fake_port(void) {
         .hid_register = fake_hid_register,
         .hid_stop = fake_hid_stop,
         .connect = fake_connect,
+        .disconnect = fake_disconnect,
         .send = fake_send,
     };
 }
@@ -252,6 +263,35 @@ static int connect_forwards_request_to_port(void) {
     return failed;
 }
 
+static int disconnect_forwards_hid_cid_without_closing_device(void) {
+    fake_device_port_t fake = {0};
+    uint8_t service_buffer[32] = {0};
+    swbt_btstack_device_t device;
+    const swbt_btstack_device_port_t port = fake_port();
+    const swbt_btstack_hid_registration_config_t registration = sample_registration_config();
+
+    int failed = 0;
+    failed +=
+        expect_eq_int(swbt_btstack_device_init(&device, &port, &fake), SWBT_BTSTACK_DEVICE_OK);
+    failed +=
+        expect_eq_int(swbt_btstack_device_open(&device,
+                                               (swbt_btstack_device_open_options_t){
+                                                   .service_buffer = service_buffer,
+                                                   .service_buffer_size = sizeof(service_buffer),
+                                                   .registration = &registration,
+                                               }),
+                      SWBT_BTSTACK_DEVICE_OK);
+    failed +=
+        expect_eq_int(swbt_btstack_device_disconnect(&device, 0x0042u), SWBT_BTSTACK_DEVICE_OK);
+    failed += expect_eq_int(fake.disconnect_calls, 1);
+    failed += expect_eq_u16(fake.disconnect_hid_cid, 0x0042u);
+    failed += expect_true(swbt_btstack_device_is_open(&device));
+    failed += expect_eq_int(fake.hid_stop_calls, 0);
+    failed += expect_eq_int(fake.platform_stop_calls, 0);
+    swbt_btstack_device_close(&device);
+    return failed;
+}
+
 static int send_forwards_raw_interrupt_message_bytes(void) {
     const uint8_t message[] = {0xA1u, 0x30u, 0x41u, 0x8Eu, 0x08u};
     fake_device_port_t fake = {0};
@@ -321,6 +361,7 @@ int main(void) {
     failed += open_starts_platform_then_registers_hid_and_close_reverses_order();
     failed += open_failure_closes_started_platform_without_hid_stop();
     failed += connect_forwards_request_to_port();
+    failed += disconnect_forwards_hid_cid_without_closing_device();
     failed += send_forwards_raw_interrupt_message_bytes();
     failed += recv_decodes_hid_connection_opened_packet();
     return failed == 0 ? 0 : 1;
