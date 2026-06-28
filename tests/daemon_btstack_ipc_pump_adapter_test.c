@@ -1,4 +1,4 @@
-#include "daemon/production_ipc_pump.h"
+#include "daemon/btstack_ipc_pump_adapter.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -50,7 +50,7 @@ static int start_starts_ipc_runner_before_btstack_pump(void) {
         .start = fake_pump_start,
         .stop = fake_pump_stop,
     };
-    swbt_daemon_production_ipc_pump_t adapter;
+    swbt_daemon_btstack_ipc_pump_adapter_t adapter;
     int failed = 0;
 
     failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK,
@@ -63,19 +63,19 @@ static int start_starts_ipc_runner_before_btstack_pump(void) {
                                               }),
                             SWBT_CONTROL_OK, "control init");
 
-    adapter = (swbt_daemon_production_ipc_pump_t){
+    adapter = (swbt_daemon_btstack_ipc_pump_adapter_t){
         .runner = &runner,
         .port = &port,
         .port_context = &fake,
     };
 
-    failed +=
-        expect_eq_int(swbt_daemon_production_ipc_pump_start(&adapter, &control), 0, "pump start");
+    failed += expect_eq_int(swbt_daemon_btstack_ipc_pump_adapter_start(&adapter, &control), 0,
+                            "pump start");
     failed += expect_eq_int(fake.start_calls, 1, "pump start calls");
     failed += expect_true(fake.runner_running_at_start, "runner running at pump start");
     failed += expect_true(fake.captured_runner == &runner, "same runner instance");
 
-    swbt_daemon_production_ipc_pump_stop(&adapter);
+    swbt_daemon_btstack_ipc_pump_adapter_stop(&adapter);
     swbt_domain_destroy(app);
     return failed;
 }
@@ -92,7 +92,7 @@ static int start_failure_stops_ipc_runner(void) {
         .start = fake_pump_start,
         .stop = fake_pump_stop,
     };
-    swbt_daemon_production_ipc_pump_t adapter;
+    swbt_daemon_btstack_ipc_pump_adapter_t adapter;
     int failed = 0;
 
     failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK,
@@ -105,13 +105,13 @@ static int start_failure_stops_ipc_runner(void) {
                                               }),
                             SWBT_CONTROL_OK, "control init");
 
-    adapter = (swbt_daemon_production_ipc_pump_t){
+    adapter = (swbt_daemon_btstack_ipc_pump_adapter_t){
         .runner = &runner,
         .port = &port,
         .port_context = &fake,
     };
 
-    failed += expect_eq_int(swbt_daemon_production_ipc_pump_start(&adapter, &control), -1,
+    failed += expect_eq_int(swbt_daemon_btstack_ipc_pump_adapter_start(&adapter, &control), -1,
                             "pump start failure");
     failed += expect_eq_int(fake.start_calls, 1, "pump start calls");
     failed += expect_true(!swbt_daemon_ipc_runner_is_running(&runner), "runner stopped");
@@ -131,7 +131,7 @@ static int stop_stops_btstack_pump_before_ipc_runner(void) {
         .start = fake_pump_start,
         .stop = fake_pump_stop,
     };
-    swbt_daemon_production_ipc_pump_t adapter;
+    swbt_daemon_btstack_ipc_pump_adapter_t adapter;
     int failed = 0;
 
     failed += expect_eq_int(swbt_daemon_ipc_runner_init(&runner), SWBT_DAEMON_IPC_RUNNER_OK,
@@ -144,15 +144,15 @@ static int stop_stops_btstack_pump_before_ipc_runner(void) {
                                               }),
                             SWBT_CONTROL_OK, "control init");
 
-    adapter = (swbt_daemon_production_ipc_pump_t){
+    adapter = (swbt_daemon_btstack_ipc_pump_adapter_t){
         .runner = &runner,
         .port = &port,
         .port_context = &fake,
     };
 
-    failed +=
-        expect_eq_int(swbt_daemon_production_ipc_pump_start(&adapter, &control), 0, "pump start");
-    swbt_daemon_production_ipc_pump_stop(&adapter);
+    failed += expect_eq_int(swbt_daemon_btstack_ipc_pump_adapter_start(&adapter, &control), 0,
+                            "pump start");
+    swbt_daemon_btstack_ipc_pump_adapter_stop(&adapter);
     failed += expect_eq_int(fake.stop_calls, 1, "pump stop calls");
     failed += expect_true(fake.runner_running_at_stop, "runner running at pump stop");
     failed += expect_true(!swbt_daemon_ipc_runner_is_running(&runner), "runner stopped after pump");
@@ -171,7 +171,7 @@ static int callbacks_report_running_and_poll_same_runner(void) {
         .start = fake_pump_start,
         .stop = fake_pump_stop,
     };
-    swbt_daemon_production_ipc_pump_t adapter;
+    swbt_daemon_btstack_ipc_pump_adapter_t adapter;
     swbt_daemon_ipc_endpoint_t endpoint;
     swbt_ipc_socket_t client;
     int start_result;
@@ -189,13 +189,13 @@ static int callbacks_report_running_and_poll_same_runner(void) {
                                               }),
                             SWBT_CONTROL_OK, "control init");
 
-    adapter = (swbt_daemon_production_ipc_pump_t){
+    adapter = (swbt_daemon_btstack_ipc_pump_adapter_t){
         .runner = &runner,
         .port = &port,
         .port_context = &fake,
     };
 
-    start_result = swbt_daemon_production_ipc_pump_start(&adapter, &control);
+    start_result = swbt_daemon_btstack_ipc_pump_adapter_start(&adapter, &control);
     failed += expect_eq_int(start_result, 0, "pump start");
     callbacks_ready = start_result == 0 && fake.captured_pump.is_running != NULL &&
                       fake.captured_pump.poll_once_at != NULL;
@@ -220,7 +220,7 @@ static int callbacks_report_running_and_poll_same_runner(void) {
     if (client_open) {
         swbt_ipc_socket_close(&client);
     }
-    swbt_daemon_production_ipc_pump_stop(&adapter);
+    swbt_daemon_btstack_ipc_pump_adapter_stop(&adapter);
     swbt_domain_destroy(app);
     return failed;
 }

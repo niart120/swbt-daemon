@@ -264,7 +264,13 @@ add_library(swbt_daemon_process STATIC
 swbt_configure_module_public_includes(swbt_daemon_process
     MODULES daemon
     EXCLUDE_REGEXES
+        "^daemon/active_reconnect\\.h$"
+        "^daemon/btstack_hid_session\\.h$"
+        "^daemon/btstack_ipc_pump_adapter\\.h$"
+        "^daemon/btstack_process_backend\\.h$"
+        "^daemon/btstack_report_timer_bridge\\.h$"
         "^daemon/production_.*\\.h$"
+        "^daemon/shutdown_sequence\\.h$"
         "^daemon/shutdown_listener\\.h$"
 )
 target_link_libraries(swbt_daemon_process
@@ -281,18 +287,24 @@ swbt_apply_common_warnings(swbt_daemon_process)
 swbt_apply_sanitizers(swbt_daemon_process)
 
 add_library(swbt_daemon_production_runner STATIC
-    swbt/daemon/production_hid_session.c
-    swbt/daemon/production_ipc_pump.c
-    swbt/daemon/production_process_backend.c
-    swbt/daemon/production_report_timer.c
-    swbt/daemon/production_reconnect.c
-    swbt/daemon/production_shutdown.c
+    swbt/daemon/btstack_hid_session.c
+    swbt/daemon/btstack_ipc_pump_adapter.c
+    swbt/daemon/btstack_process_backend.c
+    swbt/daemon/btstack_report_timer_bridge.c
+    swbt/daemon/active_reconnect.c
+    swbt/daemon/shutdown_sequence.c
     swbt/daemon/production_runner.c
 )
 swbt_configure_module_public_includes(swbt_daemon_production_runner
     MODULES daemon
     INCLUDE_REGEXES
-        "^daemon/production_.*\\.h$"
+        "^daemon/active_reconnect\\.h$"
+        "^daemon/btstack_hid_session\\.h$"
+        "^daemon/btstack_ipc_pump_adapter\\.h$"
+        "^daemon/btstack_process_backend\\.h$"
+        "^daemon/btstack_report_timer_bridge\\.h$"
+        "^daemon/production_runner\\.h$"
+        "^daemon/shutdown_sequence\\.h$"
         "^daemon/shutdown_listener\\.h$"
 )
 target_link_libraries(swbt_daemon_production_runner PUBLIC swbt_daemon_process)
@@ -394,6 +406,7 @@ if(SWBT_BUILD_TESTS)
             "${CMAKE_COMMAND}"
             "-DSWBT_BINARY_DIR=${CMAKE_BINARY_DIR}"
             "-DSWBT_C_COMPILER=${CMAKE_C_COMPILER}"
+            "-DSWBT_BTSTACK_INCLUDE_DIRS=${swbt_btstack_selected_include_dirs}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/compile_include_boundaries_test.cmake"
     )
     add_test(
@@ -763,23 +776,23 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME daemon_switch_address_test COMMAND daemon_switch_address_test)
 
-    add_executable(daemon_production_reconnect_test
-        tests/daemon_production_reconnect_test.c
+    add_executable(daemon_active_reconnect_test
+        tests/daemon_active_reconnect_test.c
     )
-    target_link_libraries(daemon_production_reconnect_test PRIVATE swbt_daemon_production_runner)
-    swbt_apply_common_warnings(daemon_production_reconnect_test)
-    swbt_apply_sanitizers(daemon_production_reconnect_test)
+    target_link_libraries(daemon_active_reconnect_test PRIVATE swbt_daemon_production_runner)
+    swbt_apply_common_warnings(daemon_active_reconnect_test)
+    swbt_apply_sanitizers(daemon_active_reconnect_test)
 
-    add_test(NAME daemon_production_reconnect_test COMMAND daemon_production_reconnect_test)
+    add_test(NAME daemon_active_reconnect_test COMMAND daemon_active_reconnect_test)
 
-    add_executable(daemon_production_ipc_pump_test
-        tests/daemon_production_ipc_pump_test.c
+    add_executable(daemon_btstack_ipc_pump_adapter_test
+        tests/daemon_btstack_ipc_pump_adapter_test.c
     )
-    target_link_libraries(daemon_production_ipc_pump_test PRIVATE swbt_daemon_production_runner)
-    swbt_apply_common_warnings(daemon_production_ipc_pump_test)
-    swbt_apply_sanitizers(daemon_production_ipc_pump_test)
+    target_link_libraries(daemon_btstack_ipc_pump_adapter_test PRIVATE swbt_daemon_production_runner)
+    swbt_apply_common_warnings(daemon_btstack_ipc_pump_adapter_test)
+    swbt_apply_sanitizers(daemon_btstack_ipc_pump_adapter_test)
 
-    add_test(NAME daemon_production_ipc_pump_test COMMAND daemon_production_ipc_pump_test)
+    add_test(NAME daemon_btstack_ipc_pump_adapter_test COMMAND daemon_btstack_ipc_pump_adapter_test)
 
     add_executable(daemon_launch_options_test
         tests/daemon_launch_options_test.c
@@ -832,58 +845,58 @@ if(SWBT_BUILD_TESTS)
 
     add_test(NAME daemon_production_runner_test COMMAND daemon_production_runner_test)
 
-    add_executable(daemon_production_process_backend_test
-        tests/daemon_production_process_backend_test.c
+    add_executable(daemon_btstack_process_backend_test
+        tests/daemon_btstack_process_backend_test.c
     )
-    target_link_libraries(daemon_production_process_backend_test PRIVATE swbt_daemon_production_runner)
-    target_include_directories(daemon_production_process_backend_test
+    target_link_libraries(daemon_btstack_process_backend_test PRIVATE swbt_daemon_production_runner)
+    target_include_directories(daemon_btstack_process_backend_test
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/swbt
             ${swbt_btstack_selected_include_dirs}
     )
-    swbt_apply_common_warnings(daemon_production_process_backend_test)
-    swbt_apply_sanitizers(daemon_production_process_backend_test)
+    swbt_apply_common_warnings(daemon_btstack_process_backend_test)
+    swbt_apply_sanitizers(daemon_btstack_process_backend_test)
 
-    add_test(NAME daemon_production_process_backend_test COMMAND daemon_production_process_backend_test)
+    add_test(NAME daemon_btstack_process_backend_test COMMAND daemon_btstack_process_backend_test)
 
-    add_executable(daemon_production_shutdown_test
-        tests/daemon_production_shutdown_test.c
+    add_executable(daemon_shutdown_sequence_test
+        tests/daemon_shutdown_sequence_test.c
     )
-    target_link_libraries(daemon_production_shutdown_test PRIVATE swbt_daemon_production_runner)
-    target_include_directories(daemon_production_shutdown_test
+    target_link_libraries(daemon_shutdown_sequence_test PRIVATE swbt_daemon_production_runner)
+    target_include_directories(daemon_shutdown_sequence_test
         PRIVATE
             ${swbt_btstack_selected_include_dirs}
     )
-    swbt_apply_common_warnings(daemon_production_shutdown_test)
-    swbt_apply_sanitizers(daemon_production_shutdown_test)
+    swbt_apply_common_warnings(daemon_shutdown_sequence_test)
+    swbt_apply_sanitizers(daemon_shutdown_sequence_test)
 
-    add_test(NAME daemon_production_shutdown_test COMMAND daemon_production_shutdown_test)
+    add_test(NAME daemon_shutdown_sequence_test COMMAND daemon_shutdown_sequence_test)
 
-    add_executable(daemon_production_hid_session_test
-        tests/daemon_production_hid_session_test.c
+    add_executable(daemon_btstack_hid_session_test
+        tests/daemon_btstack_hid_session_test.c
     )
-    target_link_libraries(daemon_production_hid_session_test PRIVATE swbt_daemon_production_runner)
-    target_include_directories(daemon_production_hid_session_test
+    target_link_libraries(daemon_btstack_hid_session_test PRIVATE swbt_daemon_production_runner)
+    target_include_directories(daemon_btstack_hid_session_test
         PRIVATE
             ${swbt_btstack_selected_include_dirs}
     )
-    swbt_apply_common_warnings(daemon_production_hid_session_test)
-    swbt_apply_sanitizers(daemon_production_hid_session_test)
+    swbt_apply_common_warnings(daemon_btstack_hid_session_test)
+    swbt_apply_sanitizers(daemon_btstack_hid_session_test)
 
-    add_test(NAME daemon_production_hid_session_test COMMAND daemon_production_hid_session_test)
+    add_test(NAME daemon_btstack_hid_session_test COMMAND daemon_btstack_hid_session_test)
 
-    add_executable(daemon_production_report_timer_test
-        tests/daemon_production_report_timer_test.c
+    add_executable(daemon_btstack_report_timer_bridge_test
+        tests/daemon_btstack_report_timer_bridge_test.c
     )
-    target_link_libraries(daemon_production_report_timer_test PRIVATE swbt_daemon_production_runner)
-    target_include_directories(daemon_production_report_timer_test
+    target_link_libraries(daemon_btstack_report_timer_bridge_test PRIVATE swbt_daemon_production_runner)
+    target_include_directories(daemon_btstack_report_timer_bridge_test
         PRIVATE
             ${swbt_btstack_selected_include_dirs}
     )
-    swbt_apply_common_warnings(daemon_production_report_timer_test)
-    swbt_apply_sanitizers(daemon_production_report_timer_test)
+    swbt_apply_common_warnings(daemon_btstack_report_timer_bridge_test)
+    swbt_apply_sanitizers(daemon_btstack_report_timer_bridge_test)
 
-    add_test(NAME daemon_production_report_timer_test COMMAND daemon_production_report_timer_test)
+    add_test(NAME daemon_btstack_report_timer_bridge_test COMMAND daemon_btstack_report_timer_bridge_test)
 
     add_executable(daemon_production_hid_sdp_record_test
         tests/daemon_production_hid_sdp_record_test.c
@@ -969,17 +982,17 @@ if(SWBT_BUILD_TESTS)
             runtime_host_test
             daemon_config_file_test
             daemon_switch_address_test
-            daemon_production_reconnect_test
-            daemon_production_ipc_pump_test
+            daemon_active_reconnect_test
+            daemon_btstack_ipc_pump_adapter_test
             daemon_launch_options_test
             daemon_cli_test
             architecture_journey_test
             daemon_ipc_runner_test
             daemon_production_runner_test
-            daemon_production_process_backend_test
-            daemon_production_shutdown_test
-            daemon_production_hid_session_test
-            daemon_production_report_timer_test
+            daemon_btstack_process_backend_test
+            daemon_shutdown_sequence_test
+            daemon_btstack_hid_session_test
+            daemon_btstack_report_timer_bridge_test
             daemon_production_hid_sdp_record_test
             report_metrics_test
             diagnostics_test

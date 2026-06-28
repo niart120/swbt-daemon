@@ -3,8 +3,8 @@
 #include <stddef.h>
 
 #include "support/diagnostics.h"
-#include "daemon/production_process_backend.h"
-#include "daemon/production_reconnect.h"
+#include "daemon/btstack_process_backend.h"
+#include "daemon/active_reconnect.h"
 
 swbt_daemon_production_result_t swbt_daemon_production_runner_init(
     swbt_daemon_production_runner_t *backend, const swbt_daemon_config_t *config,
@@ -79,7 +79,7 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shut
     bool shutdown_listener_installed = false;
 
     if (backend == NULL || !backend->initialized ||
-        !swbt_daemon_production_shutdown_listener_is_valid(shutdown_listener)) {
+        !swbt_daemon_shutdown_sequence_listener_is_valid(shutdown_listener)) {
         return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
     }
     if (!swbt_btstack_production_ports_is_valid(backend->ports)) {
@@ -89,8 +89,8 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shut
         swbt_diagnostic_trace("production: adapter location required");
         return SWBT_DAEMON_PRODUCTION_ERROR_ADAPTER_LOCATION_REQUIRED;
     }
-    if (!swbt_daemon_production_shutdown_init(
-            &backend->shutdown, &(swbt_daemon_production_shutdown_config_t){
+    if (!swbt_daemon_shutdown_sequence_init(
+            &backend->shutdown, &(swbt_daemon_shutdown_sequence_config_t){
                                     .run_loop = &backend->ports->run_loop,
                                     .port_context = backend->ports_context,
                                     .host = &backend->host,
@@ -102,7 +102,7 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shut
 
     swbt_diagnostic_trace("production: host init");
     host_result = swbt_daemon_process_init(&host, &backend->config,
-                                           swbt_daemon_production_process_backend(), backend);
+                                           swbt_daemon_btstack_process_backend(), backend);
     if (host_result != SWBT_DAEMON_PROCESS_OK) {
         swbt_diagnostic_trace("production: host init failed");
         return SWBT_DAEMON_PRODUCTION_ERROR_RUNTIME;
@@ -126,14 +126,14 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shut
     swbt_diagnostic_trace("production: power on");
     result = swbt_daemon_production_power_on(backend);
     if (result == SWBT_DAEMON_PRODUCTION_OK) {
-        swbt_daemon_production_reconnect_request_active(&(swbt_daemon_production_reconnect_t){
+        swbt_daemon_active_reconnect_request_active(&(swbt_daemon_active_reconnect_t){
             .config = &backend->config,
             .device = &backend->device,
             .app = swbt_daemon_process_app(&host),
         });
-        swbt_daemon_production_shutdown_prepare(&backend->shutdown);
+        swbt_daemon_shutdown_sequence_prepare(&backend->shutdown);
         if (shutdown_listener != NULL) {
-            if (swbt_daemon_production_shutdown_install_listener(
+            if (swbt_daemon_shutdown_sequence_install_listener(
                     &backend->shutdown, shutdown_listener, shutdown_context) != 0) {
                 result = SWBT_DAEMON_PRODUCTION_ERROR_RUNTIME;
             } else {
@@ -146,7 +146,7 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shut
             swbt_diagnostic_trace("production: run loop returned");
         }
         if (shutdown_listener_installed) {
-            swbt_daemon_production_shutdown_uninstall_listener(shutdown_listener, shutdown_context);
+            swbt_daemon_shutdown_sequence_uninstall_listener(shutdown_listener, shutdown_context);
         }
     }
 
@@ -162,4 +162,37 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shut
 swbt_daemon_production_result_t
 swbt_daemon_production_main_with_runner(swbt_daemon_production_runner_t *backend) {
     return swbt_daemon_production_main_with_runner_and_shutdown(backend, NULL, NULL);
+}
+
+swbt_daemon_production_result_t
+swbt_daemon_production_run(const swbt_daemon_production_run_config_t *run_config) {
+    swbt_daemon_production_runner_t backend;
+    swbt_daemon_production_result_t result;
+
+    if (run_config == NULL) {
+        return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
+    }
+
+    swbt_diagnostic_trace("production: backend init");
+    result = swbt_daemon_production_runner_init(&backend, run_config->config, run_config->ports,
+                                                run_config->ports_context);
+    if (result != SWBT_DAEMON_PRODUCTION_OK) {
+        swbt_diagnostic_trace("production: backend init failed");
+        return result;
+    }
+    if (run_config->adapter_location_configured &&
+        !swbt_daemon_production_runner_set_adapter_location_configured(&backend)) {
+        swbt_diagnostic_trace("production: adapter location state invalid");
+        return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
+    }
+    if (run_config->learned_switch_address_target_configured &&
+        !swbt_daemon_production_runner_set_learned_switch_address_target(
+            &backend, &run_config->learned_switch_address_target)) {
+        swbt_diagnostic_trace("production: learned switch address target invalid");
+        return SWBT_DAEMON_PRODUCTION_ERROR_INVALID_ARGUMENT;
+    }
+
+    swbt_diagnostic_trace("production: enter main");
+    return swbt_daemon_production_main_with_runner_and_shutdown(
+        &backend, run_config->shutdown_listener, run_config->shutdown_context);
 }

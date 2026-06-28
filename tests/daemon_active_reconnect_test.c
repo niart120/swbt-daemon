@@ -1,4 +1,4 @@
-#include "daemon/production_reconnect.h"
+#include "daemon/active_reconnect.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -28,8 +28,8 @@ static int effective_switch_address_builds_btstack_request(void) {
     failed += expect_eq_int(swbt_daemon_config_set_active_reconnect_learned_switch_address(
                                 &config, "01:23:45:67:89:ab"),
                             true, "set learned address");
-    failed += expect_eq_int(swbt_daemon_production_reconnect_build_request(&config, &request),
-                            SWBT_DAEMON_PRODUCTION_RECONNECT_REQUEST_READY, "build request");
+    failed += expect_eq_int(swbt_daemon_active_reconnect_build_request(&config, &request),
+                            SWBT_DAEMON_ACTIVE_RECONNECT_REQUEST_READY, "build request");
     failed +=
         expect_eq_u16(request.control_psm, SWBT_BTSTACK_PRODUCTION_HID_CONTROL_PSM, "control psm");
     failed += expect_eq_u16(request.interrupt_psm, SWBT_BTSTACK_PRODUCTION_HID_INTERRUPT_PSM,
@@ -54,7 +54,7 @@ static int learned_address_save_writes_uppercase_text(void) {
     int failed = 0;
 
     (void)remove(path);
-    swbt_daemon_production_reconnect_save_learned_address(&config, &target, address);
+    swbt_daemon_active_reconnect_save_learned_address(&config, &target, address);
 
     swbt_daemon_config_t reloaded = swbt_daemon_config_default();
     failed += expect_eq_int(swbt_daemon_config_apply_file(&reloaded, &source),

@@ -1,4 +1,4 @@
-#include "daemon/production_process_backend.h"
+#include "daemon/btstack_process_backend.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -117,7 +117,7 @@ static swbt_btstack_production_ports_t fake_ports(void) {
 }
 
 static int process_backend_table_exposes_production_backend_status(void) {
-    const swbt_daemon_process_backend_t *backend = swbt_daemon_production_process_backend();
+    const swbt_daemon_process_backend_t *backend = swbt_daemon_btstack_process_backend();
 
     int failed = 0;
     failed += expect_true(backend != NULL, "backend");
@@ -133,7 +133,7 @@ static int process_backend_routes_output_handler_start_and_stop(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_ops_t fake = {0};
     const swbt_btstack_production_ports_t ports = fake_ports();
-    const swbt_daemon_process_backend_t *process_backend = swbt_daemon_production_process_backend();
+    const swbt_daemon_process_backend_t *process_backend = swbt_daemon_btstack_process_backend();
     swbt_daemon_production_runner_t runner;
     swbt_btstack_output_report_handler_t output_handler = {0};
 
@@ -155,7 +155,7 @@ static int process_backend_reads_configured_device_info_and_controller_address(v
         .controller_address = {0x01u, 0x23u, 0x45u, 0x67u, 0x89u, 0xABu},
     };
     const swbt_btstack_production_ports_t ports = fake_ports();
-    const swbt_daemon_process_backend_t *process_backend = swbt_daemon_production_process_backend();
+    const swbt_daemon_process_backend_t *process_backend = swbt_daemon_btstack_process_backend();
     swbt_daemon_production_runner_t runner;
     swbt_switch_device_info_t device_info = {0};
 
@@ -190,7 +190,7 @@ static int process_backend_time_ms_delegates_to_clock_port(void) {
         .now_ms = 9876u,
     };
     const swbt_btstack_production_ports_t ports = fake_ports();
-    const swbt_daemon_process_backend_t *process_backend = swbt_daemon_production_process_backend();
+    const swbt_daemon_process_backend_t *process_backend = swbt_daemon_btstack_process_backend();
     swbt_daemon_production_runner_t runner;
 
     int failed = 0;

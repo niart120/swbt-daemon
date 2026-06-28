@@ -49,8 +49,13 @@ source から use case への変換:
 ## 5. 関連 spec / docs
 
 - `apps/swbt-daemon/production_entrypoint.c`
-- `swbt/daemon/production_*.c`
-- `swbt/daemon/production_*.h`
+- `swbt/daemon/active_reconnect.*`
+- `swbt/daemon/btstack_hid_session.*`
+- `swbt/daemon/btstack_ipc_pump_adapter.*`
+- `swbt/daemon/btstack_process_backend.*`
+- `swbt/daemon/btstack_report_timer_bridge.*`
+- `swbt/daemon/shutdown_sequence.*`
+- `swbt/daemon/production_runner.*`
 - `swbt/btstack_bridge/production_ports.*`
 - `swbt/btstack_bridge/production_btstack_impl.*`
 - `tests/cmake/production_entrypoint_boundary_test.cmake`
@@ -60,7 +65,7 @@ source から use case への変換:
 - `docs/status.md`
 - `work-units/complete/local_088/PRODUCTION_IPC_PUMP_BOUNDARY.md`
 - `work-units/complete/local_093/PRODUCTION_RUNNER_HEADER_FINALIZATION.md`
-- `work-units/wip/local_095/DAEMON_TARGET_BOUNDARY_CLEANUP.md`
+- `work-units/complete/local_095/DAEMON_TARGET_BOUNDARY_CLEANUP.md`
 
 ## 6. 根拠監査
 
@@ -75,7 +80,7 @@ Tidy status:
 - classification: structure change
 - decision: tidy after
 - reason: target boundary が整理された後で helper 名と apps / daemon boundary を合わせる方が、rename の置換先を誤りにくい。
-- verification: rename absence scan、boundary CMake tests、targeted daemon production tests、必要に応じて `just debug`。
+- verification: rename absence scan、boundary CMake tests、`just debug`、`just asan`、`just windows-cross`。
 
 rename 方針:
 
@@ -84,45 +89,67 @@ rename 方針:
 - `swbt/btstack_bridge` は daemon IPC runner 型を参照しない境界を維持する。
 - `apps/swbt-daemon` は OS process support と concrete BTstack impl selection に寄せ、daemon internal state へ直接依存しない方向を優先する。
 
+実施結果:
+
+- backend 名としての `production` は CLI / status / `swbt_btstack_production_*` / `production_runner` に残した。これは production backend と runner orchestration を表す語であり、helper の責務名ではない。
+- `production_ipc_pump.*` は `btstack_ipc_pump_adapter.*` へ rename した。daemon IPC runner と BTstack run loop pump port の adapter であることを名前に出した。
+- `production_report_timer.*` は `btstack_report_timer_bridge.*` へ rename した。daemon process の report timer callback と BTstack report timer port をつなぐ bridge であることを名前に出した。
+- `production_hid_session.*` は `btstack_hid_session.*` へ rename した。BTstack HID service registration と HID event handling を持つ session であることを名前に出した。
+- `production_reconnect.*` は `active_reconnect.*` へ rename した。learned Switch address への active reconnect request を扱う責務に寄せた。
+- `production_shutdown.*` は `shutdown_sequence.*` へ rename した。neutral send、run loop exit、process shutdown listener の sequence を扱う責務に寄せた。
+- `production_process_backend.*` は `btstack_process_backend.*` へ rename した。daemon process backend table の BTstack-backed 実装であることを名前に出した。
+- `apps/swbt-daemon/production_entrypoint.c` は `daemon/production_runner_internal.h` を include しない。`swbt_daemon_production_run_config_t` と `swbt_daemon_production_run` を public runner header に追加し、runner internal allocation は daemon 側へ戻した。
+- `swbt/btstack_bridge` は `swbt_daemon_ipc_runner` と `production_runner_internal` を参照しない境界を維持した。
+
 ## 8. 対象ファイル
 
 - `apps/swbt-daemon/production_entrypoint.c`
 - `apps/swbt-daemon/production_entrypoint.h`
-- `swbt/daemon/production_ipc_pump.*`
-- `swbt/daemon/production_report_timer.*`
-- `swbt/daemon/production_hid_session.*`
-- `swbt/daemon/production_reconnect.*`
-- `swbt/daemon/production_shutdown.*`
-- `swbt/daemon/production_process_backend.*`
+- `swbt/daemon/active_reconnect.*`
+- `swbt/daemon/btstack_hid_session.*`
+- `swbt/daemon/btstack_ipc_pump_adapter.*`
+- `swbt/daemon/btstack_process_backend.*`
+- `swbt/daemon/btstack_report_timer_bridge.*`
+- `swbt/daemon/shutdown_sequence.*`
 - `swbt/daemon/production_runner.*`
-- `tests/daemon_production_*_test.c`
+- `tests/daemon_active_reconnect_test.c`
+- `tests/daemon_btstack_hid_session_test.c`
+- `tests/daemon_btstack_ipc_pump_adapter_test.c`
+- `tests/daemon_btstack_process_backend_test.c`
+- `tests/daemon_btstack_report_timer_bridge_test.c`
+- `tests/daemon_shutdown_sequence_test.c`
+- `tests/daemon_production_runner_test.c`
 - `tests/cmake/production_entrypoint_boundary_test.cmake`
 - `tests/cmake/include_boundaries_test.cmake`
 - `tests/cmake/compile_include_boundaries_test.cmake`
 - `CMakeLists.txt`
-- `docs/status.md`
-- `spec/architecture/daemon-architecture-cutover.md`
+
+reviewed but not changed:
+
+- `docs/status.md`: renamed helper names の current reference はなかった。
+- `spec/architecture/daemon-architecture-cutover.md`: renamed helper names の current reference はなかった。
 
 ## 9. TDD Test List（TDD テスト一覧）
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | renamed helpers preserve production startup, IPC pump, HID session, report timer, reconnect, and shutdown software behavior | regression | unit/integration | no |
-| todo | app production entrypoint no longer includes daemon runner internal header, or the remaining boundary exception is explicit and tested | regression | architecture | no |
-| todo | BTstack bridge remains free of daemon IPC runner and daemon runner internal type references | regression | architecture | no |
-| todo | old helper file names and symbols are absent from current source, tests, and current docs except historical records | regression | review | no |
-| todo | CLI backend status still reports `production` and `noop` with unchanged IPC JSON output | regression | integration | no |
+| green | renamed helpers preserve production startup, IPC pump, HID session, report timer, reconnect, and shutdown software behavior | regression | unit/integration | no |
+| green | app production entrypoint no longer includes daemon runner internal header, or the remaining boundary exception is explicit and tested | regression | architecture | no |
+| green | BTstack bridge remains free of daemon IPC runner and daemon runner internal type references | regression | architecture | no |
+| green | old helper file names and symbols are absent from current source, tests, and current docs except historical records | regression | review | no |
+| green | CLI backend status still reports `production` and `noop` with unchanged IPC JSON output | regression | integration | no |
 
 ## 10. 検証
 
-not run yet.
-
-予定:
-
-- `rg -n "production_ipc_pump|production_report_timer|production_hid_session|production_reconnect|production_shutdown|production_process_backend" CMakeLists.txt apps swbt tests docs spec`
-- `$env:CTEST_ARGS='-R "production_entrypoint_boundary_cmake_test|include_boundaries_cmake_test|compile_include_boundaries_cmake_test|daemon_production_runner_test|daemon_production_ipc_pump_test|daemon_production_report_timer_test|daemon_production_hid_session_test|daemon_production_shutdown_test|daemon_production_reconnect_test|daemon_production_process_backend_test" --output-on-failure'; just test-debug`
-- `just debug` if rename touches broad CMake source lists or generated include roots
-- `just windows-cross` if executable source lists or app boundary change
+- `rg -n 'swbt_daemon_production_(ipc_pump|report_timer|hid_session|reconnect|shutdown|process_backend)|daemon_production_(ipc_pump|report_timer|hid_session|reconnect|shutdown|process_backend)|#include "daemon/production_(ipc_pump|report_timer|hid_session|reconnect|shutdown|process_backend)\.h"|production_(ipc_pump|report_timer|hid_session|reconnect|shutdown|process_backend)\.(c|h)' CMakeLists.txt apps swbt tests tests/cmake docs/status.md spec/architecture spec/references`: pass. no matches.
+- `rg -n 'production_runner_internal' apps/swbt-daemon`: pass. no matches.
+- `rg -n 'swbt_daemon_ipc_runner|production_runner_internal' swbt/btstack_bridge`: pass. no matches.
+- `git diff --check`: pass.
+- `just format`: pass.
+- `just format-check`: pass.
+- `just debug`: pass after adding BTstack include dirs to `compile_include_boundaries_cmake_test`. `linux-debug` configure/build、CTest 59/59 passed.
+- `just asan`: pass. `linux-asan` configure/build、CTest 59/59 passed.
+- `just windows-cross`: pass. `windows-mingw-debug` configure/build passed.
 
 ## 11. 実機実行条件
 
@@ -138,10 +165,10 @@ none.
 
 ## 13. チェックリスト
 
-- [ ] `production_` helper 群を棚卸しした。
-- [ ] backend 名として残す `production` と rename 対象を分けた。
-- [ ] helper file / symbol / test 名を責務名へ寄せた。
-- [ ] apps / daemon internal boundary crossing を解消または例外として固定した。
-- [ ] CMake source list と boundary tests を更新した。
-- [ ] old helper name absence scan と targeted tests の結果を記録した。
-- [ ] 実機未実行理由を維持した。
+- [x] `production_` helper 群を棚卸しした。
+- [x] backend 名として残す `production` と rename 対象を分けた。
+- [x] helper file / symbol / test 名を責務名へ寄せた。
+- [x] apps / daemon internal boundary crossing を解消または例外として固定した。
+- [x] CMake source list と boundary tests を更新した。
+- [x] old helper name absence scan と targeted tests の結果を記録した。
+- [x] 実機未実行理由を維持した。

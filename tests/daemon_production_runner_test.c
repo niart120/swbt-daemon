@@ -9,7 +9,7 @@
 #include "switch/switch_controller_state.h"
 #include "switch/switch_hid_descriptor.h"
 #include "switch/switch_report.h"
-#include "daemon/production_process_backend.h"
+#include "daemon/btstack_process_backend.h"
 
 enum {
     STEP_IPC_START = 1,
@@ -648,6 +648,30 @@ static int production_runner_starts_without_code_level_hardware_approval_gate(vo
     return failed;
 }
 
+static int production_run_wrapper_starts_with_public_config(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {0};
+    const swbt_btstack_production_ports_t adapter = fake_backend_ports();
+    const swbt_daemon_production_run_config_t run_config = {
+        .config = &config,
+        .ports = &adapter,
+        .ports_context = &fake,
+        .adapter_location_configured = true,
+    };
+    const int expected[] = {
+        STEP_IPC_START,  STEP_PLATFORM_START, STEP_HID_REGISTER,     STEP_OUTPUT_START,
+        STEP_TIMER_INIT, STEP_POWER_ON,       STEP_RUN_LOOP_EXECUTE, STEP_POWER_OFF,
+        STEP_TIMER_STOP, STEP_OUTPUT_STOP,    STEP_HID_STOP,         STEP_PLATFORM_STOP,
+        STEP_IPC_STOP,
+    };
+
+    int failed = 0;
+    failed += expect_eq_int(swbt_daemon_production_run(&run_config), SWBT_DAEMON_PRODUCTION_OK,
+                            "run result");
+    failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
+    return failed;
+}
+
 static int ipc_pump_port_starts_without_unrelated_btstack_abilities(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_ops_t fake = {0};
@@ -655,7 +679,7 @@ static int ipc_pump_port_starts_without_unrelated_btstack_abilities(void) {
     swbt_daemon_production_runner_t backend;
     swbt_domain_t *app = swbt_domain_create();
     swbt_control_t control;
-    const swbt_daemon_process_backend_t *host_backend = swbt_daemon_production_process_backend();
+    const swbt_daemon_process_backend_t *host_backend = swbt_daemon_btstack_process_backend();
     const swbt_daemon_production_result_t init_result =
         swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake);
 
@@ -1240,9 +1264,9 @@ static int hid_packet_handler_starts_sends_and_stops_timer(void) {
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
-    failed += expect_eq_int(swbt_daemon_process_init(
-                                &host, &config, swbt_daemon_production_process_backend(), &backend),
-                            SWBT_DAEMON_PROCESS_OK, "host init");
+    failed += expect_eq_int(
+        swbt_daemon_process_init(&host, &config, swbt_daemon_btstack_process_backend(), &backend),
+        SWBT_DAEMON_PROCESS_OK, "host init");
     failed += expect_eq_int(swbt_daemon_process_start(&host), SWBT_DAEMON_PROCESS_OK, "host start");
     fake.captured_hid_config.packet_handler(0x04u, 0x0042u, opened_event, sizeof(opened_event));
     fake.captured_hid_config.packet_handler(0x04u, 0x0042u, can_send_event, sizeof(can_send_event));
@@ -1257,7 +1281,7 @@ static int hid_packet_handler_starts_sends_and_stops_timer(void) {
     return failed;
 }
 
-static int production_report_timer_sender_uses_device_send(void) {
+static int btstack_report_timer_bridge_sender_uses_device_send(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_ops_t fake = {0};
     const swbt_btstack_production_ports_t adapter = fake_backend_ports();
@@ -1268,9 +1292,9 @@ static int production_report_timer_sender_uses_device_send(void) {
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
-    failed += expect_eq_int(swbt_daemon_process_init(
-                                &host, &config, swbt_daemon_production_process_backend(), &backend),
-                            SWBT_DAEMON_PROCESS_OK, "host init");
+    failed += expect_eq_int(
+        swbt_daemon_process_init(&host, &config, swbt_daemon_btstack_process_backend(), &backend),
+        SWBT_DAEMON_PROCESS_OK, "host init");
     failed += expect_eq_int(swbt_daemon_process_start(&host), SWBT_DAEMON_PROCESS_OK, "host start");
 
     failed +=
@@ -1319,9 +1343,9 @@ static int hid_connection_opened_persists_learned_switch_address_to_config_targe
     failed += expect_true(
         swbt_daemon_production_runner_set_learned_switch_address_target(&backend, &target),
         "set learned address target");
-    failed += expect_eq_int(swbt_daemon_process_init(
-                                &host, &config, swbt_daemon_production_process_backend(), &backend),
-                            SWBT_DAEMON_PROCESS_OK, "host init");
+    failed += expect_eq_int(
+        swbt_daemon_process_init(&host, &config, swbt_daemon_btstack_process_backend(), &backend),
+        SWBT_DAEMON_PROCESS_OK, "host init");
     failed += expect_eq_int(swbt_daemon_process_start(&host), SWBT_DAEMON_PROCESS_OK, "host start");
     fake.captured_hid_config.packet_handler(0x04u, 0x0042u, opened_event, sizeof(opened_event));
 
@@ -1350,9 +1374,9 @@ static int hid_packet_handler_confirms_ssp_user_confirmation(void) {
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "init");
-    failed += expect_eq_int(swbt_daemon_process_init(
-                                &host, &config, swbt_daemon_production_process_backend(), &backend),
-                            SWBT_DAEMON_PROCESS_OK, "host init");
+    failed += expect_eq_int(
+        swbt_daemon_process_init(&host, &config, swbt_daemon_btstack_process_backend(), &backend),
+        SWBT_DAEMON_PROCESS_OK, "host init");
     failed += expect_eq_int(swbt_daemon_process_start(&host), SWBT_DAEMON_PROCESS_OK, "host start");
     fake.captured_hid_config.packet_handler(0x04u, 0x0000u, user_confirmation_event,
                                             sizeof(user_confirmation_event));
@@ -1371,6 +1395,7 @@ int main(void) {
     int failed = 0;
     failed += production_runner_requires_adapter_location_before_platform_start();
     failed += production_runner_starts_without_code_level_hardware_approval_gate();
+    failed += production_run_wrapper_starts_with_public_config();
     failed += ipc_pump_port_starts_without_unrelated_btstack_abilities();
     failed += approved_backend_starts_hardware_and_cleans_up_in_order();
     failed += approved_backend_requests_active_reconnect_when_switch_address_is_configured();
@@ -1388,7 +1413,7 @@ int main(void) {
     failed += shutdown_listener_is_installed_without_code_level_hardware_approval_gate();
     failed += repeated_stop_request_does_not_power_off_twice();
     failed += hid_packet_handler_starts_sends_and_stops_timer();
-    failed += production_report_timer_sender_uses_device_send();
+    failed += btstack_report_timer_bridge_sender_uses_device_send();
     failed += hid_connection_opened_persists_learned_switch_address_to_config_target();
     failed += hid_packet_handler_confirms_ssp_user_confirmation();
     return failed == 0 ? 0 : 1;

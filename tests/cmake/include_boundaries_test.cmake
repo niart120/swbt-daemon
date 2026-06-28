@@ -137,13 +137,13 @@ swbt_assert_file_match("CMakeLists.txt"
                        "control test link boundary")
 
 foreach(test_name
-        daemon_production_reconnect_test
-        daemon_production_ipc_pump_test
+        daemon_active_reconnect_test
+        daemon_btstack_ipc_pump_adapter_test
         daemon_production_runner_test
-        daemon_production_process_backend_test
-        daemon_production_shutdown_test
-        daemon_production_hid_session_test
-        daemon_production_report_timer_test)
+        daemon_btstack_process_backend_test
+        daemon_shutdown_sequence_test
+        daemon_btstack_hid_session_test
+        daemon_btstack_report_timer_bridge_test)
     swbt_assert_file_match("CMakeLists.txt"
                            "target_link_libraries\\(${test_name} PRIVATE swbt_daemon_production_runner\\)"
                            "daemon production test link boundary")

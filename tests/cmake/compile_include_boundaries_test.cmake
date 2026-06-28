@@ -224,11 +224,40 @@ swbt_expect_compile_result(
     "${protocol_public_include_dir}"
 )
 swbt_expect_compile_result(
+    daemon_process_btstack_ipc_pump_adapter_hidden
+    FALSE
+    "#include \"daemon/btstack_ipc_pump_adapter.h\"\nint main(void) { return 0; }\n"
+    "${daemon_process_public_include_dir}"
+    "${ipc_public_include_dir}"
+    "${control_public_include_dir}"
+    "${runtime_public_include_dir}"
+    "${btstack_bridge_public_include_dir}"
+    ${SWBT_BTSTACK_INCLUDE_DIRS}
+    "${domain_public_include_dir}"
+    "${support_public_include_dir}"
+    "${protocol_public_include_dir}"
+)
+swbt_expect_compile_result(
     production_runner_public_header_visible
     TRUE
     "#include \"daemon/production_runner.h\"\nint main(void) { return 0; }\n"
     "${daemon_production_runner_public_include_dir}"
     "${daemon_process_public_include_dir}"
+    "${support_public_include_dir}"
+    "${protocol_public_include_dir}"
+)
+swbt_expect_compile_result(
+    production_btstack_ipc_pump_adapter_header_visible
+    TRUE
+    "#include \"daemon/btstack_ipc_pump_adapter.h\"\nint main(void) { return 0; }\n"
+    "${daemon_production_runner_public_include_dir}"
+    "${daemon_process_public_include_dir}"
+    "${ipc_public_include_dir}"
+    "${control_public_include_dir}"
+    "${runtime_public_include_dir}"
+    "${btstack_bridge_public_include_dir}"
+    ${SWBT_BTSTACK_INCLUDE_DIRS}
+    "${domain_public_include_dir}"
     "${support_public_include_dir}"
     "${protocol_public_include_dir}"
 )
