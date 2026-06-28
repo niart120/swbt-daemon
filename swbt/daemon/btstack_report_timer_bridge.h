@@ -9,6 +9,7 @@
 #include "btstack_bridge/production_ports.h"
 #include "daemon/config.h"
 #include "daemon/process.h"
+#include "runtime/host.h"
 
 typedef struct {
     const swbt_daemon_config_t *config;

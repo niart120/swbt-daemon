@@ -1,4 +1,4 @@
-#include "daemon/process.h"
+#include "daemon/process_internal.h"
 
 #include <stddef.h>
 

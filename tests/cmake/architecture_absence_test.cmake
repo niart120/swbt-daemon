@@ -66,7 +66,7 @@ swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_daemon_production_ru
 swbt_assert_file_match("CMakeLists.txt" "add_executable\\(architecture_journey_test"
                        "architecture journey test target")
 swbt_assert_file_match("CMakeLists.txt"
-                       "target_link_libraries\\(architecture_journey_test PRIVATE swbt_daemon_process\\)"
+                       "target_link_libraries\\(architecture_journey_test[^\\)]*swbt_daemon_process"
                        "architecture journey test link")
 swbt_assert_file_not_match("swbt/daemon/process.h"
                            "swbt_domain_t[ \t\r\n]*[*][ \t\r\n]*app"
@@ -77,6 +77,15 @@ swbt_assert_file_not_match("swbt/daemon/process.h"
 swbt_assert_file_not_match("swbt/daemon/process.h"
                            "swbt_runtime_host_backend_t[ \t\r\n]+runtime_backend"
                            "daemon process runtime backend ownership boundary")
+swbt_assert_file_not_match("swbt/daemon/process.h"
+                           "(const[ \t\r\n]+)?swbt_runtime_host_backend_t[ \t\r\n]*[*][ \t\r\n]*runtime_backend"
+                           "daemon process runtime backend pointer boundary")
+swbt_assert_file_not_match("swbt/daemon/process.h"
+                           "#include \"runtime/host\\.h\""
+                           "daemon process runtime host public include boundary")
+swbt_assert_file_not_match("swbt/daemon/process.h"
+                           "#include \"btstack_bridge/output_report_handler\\.h\""
+                           "daemon process output handler public include boundary")
 foreach(callback_name
         hid_register
         hid_stop

@@ -4,6 +4,7 @@
 
 #include "support/diagnostics.h"
 #include "daemon/btstack_process_backend.h"
+#include "daemon/process_internal.h"
 #include "daemon/active_reconnect.h"
 
 swbt_daemon_production_result_t swbt_daemon_production_runner_init(

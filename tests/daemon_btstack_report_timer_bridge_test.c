@@ -9,6 +9,7 @@
 #include "btstack_bridge/hid_device_registration.h"
 #include "btstack_bridge/production_ports.h"
 #include "daemon/config.h"
+#include "daemon/process_internal.h"
 #include "domain/domain.h"
 #include "switch/switch_controller_state.h"
 
