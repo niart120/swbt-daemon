@@ -201,10 +201,6 @@ swbt_expect_compile_result(
     TRUE
     "#include \"daemon/process.h\"\nint main(void) { return 0; }\n"
     "${daemon_process_public_include_dir}"
-    "${ipc_public_include_dir}"
-    "${control_public_include_dir}"
-    "${runtime_public_include_dir}"
-    "${btstack_bridge_public_include_dir}"
     "${domain_public_include_dir}"
     "${support_public_include_dir}"
     "${protocol_public_include_dir}"

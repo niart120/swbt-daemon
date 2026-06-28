@@ -1,6 +1,7 @@
 #include "daemon/btstack_report_timer_bridge.h"
 
 #include "support/diagnostics.h"
+#include "daemon/process_internal.h"
 
 static bool swbt_daemon_btstack_report_timer_bridge_is_valid(
     const swbt_daemon_btstack_report_timer_bridge_t *timer) {

@@ -1,5 +1,6 @@
 #include "daemon/btstack_process_backend.h"
 
+#include "daemon/process_internal.h"
 #include "daemon/btstack_hid_session.h"
 #include "daemon/btstack_ipc_pump_adapter.h"
 #include "daemon/btstack_report_timer_bridge.h"

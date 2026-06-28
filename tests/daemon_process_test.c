@@ -6,7 +6,7 @@
 #include "domain/domain.h"
 #include "btstack_bridge/output_report_handler.h"
 #include "daemon/config.h"
-#include "daemon/process.h"
+#include "daemon/process_internal.h"
 #include "ipc/ipc_adapter.h"
 #include "switch/switch_controller_state.h"
 #include "switch/switch_device_info.h"

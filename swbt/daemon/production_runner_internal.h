@@ -7,7 +7,7 @@
 
 #include "btstack_bridge/production_ports.h"
 #include "daemon/ipc_runner.h"
-#include "daemon/process.h"
+#include "daemon/process_internal.h"
 #include "daemon/btstack_hid_session.h"
 #include "daemon/btstack_report_timer_bridge.h"
 #include "daemon/production_runner.h"

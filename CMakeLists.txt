@@ -276,11 +276,11 @@ swbt_configure_module_public_includes(swbt_daemon_process
 target_link_libraries(swbt_daemon_process
     PUBLIC
         swbt_ipc
-        swbt_runtime
-        swbt_btstack_bridge
         swbt_domain
         swbt_support
     PRIVATE
+        swbt_runtime
+        swbt_btstack_bridge
         swbt_toml11
 )
 swbt_apply_common_warnings(swbt_daemon_process)
@@ -307,7 +307,12 @@ swbt_configure_module_public_includes(swbt_daemon_production_runner
         "^daemon/shutdown_sequence\\.h$"
         "^daemon/shutdown_listener\\.h$"
 )
-target_link_libraries(swbt_daemon_production_runner PUBLIC swbt_daemon_process)
+target_link_libraries(swbt_daemon_production_runner
+    PUBLIC
+        swbt_daemon_process
+        swbt_runtime
+        swbt_btstack_bridge
+)
 set_target_properties(swbt_daemon_production_runner PROPERTIES POSITION_INDEPENDENT_CODE ON)
 swbt_apply_common_warnings(swbt_daemon_production_runner)
 swbt_apply_sanitizers(swbt_daemon_production_runner)
@@ -743,7 +748,16 @@ if(SWBT_BUILD_TESTS)
     add_executable(daemon_process_test
         tests/daemon_process_test.c
     )
-    target_link_libraries(daemon_process_test PRIVATE swbt_daemon_process)
+    target_link_libraries(daemon_process_test
+        PRIVATE
+            swbt_daemon_process
+            swbt_runtime
+            swbt_btstack_bridge
+    )
+    target_include_directories(daemon_process_test
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/swbt
+    )
     swbt_apply_common_warnings(daemon_process_test)
     swbt_apply_sanitizers(daemon_process_test)
 
@@ -815,7 +829,16 @@ if(SWBT_BUILD_TESTS)
     add_executable(architecture_journey_test
         tests/architecture_journey_test.c
     )
-    target_link_libraries(architecture_journey_test PRIVATE swbt_daemon_process)
+    target_link_libraries(architecture_journey_test
+        PRIVATE
+            swbt_daemon_process
+            swbt_runtime
+            swbt_btstack_bridge
+    )
+    target_include_directories(architecture_journey_test
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/swbt
+    )
     swbt_apply_common_warnings(architecture_journey_test)
     swbt_apply_sanitizers(architecture_journey_test)
 
@@ -891,6 +914,7 @@ if(SWBT_BUILD_TESTS)
     target_link_libraries(daemon_btstack_report_timer_bridge_test PRIVATE swbt_daemon_production_runner)
     target_include_directories(daemon_btstack_report_timer_bridge_test
         PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/swbt
             ${swbt_btstack_selected_include_dirs}
     )
     swbt_apply_common_warnings(daemon_btstack_report_timer_bridge_test)

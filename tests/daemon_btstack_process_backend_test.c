@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #include "domain/domain.h"
+#include "daemon/process_internal.h"
 #include "daemon/production_runner_internal.h"
 
 typedef struct {
