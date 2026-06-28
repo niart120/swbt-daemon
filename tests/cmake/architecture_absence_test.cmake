@@ -46,6 +46,8 @@ swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_btstack_bridge STATI
                        "BTstack bridge target")
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_daemon_process STATIC"
                        "daemon process target")
+swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_daemon_production_runner STATIC"
+                       "daemon production runner target")
 swbt_assert_file_match("CMakeLists.txt" "add_executable\\(architecture_journey_test"
                        "architecture journey test target")
 swbt_assert_file_match("CMakeLists.txt"

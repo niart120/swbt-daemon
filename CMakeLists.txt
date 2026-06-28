@@ -258,17 +258,15 @@ add_library(swbt_daemon_process STATIC
     swbt/daemon/cli.c
     swbt/daemon/ipc_runner.c
     swbt/daemon/launch_options.c
-    swbt/daemon/production_hid_session.c
-    swbt/daemon/production_ipc_pump.c
-    swbt/daemon/production_process_backend.c
-    swbt/daemon/production_report_timer.c
-    swbt/daemon/production_reconnect.c
-    swbt/daemon/production_shutdown.c
-    swbt/daemon/production_runner.c
     swbt/daemon/process.c
     swbt/daemon/switch_address.c
 )
-swbt_configure_module_public_includes(swbt_daemon_process MODULES daemon)
+swbt_configure_module_public_includes(swbt_daemon_process
+    MODULES daemon
+    EXCLUDE_REGEXES
+        "^daemon/production_.*\\.h$"
+        "^daemon/shutdown_listener\\.h$"
+)
 target_link_libraries(swbt_daemon_process
     PUBLIC
         swbt_ipc
@@ -281,6 +279,26 @@ target_link_libraries(swbt_daemon_process
 )
 swbt_apply_common_warnings(swbt_daemon_process)
 swbt_apply_sanitizers(swbt_daemon_process)
+
+add_library(swbt_daemon_production_runner STATIC
+    swbt/daemon/production_hid_session.c
+    swbt/daemon/production_ipc_pump.c
+    swbt/daemon/production_process_backend.c
+    swbt/daemon/production_report_timer.c
+    swbt/daemon/production_reconnect.c
+    swbt/daemon/production_shutdown.c
+    swbt/daemon/production_runner.c
+)
+swbt_configure_module_public_includes(swbt_daemon_production_runner
+    MODULES daemon
+    INCLUDE_REGEXES
+        "^daemon/production_.*\\.h$"
+        "^daemon/shutdown_listener\\.h$"
+)
+target_link_libraries(swbt_daemon_production_runner PUBLIC swbt_daemon_process)
+set_target_properties(swbt_daemon_production_runner PROPERTIES POSITION_INDEPENDENT_CODE ON)
+swbt_apply_common_warnings(swbt_daemon_production_runner)
+swbt_apply_sanitizers(swbt_daemon_production_runner)
 
 add_library(swbt_btstack_production_impl STATIC
     swbt/btstack_bridge/production_btstack_impl.c
@@ -318,7 +336,11 @@ add_executable(swbt-daemon
     apps/swbt-daemon/platform_process.c
     apps/swbt-daemon/production_entrypoint.c
 )
-target_link_libraries(swbt-daemon PRIVATE swbt_daemon_process swbt_btstack_production_impl)
+target_link_libraries(swbt-daemon PRIVATE
+    swbt_daemon_process
+    swbt_daemon_production_runner
+    swbt_btstack_production_impl
+)
 if(WIN32)
     target_link_libraries(swbt-daemon PRIVATE dbghelp)
 endif()
@@ -744,7 +766,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(daemon_production_reconnect_test
         tests/daemon_production_reconnect_test.c
     )
-    target_link_libraries(daemon_production_reconnect_test PRIVATE swbt_daemon_process)
+    target_link_libraries(daemon_production_reconnect_test PRIVATE swbt_daemon_production_runner)
     swbt_apply_common_warnings(daemon_production_reconnect_test)
     swbt_apply_sanitizers(daemon_production_reconnect_test)
 
@@ -753,7 +775,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(daemon_production_ipc_pump_test
         tests/daemon_production_ipc_pump_test.c
     )
-    target_link_libraries(daemon_production_ipc_pump_test PRIVATE swbt_daemon_process)
+    target_link_libraries(daemon_production_ipc_pump_test PRIVATE swbt_daemon_production_runner)
     swbt_apply_common_warnings(daemon_production_ipc_pump_test)
     swbt_apply_sanitizers(daemon_production_ipc_pump_test)
 
@@ -799,7 +821,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(daemon_production_runner_test
         tests/daemon_production_runner_test.c
     )
-    target_link_libraries(daemon_production_runner_test PRIVATE swbt_daemon_process)
+    target_link_libraries(daemon_production_runner_test PRIVATE swbt_daemon_production_runner)
     target_include_directories(daemon_production_runner_test
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/swbt
@@ -813,7 +835,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(daemon_production_process_backend_test
         tests/daemon_production_process_backend_test.c
     )
-    target_link_libraries(daemon_production_process_backend_test PRIVATE swbt_daemon_process)
+    target_link_libraries(daemon_production_process_backend_test PRIVATE swbt_daemon_production_runner)
     target_include_directories(daemon_production_process_backend_test
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/swbt
@@ -827,7 +849,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(daemon_production_shutdown_test
         tests/daemon_production_shutdown_test.c
     )
-    target_link_libraries(daemon_production_shutdown_test PRIVATE swbt_daemon_process)
+    target_link_libraries(daemon_production_shutdown_test PRIVATE swbt_daemon_production_runner)
     target_include_directories(daemon_production_shutdown_test
         PRIVATE
             ${swbt_btstack_selected_include_dirs}
@@ -840,7 +862,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(daemon_production_hid_session_test
         tests/daemon_production_hid_session_test.c
     )
-    target_link_libraries(daemon_production_hid_session_test PRIVATE swbt_daemon_process)
+    target_link_libraries(daemon_production_hid_session_test PRIVATE swbt_daemon_production_runner)
     target_include_directories(daemon_production_hid_session_test
         PRIVATE
             ${swbt_btstack_selected_include_dirs}
@@ -853,7 +875,7 @@ if(SWBT_BUILD_TESTS)
     add_executable(daemon_production_report_timer_test
         tests/daemon_production_report_timer_test.c
     )
-    target_link_libraries(daemon_production_report_timer_test PRIVATE swbt_daemon_process)
+    target_link_libraries(daemon_production_report_timer_test PRIVATE swbt_daemon_production_runner)
     target_include_directories(daemon_production_report_timer_test
         PRIVATE
             ${swbt_btstack_selected_include_dirs}
@@ -866,7 +888,10 @@ if(SWBT_BUILD_TESTS)
     add_executable(daemon_production_hid_sdp_record_test
         tests/daemon_production_hid_sdp_record_test.c
     )
-    target_link_libraries(daemon_production_hid_sdp_record_test PRIVATE swbt_daemon_process swbt_btstack)
+    target_link_libraries(daemon_production_hid_sdp_record_test PRIVATE
+        swbt_daemon_production_runner
+        swbt_btstack
+    )
     target_include_directories(daemon_production_hid_sdp_record_test
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/swbt

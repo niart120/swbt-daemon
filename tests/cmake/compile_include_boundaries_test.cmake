@@ -62,6 +62,9 @@ set(ipc_public_include_dir
 set(daemon_process_public_include_dir
     "${SWBT_BINARY_DIR}/swbt_public_includes/swbt_daemon_process"
 )
+set(daemon_production_runner_public_include_dir
+    "${SWBT_BINARY_DIR}/swbt_public_includes/swbt_daemon_production_runner"
+)
 if(NOT IS_DIRECTORY "${domain_public_include_dir}")
     message(FATAL_ERROR
         "swbt_domain public include root is missing: ${domain_public_include_dir}"
@@ -96,6 +99,12 @@ endif()
 if(NOT IS_DIRECTORY "${daemon_process_public_include_dir}")
     message(FATAL_ERROR
         "swbt_daemon_process public include root is missing: ${daemon_process_public_include_dir}"
+    )
+endif()
+if(NOT IS_DIRECTORY "${daemon_production_runner_public_include_dir}")
+    message(FATAL_ERROR
+        "swbt_daemon_production_runner public include root is missing: "
+        "${daemon_production_runner_public_include_dir}"
     )
 endif()
 if(NOT IS_DIRECTORY "${ipc_public_include_dir}")
@@ -207,17 +216,33 @@ swbt_expect_compile_result(
     "${protocol_public_include_dir}"
 )
 swbt_expect_compile_result(
-    production_runner_public_header_narrow
-    TRUE
+    daemon_process_production_runner_hidden
+    FALSE
     "#include \"daemon/production_runner.h\"\nint main(void) { return 0; }\n"
     "${daemon_process_public_include_dir}"
     "${support_public_include_dir}"
     "${protocol_public_include_dir}"
 )
 swbt_expect_compile_result(
+    production_runner_public_header_visible
+    TRUE
+    "#include \"daemon/production_runner.h\"\nint main(void) { return 0; }\n"
+    "${daemon_production_runner_public_include_dir}"
+    "${daemon_process_public_include_dir}"
+    "${support_public_include_dir}"
+    "${protocol_public_include_dir}"
+)
+swbt_expect_compile_result(
+    production_shutdown_listener_header_visible
+    TRUE
+    "#include \"daemon/shutdown_listener.h\"\nint main(void) { return 0; }\n"
+    "${daemon_production_runner_public_include_dir}"
+)
+swbt_expect_compile_result(
     production_runner_internal_header_hidden
     FALSE
     "#include \"daemon/production_runner_internal.h\"\nint main(void) { return 0; }\n"
+    "${daemon_production_runner_public_include_dir}"
     "${daemon_process_public_include_dir}"
     "${support_public_include_dir}"
     "${protocol_public_include_dir}"

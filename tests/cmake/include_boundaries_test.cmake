@@ -64,6 +64,9 @@ swbt_assert_file_not_match("swbt/btstack_bridge/production_btstack_impl.c"
 swbt_assert_file_not_match("swbt/btstack_bridge/production_btstack_impl.h"
                            "daemon/production_runner.h"
                            "BTstack production implementation daemon runner struct boundary")
+swbt_assert_file_not_match("CMakeLists.txt"
+                           "add_library\\(swbt_daemon_process STATIC[^\\)]*production_"
+                           "daemon process target production source boundary")
 
 file(GLOB_RECURSE swbt_runtime_files
     "${SWBT_SOURCE_DIR}/swbt/runtime/*.c"
@@ -103,6 +106,8 @@ swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_btstack_bridge STATI
                        "BTstack bridge target boundary")
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_daemon_process STATIC"
                        "daemon process target boundary")
+swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_daemon_production_runner STATIC"
+                       "daemon production runner target boundary")
 swbt_assert_file_not_match("CMakeLists.txt"
                            "target_link_libraries\\(swbt_runtime[^\\)]*swbt_ipc"
                            "runtime target IPC link boundary")
@@ -130,6 +135,22 @@ swbt_assert_file_match("CMakeLists.txt"
 swbt_assert_file_match("CMakeLists.txt"
                        "target_link_libraries\\(control_test PRIVATE swbt_control\\)"
                        "control test link boundary")
+
+foreach(test_name
+        daemon_production_reconnect_test
+        daemon_production_ipc_pump_test
+        daemon_production_runner_test
+        daemon_production_process_backend_test
+        daemon_production_shutdown_test
+        daemon_production_hid_session_test
+        daemon_production_report_timer_test)
+    swbt_assert_file_match("CMakeLists.txt"
+                           "target_link_libraries\\(${test_name} PRIVATE swbt_daemon_production_runner\\)"
+                           "daemon production test link boundary")
+endforeach()
+swbt_assert_file_match("CMakeLists.txt"
+                       "target_link_libraries\\(daemon_production_hid_sdp_record_test PRIVATE[ \t\r\n]+swbt_daemon_production_runner"
+                       "daemon production HID SDP test link boundary")
 
 swbt_assert_file_match("CMakeLists.txt" "add_library\\(swbt_switch_protocol STATIC"
                        "protocol target boundary")
