@@ -80,32 +80,42 @@ Tidy status:
 ## 8. 対象ファイル
 
 - `README.md`
+- `spec/operations/development-tooling.md`
+- `spec/references/btstack-daemon-entrypoint.md`
+
+確認のみ:
+
 - `docs/status.md`
 - `spec/architecture/daemon-architecture-cutover.md`
 - `spec/operations/windows-hardware-bringup-sequence.md`
 - `spec/operations/windows-native-preflight.md`
-- `spec/operations/development-tooling.md`
-- current docs から参照される関連 work unit record
+- `docs/hardware-test-log.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| todo | README and docs/status describe the same current production / noop launch behavior | regression | docs/review | no |
-| todo | current docs no longer state that `SWBT_DAEMON_BACKEND`, `SWBT_RUN_HARDWARE`, or `SWBT_HARDWARE_APPROVED` are implementation launch gates | regression | docs/review | no |
-| todo | current docs use current module names instead of `swbt_app_t`, `swbt_daemon_host_t`, `production_backend.c`, or `swbt_btstack_production_adapter_t` as implementation facts | regression | docs/review | no |
-| todo | archived or historical references that intentionally keep old names are distinguishable from current guidance | characterization | docs/review | no |
+| green | README and docs/status describe the same current production / noop launch behavior | regression | docs/review | no |
+| green | current docs no longer state that `SWBT_DAEMON_BACKEND`, `SWBT_RUN_HARDWARE`, or `SWBT_HARDWARE_APPROVED` are implementation launch gates | regression | docs/review | no |
+| green | current docs use current module names instead of `swbt_app_t`, `swbt_daemon_host_t`, `production_backend.c`, or `swbt_btstack_production_adapter_t` as implementation facts | regression | docs/review | no |
+| green | archived or historical references that intentionally keep old names are distinguishable from current guidance | characterization | docs/review | no |
 
 ## 10. 検証
 
-not run yet.
+docs-only verification completed.
 
-予定:
+実行:
 
+- `rg -n "SWBT_DAEMON_BACKEND|SWBT_RUN_HARDWARE|SWBT_HARDWARE_APPROVED|swbt_app_t|swbt_daemon_host_t|production_backend\\.c|swbt_btstack_production_adapter_t" README.md docs/status.md spec/operations spec/references`
+  - result: remaining matches are explicit "not current selector / not implementation gate" statements in README, `docs/status.md`, operations specs, and `spec/references/btstack-daemon-entrypoint.md`.
+- `rg -n "SWBT_DAEMON_BACKEND=production.*だけ|SWBT_RUN_HARDWARE=1.*SWBT_HARDWARE_APPROVED=1.*(揃|必要条件)|明示的な環境変数を必要条件|production_backend\\.c|swbt_daemon_host_t|swbt_app_t|swbt_btstack_production_adapter_t" README.md docs/status.md spec/operations spec/references`
+  - result: no matches. Current guidance no longer states old environment variable gates or old module names as implementation facts.
 - `rg -n "SWBT_DAEMON_BACKEND|SWBT_RUN_HARDWARE|SWBT_HARDWARE_APPROVED|swbt_app_t|swbt_daemon_host_t|production_backend\\.c|swbt_btstack_production_adapter_t" README.md docs spec`
+  - result: remaining matches outside the current guidance set are historical hardware log entries, `spec/archive/`, and the adopted external review body in `spec/architecture/daemon-architecture-cutover.md`.
 - `git diff --check`
+  - result: pass. No whitespace errors.
 
-コード、CMake、test source を変更しない場合、`just debug` や `just verify` は実行しない理由を記録する。
+`just debug` と `just verify` は実行していない。この work unit は docs-only cleanup であり、C source、CMake target、test source、Switch-facing bytes、BTstack source selection、runtime behavior を変更していない。PR 作成時の pre-push hook で `just verify` が走る場合は、その結果を PR に記録する。
 
 ## 11. 実機実行条件
 
@@ -121,8 +131,8 @@ target 分割と helper rename は `local_095` と `local_096` で別 work unit 
 
 ## 13. チェックリスト
 
-- [ ] README の current-state 表記を現行実装に合わせた。
-- [ ] docs/status と README の production / noop 起動条件が矛盾していない。
-- [ ] current docs から旧 module 名と旧 implementation gate を削除または歴史記録として区別した。
-- [ ] docs-only 検証結果を記録した。
-- [ ] 実機未実行理由を維持した。
+- [x] README の current-state 表記を現行実装に合わせた。
+- [x] docs/status と README の production / noop 起動条件が矛盾していない。
+- [x] current docs から旧 module 名と旧 implementation gate を削除または歴史記録として区別した。
+- [x] docs-only 検証結果を記録した。
+- [x] 実機未実行理由を維持した。

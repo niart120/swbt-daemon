@@ -6,6 +6,8 @@ recorded。
 
 この reference は `swbt-daemon` production backend が使う BTstack run loop、HCI power、HID Device event、WinUSB / libusb transport 境界の根拠監査である。
 
+2026-06-28 時点の current implementation では、backend selection は `--backend production|noop` と既定 production で扱う。`SWBT_DAEMON_BACKEND`、`SWBT_RUN_HARDWARE`、`SWBT_HARDWARE_APPROVED` は起動 mode selector ではない。実機承認は `hardware-harness` と `spec/operations/windows-native-preflight.md` の運用 gate として扱う。
+
 ## 2. 参照元
 
 | source | commit / version | path |
@@ -34,16 +36,24 @@ recorded。
 
 ## 4. 実装判断
 
-- `SWBT_DAEMON_BACKEND=production` だけが production backend を選ぶ。既定実行は no-op backend のままにする。
-- production mode でも `SWBT_RUN_HARDWARE=1` と `SWBT_HARDWARE_APPROVED=1` が揃わない場合、runtime、IPC runner、BTstack platform、HCI power-on を開始しない。
-- adapter open は `hci_power_control(HCI_POWER_ON)` の先にあるため、approval gate はこの呼び出しより前に置く。
+- `swbt-daemon` は既定で production backend を選ぶ。Bluetooth アダプターを開かない test / smoke は `--backend noop` または `--backend=noop` を明示する。
+- production backend は `--adapter-location winusb:<location-path>` または `--adapter-location libusb:<bus>:<port-path>` を受け付け、selector がない場合は adapter open 前に失敗する。
+- adapter open は `hci_power_control(HCI_POWER_ON)` の先にあるため、production runner は `--adapter-location` が設定済みであることを power-on 前に確認する。
+- 実機承認は実装上の環境変数 gate ではなく、Bluetooth adapter open、Switch pairing、HID advertising、report loop、IPC input、cleanup confirmation の許可範囲を実行前に明示する運用 gate として扱う。
 - `swbt/daemon/production_runner.*` は fake ports で検証できる composition 層にし、BTstack API の実呼び出しは `swbt/btstack_bridge/production_btstack_impl.*` に置く。
 - BTstack HID packet handler は user context を持たないため、production backend は単一 active backend pointer を持つ。これは現行 scope の単一 controller 制約と一致する。
 - event parser は上表の BTstack event layout に基づく最小 parse とし、BTstack inline helper へ依存しない。
 - daemon link 用 BTstack source は broad source selection から platform helper を除き、選択 backend の transport と run loop だけを戻す。source selection の監査用一覧は `btstack_sources_cmake_test` で維持する。
 - Windows filesystem 上の MinGW cross build では、BTstack の uppercase include が小文字の MinGW system header を解決できない。`windows-winusb` + MinGW の daemon link target だけに `cmake/mingw-compat-include/*` を追加し、`include_next` で system header へ渡す。`vendor/btstack` は編集しない。
 
-## 5. 未解決事項
+## 5. 関連 work units
+
+- `work-units/complete/local_043/PRODUCTION_DAEMON_BTSTACK_ENTRYPOINT.md`
+- `work-units/complete/local_074/DAEMON_LAUNCH_MODE_FLAGS.md`
+- `work-units/complete/local_077/ADAPTER_SELECTOR_GUARD.md`
+- `work-units/complete/local_094/DOCS_PRODUCTION_CURRENT_STATE_CLEANUP.md`
+
+## 6. 未解決事項
 
 - Switch pairing、HID advertising が受け入れられること、periodic report loop の実測値、NyXpy macro artifact はこの reference では証明しない。
 - libusb build は software gate であり、Windows native WinUSB runtime は `local_037` の実機記録で扱う。
