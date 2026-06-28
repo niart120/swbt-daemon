@@ -31,7 +31,7 @@ use case:
 - README から release readiness plan への進行中メタ情報を外す。
 - README から checksum 確認と展開手順を外す。
 - README に残す IPC は動作確認用 client の最小例に絞る。
-- README に Zadig へのリンクと、専用 USB Bluetooth ドングルだけを対象にする注意を追加する。
+- README に Zadig へのリンクと、WinUSB へ置き換えてよい対象を専用 USB Bluetooth ドングルだけに限定する注意を追加する。
 - README の license 表現から `自前ファイル` を外す。
 - README の `利用時の注意事項` から `実機` や `片付け` などの内部運用寄り表現を外す。
 - README の起動例に各引数の必須/任意と用途を追加する。
@@ -86,7 +86,7 @@ README では `実機` を使わず、利用者が実際に行う操作として
 | green | README に release readiness plan や milestone 実行中のメタ情報が残っていない。 | regression | docs | no |
 | green | README に checksum 確認と展開手順が残っていない。 | regression | docs | no |
 | green | README の IPC 記述が動作確認用 client の最小例と protocol link に絞られている。 | regression | docs | no |
-| green | README が Zadig へのリンクと専用 USB Bluetooth ドングル限定の注意を示している。 | new | docs | no |
+| green | README が Zadig へのリンクと、WinUSB へ置き換えてよい対象を専用 USB Bluetooth ドングルだけに限定する注意を示している。 | new | docs | no |
 | green | README の license 表現に `自前ファイル` が残っていない。 | regression | docs | no |
 | green | README の利用時注意に `実機` と `片付け` が残っていない。 | regression | docs | no |
 | green | README の Switch 接続起動例が `--adapter-location` を必須、他の起動引数を任意として説明している。 | new | docs | no |
@@ -97,7 +97,7 @@ README では `実機` を使わず、利用者が実際に行う操作として
 - `rg -n "まだ提供|置く予定|初回 release の準備|M5 時点|Release 整備は" README.md docs\development.md`: pass。該当なし。
 - `rg -n "Release Build And Publish Plan|release-build-and-publish|work unit|milestone|Operations specs|Architecture spec|checksum|sha256|Get-FileHash|展開|production backend|selector|report loop|cleanup confirmation|source checkout|third-party notice|commercial license|personal / non-commercial|local IPC" README.md`: pass。該当なし。
 - `rg -n "GitHub Releases|swbt-daemon.exe|swbt-debug-client.exe|Development|Current State And Support Matrix|Daemon IPC v1|THIRD_PARTY_NOTICES.md" README.md`: pass。README の利用者向け入手、同梱物、ソースからのビルド手順の退避先、status、IPC、license 境界を確認した。
-- `rg -n "Zadig|WinUSB|専用 USB Bluetooth ドングル|自前ファイル|コードと文書" README.md`: pass。Zadig / WinUSB 誘導、専用ドングル注意、license 表現修正を確認した。
+- `rg -n "Zadig|WinUSB|置き換えてよい|置き換えない|専用 USB Bluetooth ドングル|自前ファイル|コードと文書" README.md`: pass。Zadig / WinUSB 誘導、ドライバー置き換え対象の限定、license 表現修正を確認した。
 - `rg -n "実機|片付け|cleanup|必須|任意|--adapter-location|--config|--link-key-db|--trace-path|--hci-dump-path" README.md`: pass。`実機`、`片付け`、`cleanup` は該当なし。起動引数の必須/任意説明は該当あり。
 - `rg -n "[ \t]+$" README.md docs\development.md spec\operations\release-build-and-publish.md work-units\complete\local_109\RELEASE_README_READY.md`: pass。行末空白なし。
 - `git diff --check -- README.md docs\development.md spec\operations\release-build-and-publish.md work-units\complete\local_109\RELEASE_README_READY.md`: pass。whitespace error なし。

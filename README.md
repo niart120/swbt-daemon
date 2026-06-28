@@ -35,7 +35,7 @@ Windows 版には、デーモン本体の `swbt-daemon.exe`、動作確認用の
 
 Nintendo Switch に接続して使う場合は、専用の USB Bluetooth ドングルを用意してください。内蔵 Bluetooth や普段使いのドングルは使わないでください。
 
-Windows では、対象ドングルのドライバーを WinUSB に切り替える必要があります。切り替えには [Zadig](https://zadig.akeo.ie/) を利用できます。Zadig では必ず専用ドングルだけを選び、内蔵 Bluetooth や普段使いのドングルを選ばないでください。
+Windows では、対象ドングルのドライバーを WinUSB に切り替える必要があります。切り替えには [Zadig](https://zadig.akeo.ie/) を利用できます。WinUSB へ置き換えてよいのは、この用途に使う専用ドングルだけです。内蔵 Bluetooth や普段使いのドングルのドライバーは置き換えないでください。
 
 ドングルを接続して WinUSB に切り替えた後、`swbt-daemon adapters` で `winusb:<location-path>` を確認します。Switch に接続する起動では、この値を `--adapter-location` に指定します。指定しない場合、`swbt-daemon` は Bluetooth アダプターを開く前に終了します。
 
