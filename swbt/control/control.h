@@ -5,7 +5,6 @@
 #include <stdint.h>
 
 #include "domain/domain.h"
-#include "runtime/host.h"
 #include "switch/switch_controller_state.h"
 
 typedef enum {
@@ -16,20 +15,33 @@ typedef enum {
 } swbt_control_result_t;
 
 typedef struct {
+    bool initialized;
+    bool running;
+    bool hid_registered;
+    bool output_handler_started;
+    bool report_timer_started;
+} swbt_control_runtime_status_t;
+
+typedef int (*swbt_control_runtime_status_reader_t)(void *context,
+                                                    swbt_control_runtime_status_t *out_status);
+
+typedef struct {
     swbt_domain_t *app;
-    swbt_runtime_host_t *runtime;
+    swbt_control_runtime_status_reader_t read_runtime_status;
+    void *runtime_status_context;
 } swbt_control_config_t;
 
 typedef struct {
     swbt_domain_t *app;
-    swbt_runtime_host_t *runtime;
+    swbt_control_runtime_status_reader_t read_runtime_status;
+    void *runtime_status_context;
     uint64_t next_direct_sequence;
 } swbt_control_t;
 
 typedef struct {
     swbt_domain_status_snapshot_t app;
     bool has_runtime_status;
-    swbt_runtime_host_status_t runtime;
+    swbt_control_runtime_status_t runtime;
 } swbt_control_status_t;
 
 swbt_control_result_t swbt_control_init(swbt_control_t *control,

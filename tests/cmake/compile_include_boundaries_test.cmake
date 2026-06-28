@@ -152,6 +152,7 @@ swbt_expect_compile_result(
     TRUE
     "#include \"runtime/host.h\"\nint main(void) { return 0; }\n"
     "${runtime_public_include_dir}"
+    "${control_public_include_dir}"
     "${btstack_bridge_public_include_dir}"
     "${domain_public_include_dir}"
     "${support_public_include_dir}"
@@ -162,6 +163,7 @@ swbt_expect_compile_result(
     FALSE
     "#include \"ipc/ipc_adapter.h\"\nint main(void) { return 0; }\n"
     "${runtime_public_include_dir}"
+    "${control_public_include_dir}"
     "${btstack_bridge_public_include_dir}"
     "${domain_public_include_dir}"
     "${support_public_include_dir}"
@@ -172,8 +174,15 @@ swbt_expect_compile_result(
     TRUE
     "#include \"control/control.h\"\nint main(void) { return 0; }\n"
     "${control_public_include_dir}"
-    "${runtime_public_include_dir}"
-    "${btstack_bridge_public_include_dir}"
+    "${domain_public_include_dir}"
+    "${support_public_include_dir}"
+    "${protocol_public_include_dir}"
+)
+swbt_expect_compile_result(
+    control_runtime_host_hidden
+    FALSE
+    "#include \"runtime/host.h\"\nint main(void) { return 0; }\n"
+    "${control_public_include_dir}"
     "${domain_public_include_dir}"
     "${support_public_include_dir}"
     "${protocol_public_include_dir}"
@@ -183,8 +192,6 @@ swbt_expect_compile_result(
     FALSE
     "#include \"ipc/ipc_adapter.h\"\nint main(void) { return 0; }\n"
     "${control_public_include_dir}"
-    "${runtime_public_include_dir}"
-    "${btstack_bridge_public_include_dir}"
     "${domain_public_include_dir}"
     "${support_public_include_dir}"
     "${protocol_public_include_dir}"

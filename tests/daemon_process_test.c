@@ -32,7 +32,7 @@ typedef struct {
     swbt_domain_t *app;
     swbt_control_t *control;
     const swbt_btstack_output_report_handler_t *output_handler;
-    swbt_daemon_process_state_provider_t state_provider;
+    swbt_runtime_state_provider_t state_provider;
     void *state_context;
     uint16_t reply_hid_cid;
     uint32_t now_ms;
@@ -146,8 +146,7 @@ static void fake_output_handler_stop(void *context) {
     fake->output_handler_stop_calls += 1;
 }
 
-static int fake_report_timer_start(void *context,
-                                   swbt_daemon_process_state_provider_t state_provider,
+static int fake_report_timer_start(void *context, swbt_runtime_state_provider_t state_provider,
                                    void *state_context) {
     fake_backend_t *fake = context;
     fake->report_timer_start_calls += 1;
@@ -191,9 +190,7 @@ static uint32_t fake_time_ms(void *context) {
 }
 
 static swbt_daemon_process_backend_t fake_backend(void) {
-    return (swbt_daemon_process_backend_t){
-        .ipc_start = fake_ipc_start,
-        .ipc_stop = fake_ipc_stop,
+    static const swbt_runtime_host_backend_t runtime_backend = {
         .hid_register = fake_hid_register,
         .hid_stop = fake_hid_stop,
         .output_handler_start = fake_output_handler_start,
@@ -204,6 +201,13 @@ static swbt_daemon_process_backend_t fake_backend(void) {
         .subcommand_reply_enqueue = fake_subcommand_reply_enqueue,
         .read_device_info = fake_read_device_info,
         .time_ms = fake_time_ms,
+    };
+
+    return (swbt_daemon_process_backend_t){
+        .daemon_backend = SWBT_DOMAIN_DAEMON_BACKEND_NOOP,
+        .ipc_start = fake_ipc_start,
+        .ipc_stop = fake_ipc_stop,
+        .runtime_backend = &runtime_backend,
     };
 }
 

@@ -212,21 +212,21 @@ target_link_libraries(swbt_btstack_bridge PUBLIC swbt_domain swbt_switch_protoco
 swbt_apply_common_warnings(swbt_btstack_bridge)
 swbt_apply_sanitizers(swbt_btstack_bridge)
 
-add_library(swbt_runtime STATIC
-    swbt/runtime/host.c
-)
-swbt_configure_module_public_includes(swbt_runtime MODULES runtime)
-target_link_libraries(swbt_runtime PUBLIC swbt_domain swbt_btstack_bridge swbt_support)
-swbt_apply_common_warnings(swbt_runtime)
-swbt_apply_sanitizers(swbt_runtime)
-
 add_library(swbt_control STATIC
     swbt/control/control.c
 )
 swbt_configure_module_public_includes(swbt_control MODULES control)
-target_link_libraries(swbt_control PUBLIC swbt_domain swbt_runtime)
+target_link_libraries(swbt_control PUBLIC swbt_domain)
 swbt_apply_common_warnings(swbt_control)
 swbt_apply_sanitizers(swbt_control)
+
+add_library(swbt_runtime STATIC
+    swbt/runtime/host.c
+)
+swbt_configure_module_public_includes(swbt_runtime MODULES runtime)
+target_link_libraries(swbt_runtime PUBLIC swbt_domain swbt_control swbt_btstack_bridge swbt_support)
+swbt_apply_common_warnings(swbt_runtime)
+swbt_apply_sanitizers(swbt_runtime)
 
 set_target_properties(
     swbt_switch_protocol

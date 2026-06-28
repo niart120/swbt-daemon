@@ -114,7 +114,7 @@ static void swbt_daemon_production_output_handler_stop(void *context) {
 }
 
 static int swbt_daemon_production_process_report_timer_start(
-    void *context, swbt_daemon_process_state_provider_t state_provider, void *state_context) {
+    void *context, swbt_runtime_state_provider_t state_provider, void *state_context) {
     swbt_daemon_production_runner_t *backend = context;
     swbt_daemon_btstack_report_timer_bridge_t *timer;
 
@@ -180,22 +180,29 @@ static uint32_t swbt_daemon_production_host_time_ms(void *context) {
     return backend->ports->clock.time_ms(backend->ports_context);
 }
 
+static const swbt_runtime_host_backend_t swbt_daemon_btstack_runtime_backend_table = {
+    .hid_register = swbt_daemon_production_hid_register,
+    .hid_stop = swbt_daemon_production_hid_stop,
+    .output_handler_start = swbt_daemon_production_output_handler_start,
+    .output_handler_stop = swbt_daemon_production_output_handler_stop,
+    .report_timer_start = swbt_daemon_production_process_report_timer_start,
+    .report_timer_stop = swbt_daemon_production_process_report_timer_stop,
+    .report_timer_send_neutral_now = swbt_daemon_production_process_report_timer_send_neutral_now,
+    .subcommand_reply_enqueue = swbt_daemon_production_process_subcommand_reply_enqueue,
+    .read_device_info = swbt_daemon_production_read_device_info,
+    .time_ms = swbt_daemon_production_host_time_ms,
+};
+
+const swbt_runtime_host_backend_t *swbt_daemon_btstack_runtime_backend(void) {
+    return &swbt_daemon_btstack_runtime_backend_table;
+}
+
 const swbt_daemon_process_backend_t *swbt_daemon_btstack_process_backend(void) {
     static const swbt_daemon_process_backend_t backend = {
         .daemon_backend = SWBT_DOMAIN_DAEMON_BACKEND_PRODUCTION,
         .ipc_start = swbt_daemon_production_ipc_start,
         .ipc_stop = swbt_daemon_production_ipc_stop,
-        .hid_register = swbt_daemon_production_hid_register,
-        .hid_stop = swbt_daemon_production_hid_stop,
-        .output_handler_start = swbt_daemon_production_output_handler_start,
-        .output_handler_stop = swbt_daemon_production_output_handler_stop,
-        .report_timer_start = swbt_daemon_production_process_report_timer_start,
-        .report_timer_stop = swbt_daemon_production_process_report_timer_stop,
-        .report_timer_send_neutral_now =
-            swbt_daemon_production_process_report_timer_send_neutral_now,
-        .subcommand_reply_enqueue = swbt_daemon_production_process_subcommand_reply_enqueue,
-        .read_device_info = swbt_daemon_production_read_device_info,
-        .time_ms = swbt_daemon_production_host_time_ms,
+        .runtime_backend = &swbt_daemon_btstack_runtime_backend_table,
     };
     return &backend;
 }

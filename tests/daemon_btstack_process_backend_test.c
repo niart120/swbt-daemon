@@ -126,6 +126,8 @@ static int process_backend_table_exposes_production_backend_status(void) {
     }
     failed += expect_eq_int((int)backend->daemon_backend,
                             (int)SWBT_DOMAIN_DAEMON_BACKEND_PRODUCTION, "daemon backend");
+    failed += expect_true(backend->runtime_backend == swbt_daemon_btstack_runtime_backend(),
+                          "runtime backend");
     return failed;
 }
 
@@ -133,15 +135,15 @@ static int process_backend_routes_output_handler_start_and_stop(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_ops_t fake = {0};
     const swbt_btstack_production_ports_t ports = fake_ports();
-    const swbt_daemon_process_backend_t *process_backend = swbt_daemon_btstack_process_backend();
+    const swbt_runtime_host_backend_t *runtime_backend = swbt_daemon_btstack_runtime_backend();
     swbt_daemon_production_runner_t runner;
     swbt_btstack_output_report_handler_t output_handler = {0};
 
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_runner_init(&runner, &config, &ports, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "runner init");
-    process_backend->output_handler_start(&runner, &output_handler);
-    process_backend->output_handler_stop(&runner);
+    runtime_backend->output_handler_start(&runner, &output_handler);
+    runtime_backend->output_handler_stop(&runner);
 
     failed += expect_eq_int(fake.output_handler_start_calls, 1, "output handler start calls");
     failed += expect_true(fake.output_handler == &output_handler, "output handler");
@@ -155,7 +157,7 @@ static int process_backend_reads_configured_device_info_and_controller_address(v
         .controller_address = {0x01u, 0x23u, 0x45u, 0x67u, 0x89u, 0xABu},
     };
     const swbt_btstack_production_ports_t ports = fake_ports();
-    const swbt_daemon_process_backend_t *process_backend = swbt_daemon_btstack_process_backend();
+    const swbt_runtime_host_backend_t *runtime_backend = swbt_daemon_btstack_runtime_backend();
     swbt_daemon_production_runner_t runner;
     swbt_switch_device_info_t device_info = {0};
 
@@ -168,7 +170,7 @@ static int process_backend_reads_configured_device_info_and_controller_address(v
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_runner_init(&runner, &config, &ports, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "runner init");
-    failed += expect_eq_int(process_backend->read_device_info(&runner, &device_info), 0,
+    failed += expect_eq_int(runtime_backend->read_device_info(&runner, &device_info), 0,
                             "read device info");
 
     failed += expect_eq_int(fake.read_controller_address_calls, 1, "read controller address calls");
@@ -190,13 +192,13 @@ static int process_backend_time_ms_delegates_to_clock_port(void) {
         .now_ms = 9876u,
     };
     const swbt_btstack_production_ports_t ports = fake_ports();
-    const swbt_daemon_process_backend_t *process_backend = swbt_daemon_btstack_process_backend();
+    const swbt_runtime_host_backend_t *runtime_backend = swbt_daemon_btstack_runtime_backend();
     swbt_daemon_production_runner_t runner;
 
     int failed = 0;
     failed += expect_eq_int(swbt_daemon_production_runner_init(&runner, &config, &ports, &fake),
                             SWBT_DAEMON_PRODUCTION_OK, "runner init");
-    failed += expect_eq_u32(process_backend->time_ms(&runner), 9876u, "time ms");
+    failed += expect_eq_u32(runtime_backend->time_ms(&runner), 9876u, "time ms");
     return failed;
 }
 
