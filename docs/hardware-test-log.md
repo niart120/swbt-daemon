@@ -1257,3 +1257,26 @@ NyX `swbt_hardware_bringup` macro を使う場合は、`artifact root` に `run_
 - artifact root: `tmp/hardware/local_100/20260628-205755-shutdown-active-reconnect-graceful-disconnect`, `tmp/hardware/local_100/20260628-210030-shutdown-active-reconnect-graceful-disconnect`
 - cleanup: pass。1 回目は HID open timeout 後、failure cleanup として `CTRL_BREAK_EVENT` を送った。daemon は exit code `0` で終了し、crash dump は作成されていない。2 回目は held IPC client を daemon exit 後に閉じ、daemon は exit code `0` で終了した。trace は `shutdown neutral send ok`、`shutdown hid disconnect requested`、`shutdown hid disconnect closed`、`btstack: hci power off`、`production: run loop returned` の順で、crash dump は作成されていない。`Get-Process swbt-daemon` は空だった
 - notes: この run は Change Grip/Order / incoming pairing を除外した active reconnect から、held Button A shutdown graceful disconnect が trailing neutral、HID disconnect request、closed event wait、HCI power-off へ進むことを確認した。graceful disconnect が次回 active reconnect や Switch UI の controller state に与える影響は、この entry ではまだ評価していない。raw Switch address と raw link key value は本文へ転記しない
+
+## 2026-06-28: local_100 post-graceful-disconnect reconnect evaluation
+
+- OS: Microsoft Windows 11 Pro、Version `10.0.26200`、Build `26200`、64-bit
+- environment: Windows native PowerShell、swbt branch `work/local-101-active-reconnect-hid-open-recovery`
+- dongle: CSR8510 A10、InstanceId `USB\VID_0A12&PID_0001\9&12127A34&0&1`
+- USB VID/PID: `0A12:0001`
+- driver: Status `OK`、Class `USBDevice`、Service `WinUSB`、Provider `libwdi`、DriverVersion `6.1.7600.16385`
+- backend: `windows-winusb`
+- BTstack: `075a0780f0fad7ff67d58ac19f46e8953656a752`
+- swbt: git HEAD `9eb0443d37154ed770ea5fdccfd6ad22575fb86e`
+- Switch firmware: Switch2 `22.1.0`。既存実機環境の継続値であり、今回の artifact では本体画面を再読していない
+- approval scope: ユーザ承認済み。CSR8510 A10、WinUSB、直前 graceful disconnect artifact の `swbt-daemon.toml` / `swbt-link-key.tlv` の再利用、post-graceful-disconnect 状態からの active reconnect request、Change Grip/Order 操作なし、held Button A shutdown、HCI dump / diagnostic trace / crash dump path 保存、cleanup 確認
+- environment variables: `SWBT_RUN_HARDWARE=1`, `SWBT_HARDWARE_APPROVED=1`, `SWBT_IPC_HOST=127.0.0.1`, `SWBT_IPC_PORT=37637`, `SWBT_REPORT_PERIOD_US=8000`
+- daemon arguments: `--backend production --adapter-location winusb:PCIROOT(0)#PCI(0201)#PCI(0000)#PCI(0C00)#PCI(0000)#USBROOT(0)#USB(9)#USB(1) --config <artifact>/swbt-daemon.toml --link-key-db <artifact>/swbt-link-key.tlv --trace-path <artifact>/daemon-trace.txt --hci-dump-path <artifact>/hci-dump.txt --crash-dump-path <artifact>/crash.dmp`
+- IPC endpoint: `127.0.0.1:37637`
+- report period: `8000 us`
+- command / procedure: `tmp/hardware/local_100/run-shutdown-graceful-disconnect-active-reconnect.ps1 -SourceArtifactPath .\tmp\hardware\local_100\20260628-210030-shutdown-active-reconnect-graceful-disconnect` を 2 回実行した。script は直前の successful graceful disconnect artifact から config と TLV link key DB をコピーし、Switch 側を Change Grip/Order へ遷移させず、sleep / resume も追加操作せずに active reconnect を試す
+- result: 1 回目 `20260628-210644-shutdown-active-reconnect-graceful-disconnect` は fail。`active_reconnect_request_ok_count=1`、`hid_connection_opened_count=0`、`Connection_incoming=0`、`pairing_complete_status_00_count=0`、`responding_to_link_key_request_count=0`、`L2CAP_EVENT_CHANNEL_OPENED status 0x0=0` であり、`Connection_complete` 前に止まった。2 回目 `20260628-210911-shutdown-active-reconnect-graceful-disconnect` は reconnect characterization として partial。`active_reconnect_request_ok_count=1`、`hid_connection_opened_count=1`、`responding_to_link_key_request_count=1`、`have_link_key_db_1_count=1`、`Connection_incoming=0`、`pairing_started_count=0`、`pairing_complete_status_00_count=0`、`L2CAP_EVENT_CHANNEL_OPENED status 0x0=2` で、post-graceful-disconnect 状態から incoming pairing なしに HID open へ到達した。一方で、Switch 側から `L2CAP_EVENT_CHANNEL_CLOSED` が line `242` / `247`、ACL close が line `252` に出ており、trace も `production: hid connection closed` の後に shutdown request を記録した。held Button A state は IPC では accepted されたが、HCI dump に Button A report は出ていない。summary は `shutdown_neutral_ok_count=0`、`shutdown_disconnect_requested_count=0`、`pass=false`
+- daemon log: daemon stdout / stderr log は未作成。各 artifact の `daemon-trace.txt`、`hci-dump.txt`、`summary.json`、`run-log.txt` を正本にする
+- artifact root: `tmp/hardware/local_100/20260628-210644-shutdown-active-reconnect-graceful-disconnect`, `tmp/hardware/local_100/20260628-210911-shutdown-active-reconnect-graceful-disconnect`
+- cleanup: pass。1 回目は HID open timeout 後、failure cleanup として `CTRL_BREAK_EVENT` を送り、daemon exit code `0`、crash dump なしだった。2 回目は Switch 側 close 後に `CTRL_BREAK_EVENT` を送り、daemon exit code `0`、crash dump なしだった。`Get-Process swbt-daemon` は空だった
+- notes: graceful disconnect 後の次回 active reconnect は、incoming pairing なしの HID open までは復旧したが、今回の観測では安定接続または held Button A report の成立までは確認できなかった。graceful disconnect が次回接続を必ず安定化する、とは言えない。raw Switch address と raw link key value は本文へ転記しない

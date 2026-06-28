@@ -155,7 +155,7 @@ timeout 値はこの record 起票時点では未確定である。最初の sof
 | refactor-skipped | graceful disconnect trace or status distinguishes requested, closed, timed out, and unavailable states | new | unit/integration | no |
 | green | hardware run observes trailing neutral, HID/L2CAP disconnect or closed event, and HCI power-off ordering on CSR8510 A10 / WinUSB / Switch2 | characterization | hardware | yes |
 | green | active reconnect hardware run observes shutdown graceful disconnect without Change Grip/Order or incoming pairing path | characterization | hardware | yes |
-| deferred | hardware run checks whether graceful disconnect changes next active reconnect or Switch-side controller state | characterization | hardware | yes |
+| green | hardware run checks whether graceful disconnect changes next active reconnect or Switch-side controller state | characterization | hardware | yes |
 
 TDD status:
 
@@ -276,6 +276,27 @@ active reconnect hardware item:
   - local_100 の再実行では古い `local_073` TLV ではなく refreshed source artifact を使い、`20260628-210030-shutdown-active-reconnect-graceful-disconnect` で受入条件を満たした。
 - hardware log: `docs/hardware-test-log.md` に `2026-06-28: local_100 active reconnect shutdown graceful disconnect attempts without Grip Order` と `2026-06-28: local_100 active reconnect shutdown graceful disconnect with refreshed link key DB` として記録した。
 
+post-graceful-disconnect reconnect evaluation:
+
+- item: hardware run checks whether graceful disconnect changes next active reconnect or Switch-side controller state。
+- state: green。characterization として観測済み。結果は「incoming pairing なしの HID open までは復旧したが、安定接続または held Button A report の成立までは確認できない」。
+- approval: user approved, 2026-06-28。承認範囲は CSR8510 A10 / WinUSB、直前 successful graceful disconnect artifact の `swbt-daemon.toml` / `swbt-link-key.tlv` 再利用、post-graceful-disconnect 状態からの active reconnect request、Change Grip/Order 操作なし、HCI dump / diagnostic trace / crash dump path 保存、cleanup 確認。
+- command:
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\tmp\hardware\local_100\run-shutdown-graceful-disconnect-active-reconnect.ps1 -SourceArtifactPath .\tmp\hardware\local_100\20260628-210030-shutdown-active-reconnect-graceful-disconnect`: 1 回目 failed before HID open、2 回目 reached HID open and then Switch-side close。
+- artifacts:
+  - `tmp/hardware/local_100/20260628-210644-shutdown-active-reconnect-graceful-disconnect`
+  - `tmp/hardware/local_100/20260628-210911-shutdown-active-reconnect-graceful-disconnect`
+- result:
+  - 1 回目は `active reconnect request ok` 後、`Connection_complete` 前に止まり、120 秒内に `production: hid connection opened` は出なかった。`Connection_incoming`、`pairing complete, status 00` は `0` 件で、failure cleanup は daemon exit code `0`、crash dump なしだった。
+  - 2 回目は `active_reconnect_request_ok_count=1`、`hid_connection_opened_count=1`、`responding_to_link_key_request_count=1`、`have_link_key_db_1_count=1`、`Connection_incoming=0`、`pairing_started_count=0`、`pairing_complete_status_00_count=0`、`L2CAP_EVENT_CHANNEL_OPENED status 0x0=2` だった。
+  - 2 回目の HCI dump は `hci_emit_security_level 2`、PSM `0x11` / `0x13` open、neutral `a1 30` reports を記録した後、`L2CAP_EVENT_CHANNEL_CLOSED` line `242` / `247`、ACL close line `252` を記録した。trace は `production: hid connection closed` の後に shutdown request を記録した。
+  - held Button A state は IPC で accepted されたが、HCI dump に Button A report は出ていない。summary は `shutdown_neutral_ok_count=0`、`shutdown_disconnect_requested_count=0`、`pass=false`。
+- interpretation:
+  - graceful disconnect 後の次回 active reconnect は、追加の Change Grip/Order なしに HID open まで到達できる。
+  - 今回の観測では、graceful disconnect が次回接続を安定化するとは判断できない。2 回目は HID open 後、held Button A report 前に Switch 側から close された。
+  - Switch UI state の直接目視記録は artifact に含めていない。HCI / trace 上は Switch 側 close によって non-neutral input が届く前に接続が終わった。
+- hardware log: `docs/hardware-test-log.md` に `2026-06-28: local_100 post-graceful-disconnect reconnect evaluation` として記録した。
+
 次に扱う item:
 
 - item: HID connection closed event after shutdown disconnect request finishes cleanup and triggers power-off / run loop exit once。
@@ -383,11 +404,14 @@ active reconnect hardware item:
 - `powershell -NoProfile -ExecutionPolicy Bypass -File .\tmp\hardware\local_100\run-shutdown-graceful-disconnect-active-reconnect.ps1 -SourceArtifactPath .\tmp\hardware\local_101\20260628-204328-controlled-repair-refresh-link-key-db`
   - result: first attempt failed before HID open at `tmp/hardware/local_100/20260628-205755-shutdown-active-reconnect-graceful-disconnect`。cleanup は exit code `0`、crash dump なし。
   - result: second attempt pass at `tmp/hardware/local_100/20260628-210030-shutdown-active-reconnect-graceful-disconnect`。Change Grip/Order / incoming pairing なしで HID open、held Button A shutdown、neutral send、disconnect request、closed event、HCI power-off を観測した。
+- `powershell -NoProfile -ExecutionPolicy Bypass -File .\tmp\hardware\local_100\run-shutdown-graceful-disconnect-active-reconnect.ps1 -SourceArtifactPath .\tmp\hardware\local_100\20260628-210030-shutdown-active-reconnect-graceful-disconnect`
+  - result: first attempt failed before HID open at `tmp/hardware/local_100/20260628-210644-shutdown-active-reconnect-graceful-disconnect`。cleanup は exit code `0`、crash dump なし。
+  - result: second attempt reached HID open without incoming pairing at `tmp/hardware/local_100/20260628-210911-shutdown-active-reconnect-graceful-disconnect`。ただし Switch 側から channel closed が出て、held Button A report と shutdown graceful disconnect には到達していない。
 
 実機未完了:
 
-- graceful disconnect 後の次回 active reconnect / Switch UI state への影響評価
-  - reason: `20260628-210030-shutdown-active-reconnect-graceful-disconnect` で active reconnect 前提の shutdown graceful disconnect は確認したが、その後の次回 reconnect や Switch UI state は別 run としてまだ観測していない。
+- none for this work unit's required hardware characterization。
+  - note: Switch UI state の直接目視記録と、post-graceful-disconnect reconnect の安定化調査は別 follow-up として残せる。ただしこの work unit の TDD item は、HCI / trace で次回 reconnect の挙動を characterization したため完了扱いにする。
 
 ## 11. 実機実行条件
 
@@ -425,9 +449,9 @@ active reconnect hardware item:
 
 ## 12. 先送り事項
 
-- 観測: graceful disconnect が次回 active reconnect または Switch UI の controller state に与える影響は未検証である。
-  先送り理由: `20260628-210030-shutdown-active-reconnect-graceful-disconnect` で graceful disconnect 自体は確認したが、その後の次回 reconnect や Switch UI state は別 run としてまだ観測していない。
-  次の置き場: TDD item `hardware run checks whether graceful disconnect changes next active reconnect or Switch-side controller state`。
+- 観測: post-graceful-disconnect reconnect は HID open まで復旧するが、安定接続または held Button A report の成立までは今回の実機 run では確認できない。
+  先送り理由: `20260628-210911-shutdown-active-reconnect-graceful-disconnect` は incoming pairing なしで HID open したが、その直後に Switch 側 close が出た。graceful disconnect が次回接続を安定化するかは、別 work unit で UI 目視、待機時間、複数回試行条件を整理して扱う方がよい。
+  次の置き場: 必要なら後続 work unit。現時点ではこの work unit の shutdown graceful disconnect 実装完了条件には含めない。
 
 - 観測: disconnect request timeout の具体値は未確定である。
   先送り理由: source fact だけでは適切な待機時間を決められない。software では bounded であることを先に固定し、実機観測で値を調整する。
@@ -448,4 +472,5 @@ active reconnect hardware item:
 - [x] 実機実行条件を満たす場合だけ hardware run を行い、結果を記録する。
 - [x] active reconnect 専用手順で Change Grip/Order / incoming pairing を除外した hardware run を行い、HID open 未達を `local_101` へ切り出す。
 - [x] `local_101` の refreshed artifact で active reconnect 前提の shutdown graceful disconnect run を再実行する。
+- [x] graceful disconnect 後の次回 active reconnect 挙動を characterization する。
 - [x] 関連 docs / spec の current state を必要に応じて更新する。
