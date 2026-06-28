@@ -1,5 +1,5 @@
-#ifndef SWBT_DAEMON_PRODUCTION_HID_SESSION_H
-#define SWBT_DAEMON_PRODUCTION_HID_SESSION_H
+#ifndef SWBT_DAEMON_BTSTACK_HID_SESSION_H
+#define SWBT_DAEMON_BTSTACK_HID_SESSION_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -9,7 +9,7 @@
 #include "btstack_bridge/production_ports.h"
 #include "daemon/config.h"
 
-typedef void (*swbt_daemon_production_hid_session_finish_shutdown_t)(void *context);
+typedef void (*swbt_daemon_btstack_hid_session_finish_shutdown_t)(void *context);
 
 typedef struct {
     swbt_daemon_config_t *config;
@@ -26,12 +26,12 @@ typedef struct {
     bool *learned_switch_address_target_configured;
     uint8_t *service_buffer;
     size_t service_buffer_size;
-    swbt_daemon_production_hid_session_finish_shutdown_t finish_shutdown;
+    swbt_daemon_btstack_hid_session_finish_shutdown_t finish_shutdown;
     void *finish_shutdown_context;
-} swbt_daemon_production_hid_session_t;
+} swbt_daemon_btstack_hid_session_t;
 
-int swbt_daemon_production_hid_session_register(swbt_daemon_production_hid_session_t *session);
+int swbt_daemon_btstack_hid_session_register(swbt_daemon_btstack_hid_session_t *session);
 
-void swbt_daemon_production_hid_session_stop(swbt_daemon_production_hid_session_t *session);
+void swbt_daemon_btstack_hid_session_stop(swbt_daemon_btstack_hid_session_t *session);
 
 #endif

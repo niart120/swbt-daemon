@@ -1,4 +1,4 @@
-#include "daemon/production_report_timer.h"
+#include "daemon/btstack_report_timer_bridge.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -201,7 +201,7 @@ static swbt_btstack_production_report_timer_port_t fake_report_timer_port(void) 
     };
 }
 
-static int production_report_timer_sender_uses_device_send(void) {
+static int btstack_report_timer_bridge_sender_uses_device_send(void) {
     swbt_daemon_config_t config = swbt_daemon_config_default();
     fake_ops_t fake = {0};
     swbt_btstack_device_t device;
@@ -213,7 +213,7 @@ static int production_report_timer_sender_uses_device_send(void) {
     const swbt_btstack_production_report_timer_port_t report_timer_port = fake_report_timer_port();
     const swbt_btstack_hid_registration_config_t registration = {0};
     const uint8_t message[] = {0xa1u, 0x30u, 0x01u, 0x02u};
-    swbt_daemon_production_report_timer_t timer;
+    swbt_daemon_btstack_report_timer_bridge_t timer;
 
     int failed = 0;
     failed += expect_eq_int(swbt_btstack_device_init(&device, &device_port, &fake),
@@ -227,7 +227,7 @@ static int production_report_timer_sender_uses_device_send(void) {
                                                }),
                       SWBT_BTSTACK_DEVICE_OK, "device open");
 
-    timer = (swbt_daemon_production_report_timer_t){
+    timer = (swbt_daemon_btstack_report_timer_bridge_t){
         .config = &config,
         .port = &report_timer_port,
         .port_context = &fake,
@@ -237,9 +237,9 @@ static int production_report_timer_sender_uses_device_send(void) {
         .initialized = &initialized,
     };
 
-    failed +=
-        expect_eq_int(swbt_daemon_production_report_timer_start(&timer, fake_state_provider, NULL),
-                      0, "timer start");
+    failed += expect_eq_int(
+        swbt_daemon_btstack_report_timer_bridge_start(&timer, fake_state_provider, NULL), 0,
+        "timer start");
     failed += expect_true(initialized, "timer initialized");
     failed += expect_eq_int(fake.report_timer_init_calls, 1, "timer init calls");
     failed += expect_true(fake.captured_timer_config.hid_sender != NULL, "hid sender configured");
@@ -271,7 +271,7 @@ static int report_tick_observer_updates_metrics(report_tick_metrics_case_t test_
     swbt_daemon_process_t *host_ref = &host;
     bool initialized = false;
     const swbt_btstack_production_report_timer_port_t report_timer_port = fake_report_timer_port();
-    swbt_daemon_production_report_timer_t timer = {
+    swbt_daemon_btstack_report_timer_bridge_t timer = {
         .config = &config,
         .port = &report_timer_port,
         .port_context = &fake,
@@ -286,9 +286,9 @@ static int report_tick_observer_updates_metrics(report_tick_metrics_case_t test_
     failed += expect_eq_int(
         swbt_daemon_process_init(&host, &config, swbt_daemon_process_noop_backend(), NULL),
         SWBT_DAEMON_PROCESS_OK, "host init");
-    failed +=
-        expect_eq_int(swbt_daemon_production_report_timer_start(&timer, fake_state_provider, NULL),
-                      0, "timer start");
+    failed += expect_eq_int(
+        swbt_daemon_btstack_report_timer_bridge_start(&timer, fake_state_provider, NULL), 0,
+        "timer start");
     failed += expect_true(fake.captured_timer_config.report_tick_observer != NULL,
                           "report tick observer configured");
     if (fake.captured_timer_config.report_tick_observer != NULL) {
@@ -335,7 +335,7 @@ static int neutral_send_returns_port_result(int port_result) {
     swbt_daemon_process_t *host_ref = NULL;
     bool initialized = false;
     const swbt_btstack_production_report_timer_port_t report_timer_port = fake_report_timer_port();
-    swbt_daemon_production_report_timer_t timer = {
+    swbt_daemon_btstack_report_timer_bridge_t timer = {
         .config = &config,
         .port = &report_timer_port,
         .port_context = &fake,
@@ -346,11 +346,11 @@ static int neutral_send_returns_port_result(int port_result) {
     };
 
     int failed = 0;
-    failed +=
-        expect_eq_int(swbt_daemon_production_report_timer_start(&timer, fake_state_provider, NULL),
-                      0, "timer start");
+    failed += expect_eq_int(
+        swbt_daemon_btstack_report_timer_bridge_start(&timer, fake_state_provider, NULL), 0,
+        "timer start");
     adapter.running = true;
-    failed += expect_eq_int(swbt_daemon_production_report_timer_send_neutral_now(&timer),
+    failed += expect_eq_int(swbt_daemon_btstack_report_timer_bridge_send_neutral_now(&timer),
                             port_result, "neutral send result");
     failed += expect_eq_int(fake.timer_send_neutral_now_calls, 1, "neutral send calls");
     return failed;
@@ -373,7 +373,7 @@ static int subcommand_reply_enqueue_routes_through_report_timer_port(void) {
     bool initialized = false;
     const swbt_btstack_production_report_timer_port_t report_timer_port = fake_report_timer_port();
     const uint8_t reply[] = {0xa1u, 0x21u, 0x01u, 0x02u};
-    swbt_daemon_production_report_timer_t timer = {
+    swbt_daemon_btstack_report_timer_bridge_t timer = {
         .config = &config,
         .port = &report_timer_port,
         .port_context = &fake,
@@ -384,10 +384,10 @@ static int subcommand_reply_enqueue_routes_through_report_timer_port(void) {
     };
 
     int failed = 0;
-    failed +=
-        expect_eq_int(swbt_daemon_production_report_timer_start(&timer, fake_state_provider, NULL),
-                      0, "timer start");
-    failed += expect_eq_int(swbt_daemon_production_report_timer_enqueue_subcommand_reply(
+    failed += expect_eq_int(
+        swbt_daemon_btstack_report_timer_bridge_start(&timer, fake_state_provider, NULL), 0,
+        "timer start");
+    failed += expect_eq_int(swbt_daemon_btstack_report_timer_bridge_enqueue_subcommand_reply(
                                 &timer, 0x0042u, reply, sizeof(reply)),
                             0, "enqueue result");
     failed += expect_eq_int(fake.enqueue_reply_calls, 1, "enqueue calls");
@@ -401,7 +401,7 @@ static int subcommand_reply_enqueue_routes_through_report_timer_port(void) {
 
 int main(void) {
     int failed = 0;
-    failed += production_report_timer_sender_uses_device_send();
+    failed += btstack_report_timer_bridge_sender_uses_device_send();
     failed += successful_report_tick_updates_metrics();
     failed += failed_report_tick_updates_metrics();
     failed += neutral_send_preserves_immediate_pending_and_error_results();

@@ -1,9 +1,9 @@
-#include "daemon/production_report_timer.h"
+#include "daemon/btstack_report_timer_bridge.h"
 
 #include "support/diagnostics.h"
 
-static bool
-swbt_daemon_production_report_timer_is_valid(const swbt_daemon_production_report_timer_t *timer) {
+static bool swbt_daemon_btstack_report_timer_bridge_is_valid(
+    const swbt_daemon_btstack_report_timer_bridge_t *timer) {
     return timer != NULL && timer->config != NULL && timer->port != NULL &&
            timer->port->init != NULL && timer->port->stop != NULL &&
            timer->port->send_neutral_now != NULL && timer->port->enqueue_subcommand_reply != NULL &&
@@ -11,10 +11,11 @@ swbt_daemon_production_report_timer_is_valid(const swbt_daemon_production_report
            timer->initialized != NULL;
 }
 
-static int swbt_daemon_production_report_timer_send(void *context, uint16_t hid_cid,
-                                                    const uint8_t *message, size_t message_size) {
-    swbt_daemon_production_report_timer_t *timer = context;
-    if (!swbt_daemon_production_report_timer_is_valid(timer)) {
+static int swbt_daemon_btstack_report_timer_bridge_send(void *context, uint16_t hid_cid,
+                                                        const uint8_t *message,
+                                                        size_t message_size) {
+    swbt_daemon_btstack_report_timer_bridge_t *timer = context;
+    if (!swbt_daemon_btstack_report_timer_bridge_is_valid(timer)) {
         return -1;
     }
 
@@ -38,10 +39,10 @@ static swbt_metrics_report_send_result_t swbt_daemon_production_report_send_resu
 static void swbt_daemon_production_record_report_tick(
     void *context, uint64_t now_us,
     swbt_btstack_input_report_timer_report_send_result_t send_result) {
-    swbt_daemon_production_report_timer_t *timer = context;
+    swbt_daemon_btstack_report_timer_bridge_t *timer = context;
     swbt_domain_t *app;
 
-    if (!swbt_daemon_production_report_timer_is_valid(timer) || *timer->host == NULL) {
+    if (!swbt_daemon_btstack_report_timer_bridge_is_valid(timer) || *timer->host == NULL) {
         return;
     }
     app = swbt_daemon_process_app(*timer->host);
@@ -54,12 +55,12 @@ static void swbt_daemon_production_record_report_tick(
 }
 
 static swbt_btstack_input_report_timer_adapter_config_t
-swbt_daemon_production_report_timer_config(swbt_daemon_production_report_timer_t *timer,
-                                           swbt_daemon_process_state_provider_t state_provider,
-                                           void *state_context) {
+swbt_daemon_btstack_report_timer_bridge_config(swbt_daemon_btstack_report_timer_bridge_t *timer,
+                                               swbt_daemon_process_state_provider_t state_provider,
+                                               void *state_context) {
     return (swbt_btstack_input_report_timer_adapter_config_t){
         .backend = NULL,
-        .hid_sender = swbt_daemon_production_report_timer_send,
+        .hid_sender = swbt_daemon_btstack_report_timer_bridge_send,
         .hid_sender_context = timer,
         .state_provider = state_provider,
         .state_context = state_context,
@@ -73,15 +74,15 @@ swbt_daemon_production_report_timer_config(swbt_daemon_production_report_timer_t
     };
 }
 
-int swbt_daemon_production_report_timer_start(swbt_daemon_production_report_timer_t *timer,
-                                              swbt_daemon_process_state_provider_t state_provider,
-                                              void *state_context) {
-    if (!swbt_daemon_production_report_timer_is_valid(timer)) {
+int swbt_daemon_btstack_report_timer_bridge_start(
+    swbt_daemon_btstack_report_timer_bridge_t *timer,
+    swbt_daemon_process_state_provider_t state_provider, void *state_context) {
+    if (!swbt_daemon_btstack_report_timer_bridge_is_valid(timer)) {
         return -1;
     }
 
     const swbt_btstack_input_report_timer_adapter_config_t config =
-        swbt_daemon_production_report_timer_config(timer, state_provider, state_context);
+        swbt_daemon_btstack_report_timer_bridge_config(timer, state_provider, state_context);
     if (timer->port->init(timer->port_context, timer->adapter, &config) != 0) {
         return -1;
     }
@@ -89,17 +90,18 @@ int swbt_daemon_production_report_timer_start(swbt_daemon_production_report_time
     return 0;
 }
 
-void swbt_daemon_production_report_timer_stop(swbt_daemon_production_report_timer_t *timer) {
-    if (!swbt_daemon_production_report_timer_is_valid(timer) || !*timer->initialized) {
+void swbt_daemon_btstack_report_timer_bridge_stop(
+    swbt_daemon_btstack_report_timer_bridge_t *timer) {
+    if (!swbt_daemon_btstack_report_timer_bridge_is_valid(timer) || !*timer->initialized) {
         return;
     }
     timer->port->stop(timer->port_context, timer->adapter);
     *timer->initialized = false;
 }
 
-int swbt_daemon_production_report_timer_send_neutral_now(
-    swbt_daemon_production_report_timer_t *timer) {
-    if (!swbt_daemon_production_report_timer_is_valid(timer)) {
+int swbt_daemon_btstack_report_timer_bridge_send_neutral_now(
+    swbt_daemon_btstack_report_timer_bridge_t *timer) {
+    if (!swbt_daemon_btstack_report_timer_bridge_is_valid(timer)) {
         swbt_diagnostic_trace("production: neutral send adapter unavailable");
         return -1;
     }
@@ -122,10 +124,10 @@ int swbt_daemon_production_report_timer_send_neutral_now(
     return result;
 }
 
-int swbt_daemon_production_report_timer_enqueue_subcommand_reply(
-    swbt_daemon_production_report_timer_t *timer, uint16_t hid_cid, const uint8_t *report,
+int swbt_daemon_btstack_report_timer_bridge_enqueue_subcommand_reply(
+    swbt_daemon_btstack_report_timer_bridge_t *timer, uint16_t hid_cid, const uint8_t *report,
     size_t report_size) {
-    if (!swbt_daemon_production_report_timer_is_valid(timer) || !*timer->initialized) {
+    if (!swbt_daemon_btstack_report_timer_bridge_is_valid(timer) || !*timer->initialized) {
         return -1;
     }
     return timer->port->enqueue_subcommand_reply(timer->port_context, timer->adapter, hid_cid,

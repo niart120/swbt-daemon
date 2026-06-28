@@ -43,6 +43,9 @@ swbt_assert_file_not_match("apps/swbt-daemon/main.c"
 swbt_assert_file_not_match("apps/swbt-daemon/main.c"
                            "windows\\.h|dbghelp\\.h|MiniDumpWriteDump|SetConsoleCtrlHandler"
                            "main Windows process support boundary")
+swbt_assert_file_not_match("apps/swbt-daemon/production_entrypoint.c"
+                           "production_runner_internal"
+                           "production entrypoint daemon runner internal boundary")
 
 swbt_assert_file_match("apps/swbt-daemon/main.c"
                        "swbt_daemon_production_entrypoint_run"
@@ -51,7 +54,7 @@ swbt_assert_file_match("apps/swbt-daemon/production_entrypoint.c"
                        "swbt_btstack_production_link_key_db_configure"
                        "production entrypoint link key DB setup")
 swbt_assert_file_match("apps/swbt-daemon/production_entrypoint.c"
-                       "swbt_daemon_production_main_with_runner_and_shutdown"
+                       "swbt_daemon_production_run"
                        "production entrypoint runner handoff")
 swbt_assert_file_match("apps/swbt-daemon/production_entrypoint.c"
                        "swbt_daemon_platform_shutdown_listener"

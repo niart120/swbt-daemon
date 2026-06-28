@@ -1,4 +1,4 @@
-#include "daemon/production_shutdown.h"
+#include "daemon/shutdown_sequence.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -92,12 +92,12 @@ static int shutdown_listener_validation_accepts_null_or_complete_listener(void) 
     };
 
     int failed = 0;
-    failed += expect_true(swbt_daemon_production_shutdown_listener_is_valid(NULL), "null listener");
+    failed += expect_true(swbt_daemon_shutdown_sequence_listener_is_valid(NULL), "null listener");
     failed +=
-        expect_true(swbt_daemon_production_shutdown_listener_is_valid(&valid), "complete listener");
-    failed += expect_false(swbt_daemon_production_shutdown_listener_is_valid(&missing_install),
+        expect_true(swbt_daemon_shutdown_sequence_listener_is_valid(&valid), "complete listener");
+    failed += expect_false(swbt_daemon_shutdown_sequence_listener_is_valid(&missing_install),
                            "missing install");
-    failed += expect_false(swbt_daemon_production_shutdown_listener_is_valid(&missing_uninstall),
+    failed += expect_false(swbt_daemon_shutdown_sequence_listener_is_valid(&missing_uninstall),
                            "missing uninstall");
     return failed;
 }
@@ -107,21 +107,21 @@ static int shutdown_request_schedules_main_thread_finish_once_without_host(void)
     const swbt_btstack_production_run_loop_port_t run_loop = {
         .execute_on_main_thread = fake_execute_on_main_thread,
     };
-    swbt_daemon_production_shutdown_t shutdown;
+    swbt_daemon_shutdown_sequence_t shutdown;
 
     int failed = 0;
-    failed += expect_true(
-        swbt_daemon_production_shutdown_init(&shutdown,
-                                             &(swbt_daemon_production_shutdown_config_t){
-                                                 .run_loop = &run_loop,
-                                                 .port_context = &fake,
-                                                 .finish = fake_finish_shutdown,
-                                                 .finish_context = &fake,
-                                             }),
-        "shutdown init");
-    swbt_daemon_production_shutdown_prepare(&shutdown);
-    swbt_daemon_production_shutdown_request(&shutdown);
-    swbt_daemon_production_shutdown_request(&shutdown);
+    failed +=
+        expect_true(swbt_daemon_shutdown_sequence_init(&shutdown,
+                                                       &(swbt_daemon_shutdown_sequence_config_t){
+                                                           .run_loop = &run_loop,
+                                                           .port_context = &fake,
+                                                           .finish = fake_finish_shutdown,
+                                                           .finish_context = &fake,
+                                                       }),
+                    "shutdown init");
+    swbt_daemon_shutdown_sequence_prepare(&shutdown);
+    swbt_daemon_shutdown_sequence_request(&shutdown);
+    swbt_daemon_shutdown_sequence_request(&shutdown);
 
     failed += expect_eq_int(fake.execute_on_main_thread_calls, 1, "main thread calls");
     failed += expect_eq_int(fake.finish_calls, 1, "finish calls");
@@ -138,27 +138,27 @@ static int shutdown_listener_install_passes_helper_request_context_and_uninstall
         .install = fake_shutdown_install,
         .uninstall = fake_shutdown_uninstall,
     };
-    swbt_daemon_production_shutdown_t shutdown;
+    swbt_daemon_shutdown_sequence_t shutdown;
 
     int failed = 0;
-    failed += expect_true(
-        swbt_daemon_production_shutdown_init(&shutdown,
-                                             &(swbt_daemon_production_shutdown_config_t){
-                                                 .run_loop = &run_loop,
-                                                 .port_context = &fake,
-                                                 .finish = fake_finish_shutdown,
-                                                 .finish_context = &fake,
-                                             }),
-        "shutdown init");
     failed +=
-        expect_eq_int(swbt_daemon_production_shutdown_install_listener(&shutdown, &listener, &fake),
+        expect_true(swbt_daemon_shutdown_sequence_init(&shutdown,
+                                                       &(swbt_daemon_shutdown_sequence_config_t){
+                                                           .run_loop = &run_loop,
+                                                           .port_context = &fake,
+                                                           .finish = fake_finish_shutdown,
+                                                           .finish_context = &fake,
+                                                       }),
+                    "shutdown init");
+    failed +=
+        expect_eq_int(swbt_daemon_shutdown_sequence_install_listener(&shutdown, &listener, &fake),
                       0, "listener install");
     failed += expect_eq_int(fake.install_calls, 1, "install calls");
-    failed += expect_true(fake.installed_request == swbt_daemon_production_shutdown_request,
+    failed += expect_true(fake.installed_request == swbt_daemon_shutdown_sequence_request,
                           "installed request");
     failed += expect_true(fake.installed_context == &shutdown, "installed context");
 
-    swbt_daemon_production_shutdown_uninstall_listener(&listener, &fake);
+    swbt_daemon_shutdown_sequence_uninstall_listener(&listener, &fake);
     failed += expect_eq_int(fake.uninstall_calls, 1, "uninstall calls");
     return failed;
 }

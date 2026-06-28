@@ -1,19 +1,19 @@
-#include "daemon/production_hid_session.h"
+#include "daemon/btstack_hid_session.h"
 
 #include "support/diagnostics.h"
 #include "btstack_bridge/hid_event.h"
-#include "daemon/production_reconnect.h"
+#include "daemon/active_reconnect.h"
 
-static swbt_daemon_production_hid_session_t *g_active_session;
+static swbt_daemon_btstack_hid_session_t *g_active_session;
 
-static bool swbt_daemon_production_hid_session_register_is_valid(
-    const swbt_daemon_production_hid_session_t *session) {
+static bool swbt_daemon_btstack_hid_session_register_is_valid(
+    const swbt_daemon_btstack_hid_session_t *session) {
     return session != NULL && session->device_port != NULL && session->device != NULL &&
            session->service_buffer != NULL && session->service_buffer_size > 0u;
 }
 
-static bool swbt_daemon_production_hid_session_report_timer_is_ready(
-    const swbt_daemon_production_hid_session_t *session) {
+static bool swbt_daemon_btstack_hid_session_report_timer_is_ready(
+    const swbt_daemon_btstack_hid_session_t *session) {
     return session != NULL && session->report_timer_port != NULL &&
            session->report_timer_port->start != NULL &&
            session->report_timer_port->on_can_send_now != NULL &&
@@ -22,25 +22,26 @@ static bool swbt_daemon_production_hid_session_report_timer_is_ready(
            session->report_timer_initialized != NULL && *session->report_timer_initialized;
 }
 
-static void swbt_daemon_production_hid_session_finish_shutdown(
-    const swbt_daemon_production_hid_session_t *session) {
+static void
+swbt_daemon_btstack_hid_session_finish_shutdown(const swbt_daemon_btstack_hid_session_t *session) {
     if (session != NULL && session->finish_shutdown != NULL) {
         session->finish_shutdown(session->finish_shutdown_context);
     }
 }
 
-static void swbt_daemon_production_hid_session_maybe_save_learned_address(
-    swbt_daemon_production_hid_session_t *session, const uint8_t address[6]) {
+static void swbt_daemon_btstack_hid_session_maybe_save_learned_address(
+    swbt_daemon_btstack_hid_session_t *session, const uint8_t address[6]) {
     if (session->config != NULL && session->learned_switch_address_target != NULL &&
         session->learned_switch_address_target_configured != NULL &&
         *session->learned_switch_address_target_configured) {
-        swbt_daemon_production_reconnect_save_learned_address(
+        swbt_daemon_active_reconnect_save_learned_address(
             session->config, session->learned_switch_address_target, address);
     }
 }
 
-static void swbt_daemon_production_hid_session_handle_user_confirmation(
-    swbt_daemon_production_hid_session_t *session, const uint8_t address[6]) {
+static void
+swbt_daemon_btstack_hid_session_handle_user_confirmation(swbt_daemon_btstack_hid_session_t *session,
+                                                         const uint8_t address[6]) {
     if (session->controller_port == NULL ||
         session->controller_port->confirm_ssp_user_confirmation == NULL) {
         return;
@@ -49,14 +50,15 @@ static void swbt_daemon_production_hid_session_handle_user_confirmation(
     (void)session->controller_port->confirm_ssp_user_confirmation(session->port_context, address);
 }
 
-static void swbt_daemon_production_hid_session_handle_connection_opened(
-    swbt_daemon_production_hid_session_t *session, const swbt_btstack_hid_event_t *event) {
-    if (!swbt_daemon_production_hid_session_report_timer_is_ready(session) || event->status != 0u) {
+static void
+swbt_daemon_btstack_hid_session_handle_connection_opened(swbt_daemon_btstack_hid_session_t *session,
+                                                         const swbt_btstack_hid_event_t *event) {
+    if (!swbt_daemon_btstack_hid_session_report_timer_is_ready(session) || event->status != 0u) {
         return;
     }
 
     swbt_diagnostic_trace("production: hid connection opened");
-    swbt_daemon_production_hid_session_maybe_save_learned_address(session, event->address);
+    swbt_daemon_btstack_hid_session_maybe_save_learned_address(session, event->address);
     (void)session->report_timer_port->start(
         session->port_context, session->report_timer,
         (swbt_btstack_input_report_timer_start_options_t){
@@ -65,9 +67,9 @@ static void swbt_daemon_production_hid_session_handle_connection_opened(
         });
 }
 
-static void swbt_daemon_production_hid_session_handle_can_send_now(
-    swbt_daemon_production_hid_session_t *session) {
-    if (!swbt_daemon_production_hid_session_report_timer_is_ready(session)) {
+static void
+swbt_daemon_btstack_hid_session_handle_can_send_now(swbt_daemon_btstack_hid_session_t *session) {
+    if (!swbt_daemon_btstack_hid_session_report_timer_is_ready(session)) {
         return;
     }
 
@@ -77,18 +79,18 @@ static void swbt_daemon_production_hid_session_handle_can_send_now(
         can_send_result == 0) {
         swbt_diagnostic_trace("production: shutdown neutral pending sent");
         *session->shutdown_neutral_pending = false;
-        swbt_daemon_production_hid_session_finish_shutdown(session);
+        swbt_daemon_btstack_hid_session_finish_shutdown(session);
     } else if (session->shutdown_neutral_pending != NULL && *session->shutdown_neutral_pending &&
                can_send_result != 0) {
         swbt_diagnostic_trace("production: shutdown neutral pending failed");
         *session->shutdown_neutral_pending = false;
-        swbt_daemon_production_hid_session_finish_shutdown(session);
+        swbt_daemon_btstack_hid_session_finish_shutdown(session);
     }
 }
 
-static void swbt_daemon_production_hid_session_handle_connection_closed(
-    swbt_daemon_production_hid_session_t *session) {
-    if (!swbt_daemon_production_hid_session_report_timer_is_ready(session)) {
+static void swbt_daemon_btstack_hid_session_handle_connection_closed(
+    swbt_daemon_btstack_hid_session_t *session) {
+    if (!swbt_daemon_btstack_hid_session_report_timer_is_ready(session)) {
         return;
     }
 
@@ -97,14 +99,14 @@ static void swbt_daemon_production_hid_session_handle_connection_closed(
     if (session->shutdown_neutral_pending != NULL && *session->shutdown_neutral_pending) {
         swbt_diagnostic_trace("production: shutdown neutral pending connection closed");
         *session->shutdown_neutral_pending = false;
-        swbt_daemon_production_hid_session_finish_shutdown(session);
+        swbt_daemon_btstack_hid_session_finish_shutdown(session);
     }
 }
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters): BTstack packet handler ABI.
-static void swbt_daemon_production_hid_session_packet_handler(uint8_t packet_type, uint16_t channel,
-                                                              uint8_t *packet, uint16_t size) {
-    swbt_daemon_production_hid_session_t *session = g_active_session;
+static void swbt_daemon_btstack_hid_session_packet_handler(uint8_t packet_type, uint16_t channel,
+                                                           uint8_t *packet, uint16_t size) {
+    swbt_daemon_btstack_hid_session_t *session = g_active_session;
     swbt_btstack_hid_event_t event;
     (void)channel;
 
@@ -115,16 +117,16 @@ static void swbt_daemon_production_hid_session_packet_handler(uint8_t packet_typ
 
     switch (event.type) {
     case SWBT_BTSTACK_HID_EVENT_USER_CONFIRMATION_REQUEST:
-        swbt_daemon_production_hid_session_handle_user_confirmation(session, event.address);
+        swbt_daemon_btstack_hid_session_handle_user_confirmation(session, event.address);
         break;
     case SWBT_BTSTACK_HID_EVENT_CONNECTION_OPENED:
-        swbt_daemon_production_hid_session_handle_connection_opened(session, &event);
+        swbt_daemon_btstack_hid_session_handle_connection_opened(session, &event);
         break;
     case SWBT_BTSTACK_HID_EVENT_CAN_SEND_NOW:
-        swbt_daemon_production_hid_session_handle_can_send_now(session);
+        swbt_daemon_btstack_hid_session_handle_can_send_now(session);
         break;
     case SWBT_BTSTACK_HID_EVENT_CONNECTION_CLOSED:
-        swbt_daemon_production_hid_session_handle_connection_closed(session);
+        swbt_daemon_btstack_hid_session_handle_connection_closed(session);
         break;
     case SWBT_BTSTACK_HID_EVENT_NONE:
     default:
@@ -133,17 +135,17 @@ static void swbt_daemon_production_hid_session_packet_handler(uint8_t packet_typ
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
-int swbt_daemon_production_hid_session_register(swbt_daemon_production_hid_session_t *session) {
+int swbt_daemon_btstack_hid_session_register(swbt_daemon_btstack_hid_session_t *session) {
     swbt_btstack_hid_registration_config_t config;
     swbt_btstack_device_result_t result;
 
-    if (!swbt_daemon_production_hid_session_register_is_valid(session)) {
+    if (!swbt_daemon_btstack_hid_session_register_is_valid(session)) {
         return -1;
     }
 
     swbt_diagnostic_trace("production: hid register enter");
     config = swbt_btstack_production_hid_registration_config();
-    config.packet_handler = swbt_daemon_production_hid_session_packet_handler;
+    config.packet_handler = swbt_daemon_btstack_hid_session_packet_handler;
     g_active_session = session;
     if (swbt_btstack_device_init(session->device, session->device_port, session->port_context) !=
         SWBT_BTSTACK_DEVICE_OK) {
@@ -172,7 +174,7 @@ int swbt_daemon_production_hid_session_register(swbt_daemon_production_hid_sessi
     return 0;
 }
 
-void swbt_daemon_production_hid_session_stop(swbt_daemon_production_hid_session_t *session) {
+void swbt_daemon_btstack_hid_session_stop(swbt_daemon_btstack_hid_session_t *session) {
     if (session == NULL || session->device == NULL) {
         return;
     }

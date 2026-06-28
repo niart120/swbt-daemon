@@ -1,4 +1,4 @@
-#include "daemon/production_hid_session.h"
+#include "daemon/btstack_hid_session.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -206,7 +206,7 @@ static int hid_session_register_opens_and_stop_closes_device(void) {
     const swbt_btstack_device_port_t device_port = fake_device_port();
     swbt_btstack_device_t device = {0};
     uint8_t service_buffer[512] = {0};
-    swbt_daemon_production_hid_session_t session = {
+    swbt_daemon_btstack_hid_session_t session = {
         .device_port = &device_port,
         .port_context = &fake,
         .device = &device,
@@ -215,7 +215,7 @@ static int hid_session_register_opens_and_stop_closes_device(void) {
     };
 
     int failed = 0;
-    failed += expect_eq_int(swbt_daemon_production_hid_session_register(&session), 0, "register");
+    failed += expect_eq_int(swbt_daemon_btstack_hid_session_register(&session), 0, "register");
     failed += expect_eq_int(fake.platform_start_calls, 1, "platform start");
     failed += expect_eq_int(fake.hid_register_calls, 1, "hid register");
     failed += expect_true(fake.captured_service_buffer == service_buffer, "service buffer");
@@ -224,7 +224,7 @@ static int hid_session_register_opens_and_stop_closes_device(void) {
     failed += expect_true(fake.captured_registration.packet_handler != NULL, "packet handler");
     failed += expect_true(swbt_btstack_device_is_open(&device), "device open");
 
-    swbt_daemon_production_hid_session_stop(&session);
+    swbt_daemon_btstack_hid_session_stop(&session);
     failed += expect_eq_int(fake.hid_stop_calls, 1, "hid stop");
     failed += expect_eq_int(fake.platform_stop_calls, 1, "platform stop");
     failed += expect_true(!swbt_btstack_device_is_open(&device), "device closed");
@@ -246,7 +246,7 @@ static int hid_session_connection_opened_starts_timer_with_hid_cid(void) {
     bool shutdown_pending = false;
     uint8_t opened_event[] = {0xefu, 13u, 0x02u, 0x42u, 0x00u, 0x00u, 0u, 0u,
                               0u,    0u,  0u,    0u,    0u,    0u,    1u};
-    swbt_daemon_production_hid_session_t session = {
+    swbt_daemon_btstack_hid_session_t session = {
         .config = &config,
         .device_port = &device_port,
         .report_timer_port = &timer_port,
@@ -263,7 +263,7 @@ static int hid_session_connection_opened_starts_timer_with_hid_cid(void) {
     };
 
     int failed = 0;
-    failed += expect_eq_int(swbt_daemon_production_hid_session_register(&session), 0, "register");
+    failed += expect_eq_int(swbt_daemon_btstack_hid_session_register(&session), 0, "register");
     fake.captured_registration.packet_handler(0x04u, 0x0042u, opened_event, sizeof(opened_event));
 
     failed += expect_eq_int(fake.timer_start_calls, 1, "timer start calls");
@@ -273,7 +273,7 @@ static int hid_session_connection_opened_starts_timer_with_hid_cid(void) {
     failed += expect_eq_int(fake.timer_stop_calls, 0, "timer stop calls");
     failed += expect_eq_int(fake.finish_shutdown_calls, 0, "finish shutdown calls");
 
-    swbt_daemon_production_hid_session_stop(&session);
+    swbt_daemon_btstack_hid_session_stop(&session);
     return failed;
 }
 
@@ -292,7 +292,7 @@ static int hid_session_can_send_now_completes_pending_shutdown_result(int can_se
     bool timer_initialized = true;
     bool shutdown_pending = true;
     uint8_t can_send_event[] = {0xefu, 3u, 0x04u, 0x42u, 0x00u};
-    swbt_daemon_production_hid_session_t session = {
+    swbt_daemon_btstack_hid_session_t session = {
         .device_port = &device_port,
         .report_timer_port = &timer_port,
         .clock_port = &clock_port,
@@ -308,7 +308,7 @@ static int hid_session_can_send_now_completes_pending_shutdown_result(int can_se
     };
 
     int failed = 0;
-    failed += expect_eq_int(swbt_daemon_production_hid_session_register(&session), 0, label);
+    failed += expect_eq_int(swbt_daemon_btstack_hid_session_register(&session), 0, label);
     fake.captured_registration.packet_handler(0x04u, 0x0042u, can_send_event,
                                               sizeof(can_send_event));
 
@@ -318,7 +318,7 @@ static int hid_session_can_send_now_completes_pending_shutdown_result(int can_se
     failed += expect_eq_int(fake.timer_start_calls, 0, "timer start calls");
     failed += expect_eq_int(fake.timer_stop_calls, 0, "timer stop calls");
 
-    swbt_daemon_production_hid_session_stop(&session);
+    swbt_daemon_btstack_hid_session_stop(&session);
     return failed;
 }
 
@@ -344,7 +344,7 @@ static int hid_session_connection_closed_stops_timer_and_completes_pending_shutd
     bool timer_initialized = true;
     bool shutdown_pending = true;
     uint8_t closed_event[] = {0xefu, 3u, 0x03u, 0x42u, 0x00u};
-    swbt_daemon_production_hid_session_t session = {
+    swbt_daemon_btstack_hid_session_t session = {
         .device_port = &device_port,
         .report_timer_port = &timer_port,
         .clock_port = &clock_port,
@@ -360,7 +360,7 @@ static int hid_session_connection_closed_stops_timer_and_completes_pending_shutd
     };
 
     int failed = 0;
-    failed += expect_eq_int(swbt_daemon_production_hid_session_register(&session), 0, "register");
+    failed += expect_eq_int(swbt_daemon_btstack_hid_session_register(&session), 0, "register");
     fake.captured_registration.packet_handler(0x04u, 0x0042u, closed_event, sizeof(closed_event));
 
     failed += expect_eq_int(fake.timer_stop_calls, 1, "timer stop calls");
@@ -370,7 +370,7 @@ static int hid_session_connection_closed_stops_timer_and_completes_pending_shutd
     failed += expect_eq_int(fake.timer_start_calls, 0, "timer start calls");
     failed += expect_eq_int(fake.timer_can_send_calls, 0, "timer can send calls");
 
-    swbt_daemon_production_hid_session_stop(&session);
+    swbt_daemon_btstack_hid_session_stop(&session);
     return failed;
 }
 
@@ -383,7 +383,7 @@ static int hid_session_confirms_ssp_user_confirmation(void) {
     uint8_t user_confirmation_event[] = {0x33u, 0x0au, 0x21u, 0xb5u, 0xf7u, 0x05u,
                                          0x48u, 0xc8u, 0xc4u, 0xdcu, 0x09u, 0x00u};
     const uint8_t expected_address[] = {0xc8u, 0x48u, 0x05u, 0xf7u, 0xb5u, 0x21u};
-    swbt_daemon_production_hid_session_t session = {
+    swbt_daemon_btstack_hid_session_t session = {
         .device_port = &device_port,
         .controller_port = &controller_port,
         .port_context = &fake,
@@ -393,7 +393,7 @@ static int hid_session_confirms_ssp_user_confirmation(void) {
     };
 
     int failed = 0;
-    failed += expect_eq_int(swbt_daemon_production_hid_session_register(&session), 0, "register");
+    failed += expect_eq_int(swbt_daemon_btstack_hid_session_register(&session), 0, "register");
     fake.captured_registration.packet_handler(0x04u, 0x0000u, user_confirmation_event,
                                               sizeof(user_confirmation_event));
 
@@ -403,7 +403,7 @@ static int hid_session_confirms_ssp_user_confirmation(void) {
                                "ssp confirmation address");
     }
 
-    swbt_daemon_production_hid_session_stop(&session);
+    swbt_daemon_btstack_hid_session_stop(&session);
     return failed;
 }
 
