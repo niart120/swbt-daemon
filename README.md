@@ -25,7 +25,7 @@ Windows 版には、デーモン本体の `swbt-daemon.exe`、動作確認用の
 
 - 初代 Switch、Switch Lite、Switch OLED
 - CSR8510 A10 以外の USB Bluetooth ドングル
-- Linux + libusb 実機経路
+- Linux + libusb での Switch 接続
 - 複数コントローラー同時接続
 - NFC / IR MCU / amiibo の意味処理
 
@@ -33,28 +33,22 @@ Windows 版には、デーモン本体の `swbt-daemon.exe`、動作確認用の
 
 ## 利用時の注意事項
 
-実機に接続する場合は、専用 USB Bluetooth ドングルを使ってください。内蔵 Bluetooth や普段使いのドングルを対象にしないでください。
+Nintendo Switch に接続して使う場合は、専用の USB Bluetooth ドングルを用意してください。内蔵 Bluetooth や普段使いのドングルは使わないでください。
 
-Windows では、専用 USB Bluetooth ドングルのドライバーを WinUSB に切り替える必要があります。切り替えには [Zadig](https://zadig.akeo.ie/) を利用できます。Zadig では必ず専用ドングルだけを選び、内蔵 Bluetooth や普段使いのドングルを選ばないでください。
+Windows では、対象ドングルのドライバーを WinUSB に切り替える必要があります。切り替えには [Zadig](https://zadig.akeo.ie/) を利用できます。Zadig では必ず専用ドングルだけを選び、内蔵 Bluetooth や普段使いのドングルを選ばないでください。
 
-対象ドングルを指定しない起動では、`swbt-daemon` は Bluetooth アダプターを開く前に終了します。Windows では `swbt-daemon adapters` で候補を確認し、`winusb:<location-path>` を指定します。
+ドングルを接続して WinUSB に切り替えた後、`swbt-daemon adapters` で `winusb:<location-path>` を確認します。Switch に接続する起動では、この値を `--adapter-location` に指定します。指定しない場合、`swbt-daemon` は Bluetooth アダプターを開く前に終了します。
 
-実機へ接続する前に、次の範囲を確認してください。
+Switch に接続する前に、次の項目を確認してください。
 
-- 使用する Bluetooth ドングル
-- Switch とのペアリング
-- 入力送信の開始
-- 終了後の接続状態の片付け
+- 使用する専用 USB Bluetooth ドングル
+- ドライバーが WinUSB に切り替わっていること
+- `winusb:<location-path>` の値
+- Switch とペアリングを開始してよいこと
+- 入力送信を開始してよいこと
+- 終了時に `swbt-daemon` を停止し、Switch 側に不要な接続が残っていないこと
 
 ## 起動と確認
-
-Windows 実機起動の例:
-
-```console
-swbt-daemon --adapter-location winusb:<location-path> --config swbt-daemon.toml --link-key-db swbt-link-key.tlv --trace-path trace.txt --hci-dump-path hci-dump.txt
-```
-
-`--trace-path` と `--hci-dump-path` は、問題調査用のログを残すために使います。
 
 Bluetooth アダプターを開かない確認用コマンド:
 
@@ -64,6 +58,22 @@ swbt-daemon adapters
 swbt-daemon config --backend noop
 swbt-daemon --backend noop
 ```
+
+`swbt-daemon adapters` は、Windows で指定できる `winusb:<location-path>` の候補を表示します。`--backend noop` は Bluetooth アダプターを開かずに設定や起動確認を行うための指定です。
+
+Windows で Switch に接続する起動例:
+
+```console
+swbt-daemon --adapter-location winusb:<location-path> --config swbt-daemon.toml --link-key-db swbt-link-key.tlv --trace-path trace.txt --hci-dump-path hci-dump.txt
+```
+
+引数:
+
+- `--adapter-location winusb:<location-path>`: 必須。`swbt-daemon adapters` で確認した専用ドングルを指定します。
+- `--config swbt-daemon.toml`: 任意。設定ファイルを使う場合に指定します。
+- `--link-key-db swbt-link-key.tlv`: 任意。Switch との接続情報を保存し、再接続に使う場合に指定します。
+- `--trace-path trace.txt`: 任意。`swbt-daemon` の診断ログを保存します。
+- `--hci-dump-path hci-dump.txt`: 任意。Bluetooth 通信の調査用ログを保存します。
 
 ## 入力の送信
 
