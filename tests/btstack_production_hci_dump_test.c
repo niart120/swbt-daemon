@@ -250,8 +250,8 @@ static int link_key_db_refreshes_existing_link_key_notification(void) {
     failed += expect_eq_int(
         gap_get_link_key_for_bd_addr(address, stored_link_key, &stored_link_key_type) ? 1 : 0, 1);
     failed += expect_bytes_eq(stored_link_key, expected_link_key, sizeof(expected_link_key));
-    failed +=
-        expect_eq_int(stored_link_key_type, AUTHENTICATED_COMBINATION_KEY_GENERATED_FROM_P192);
+    failed += expect_eq_int((int)stored_link_key_type,
+                            (int)AUTHENTICATED_COMBINATION_KEY_GENERATED_FROM_P192);
     adapter->device.platform_stop(NULL);
     failed += expect_eq_int(swbt_btstack_production_link_key_db_configure(NULL), 0);
     failed += remove(path) == 0 ? 0 : 1;

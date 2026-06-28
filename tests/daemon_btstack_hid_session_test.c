@@ -82,6 +82,7 @@ static int expect_eq_u64(uint64_t actual, uint64_t expected, const char *label) 
     return 0;
 }
 
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 static int expect_file_contains(const char *path, const char *needle, const char *label) {
     FILE *file = fopen(path, "rb");
     char buffer[512];
@@ -89,6 +90,8 @@ static int expect_file_contains(const char *path, const char *needle, const char
     int result = 1;
 
     if (file == NULL) {
+        // Test diagnostics write to stderr with no retained buffer.
+        // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(stderr, "%s: trace file missing\n", label);
         return 1;
     }
@@ -98,6 +101,8 @@ static int expect_file_contains(const char *path, const char *needle, const char
     if (strstr(buffer, needle) != NULL) {
         result = 0;
     } else {
+        // Test diagnostics write to stderr with no retained buffer.
+        // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(stderr, "%s: missing trace %s\n", label, needle);
     }
     remove(path);

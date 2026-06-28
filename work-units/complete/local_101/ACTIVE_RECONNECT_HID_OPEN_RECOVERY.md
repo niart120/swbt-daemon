@@ -68,7 +68,7 @@ source から use case への判断:
 
 - `docs/hardware-test-log.md`
 - `docs/status.md`
-- `work-units/wip/local_100/SHUTDOWN_GRACEFUL_DISCONNECT.md`
+- `work-units/complete/local_100/SHUTDOWN_GRACEFUL_DISCONNECT.md`
 - `work-units/complete/local_073/DAEMON_CONFIG_LINK_KEY_RECONNECT.md`
 - `work-units/complete/local_074/DAEMON_LAUNCH_MODE_FLAGS.md`
 - `spec/operations/windows-native-preflight.md`
@@ -142,7 +142,7 @@ Change Grip/Order で実登録が走った場合、daemon が `--link-key-db` co
 - `docs/hardware-test-log.md`
 - `tmp/hardware/local_101/run-active-reconnect-hid-open-recovery.ps1`
 - `tmp/hardware/local_101/run-controlled-repair-refresh-link-key-db.ps1`
-- `work-units/wip/local_101/ACTIVE_RECONNECT_HID_OPEN_RECOVERY.md`
+- `work-units/complete/local_101/ACTIVE_RECONNECT_HID_OPEN_RECOVERY.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
@@ -150,7 +150,7 @@ Change Grip/Order で実登録が走った場合、daemon が `--link-key-db` co
 |---|---|---|---|---|
 | refactor-skipped | source audit identifies `L2CAP_EVENT_CHANNEL_OPENED status 0x66` meaning and separates it from pairing-free reconnect success criteria | characterization | docs/source | no |
 | refactor-skipped | saved config and link key DB startup path still opens link key DB before active reconnect request | regression | unit/integration | no |
-| todo | active reconnect request is issued exactly once after HCI power-on when learned Switch address exists | regression | unit/integration | no |
+| refactor-skipped | active reconnect request is issued exactly once after HCI power-on when learned Switch address exists | regression | unit/integration | no |
 | refactor-skipped | active reconnect failure before HID open is reported or traceable without being confused with shutdown graceful disconnect failure | characterization | unit/integration | no |
 | refactor-done | re-pair with configured link key DB refreshes the stored key for an existing Switch address | characterization | integration | no |
 | green | hardware run reproduces or clears current failure boundary without Change Grip/Order or incoming pairing | characterization | hardware | yes |
@@ -158,8 +158,8 @@ Change Grip/Order で実登録が走った場合、daemon が `--link-key-db` co
 | green | hardware run reaches HID open and Button A smoke with saved link key DB and no incoming pairing | regression | hardware | yes |
 | green | post-HID-open reason `0x13` active reconnect close is characterized against Switch output-report start and local disconnect evidence | characterization | hardware/artifact | yes |
 | green | post-graceful-disconnect immediate active reconnect timing is characterized separately from reason `0x13` remote close | characterization | hardware | yes |
-| todo | Create Connection completion timeout is surfaced as an active reconnect failure and can be retried without confusing it with authentication or L2CAP failure | characterization/regression | unit/integration | no |
-| deferred | local_100 shutdown graceful disconnect final hardware run resumes after active reconnect is available | characterization | hardware | yes |
+| refactor-done | Create Connection completion timeout is surfaced as an active reconnect failure and can be retried without confusing it with authentication or L2CAP failure | characterization/regression | unit/integration | no |
+| green | local_100 shutdown graceful disconnect final hardware run resumes after active reconnect is available | characterization | hardware | yes |
 
 ## 10. 検証
 
@@ -174,12 +174,12 @@ Change Grip/Order で実登録が走った場合、daemon が `--link-key-db` co
 - `Get-Content tmp\hardware\local_100\20260628-194325-shutdown-active-reconnect-graceful-disconnect\summary.json`
   - result: `hid_connection_opened_count=0`, `connection_incoming_count=0`, `pairing_complete_status_00_count=0`, `responding_to_link_key_request_count=1`, `have_link_key_db_1_count=1`, `pass=false`。
 
-未実行:
+起票時の未実行:
 
 - software TDD
-  - reason: active reconnect request の exact-once timing item と、実機結果に応じた追加修正は未実行。
+  - reason: 起票時点では active reconnect request の exact-once timing item と、実機結果に応じた追加修正は未実行だった。現在は後続 TDD status で解消済み。
 - hardware rerun
-  - reason: 起票のみ。実機承認と前提確認後に行う。
+  - reason: 起票時点では未実行だった。現在は実機 artifact を `docs/hardware-test-log.md` とこの record に記録済み。
 
 TDD status:
 - source: `local_100` active reconnect 専用 run が `L2CAP_EVENT_CHANNEL_OPENED status 0x66` で HID open 前に停止した。
@@ -197,7 +197,7 @@ Refactor status:
 - decision: refactor-skipped。
 - change: none。
 - unchanged behavior: daemon startup、active reconnect request、link key DB wiring、shutdown graceful disconnect 実装には触れていない。
-- verification: source audit と既存 artifact 比較のみ。software test と実機 rerun は未実行。
+- verification: この source-audit item 自体は source audit と既存 artifact 比較のみ。software test と実機 rerun は後続 TDD status に記録した。
 
 TDD status:
 - source: `local_100` active reconnect 専用 run は `btstack: link key db open ok` と `production: active reconnect request ok` を順に記録していたが、HID open に到達しなかった。
@@ -208,7 +208,7 @@ TDD status:
   - red: not applicable。既存の `production_entrypoint_boundary_cmake_test`、`daemon_launch_options_test`、`daemon_production_runner_test` がこの regression boundary を既に覆っていたため、新しい failing test は追加していない。
   - green: `$env:CTEST_ARGS='-R "production_entrypoint_boundary_cmake_test|daemon_launch_options_test|daemon_production_runner_test"'; just debug`
 - result: pass。3 tests passed。
-- notes: 初回の sandboxed run は Dev Container CLI の `docker ps` で失敗したため、同じ command を Docker daemon access のため昇格付きで再実行した。`production_entrypoint_boundary_cmake_test` は production entrypoint が link key DB 設定と runner handoff を持つこと、`daemon_launch_options_test` は config / link key DB launch config、`daemon_production_runner_test` は `STEP_POWER_ON` 後の active reconnect request を固定している。実機失敗の主因は startup path ではなく、link key response 後の authentication status `0x05` による security level `0` と判断する。
+- notes: 初回の sandboxed run は Dev Container CLI の `docker ps` で失敗したため、同じ command を Docker daemon access のため昇格付きで再実行した。`production_entrypoint_boundary_cmake_test` は production entrypoint が link key DB 設定と runner handoff を持つこと、`daemon_launch_options_test` は config / link key DB launch config、`daemon_production_runner_test` は `STEP_POWER_ON` 後の active reconnect request と `active_reconnect_connect_calls == 1` を固定している。実機失敗の主因は startup path ではなく、link key response 後の authentication status `0x05` による security level `0` と判断する。
 
 Refactor status:
 - decision: refactor-skipped。
@@ -277,7 +277,7 @@ TDD status:
 - source: active reconnect failure は保存済み TLV が Switch 側の登録状態に対して stale である可能性が高い。`--link-key-db` configured の daemon で controlled re-pair を行い、新しい link key notification で TLV を更新できるかを実機で確認する必要がある。
 - use case: maintainer は blank config と stale TLV で daemon を起動し、Switch Change Grip/Order から incoming re-pair させることで、active reconnect を発火させずに link key DB 更新と learned address 保存を artifact 化できる。
 - item: controlled re-pair with configured link key DB refreshes TLV before active reconnect retest。
-- state: todo。
+- state: green。
 - commands:
   - hardware attempt: `& .\tmp\hardware\local_101\run-controlled-repair-refresh-link-key-db.ps1`
 - result: attempt incomplete。artifact `tmp/hardware/local_101/20260628-203457-controlled-repair-refresh-link-key-db`。summary は `link_key_db_open_ok_count=1`、`hid_connection_opened_count=0`、`stored_link_key_notification_count=0`、`learned_switch_address_save_ok_count=0`、`connection_incoming_count=0`、`pairing_started_count=0`、`pairing_complete_status_00_count=0`、`tlv_hash_changed=false`、`pass=false`。
@@ -375,9 +375,53 @@ Refactor status:
 - unchanged behavior: production code は変えていない。実機 artifact と記録のみ。
 - verification: hardware artifacts。
 
+TDD status:
+- source: `local_101` の post-graceful timing 追跡で、`Create_connection` 後に `Connection_complete` 未達の fail / retry pass pattern を 4 組観測した。
+- use case: maintainer は Create Connection completion timeout を active reconnect failure として IPC status / trace で観測し、authentication failure や L2CAP security failure、HID open 後の remote close と混同しない。
+- item: Create Connection completion timeout is surfaced as an active reconnect failure and can be retried without confusing it with authentication or L2CAP failure。
+- state: refactor-done。
+- commands:
+  - red: `just debug`。`daemon_production_runner_test` が fail。timeout step がなく、IPC hardware status は unavailable のままだった。
+  - green: `just debug`。59 tests pass。
+  - additional red: `just debug`。HID open / close 後に旧 active reconnect timeout が残り、failed status へ誤分類されることを確認した。
+  - green after cancellation: `just debug`。59 tests pass。
+  - format: `scripts/format.sh`。
+  - refactor: HID open callback を HID open completion callback に rename した。
+  - refactor verification: `scripts/format.sh`、`just debug`。
+  - cross build: `just windows-cross`。
+- hardware fail validation: `& .\tmp\hardware\local_101\run-active-reconnect-post-hid-observe.ps1 -SourceArtifactPath .\tmp\hardware\local_101\20260628-220515-active-reconnect-post-hid-observe -PostHidObserveMs 5000`。artifact `tmp/hardware/local_101/20260628-223011-active-reconnect-post-hid-observe` は fail。`active_reconnect_request_ok_count=1`、`hid_connection_opened_count=0`、`responding_to_link_key_request_count=0`、`l2cap_open_status_0_count=0`、`remote_user_terminated_0x13_count=0`。HCI dump は `Create_connection` 後に `Connection_complete` へ進まず、daemon trace は `production: active reconnect timeout` を 1 件記録した。
+- hardware retry validation: 同じ command の retry。artifact `tmp/hardware/local_101/20260628-223302-active-reconnect-post-hid-observe` は pass。`hid_connection_opened_count=1`、`responding_to_link_key_request_count=1`、`have_link_key_db_1_count=1`、`security_level_2_count=1`、`connection_incoming_count=0`、`pairing_complete_status_00_count=0`、`l2cap_open_status_0_count=2`、`output_report_a201_count=13`、`subcommand_reply_a121_count=12`、`remote_user_terminated_0x13_count=0`、`shutdown_neutral_ok_count=1`。daemon trace の `production: active reconnect timeout` は 0 件だった。
+- result: active reconnect request が実際に発行された場合だけ 60 秒の completion timeout timer を張る。timer 発火時点で HID open completion event が来ていなければ `production: active reconnect timeout` を trace し、hardware status を failed にする。HID open completion event を受けたら timer を解除し、その後の HID close を Create Connection completion timeout と誤分類しない。
+- notes: daemon 内部の automatic retry は未実装である。今回の retry 可能性は、run loop を止めずに failure を表面化し、外側の harness / operator が同じ source artifact で再実行できる境界として扱う。自動 retry を入れる場合は、未完了の HCI Create Connection を BTstack 側でどうキャンセルまたは再発行できるかを別 item で確認する。
+
+TDD status:
+- source: `local_101` の controlled re-pair で refreshed TLV と learned address を含む artifact を作り、`local_100` が active reconnect 前提の shutdown graceful disconnect run を再開できる状態になった。
+- use case: maintainer は `local_101` で復旧した active reconnect artifact を使い、`local_100` の shutdown graceful disconnect final hardware run を Change Grip/Order / incoming pairing なしで再開できる。
+- item: local_100 shutdown graceful disconnect final hardware run resumes after active reconnect is available。
+- state: green。
+- commands:
+  - `& .\tmp\hardware\local_100\run-shutdown-graceful-disconnect-active-reconnect.ps1 -SourceArtifactPath .\tmp\hardware\local_101\20260628-204328-controlled-repair-refresh-link-key-db`
+- result: `tmp/hardware/local_100/20260628-205755-shutdown-active-reconnect-graceful-disconnect` は `Connection_complete` 未達で fail したが、retry の `tmp/hardware/local_100/20260628-210030-shutdown-active-reconnect-graceful-disconnect` は pass。Change Grip/Order / incoming pairing なしで HID open、held Button A shutdown、neutral send、disconnect request、closed event、HCI power-off を観測した。
+- notes: local_101 から local_100 へ返す再開条件は満たした。post-graceful-disconnect の安定化調査は local_100 の実装完了条件ではなく、必要なら別 source として扱う。
+
+Refactor status:
+- decision: refactor-done。
+- change: HID session には汎用の HID open completion callback だけを追加し、active reconnect timeout の所有と解除は production runner に閉じた。callback 名は `hid_open_completed` とし、BTstack HID open event の success / failure completion を通知する意味に寄せた。`swbt_daemon_active_reconnect_request_active()` は request が発行されたかどうかを戻り値で返すようにした。
+- placement decision: timeout は active reconnect の retry / failure policy ではなく、production runner が所有する実行中の接続試行状態として扱う。BTstack HID session は protocol event forwarding に留め、active reconnect module は request 発行と hardware status 報告に留める。この配置なら、HCI timeout 表面化のためだけに BTstack boundary や link key DB handling へ状態を漏らさない。
+- unchanged behavior: Switch protocol bytes、BTstack source selection、link key DB handling、shutdown graceful disconnect sequencing は変更していない。daemon 内部の automatic retry はこの item では追加していない。
+- verification: `just debug`、`scripts/format.sh`、`just windows-cross`、hardware artifacts `20260628-223011-active-reconnect-post-hid-observe` / `20260628-223302-active-reconnect-post-hid-observe`。
+
+完了時検証:
+
+- `scripts/format.sh`: pass。
+- `scripts/check-format.sh`: pass。
+- `just debug`: pass。59/59 passed。
+- `just windows-cross`: pass。
+- `git diff --check`: pass。LF/CRLF 変換 warning のみ。
+
 ## 11. 実機実行条件
 
-実機が必要である。ただしこの record 起票時点では実行しない。
+実機が必要である。起票時点では未実行だったが、現在は section 10 と `docs/hardware-test-log.md` に artifact を記録済みである。
 
 必要な承認:
 
@@ -415,9 +459,12 @@ cleanup requirements:
 
 ## 12. 先送り事項
 
-- 観測: `local_100` shutdown graceful disconnect final hardware run は、この work unit で active reconnect が復旧するまで再実行しない。
-  先送り理由: active HID connection が確立しない run では shutdown disconnect behavior を評価できない。
-  次の置き場: `work-units/wip/local_100/SHUTDOWN_GRACEFUL_DISCONNECT.md` の active reconnect hardware item。
+- 観測: `local_100` shutdown graceful disconnect final hardware run は、`local_101` の refreshed artifact から再開済みである。
+  判断: `tmp/hardware/local_100/20260628-210030-shutdown-active-reconnect-graceful-disconnect` で受入条件を満たしたため、この work unit の先送り事項としては解消済み。
+  次の置き場: none。
+- 観測: Create Connection completion timeout は active reconnect failure として表面化したが、daemon 内部の automatic retry は実装していない。
+  先送り理由: 未完了の HCI Create Connection を BTstack / controller 側で安全にキャンセルまたは再発行できるかを、実機観測と BTstack source の両方で確認する必要がある。
+  次の置き場: `spec/dev-journal.md` の `2026-06-28: active reconnect automatic retry の保留`。現時点では後続 work unit を立てない。
 
 ## 13. チェックリスト
 
@@ -425,8 +472,8 @@ cleanup requirements:
 - [x] use case を active reconnect HID open recovery として定義した。
 - [x] `local_100` の shutdown graceful disconnect 実装変更を対象外にした。
 - [x] `L2CAP_EVENT_CHANNEL_OPENED status 0x66` の根拠監査を行う。
-- [ ] software TDD item を 1 つずつ red / green / refactor で進める。
+- [x] software TDD item を 1 つずつ red / green / refactor で進める。
 - [x] 必要な実装修正を行う、または不要と判断した理由を記録する。
 - [x] active reconnect hardware run を実行し、incoming pairing なしの HID open と Button A smoke を確認する。
 - [x] `local_100` へ再開条件を返す。
-- [x] post-HID-open reason `0x13` close の原因追跡を `local_101` の TDD item として開始した。
+- [x] post-HID-open reason `0x13` close と Create Connection completion timeout を TDD item として記録し、active reconnect failure の表面化まで完了した。

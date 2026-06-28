@@ -36,6 +36,7 @@ enum {
     STEP_DEVICE_DISCONNECT = 21,
     STEP_HID_CONNECTION_CLOSED = 22,
     STEP_SHUTDOWN_DISCONNECT_TIMEOUT = 23,
+    STEP_ACTIVE_RECONNECT_TIMEOUT = 24,
 };
 
 typedef struct {
@@ -68,6 +69,8 @@ typedef struct {
     int ssp_confirmation_calls;
     int run_loop_trigger_exit_calls;
     int shutdown_requests_to_fire;
+    int fire_active_reconnect_timeout_during_run_loop;
+    int fire_active_reconnect_timeout_after_hid_open_completed_and_closed;
     int fire_can_send_after_shutdown_request;
     int fire_closed_after_shutdown_request;
     int fire_disconnect_timeout_after_shutdown_request;
@@ -161,6 +164,7 @@ static int expect_str_eq(const char *actual, const char *expected, const char *l
     return 0;
 }
 
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 static int expect_file_contains(const char *path, const char *needle, const char *label) {
     FILE *file = fopen(path, "rb");
     char buffer[8192];
@@ -168,6 +172,8 @@ static int expect_file_contains(const char *path, const char *needle, const char
     int result = 1;
 
     if (file == NULL) {
+        // Test diagnostics write to stderr with no retained buffer.
+        // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(stderr, "%s: trace file missing\n", label);
         return 1;
     }
@@ -177,6 +183,8 @@ static int expect_file_contains(const char *path, const char *needle, const char
     if (strstr(buffer, needle) != NULL) {
         result = 0;
     } else {
+        // Test diagnostics write to stderr with no retained buffer.
+        // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
         fprintf(stderr, "%s: missing %s\n", label, needle);
     }
     return result;
@@ -424,7 +432,7 @@ static void fake_handle_button_a_state(fake_ops_t *fake, uint32_t client_id, con
     fake_handle_json_line(fake, client_id, line);
 }
 
-static void fake_emit_hid_opened(fake_ops_t *fake) {
+static void fake_emit_hid_open_completed(fake_ops_t *fake) {
     uint8_t opened_event[] = {0xefu, 13u, 0x02u, 0x42u, 0x00u, 0x00u, 0u, 0u,
                               0u,    0u,  0u,    0u,    0u,    0u,    1u};
     fake->captured_hid_config.packet_handler(0x04u, 0x0042u, opened_event, sizeof(opened_event));
@@ -451,6 +459,15 @@ static void fake_fire_shutdown_disconnect_timeout(fake_ops_t *fake) {
     fake->shutdown_disconnect_timer_handler(fake->shutdown_disconnect_timer);
 }
 
+static void fake_fire_active_reconnect_timeout(fake_ops_t *fake) {
+    if (fake->shutdown_disconnect_timer_handler == NULL ||
+        fake->shutdown_disconnect_timer == NULL) {
+        return;
+    }
+    record_step(fake, STEP_ACTIVE_RECONNECT_TIMEOUT);
+    fake->shutdown_disconnect_timer_handler(fake->shutdown_disconnect_timer);
+}
+
 static void fake_run_loop_execute(void *context) {
     fake_ops_t *fake = context;
     record_step(fake, STEP_RUN_LOOP_EXECUTE);
@@ -459,12 +476,30 @@ static void fake_run_loop_execute(void *context) {
             ? SWBT_IPC_ERROR_INVALID_ARGUMENT
             : swbt_ipc_adapter_get_status(fake->ipc_runner->server.control,
                                           &fake->status_during_run_loop);
+    if (fake->fire_active_reconnect_timeout_during_run_loop) {
+        fake_fire_active_reconnect_timeout(fake);
+        fake->status_after_report_result =
+            fake->ipc_runner == NULL || fake->ipc_runner->server.control == NULL
+                ? SWBT_IPC_ERROR_INVALID_ARGUMENT
+                : swbt_ipc_adapter_get_status(fake->ipc_runner->server.control,
+                                              &fake->status_after_report);
+    }
+    if (fake->fire_active_reconnect_timeout_after_hid_open_completed_and_closed) {
+        fake_emit_hid_open_completed(fake);
+        fake_emit_hid_closed(fake);
+        fake_fire_active_reconnect_timeout(fake);
+        fake->status_after_report_result =
+            fake->ipc_runner == NULL || fake->ipc_runner->server.control == NULL
+                ? SWBT_IPC_ERROR_INVALID_ARGUMENT
+                : swbt_ipc_adapter_get_status(fake->ipc_runner->server.control,
+                                              &fake->status_after_report);
+    }
     if (fake->inject_json_state_during_run_loop && fake->ipc_runner != NULL &&
         fake->ipc_runner->server.control != NULL) {
         fake->injected_json_result = 0;
         fake_handle_acquire(fake, 1001u, "journey-acquire");
         fake_handle_button_a_state(fake, 1001u, "000003e9", "journey-state");
-        fake_emit_hid_opened(fake);
+        fake_emit_hid_open_completed(fake);
         fake_emit_can_send(fake);
         fake->status_after_report_result = swbt_ipc_adapter_get_status(
             fake->ipc_runner->server.control, &fake->status_after_report);
@@ -474,7 +509,7 @@ static void fake_run_loop_execute(void *context) {
         fake->injected_json_result = 0;
         fake_handle_acquire(fake, 1001u, "journey-acquire");
         fake_handle_button_a_state(fake, 1001u, "000003e9", "journey-state");
-        fake_emit_hid_opened(fake);
+        fake_emit_hid_open_completed(fake);
         fake_emit_can_send(fake);
 
         if (swbt_ipc_adapter_handle_disconnect(fake->ipc_runner->server.control, 1001u) !=
@@ -489,7 +524,7 @@ static void fake_run_loop_execute(void *context) {
     }
     if (fake->shutdown_request != NULL) {
         if (!fake->skip_shutdown_opened_event) {
-            fake_emit_hid_opened(fake);
+            fake_emit_hid_open_completed(fake);
         }
 
         const int request_count =
@@ -934,6 +969,94 @@ static int active_reconnect_failure_reports_failed_state_without_stopping_run_lo
                       (int)SWBT_IPC_HARDWARE_CHANNEL_FAILED, "switch connection failed state");
     failed += expect_eq_int((int)fake.status_during_run_loop.hardware.hid_channel_state,
                             (int)SWBT_IPC_HARDWARE_CHANNEL_FAILED, "hid failed state");
+    return failed;
+}
+
+static int active_reconnect_timeout_reports_failed_state_without_stopping_run_loop(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {
+        .fire_active_reconnect_timeout_during_run_loop = 1,
+    };
+    const swbt_btstack_production_ports_t adapter = fake_backend_ports();
+    swbt_daemon_production_runner_t backend;
+    const int expected[] = {
+        STEP_IPC_START,
+        STEP_PLATFORM_START,
+        STEP_HID_REGISTER,
+        STEP_OUTPUT_START,
+        STEP_TIMER_INIT,
+        STEP_POWER_ON,
+        STEP_ACTIVE_RECONNECT_CONNECT,
+        STEP_RUN_LOOP_EXECUTE,
+        STEP_ACTIVE_RECONNECT_TIMEOUT,
+        STEP_POWER_OFF,
+        STEP_TIMER_STOP,
+        STEP_OUTPUT_STOP,
+        STEP_HID_STOP,
+        STEP_PLATFORM_STOP,
+        STEP_IPC_STOP,
+    };
+
+    int failed = 0;
+    failed += expect_true(swbt_daemon_config_set_active_reconnect_learned_switch_address(
+                              &config, "01:23:45:67:89:ab"),
+                          "set learned address");
+    failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
+    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend),
+                            SWBT_DAEMON_PRODUCTION_OK, "main result");
+    failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
+    failed += expect_eq_int(fake.status_after_report_result, SWBT_IPC_OK, "status read");
+    failed +=
+        expect_eq_int((int)fake.status_after_report.hardware.switch_connection_state,
+                      (int)SWBT_IPC_HARDWARE_CHANNEL_FAILED, "switch connection failed state");
+    failed += expect_eq_int((int)fake.status_after_report.hardware.hid_channel_state,
+                            (int)SWBT_IPC_HARDWARE_CHANNEL_FAILED, "hid failed state");
+    return failed;
+}
+
+static int active_reconnect_timeout_is_canceled_after_hid_open_completed(void) {
+    swbt_daemon_config_t config = swbt_daemon_config_default();
+    fake_ops_t fake = {
+        .fire_active_reconnect_timeout_after_hid_open_completed_and_closed = 1,
+    };
+    const swbt_btstack_production_ports_t adapter = fake_backend_ports();
+    swbt_daemon_production_runner_t backend;
+    const int expected[] = {
+        STEP_IPC_START,
+        STEP_PLATFORM_START,
+        STEP_HID_REGISTER,
+        STEP_OUTPUT_START,
+        STEP_TIMER_INIT,
+        STEP_POWER_ON,
+        STEP_ACTIVE_RECONNECT_CONNECT,
+        STEP_RUN_LOOP_EXECUTE,
+        STEP_HID_CONNECTION_CLOSED,
+        STEP_TIMER_STOP,
+        STEP_POWER_OFF,
+        STEP_TIMER_STOP,
+        STEP_OUTPUT_STOP,
+        STEP_HID_STOP,
+        STEP_PLATFORM_STOP,
+        STEP_IPC_STOP,
+    };
+
+    int failed = 0;
+    failed += expect_true(swbt_daemon_config_set_active_reconnect_learned_switch_address(
+                              &config, "01:23:45:67:89:ab"),
+                          "set learned address");
+    failed += expect_eq_int(swbt_daemon_production_runner_init(&backend, &config, &adapter, &fake),
+                            SWBT_DAEMON_PRODUCTION_OK, "init");
+    failed += mark_adapter_location_configured(&backend);
+    failed += expect_eq_int(swbt_daemon_production_main_with_runner(&backend),
+                            SWBT_DAEMON_PRODUCTION_OK, "main result");
+    failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
+    failed += expect_eq_int(fake.status_after_report_result, SWBT_IPC_OK, "status read");
+    failed += expect_eq_int((int)fake.status_after_report.hardware.switch_connection_state,
+                            (int)SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE, "switch connection state");
+    failed += expect_eq_int((int)fake.status_after_report.hardware.hid_channel_state,
+                            (int)SWBT_IPC_HARDWARE_CHANNEL_UNAVAILABLE, "hid state");
     return failed;
 }
 
@@ -1453,7 +1576,8 @@ static int shutdown_disconnect_timeout_still_powers_off_and_exits(void) {
     failed += expect_steps(&fake, expected, sizeof(expected) / sizeof(expected[0]));
     failed += expect_eq_int(fake.device_disconnect_calls, 1, "disconnect calls");
     failed += expect_eq_int(fake.shutdown_disconnect_timer_add_calls, 1, "timer add calls");
-    failed += expect_true(fake.shutdown_disconnect_timer_timeout_ms > 0u, "timeout is bounded");
+    failed += expect_eq_int((int)fake.shutdown_disconnect_timer_timeout_ms, 250,
+                            "shutdown disconnect timeout ms");
     failed += expect_eq_int(fake.power_off_calls, 1, "power off calls");
     failed += expect_eq_int(fake.run_loop_trigger_exit_calls, 1, "trigger exit calls");
     return failed;
@@ -1759,6 +1883,8 @@ int main(void) {
     failed += approved_backend_starts_hardware_and_cleans_up_in_order();
     failed += approved_backend_requests_active_reconnect_when_switch_address_is_configured();
     failed += active_reconnect_failure_reports_failed_state_without_stopping_run_loop();
+    failed += active_reconnect_timeout_reports_failed_state_without_stopping_run_loop();
+    failed += active_reconnect_timeout_is_canceled_after_hid_open_completed();
     failed += run_loop_json_state_reaches_fake_hid_send();
     failed += production_report_success_updates_status_metrics_without_hardware_measurement();
     failed += production_report_failure_updates_send_failure_metrics_and_cleans_up();

@@ -54,6 +54,10 @@ static void swbt_daemon_btstack_hid_session_finish_shutdown(void *context) {
     swbt_daemon_shutdown_sequence_finish(context);
 }
 
+static void swbt_daemon_btstack_hid_session_note_hid_open_completed(void *context) {
+    swbt_daemon_production_runner_note_hid_open_completed(context);
+}
+
 static swbt_daemon_btstack_hid_session_t *
 swbt_daemon_btstack_hid_session_from_backend(swbt_daemon_production_runner_t *backend) {
     backend->hid_session_bridge = (swbt_daemon_btstack_hid_session_t){
@@ -73,6 +77,8 @@ swbt_daemon_btstack_hid_session_from_backend(swbt_daemon_production_runner_t *ba
             &backend->learned_switch_address_target_configured,
         .service_buffer = backend->hid_service_buffer,
         .service_buffer_size = sizeof(backend->hid_service_buffer),
+        .hid_open_completed = swbt_daemon_btstack_hid_session_note_hid_open_completed,
+        .hid_open_completed_context = backend,
         .finish_shutdown = swbt_daemon_btstack_hid_session_finish_shutdown,
         .finish_shutdown_context = &backend->shutdown,
     };

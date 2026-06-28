@@ -129,7 +129,7 @@ shutdown request
 
 device API の既存 `close` は HID registration と platform cleanup の終了処理であり、remote HID Host への disconnect request ではない。命名を混同しないため、追加する場合は `disconnect` または `request_disconnect` のような link-level API として分ける。
 
-timeout 値はこの record 起票時点では未確定である。最初の software boundary では fake clock / synthetic event で「待ちすぎない」ことを固定し、実機で必要な余裕を観測してから stable value へ格上げする。
+shutdown disconnect timeout は 250 ms を bounded fallback として採用する。final hardware pass は closed event で完了し timeout は発火していないため、250 ms は closed event の正常待ち時間ではなく、closed event が来ない場合に shutdown を詰まらせない上限である。software test では `shutdown_disconnect_timer_timeout_ms == 250` を固定する。
 
 ## 8. 対象ファイル
 
@@ -145,7 +145,7 @@ timeout 値はこの record 起票時点では未確定である。最初の sof
 - `docs/status.md`
 - `docs/hardware-test-log.md`
 - `spec/references/btstack-daemon-entrypoint.md`
-- `work-units/wip/local_100/SHUTDOWN_GRACEFUL_DISCONNECT.md`
+- `work-units/complete/local_100/SHUTDOWN_GRACEFUL_DISCONNECT.md`
 
 ## 9. TDD Test List（TDD テスト一覧）
 
@@ -275,7 +275,7 @@ active reconnect hardware item:
   - 古い `local_073` TLV での 2 回目 failure cleanup は daemon exit code `0`、crash dump なし。trace は shutdown neutral send failed、HCI power-off、run loop returned、host stop、device close、HCI close、link key DB close、run loop deinit、HCI dump close、host stop done まで到達した。
   - `L2CAP_EVENT_CHANNEL_OPENED status 0x66` の意味と再現条件は未解釈であり、この work unit の shutdown cleanup 実装判断とは分ける。
 - follow-up result:
-  - `work-units/wip/local_101/ACTIVE_RECONNECT_HID_OPEN_RECOVERY.md` で controlled re-pair により link key DB を更新した。
+  - `work-units/complete/local_101/ACTIVE_RECONNECT_HID_OPEN_RECOVERY.md` で controlled re-pair により link key DB を更新した。
   - refreshed source artifact は `tmp/hardware/local_101/20260628-204328-controlled-repair-refresh-link-key-db`。
   - refreshed TLV での active reconnect retest は `tmp/hardware/local_101/20260628-204952-active-reconnect-hid-open-recovery` で成功した。`Connection_incoming=0`、`pairing complete, status 00=0`、`responding to link key request>=1`、`have link key db: 1>=1`、`security level 2>=1`、`L2CAP_EVENT_CHANNEL_OPENED status 0x0=2`、Button A smoke を確認した。
   - local_100 の再実行では古い `local_073` TLV ではなく refreshed source artifact を使い、`20260628-210030-shutdown-active-reconnect-graceful-disconnect` で受入条件を満たした。
@@ -339,6 +339,7 @@ post-graceful-disconnect reconnect evaluation:
 - implementation:
   - production run loop port に one-shot timer boundary を追加した。
   - disconnect request 成功時だけ shutdown disconnect timeout timer を arm する。
+  - one-shot timeout は 250 ms とし、closed event が来ない場合だけ shutdown 継続の上限として使う。
   - closed event path では timer を cancel してから HCI power-off / run loop exit へ進む。
   - closed event が来ない場合は timeout callback が `shutdown.disconnect_pending` を解消し、active report timer を止めて HCI power-off / run loop exit へ進む。
   - disconnect request が失敗した場合は timeout を待たず active report timer を止めて HCI power-off / run loop exit へ進む。
@@ -346,6 +347,7 @@ post-graceful-disconnect reconnect evaluation:
 - green:
   - `just build-debug`: pass。
   - `just test-debug`: pass。59/59 passed。
+  - `daemon_production_runner_test` は shutdown disconnect timeout が `250 ms` であることを固定する。
   - `just format-check`: pass。
   - `git diff --check`: pass。`docs/hardware-test-log.md` の LF/CRLF 警告のみ。
 - refactor:
@@ -413,6 +415,14 @@ post-graceful-disconnect reconnect evaluation:
 - `powershell -NoProfile -ExecutionPolicy Bypass -File .\tmp\hardware\local_100\run-shutdown-graceful-disconnect-active-reconnect.ps1 -SourceArtifactPath .\tmp\hardware\local_100\20260628-210030-shutdown-active-reconnect-graceful-disconnect`
   - result: first attempt failed before HID open at `tmp/hardware/local_100/20260628-210644-shutdown-active-reconnect-graceful-disconnect`。cleanup は exit code `0`、crash dump なし。
   - result: second attempt reached HID open without incoming pairing at `tmp/hardware/local_100/20260628-210911-shutdown-active-reconnect-graceful-disconnect`。ただし Switch 側から channel closed が出て、held Button A report と shutdown graceful disconnect には到達していない。
+- timeout 値確定
+  - result: final pass `tmp/hardware/local_100/20260628-210030-shutdown-active-reconnect-graceful-disconnect` は `shutdown_disconnect_requested_count=1`、`shutdown_disconnect_closed_count=1`、`shutdown_disconnect_timeout_count=0`。HCI dump は `Disconnect from HID Host`、`L2CAP_EVENT_CHANNEL_CLOSED`、`hci_power_control: 0` の順で、250 ms timeout には到達していない。250 ms は正常 path の実機待ち時間ではなく、closed event が欠落した場合の fallback 上限として `daemon_production_runner_test` で固定した。
+- 完了時検証
+  - `scripts/format.sh`: pass。
+  - `scripts/check-format.sh`: pass。
+  - `just debug`: pass。59/59 passed。
+  - `just windows-cross`: pass。
+  - `git diff --check`: pass。LF/CRLF 変換 warning のみ。
 
 実機未完了:
 
@@ -459,9 +469,9 @@ post-graceful-disconnect reconnect evaluation:
   先送り理由: `20260628-210911-shutdown-active-reconnect-graceful-disconnect` は incoming pairing なしで HID open したが、その直後に HCI reason `0x13` remote user terminated connection で切断された。local HCI disconnect command の痕跡はない。graceful disconnect が次回接続を安定化するかは、別 work unit で UI 目視、待機時間、複数回試行条件を整理して扱う方がよい。
   次の置き場: 必要なら後続 work unit。現時点ではこの work unit の shutdown graceful disconnect 実装完了条件には含めない。
 
-- 観測: disconnect request timeout の具体値は未確定である。
-  先送り理由: source fact だけでは適切な待機時間を決められない。software では bounded であることを先に固定し、実機観測で値を調整する。
-  次の置き場: この work unit の設計メモ、必要なら `spec/references/btstack-daemon-entrypoint.md` の追加監査。
+- 観測: disconnect request timeout は 250 ms の bounded fallback として採用した。
+  判断: final hardware pass は closed event で完了し timeout には到達していない。250 ms は正常 path の待機値ではなく、closed event が欠落した場合に shutdown を継続する上限である。
+  次の置き場: none。
 
 ## 13. チェックリスト
 

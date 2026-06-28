@@ -29,6 +29,13 @@ swbt_daemon_btstack_hid_session_finish_shutdown(const swbt_daemon_btstack_hid_se
     }
 }
 
+static void swbt_daemon_btstack_hid_session_note_hid_open_completed(
+    const swbt_daemon_btstack_hid_session_t *session) {
+    if (session != NULL && session->hid_open_completed != NULL) {
+        session->hid_open_completed(session->hid_open_completed_context);
+    }
+}
+
 static void swbt_daemon_btstack_hid_session_maybe_save_learned_address(
     swbt_daemon_btstack_hid_session_t *session, const uint8_t address[6]) {
     if (session->config != NULL && session->learned_switch_address_target != NULL &&
@@ -53,6 +60,7 @@ swbt_daemon_btstack_hid_session_handle_user_confirmation(swbt_daemon_btstack_hid
 static void
 swbt_daemon_btstack_hid_session_handle_connection_opened(swbt_daemon_btstack_hid_session_t *session,
                                                          const swbt_btstack_hid_event_t *event) {
+    swbt_daemon_btstack_hid_session_note_hid_open_completed(session);
     if (event->status != 0u) {
         swbt_diagnostic_trace("production: hid connection open failed");
         return;

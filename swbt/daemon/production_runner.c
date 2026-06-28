@@ -7,8 +7,11 @@
 #include "daemon/process_internal.h"
 #include "daemon/active_reconnect.h"
 
+#define SWBT_DAEMON_ACTIVE_RECONNECT_TIMEOUT_MS 60000u
 #define SWBT_DAEMON_SHUTDOWN_DISCONNECT_TIMEOUT_MS 250u
 
+static void swbt_daemon_production_runner_cancel_active_reconnect_timeout_timer(
+    swbt_daemon_production_runner_t *backend);
 static void swbt_daemon_production_runner_finish_shutdown(void *context);
 
 swbt_daemon_production_result_t swbt_daemon_production_runner_init(
@@ -61,6 +64,7 @@ swbt_daemon_production_power_on(swbt_daemon_production_runner_t *backend) {
 }
 
 static void swbt_daemon_production_power_off(swbt_daemon_production_runner_t *backend) {
+    swbt_daemon_production_runner_cancel_active_reconnect_timeout_timer(backend);
     if (backend != NULL && atomic_exchange(&backend->hardware_powered, false)) {
         backend->ports->power.off(backend->ports_context);
     }
@@ -80,6 +84,55 @@ static void swbt_daemon_production_runner_cancel_shutdown_disconnect_timer(
                                                     &backend->shutdown_disconnect_timer);
         backend->shutdown_disconnect_timer_pending = false;
     }
+}
+
+static void swbt_daemon_production_runner_cancel_active_reconnect_timeout_timer(
+    swbt_daemon_production_runner_t *backend) {
+    if (backend != NULL && backend->active_reconnect_timeout_timer_pending) {
+        (void)backend->ports->run_loop.remove_timer(backend->ports_context,
+                                                    &backend->active_reconnect_timeout_timer);
+        backend->active_reconnect_timeout_timer_pending = false;
+    }
+}
+
+void swbt_daemon_production_runner_note_hid_open_completed(
+    swbt_daemon_production_runner_t *backend) {
+    swbt_daemon_production_runner_cancel_active_reconnect_timeout_timer(backend);
+}
+
+static void swbt_daemon_production_runner_active_reconnect_timeout(btstack_timer_source_t *timer) {
+    swbt_daemon_production_runner_t *backend =
+        timer == NULL ? NULL : (swbt_daemon_production_runner_t *)timer->context;
+    if (backend == NULL || !backend->initialized) {
+        return;
+    }
+    backend->active_reconnect_timeout_timer_pending = false;
+    if (backend->report_timer.running) {
+        return;
+    }
+
+    swbt_diagnostic_trace("production: active reconnect timeout");
+    swbt_daemon_active_reconnect_report_failed(
+        backend->host == NULL ? NULL : swbt_daemon_process_app(backend->host));
+}
+
+static void swbt_daemon_production_runner_arm_active_reconnect_timeout_timer(
+    swbt_daemon_production_runner_t *backend) {
+    if (backend == NULL || backend->active_reconnect_timeout_timer_pending) {
+        return;
+    }
+
+    backend->ports->run_loop.set_timer_handler(
+        backend->ports_context, &backend->active_reconnect_timeout_timer,
+        swbt_daemon_production_runner_active_reconnect_timeout);
+    backend->ports->run_loop.set_timer_context(backend->ports_context,
+                                               &backend->active_reconnect_timeout_timer, backend);
+    backend->ports->run_loop.set_timer(backend->ports_context,
+                                       &backend->active_reconnect_timeout_timer,
+                                       SWBT_DAEMON_ACTIVE_RECONNECT_TIMEOUT_MS);
+    backend->ports->run_loop.add_timer(backend->ports_context,
+                                       &backend->active_reconnect_timeout_timer);
+    backend->active_reconnect_timeout_timer_pending = true;
 }
 
 static void
@@ -202,11 +255,15 @@ swbt_daemon_production_result_t swbt_daemon_production_main_with_runner_and_shut
     swbt_diagnostic_trace("production: power on");
     result = swbt_daemon_production_power_on(backend);
     if (result == SWBT_DAEMON_PRODUCTION_OK) {
-        swbt_daemon_active_reconnect_request_active(&(swbt_daemon_active_reconnect_t){
-            .config = &backend->config,
-            .device = &backend->device,
-            .app = swbt_daemon_process_app(&host),
-        });
+        const swbt_daemon_active_reconnect_active_result_t reconnect_result =
+            swbt_daemon_active_reconnect_request_active(&(swbt_daemon_active_reconnect_t){
+                .config = &backend->config,
+                .device = &backend->device,
+                .app = swbt_daemon_process_app(&host),
+            });
+        if (reconnect_result == SWBT_DAEMON_ACTIVE_RECONNECT_ACTIVE_REQUESTED) {
+            swbt_daemon_production_runner_arm_active_reconnect_timeout_timer(backend);
+        }
         swbt_daemon_shutdown_sequence_prepare(&backend->shutdown);
         if (shutdown_listener != NULL) {
             if (swbt_daemon_shutdown_sequence_install_listener(

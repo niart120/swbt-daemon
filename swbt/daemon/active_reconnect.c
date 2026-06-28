@@ -3,7 +3,7 @@
 #include "support/diagnostics.h"
 #include "daemon/switch_address.h"
 
-static void swbt_daemon_active_reconnect_report_failed(swbt_domain_t *app) {
+void swbt_daemon_active_reconnect_report_failed(swbt_domain_t *app) {
     const swbt_domain_hardware_status_t failed_status = {
         .adapter_state = SWBT_DOMAIN_HARDWARE_CHANNEL_UNAVAILABLE,
         .switch_connection_state = SWBT_DOMAIN_HARDWARE_CHANNEL_FAILED,
@@ -41,28 +41,29 @@ swbt_daemon_active_reconnect_build_request(const swbt_daemon_config_t *config,
     return SWBT_DAEMON_ACTIVE_RECONNECT_REQUEST_READY;
 }
 
-void swbt_daemon_active_reconnect_request_active(const swbt_daemon_active_reconnect_t *reconnect) {
+swbt_daemon_active_reconnect_active_result_t
+swbt_daemon_active_reconnect_request_active(const swbt_daemon_active_reconnect_t *reconnect) {
     swbt_btstack_device_connect_request_t request;
     uint16_t hid_cid = 0u;
     int result;
 
     if (reconnect == NULL) {
-        return;
+        return SWBT_DAEMON_ACTIVE_RECONNECT_ACTIVE_NONE;
     }
 
     const swbt_daemon_active_reconnect_request_result_t build_result =
         swbt_daemon_active_reconnect_build_request(reconnect->config, &request);
     if (build_result == SWBT_DAEMON_ACTIVE_RECONNECT_REQUEST_NONE) {
-        return;
+        return SWBT_DAEMON_ACTIVE_RECONNECT_ACTIVE_NONE;
     }
     if (build_result != SWBT_DAEMON_ACTIVE_RECONNECT_REQUEST_READY) {
         swbt_diagnostic_trace("production: active reconnect address invalid");
         swbt_daemon_active_reconnect_report_failed(reconnect->app);
-        return;
+        return SWBT_DAEMON_ACTIVE_RECONNECT_ACTIVE_FAILED;
     }
     if (reconnect->device == NULL) {
         swbt_daemon_active_reconnect_report_failed(reconnect->app);
-        return;
+        return SWBT_DAEMON_ACTIVE_RECONNECT_ACTIVE_FAILED;
     }
 
     swbt_diagnostic_trace("production: active reconnect request");
@@ -71,7 +72,9 @@ void swbt_daemon_active_reconnect_request_active(const swbt_daemon_active_reconn
                                       : "production: active reconnect request failed");
     if (result != 0) {
         swbt_daemon_active_reconnect_report_failed(reconnect->app);
+        return SWBT_DAEMON_ACTIVE_RECONNECT_ACTIVE_FAILED;
     }
+    return SWBT_DAEMON_ACTIVE_RECONNECT_ACTIVE_REQUESTED;
 }
 
 void swbt_daemon_active_reconnect_save_learned_address(
