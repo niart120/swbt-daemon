@@ -46,6 +46,7 @@ function Invoke-ExpectExit {
     if ($actual -ne $ExpectedExitCode) {
         throw "$Path $($Arguments -join ' ') exited with $actual, expected $ExpectedExitCode"
     }
+    $global:LASTEXITCODE = 0
 }
 
 Invoke-ExpectExit -Path $daemon -Arguments @("help") -ExpectedExitCode 0
