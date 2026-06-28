@@ -2,28 +2,31 @@
 
 ## 1. 概要
 
-この work unit は、tag 作成前の root README から release 整備の進行中メモを外し、配布済み release の利用者が読む入口へ更新する。
+この work unit は、tag 作成前の root README から release 整備の進行中メモと内部向け表現を外し、配布済み release の利用者が読む入口へ更新する。
 
-完了後は、README が GitHub Release assets、Windows artifact 名、checksum 確認、source build の退避先、実機安全境界、license 境界を直接示す。開発者向けの release workflow 説明は `docs/development.md` に残す。
+完了後は、README が GitHub Releases、対応状況、実機利用時の注意、起動確認、入力送信の最小例、license 境界を示す。checksum や展開手順、release 作業手順、開発者向け release workflow 説明は README に置かない。
 
 ## 2. 起点 / ユースケース
 
 source:
 
 - ユーザ要求: publish 前に README に残った release 作業手順のメタ情報を外す。
+- ユーザ要求: checksum や展開手順は README では過剰なので削る。
 - `work-units/complete/local_104/README_USER_DEVELOPMENT_DOC_SPLIT.md` の先送り事項: package artifact 実装後、README の入手手順を GitHub Release artifact 前提へ更新する。
 - `spec/operations/release-build-and-publish.md` M7: tag / GitHub Release の前に release candidate の利用者向け文書を確定する。
 
 use case:
 
-- release asset を取得する利用者は、README から zip 名、checksum 確認、展開後の実行ファイルへ進める。
-- source から build する開発者は、README から `docs/development.md` へ進める。
+- release asset を取得する利用者は、README から GitHub Releases、Windows 版の同梱物、対応状況、実機利用時の注意を確認できる。
+- ソースからビルドする開発者は、README から `docs/development.md` へ進める。
 - reviewer は、README に release 整備中の作業計画や milestone 実行メモが残っていないことを確認できる。
 
 ## 3. 対象範囲
 
 - root README の入手手順を GitHub Release assets 前提へ更新する。
 - README から release readiness plan への進行中メタ情報を外す。
+- README から checksum 確認と展開手順を外す。
+- README に残す IPC は動作確認用 client の最小例に絞る。
 - `docs/development.md` の release 作業説明を恒久的な運用文へ更新する。
 - `spec/operations/release-build-and-publish.md` の関連 work unit にこの record を追加する。
 
@@ -53,7 +56,7 @@ not applicable。
 
 README は、配布後の利用者が読む情報だけに寄せる。release build / publish の内部手順は `docs/development.md` と operations spec に置く。
 
-README は GitHub Release assets の取得形を示すが、tag push や publish の承認状態は書かない。release 実行の承認境界は operations spec と work unit record 側で扱う。
+README は GitHub Releases の入口を示すが、checksum 確認や展開手順、tag push や publish の承認状態は書かない。release 実行の承認境界は operations spec と work unit record 側で扱う。
 
 ## 8. 対象ファイル
 
@@ -66,15 +69,17 @@ README は GitHub Release assets の取得形を示すが、tag push や publish
 
 | status | item | type | layer | hardware |
 |---|---|---|---|---|
-| green | README が GitHub Release assets、zip 名、checksum 確認、source build の退避先を示している。 | new | docs | no |
+| green | README が GitHub Releases、Windows 版の同梱物、ソースからのビルド手順の退避先を示している。 | new | docs | no |
 | green | README に release readiness plan や milestone 実行中のメタ情報が残っていない。 | regression | docs | no |
+| green | README に checksum 確認と展開手順が残っていない。 | regression | docs | no |
+| green | README の IPC 記述が動作確認用 client の最小例と protocol link に絞られている。 | regression | docs | no |
 | green | `docs/development.md` の release 節が tag-driven workflow、draft release、publish 前確認の恒久的な運用文になっている。 | regression | docs | no |
 
 ## 10. 検証
 
 - `rg -n "まだ提供|置く予定|初回 release の準備|M5 時点|Release 整備は" README.md docs\development.md`: pass。該当なし。
-- `rg -n "Release Build And Publish Plan|release-build-and-publish" README.md`: pass。該当なし。
-- `rg -n "GitHub Releases|swbt-daemon-v<version>-windows-x86_64.zip|Get-FileHash|docs/development.md|MIT-only" README.md`: pass。README の利用者向け入手、checksum、source build、license 境界を確認した。
+- `rg -n "Release Build And Publish Plan|release-build-and-publish|work unit|milestone|Operations specs|Architecture spec|checksum|sha256|Get-FileHash|展開|production backend|selector|report loop|cleanup confirmation|source checkout|third-party notice|commercial license|personal / non-commercial|local IPC" README.md`: pass。該当なし。
+- `rg -n "GitHub Releases|swbt-daemon.exe|swbt-debug-client.exe|Development|Current State And Support Matrix|Daemon IPC v1|THIRD_PARTY_NOTICES.md" README.md`: pass。README の利用者向け入手、同梱物、ソースからのビルド手順の退避先、status、IPC、license 境界を確認した。
 - `rg -n "[ \t]+$" README.md docs\development.md spec\operations\release-build-and-publish.md work-units\complete\local_109\RELEASE_README_READY.md`: pass。行末空白なし。
 - `git diff --check -- README.md docs\development.md spec\operations\release-build-and-publish.md work-units\complete\local_109\RELEASE_README_READY.md`: pass。whitespace error なし。
 
