@@ -33,9 +33,11 @@ Windows 版には、デーモン本体の `swbt-daemon.exe`、動作確認用の
 
 ## 利用時の注意事項
 
-Nintendo Switch に接続して使う場合は、専用の USB Bluetooth ドングルを用意してください。内蔵 Bluetooth や普段使いのドングルは使わないでください。
+Windows では、Switch 接続に使う専用の USB Bluetooth ドングルを用意し、ドライバーを WinUSB に切り替える必要があります。内蔵 Bluetooth や普段使いのドングルはこの用途に使わないでください。
 
-Windows では、この用途に使う専用ドングルのドライバーを WinUSB に切り替えてください。切り替えには [Zadig](https://zadig.akeo.ie/) を利用できます。内蔵 Bluetooth や普段使いのドングルのドライバーは変更しないでください。
+ドライバーの切り替えには [Zadig](https://zadig.akeo.ie/) を利用できます。Zadig は外部ツールです。利用によって生じた問題について、本プロジェクトは責任を負いません。Zadig で WinUSB に切り替えるのは、上記の専用 USB Bluetooth ドングルのドライバーだけにしてください。
+
+ドングルは、確認済みの CSR8510 A10 チップ搭載品を推奨します。CSR8510 A10 以外の USB Bluetooth ドングルは未確認です。
 
 ドングルを接続して WinUSB に切り替えた後、`swbt-daemon adapters` で `winusb:<location-path>` を確認します。Switch に接続する起動では、この値を `--adapter-location` に指定します。指定しない場合、`swbt-daemon` は Bluetooth アダプターを開く前に終了します。
 
@@ -50,16 +52,23 @@ Switch に接続する前に、次の項目を確認してください。
 
 ## 起動と確認
 
-Bluetooth アダプターを開かない確認用コマンド:
+確認用コマンド:
 
 ```console
+# ヘルプを表示する
 swbt-daemon help
+
+# Windows で指定できる winusb:<location-path> の候補を表示する
 swbt-daemon adapters
+
+# Bluetooth アダプターを開かずに設定を確認する
 swbt-daemon config --backend noop
+
+# Bluetooth アダプターを開かずに起動できることを確認する
 swbt-daemon --backend noop
 ```
 
-`swbt-daemon adapters` は、Windows で指定できる `winusb:<location-path>` の候補を表示します。`--backend noop` は Bluetooth アダプターを開かずに設定や起動確認を行うための指定です。
+ここで確認した `winusb:<location-path>` は、Switch に接続する起動で `--adapter-location` に指定します。
 
 Windows で Switch に接続する起動例:
 
