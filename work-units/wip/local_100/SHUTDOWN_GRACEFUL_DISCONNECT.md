@@ -92,16 +92,21 @@ source から use case への判断:
 | BTstack HID disconnect API | `hid_device_disconnect(hid_cid)` disconnects interrupt and control L2CAP CIDs if present | source fact | `vendor/btstack/src/classic/hid_device.h:126-130`, `vendor/btstack/src/classic/hid_device.c:995-1006` | implementation candidate |
 | BTstack HID channel-specific disconnect APIs | interrupt-only and control-only disconnect helpers exist for PTS testing | source fact | `vendor/btstack/src/classic/hid_device.h:171-173`, `vendor/btstack/src/classic/hid_device.c:971-991` | not selected initially |
 | BTstack closed event emission | `HID_SUBEVENT_CONNECTION_CLOSED` is emitted after both interrupt and control CIDs are cleared | source fact | `vendor/btstack/src/classic/hid_device.c:737-749` | stable at pinned commit |
+| HCI disconnection complete event ID | `HCI_EVENT_DISCONNECTION_COMPLETE == 0x05` | source fact | `vendor/btstack/src/btstack_defines.h:259` | stable at pinned commit |
+| HCI disconnection complete payload fields | BTstack event definition uses `1H1`: status, connection handle, reason | source fact | `vendor/btstack/src/hci_event.c:192-193`, `vendor/btstack/src/btstack_event.h:363-386` | stable at pinned commit |
+| HCI disconnection reason `0x13` | `ERROR_CODE_REMOTE_USER_TERMINATED_CONNECTION` | source fact | `vendor/btstack/src/bluetooth.h:230` | stable at pinned commit |
 | swbt closed event decode | swbt decodes `HID_SUBEVENT_CONNECTION_CLOSED` and extracts `hid_cid` | implementation fact | `swbt/btstack_bridge/hid_event.c:71-77` | existing behavior |
 | owner disconnect neutral hardware observation | owner socket close produced neutral reports, but Bluetooth L2CAP close was not equivalent to owner disconnect | hardware observation | `docs/hardware-test-log.md:722-742` | existing observation |
 | shutdown trailing neutral hardware observation | shutdown sent trailing neutral before HCI power-off on CSR8510 A10 / WinUSB / Switch2 `22.1.0` | hardware observation | `docs/hardware-test-log.md:788-808`, `docs/hardware-test-log.md:855-876` | existing observation |
+| post-graceful-disconnect reconnect close reason | second reconnect evaluation received `data=050400470013`, decoded as Disconnection Complete status `0x00`, handle `0x0047`, reason `0x13` | hardware observation + source fact | `tmp/hardware/local_100/20260628-210911-shutdown-active-reconnect-graceful-disconnect/hci-dump.txt:241`, BTstack sources above | observed on CSR8510 A10 / WinUSB / Switch2 |
+| absence of local disconnect request in second reconnect evaluation | artifact contains no local HCI disconnect command `data=0604...` and no `Disconnect from HID Host` marker before the close | hardware observation | `tmp/hardware/local_100/20260628-210911-shutdown-active-reconnect-graceful-disconnect/hci-dump.txt`, `daemon-trace.txt:44-52` | supports remote-side termination inference |
 | graceful disconnect benefit | explicit HID disconnect before HCI power-off may produce cleaner remote-side close behavior | unverified hypothesis | user discussion, 2026-06-28 | must be tested |
 
 ### 未解決事項
 
 - `hid_device_disconnect()` は `void` で、request 失敗を戻り値で判定できない。swbt 側では active HID cid の有無、closed event、timeout を別々に扱う必要がある。
 - `HID_SUBEVENT_CONNECTION_CLOSED` が shutdown 中に常に来るとは扱わない。Switch 側状態、BTstack run loop timing、HCI power-off timing に依存する可能性がある。
-- graceful disconnect が次回 active reconnect、link key DB、Switch UI の controller state に良い影響を持つかは未実機検証である。
+- post-graceful-disconnect reconnect evaluation の reason `0x13` は remote user terminated connection と監査できたが、Switch UI / policy がなぜ切ったかは未確定である。local 側に disconnect command の痕跡はないため、local disconnect request 残りと断定しない。
 
 ## 7. 設計メモ
 
@@ -289,11 +294,12 @@ post-graceful-disconnect reconnect evaluation:
 - result:
   - 1 回目は `active reconnect request ok` 後、`Connection_complete` 前に止まり、120 秒内に `production: hid connection opened` は出なかった。`Connection_incoming`、`pairing complete, status 00` は `0` 件で、failure cleanup は daemon exit code `0`、crash dump なしだった。
   - 2 回目は `active_reconnect_request_ok_count=1`、`hid_connection_opened_count=1`、`responding_to_link_key_request_count=1`、`have_link_key_db_1_count=1`、`Connection_incoming=0`、`pairing_started_count=0`、`pairing_complete_status_00_count=0`、`L2CAP_EVENT_CHANNEL_OPENED status 0x0=2` だった。
-  - 2 回目の HCI dump は `hci_emit_security_level 2`、PSM `0x11` / `0x13` open、neutral `a1 30` reports を記録した後、`L2CAP_EVENT_CHANNEL_CLOSED` line `242` / `247`、ACL close line `252` を記録した。trace は `production: hid connection closed` の後に shutdown request を記録した。
+  - 2 回目の HCI dump は `hci_emit_security_level 2`、PSM `0x11` / `0x13` open、neutral `a1 30` reports を記録した後、line `241` に `HCI_EVENT_DISCONNECTION_COMPLETE` payload `data=050400470013` を記録した。BTstack source に従うと reason field `0x13` は `ERROR_CODE_REMOTE_USER_TERMINATED_CONNECTION` である。その後、`L2CAP_EVENT_CHANNEL_CLOSED` line `242` / `247`、ACL close line `252` が出た。trace は `production: hid connection closed` の後に shutdown request を記録した。
   - held Button A state は IPC で accepted されたが、HCI dump に Button A report は出ていない。summary は `shutdown_neutral_ok_count=0`、`shutdown_disconnect_requested_count=0`、`pass=false`。
 - interpretation:
   - graceful disconnect 後の次回 active reconnect は、追加の Change Grip/Order なしに HID open まで到達できる。
-  - 今回の観測では、graceful disconnect が次回接続を安定化するとは判断できない。2 回目は HID open 後、held Button A report 前に Switch 側から close された。
+  - 今回の観測では、graceful disconnect が次回接続を安定化するとは判断できない。2 回目は HID open 後、held Button A report 前に HCI reason `0x13` で remote-side termination された。
+  - この artifact には local HCI disconnect command `data=0604...` と `Disconnect from HID Host` marker がない。前回 graceful disconnect の close request が残って次回接続を閉じた、という解釈は現時点のログからは支持されない。
   - Switch UI state の直接目視記録は artifact に含めていない。HCI / trace 上は Switch 側 close によって non-neutral input が届く前に接続が終わった。
 - hardware log: `docs/hardware-test-log.md` に `2026-06-28: local_100 post-graceful-disconnect reconnect evaluation` として記録した。
 
@@ -450,7 +456,7 @@ post-graceful-disconnect reconnect evaluation:
 ## 12. 先送り事項
 
 - 観測: post-graceful-disconnect reconnect は HID open まで復旧するが、安定接続または held Button A report の成立までは今回の実機 run では確認できない。
-  先送り理由: `20260628-210911-shutdown-active-reconnect-graceful-disconnect` は incoming pairing なしで HID open したが、その直後に Switch 側 close が出た。graceful disconnect が次回接続を安定化するかは、別 work unit で UI 目視、待機時間、複数回試行条件を整理して扱う方がよい。
+  先送り理由: `20260628-210911-shutdown-active-reconnect-graceful-disconnect` は incoming pairing なしで HID open したが、その直後に HCI reason `0x13` remote user terminated connection で切断された。local HCI disconnect command の痕跡はない。graceful disconnect が次回接続を安定化するかは、別 work unit で UI 目視、待機時間、複数回試行条件を整理して扱う方がよい。
   次の置き場: 必要なら後続 work unit。現時点ではこの work unit の shutdown graceful disconnect 実装完了条件には含めない。
 
 - 観測: disconnect request timeout の具体値は未確定である。
